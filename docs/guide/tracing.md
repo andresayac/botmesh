@@ -32,9 +32,9 @@ import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics'
 export const sdk = new NodeSDK({
   serviceName: 'sales-bot',
   traceExporter: new OTLPTraceExporter({ url: 'http://localhost:4318/v1/traces' }),
-  metricReader: new PeriodicExportingMetricReader({
+  metricReaders: [new PeriodicExportingMetricReader({
     exporter: new OTLPMetricExporter({ url: 'http://localhost:4318/v1/metrics' }),
-  }),
+  })],
 })
 sdk.start()
 ```
@@ -261,6 +261,8 @@ Every point carries `bot.id` plus your `attributes`. `bot.resetMetrics()` makes 
 
 The tracer also derives histograms from finished spans (`spanMetrics`, on by default), recorded even for unsampled traces: `botmesh.inbound.duration{bot.event.kind, bot.inbound.outcome, bot.provider.id}`, `botmesh.dispatch.duration{bot.dispatch.stage}`, `botmesh.queue.wait`, `botmesh.send.duration{bot.provider.id, bot.send.outcome}`, `botmesh.lifecycle.duration{bot.lifecycle.step, bot.lifecycle.phase}`, `gen_ai.client.operation.duration` and `gen_ai.client.token.usage{gen_ai.token.type}`. No metric ever carries a chat, user or message id.
 
+The histograms come with bucket boundaries that fit their unit (sent as instrument advice, so a `View` in your SDK still wins): 5 ms to 10 s for the bot latencies, the GenAI semantic-convention buckets for model calls and tokens, and 1 s to 1 day for `botmesh.conversation.duration`. A `prefix` must start with a letter and contain only letters, digits, `.`, `_`, `-` or `/`; anything else throws when the tracer or the bridge is built.
+
 ## Personal data
 
 - **Never recorded**: message bodies, captions, prompts, completions, tool arguments and results, `c.state`, ask answers, unknown command text, raw provider payloads.
@@ -286,10 +288,11 @@ new Bot({
 
 | `@botmesh/otel` option | Default | |
 | --- | --- | --- |
+| `api` | lazy import | The `@opentelemetry/api` module; injected, `otelTracer()` / `bridgeMetrics()` work synchronously. |
 | `tracerProvider` | global (`trace.getTracerProvider()`) | |
 | `tracerName` | `'@botmesh/otel'` | Instrumentation scope. |
 | `spanMetrics` | `true` | `false`, or `{ meterProvider, prefix }`. |
-| `otelMetricsPlugin({ meterProvider, prefix, attributes, perFlow, conversationDuration })` | global, `'botmesh'` (`'botwa'` keeps the alpha names), `{}`, `true`, `true` | |
+| `otelMetricsPlugin({ meterProvider, meterName, prefix, attributes, perFlow, conversationDuration })` | global, `'botmesh'` (`'botwa'` keeps the alpha names), `{}`, `true`, `true` | |
 
 ### Sampling
 

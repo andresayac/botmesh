@@ -9,6 +9,7 @@
 import { definePlugin, type BotMetricsSnapshot, type ConversationCounters, type ConversationEndedEvent, type PluginContext, type PluginSpec } from '@botmesh/core'
 import type { Attributes, MeterProvider, Observable } from '@opentelemetry/api'
 
+import { assertMetricPrefix, buckets, CONVERSATION_BUCKETS_S } from './instruments.js'
 import { loadOtelApi, type OtelApi } from './load.js'
 
 /** Options of {@link registerOtelMetrics} / {@link otelMetricsPlugin}. */
@@ -42,8 +43,9 @@ const OUTCOMES = ['completed', 'ended', 'guarded', 'cancelled', 'timedOut', 'ret
 
 /** Register the bridge on a loaded API (synchronous). Returns the unregister function. */
 export function bridgeMetrics(api: OtelApi, bot: MetricsSource, opts: OtelMetricsOptions = {}): () => void {
-  const meter = (opts.meterProvider ?? api.metrics.getMeterProvider()).getMeter(opts.meterName ?? '@botmesh/otel')
   const p = opts.prefix ?? 'botmesh'
+  assertMetricPrefix(p, 'prefix')
+  const meter = (opts.meterProvider ?? api.metrics.getMeterProvider()).getMeter(opts.meterName ?? '@botmesh/otel')
   const base: Attributes = { 'bot.id': bot.getNamespace().botId, ...opts.attributes }
   const perFlow = opts.perFlow !== false
 
@@ -89,7 +91,7 @@ export function bridgeMetrics(api: OtelApi, bot: MetricsSource, opts: OtelMetric
 
   let onEnded: ((e: ConversationEndedEvent) => void) | undefined
   if (opts.conversationDuration !== false) {
-    const duration = meter.createHistogram(`${p}.conversation.duration`, { unit: 's', description: 'Conversation duration, by flow and outcome.' })
+    const duration = meter.createHistogram(`${p}.conversation.duration`, { unit: 's', description: 'Conversation duration, by flow and outcome.', ...buckets(CONVERSATION_BUCKETS_S) })
     onEnded = (e) => { duration.record(Math.max(0, e.durationMs) / 1000, { ...base, flow: e.name, outcome: e.outcome }) }
     bot.on('conversation:ended', onEnded)
   }
@@ -127,7 +129,11 @@ export function otelMetricsPlugin(opts: OtelMetricsOptions = {}): PluginSpec {
       const bot = ctx.bot as unknown as MetricsSource
       if (opts.api) { dispose = bridgeMetrics(opts.api, bot, opts); return }
       void loadOtelApi().then(
-        (api) => { if (!unplugged) dispose = bridgeMetrics(api, bot, opts) },
+        (api) => {
+          if (unplugged) return
+          // Runs outside install(): a throw here would be an unhandled rejection, so log it.
+          try { dispose = bridgeMetrics(api, bot, opts) } catch (err) { ctx.logger.error({ err }, 'otel metrics disabled: the bridge could not be registered') }
+        },
         (err: unknown) => { ctx.logger.error({ err }, 'otel metrics disabled: @opentelemetry/api could not be loaded') },
       )
     },

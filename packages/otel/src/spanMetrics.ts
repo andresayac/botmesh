@@ -9,6 +9,8 @@
 import { SPAN_NAMES, TRACE_ATTR, type TraceAttributeValue } from '@botmesh/core'
 import type { Attributes, Histogram, MeterProvider } from '@opentelemetry/api'
 
+import { buckets, GEN_AI_DURATION_BUCKETS_S, GEN_AI_TOKEN_BUCKETS, LATENCY_BUCKETS_S } from './instruments.js'
+
 /** Span attributes {@link SpanMetrics} reads (everything else is ignored). */
 export const METRIC_SOURCE_KEYS: ReadonlySet<string> = new Set<string>([
   TRACE_ATTR.eventKind, TRACE_ATTR.inboundOutcome, TRACE_ATTR.providerId, TRACE_ATTR.dispatchStage,
@@ -41,25 +43,25 @@ export class SpanMetrics {
   constructor(meterProvider: MeterProvider, meterName: string, prefix: string) {
     const meter = meterProvider.getMeter(meterName)
     this.inbound = meter.createHistogram(`${prefix}.inbound.duration`, {
-      unit: 's', description: 'Time to handle one inbound event (access lists, persistence, dispatch).',
+      unit: 's', description: 'Time to handle one inbound event (access lists, persistence, dispatch).', ...buckets(LATENCY_BUCKETS_S),
     })
     this.dispatch = meter.createHistogram(`${prefix}.dispatch.duration`, {
-      unit: 's', description: 'Time to route one message once its turn in the chat queue came.',
+      unit: 's', description: 'Time to route one message once its turn in the chat queue came.', ...buckets(LATENCY_BUCKETS_S),
     })
     this.queueWait = meter.createHistogram(`${prefix}.queue.wait`, {
-      unit: 's', description: "Time a message waited for its chat's FIFO turn (cross-replica turn included).",
+      unit: 's', description: "Time a message waited for its chat's FIFO turn (cross-replica turn included).", ...buckets(LATENCY_BUCKETS_S),
     })
     this.send = meter.createHistogram(`${prefix}.send.duration`, {
-      unit: 's', description: 'Time of one outbound send or edit (hooks, provider call, ledger).',
+      unit: 's', description: 'Time of one outbound send or edit (hooks, provider call, ledger).', ...buckets(LATENCY_BUCKETS_S),
     })
     this.lifecycle = meter.createHistogram(`${prefix}.lifecycle.duration`, {
-      unit: 's', description: 'Time of one lifecycle step (store, coordination, restore, durability, transport, jobs).',
+      unit: 's', description: 'Time of one lifecycle step (store, coordination, restore, durability, transport, jobs).', ...buckets(LATENCY_BUCKETS_S),
     })
     this.genAiDuration = meter.createHistogram('gen_ai.client.operation.duration', {
-      unit: 's', description: 'GenAI operation duration.',
+      unit: 's', description: 'GenAI operation duration.', ...buckets(GEN_AI_DURATION_BUCKETS_S),
     })
     this.genAiTokens = meter.createHistogram('gen_ai.client.token.usage', {
-      unit: '{token}', description: 'Measures number of input and output tokens used.',
+      unit: '{token}', description: 'Measures number of input and output tokens used.', ...buckets(GEN_AI_TOKEN_BUCKETS),
     })
   }
 
