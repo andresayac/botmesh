@@ -116,6 +116,8 @@ npm run dev        # chat with it in the terminal
 npm start          # connect WhatsApp or Telegram
 ```
 
-botmesh is in prerelease: until the stable version ships, add the prerelease
-tag (`npm create botmesh@alpha my-bot`). [Getting started](/guide/getting-started)
-walks through every step, including setting up a project by hand.
+botmesh is in prerelease and these docs describe the upcoming release: during
+the beta, add the tag (`npm create botmesh@beta my-bot`). The older alphas on
+npm today differ in places. [Getting started](/guide/getting-started) explains
+which version to install and walks through every step, including setting up a
+project by hand.

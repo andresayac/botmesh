@@ -8,19 +8,29 @@ Telegram sin cambiar el código del bot.
 
 - **Node.js 22.12 o superior** ([descargar](https://nodejs.org/)). Compruébalo con `node -v`.
 - **npm** (viene con Node) o **pnpm**. Los comandos usan npm; con pnpm,
-  escribe `pnpm add`, `pnpm create` y `pnpm exec`.
+  escribe `pnpm add`, `pnpm create` y `pnpm exec`. Con pnpm 11, la primera
+  instalación de `@botmesh/baileys` se detiene con `ERR_PNPM_IGNORED_BUILDS`;
+  ver [Solución de problemas](#solucion-de-problemas).
 - Para conectarlo de verdad: un teléfono con WhatsApp (su número pasa a ser el
   bot) o un token de bot de Telegram de [@BotFather](https://t.me/BotFather).
   El simulador de la terminal no necesita ninguno.
 
-::: warning Prerelease: añade el tag hasta que salga la versión estable
-botmesh está en prerelease. Hasta que se publique `@botmesh/core` 2.0.0, añade
-el dist-tag de la prerelease a los comandos de instalación de este sitio:
-`npm create botmesh@alpha my-bot`,
-`npm install @botmesh/core@alpha @botmesh/baileys@alpha` (escribe `@beta`
-cuando salga la beta). Sin tag, npm instala lo que apunte `latest`, que puede
-ser una prerelease más antigua que la que describe esta documentación. Cuando
-salga la versión estable, los comandos funcionan tal cual están escritos.
+::: warning Prerelease: estas páginas describen la próxima versión
+botmesh está en prerelease, y este sitio documenta la próxima versión (la
+beta y después `@botmesh/core` 2.0.0 estable). Comprueba qué hay en npm con
+`npm view @botmesh/core dist-tags`:
+
+- **Aparece un tag `beta`:** añade `@beta` a cada instalación
+  (`npm create botmesh@beta my-bot`,
+  `npm install @botmesh/core@beta @botmesh/baileys@beta`). Sin tag, npm
+  instala `latest`, que puede seguir apuntando a una alpha anterior.
+- **Solo `alpha` y `latest`, en `2.0.0-alpha.2`:** npm tiene versiones
+  anteriores (el resto de paquetes en `0.2.0-alpha.0`) que difieren de estas
+  páginas: los textos integrados salen en español por defecto,
+  `pairingPhoneNumber` se llama `pairingCode`, `BotNotRunningError` no existe
+  y un proyecto generado necesita un archivo `.env` antes de `npm start`
+  (copia `.env.example`, también en `baileys`).
+- **`latest` es `2.0.0` o posterior:** los comandos funcionan tal cual.
 :::
 
 ## Opción A: generar un proyecto (recomendado) {#crear-un-proyecto-con-create-botmesh}
@@ -69,8 +79,10 @@ npm pkg set type=module        # botmesh es solo ESM
 npm install @botmesh/core @botmesh/baileys
 ```
 
-Para Telegram, instala `@botmesh/telegram` en lugar de `@botmesh/baileys`.
-botmesh solo publica módulos ES, así que el proyecto necesita
+Para Telegram, instala `@botmesh/telegram` en lugar de `@botmesh/baileys` y
+usa la versión de `bot.js` para Telegram de
+[O conectar Telegram](#o-conectar-telegram): el archivo de abajo importa
+`@botmesh/baileys`, así que sin ese paquete no carga. botmesh solo publica módulos ES, así que el proyecto necesita
 `"type": "module"` (o archivos `.mjs`) y los paquetes se cargan con `import`.
 
 ### 2. Escribir el bot
@@ -171,18 +183,35 @@ Luego en WhatsApp: **Dispositivos vinculados** → **Vincular un dispositivo** �
 #### O conectar Telegram
 
 Crea un bot con [@BotFather](https://t.me/BotFather) (`/newbot`) y copia su
-token. En `bot.js`, importa el provider de Telegram y úsalo en el bloque de
-arranque:
+token. En `bot.js` cambian dos sitios: el import del provider arriba y el
+bloque de arranque abajo. La fábrica de en medio no cambia.
 
 ```js
-import { TelegramProvider } from '@botmesh/telegram'
+// bot.js: inicio del archivo
+import { Bot, defineBot, flow, isMainModule, slashCommandsPlugin } from '@botmesh/core'
+import { TelegramProvider } from '@botmesh/telegram' // en lugar de @botmesh/baileys
 
-// sustituye la línea de BaileysProvider dentro de `if (isMainModule(import.meta))`
-const bot = await createBot(new TelegramProvider({ token: process.env.TELEGRAM_TOKEN ?? '' }))
+// ... createBot y export default igual que en el paso 2 ...
+
+// final del archivo
+if (isMainModule(import.meta)) {
+  const bot = await createBot(new TelegramProvider({ token: process.env.TELEGRAM_TOKEN ?? '' }))
+  bot.on('ready', () => console.log('✅ Conectado. Escribe "hola" a tu bot.'))
+  await bot.start()
+}
 ```
 
+Crea con tu editor un archivo llamado `.env` junto a `bot.js`, con una línea:
+
+```ini
+TELEGRAM_TOKEN=123456:ABC-tu-token
+```
+
+No uses `echo ... > .env` en Windows PowerShell: escribe el archivo en UTF-16
+o con BOM, Node no lee la variable y el provider se detiene con
+`` `token` is required ``. Después arranca el bot:
+
 ```bash
-echo TELEGRAM_TOKEN=123456:ABC-tu-token > .env
 node --env-file=.env bot.js
 ```
 
@@ -222,12 +251,15 @@ para montarlo y [Canales](./canales) para lo que admite cada transporte.
 
 | Síntoma | Solución |
 | --- | --- |
+| `ERR_PNPM_IGNORED_BUILDS` al instalar `@botmesh/baileys` con pnpm 11 | pnpm pide aprobar los scripts de build de las dependencias. Baileys y `protobufjs` no necesitan los suyos, así que deniégalos en `pnpm-workspace.yaml` (`allowBuilds:` con `'@whiskeysockets/baileys': false` y `protobufjs: false`) y vuelve a instalar. npm los ejecuta e instala sin más. |
+| `ERR_MODULE_NOT_FOUND` para `@botmesh/baileys` (u otro provider) | `bot.js` importa un paquete de provider que no está instalado. Instálalo o cambia el import al provider que usas (ver [O conectar Telegram](#o-conectar-telegram)). |
 | `SyntaxError: Cannot use import statement outside a module`, o `ERR_REQUIRE_ESM` | Añade `"type": "module"` al `package.json` (`npm pkg set type=module`) o renombra el archivo a `.mjs`. |
 | `botmesh dev` se detiene con *the entry ran but exports no bot factory* | Exporta por defecto `defineBot((provider) => ...)` y arranca el provider real solo dentro de `if (isMainModule(import.meta))`, como en el paso 2. |
 | El bot ignora `hola amigo` o `/hola` | Un trigger de texto compara el mensaje **completo**, normalizado (sin distinguir mayúsculas, tildes ni espacios de más). Para buscar una subcadena usa `{ pattern: 'hola', match: 'contains' }`; ver [Triggers especiales](./triggers). |
 | WhatsApp muestra un QR nuevo en cada arranque | Se borró la sesión, o WhatsApp desvinculó el dispositivo (el provider borra entonces `sessions/<session>` por su cuenta). Vuelve a escanear. |
 | WhatsApp se desconecta con `440` (`connectionReplaced`) | Otro proceso usa la misma sesión. Detenlo: el provider no reconecta para no pelear por la sesión. |
 | Telegram registra `getUpdates conflicts with an active webhook` | El token tiene un webhook configurado. Llama a `deleteWebhook` o usa el modo webhook (`polling: false`). |
+| `TelegramProvider: token is required` | `TELEGRAM_TOKEN` no llegó al proceso. Arranca con `node --env-file=.env bot.js` y comprueba que `.env` contiene `TELEGRAM_TOKEN=...` guardado como UTF-8 sin BOM (en Windows PowerShell, `echo` escribe UTF-16 o con BOM; crea el archivo con un editor). |
 | Telegram falla con `Unauthorized — check the bot token` | El token está mal o fue revocado: vuelve a copiarlo de @BotFather. |
 | `BotNotRunningError` al enviar | `bot.send()` y `ctx.reply()` necesitan el bot en marcha: envía después de `await bot.start()` (o desde un listener de `'ready'`). |
 | Los textos integrados (`/help`, timeouts) salen en inglés | Es el valor por defecto. `new Bot({ provider, lang: 'es' })` los pasa a español; ver [Internacionalización](./i18n). |

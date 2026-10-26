@@ -47,7 +47,7 @@ npm install @botmesh/core @botmesh/meta        # WhatsApp Cloud API
 npm install @botmesh/ai @anthropic-ai/sdk      # + AI (optional; the SDK of the provider you use)
 ```
 
-> **Prerelease.** botmesh is not stable yet. Until `@botmesh/core` 2.0.0 ships, add the prerelease dist-tag to these commands (`npm create botmesh@alpha`, `npm install @botmesh/core@alpha …`; `@beta` once the beta is out). Without a tag npm installs whatever `latest` points to, which can be an older prerelease than the one the docs describe.
+> **Prerelease.** botmesh is not stable yet, and these docs describe the upcoming release. During the beta, add the tag to these commands (`npm create botmesh@beta`, `npm install @botmesh/core@beta …`): without it npm installs `latest`, which can still point to an older alpha. Until the beta is published, npm only has older alphas that differ from the docs in places (built-in texts default to Spanish, `pairingCode` instead of `pairingPhoneNumber`, and a scaffolded project needs a `.env` before `npm start`). Once `@botmesh/core` 2.0.0 ships, the commands work as written.
 
 The [getting started guide](https://andresayac.github.io/botmesh/guide/getting-started) walks through the simulator, linking WhatsApp and connecting Telegram step by step.
 

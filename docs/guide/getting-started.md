@@ -8,19 +8,29 @@ Telegram without changing the bot code.
 
 - **Node.js 22.12 or newer** ([download](https://nodejs.org/)). Check with `node -v`.
 - **npm** (bundled with Node) or **pnpm**. The commands below use npm; with
-  pnpm, write `pnpm add`, `pnpm create` and `pnpm exec`.
+  pnpm, write `pnpm add`, `pnpm create` and `pnpm exec`. On pnpm 11,
+  installing `@botmesh/baileys` first stops with `ERR_PNPM_IGNORED_BUILDS`;
+  see [Troubleshooting](#troubleshooting).
 - To connect for real: a phone with WhatsApp (its number becomes the bot) or a
   Telegram bot token from [@BotFather](https://t.me/BotFather). The terminal
   simulator needs neither.
 
-::: warning Prerelease: add the tag until the stable version ships
-botmesh is in prerelease. Until `@botmesh/core` 2.0.0 is published, add the
-prerelease dist-tag to the install commands on this site:
-`npm create botmesh@alpha my-bot`,
-`npm install @botmesh/core@alpha @botmesh/baileys@alpha` (write `@beta` once
-the beta is out). Without a tag, npm installs whatever `latest` points to,
-which can be an older prerelease than the one these docs describe. Once the
-stable version ships, the commands work exactly as written.
+::: warning Prerelease: these pages describe the upcoming release
+botmesh is in prerelease, and this site documents the next release (the beta,
+then `@botmesh/core` 2.0.0 stable). Check what npm has with
+`npm view @botmesh/core dist-tags`:
+
+- **A `beta` tag is listed:** add `@beta` to every install
+  (`npm create botmesh@beta my-bot`,
+  `npm install @botmesh/core@beta @botmesh/baileys@beta`). Without a tag, npm
+  installs `latest`, which can still point to an older alpha.
+- **Only `alpha` and `latest`, at `2.0.0-alpha.2`:** npm has older builds
+  (the other packages at `0.2.0-alpha.0`) that differ from these pages:
+  built-in texts default to Spanish, `pairingPhoneNumber` is called
+  `pairingCode`, `BotNotRunningError` does not exist, and a scaffolded project
+  needs a `.env` file before `npm start` (copy `.env.example`, even for
+  `baileys`).
+- **`latest` is `2.0.0` or newer:** the commands work exactly as written.
 :::
 
 ## Option A: scaffold a project (recommended) {#scaffold-a-project-with-create-botmesh}
@@ -69,8 +79,10 @@ npm pkg set type=module        # botmesh is ESM-only
 npm install @botmesh/core @botmesh/baileys
 ```
 
-For Telegram, install `@botmesh/telegram` instead of `@botmesh/baileys`.
-botmesh ships only ES modules, so the project needs `"type": "module"` (or
+For Telegram, install `@botmesh/telegram` instead of `@botmesh/baileys`, and
+use the Telegram version of `bot.js` from
+[Or connect Telegram](#or-connect-telegram): the file below imports
+`@botmesh/baileys`, so it does not load without it. botmesh ships only ES modules, so the project needs `"type": "module"` (or
 `.mjs` files) and you load the packages with `import`.
 
 ### 2. Write the bot
@@ -168,18 +180,36 @@ number instead**, and type the code.
 #### Or connect Telegram
 
 Create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`) and copy
-its token. In `bot.js`, import the Telegram provider and use it in the start
-block:
+its token. In `bot.js`, change two places: the provider import at the top and
+the start block at the bottom. The factory in between stays the same.
 
 ```js
-import { TelegramProvider } from '@botmesh/telegram'
+// bot.js: top of the file
+import { Bot, defineBot, flow, isMainModule, slashCommandsPlugin } from '@botmesh/core'
+import { TelegramProvider } from '@botmesh/telegram' // instead of @botmesh/baileys
 
-// replaces the BaileysProvider line inside `if (isMainModule(import.meta))`
-const bot = await createBot(new TelegramProvider({ token: process.env.TELEGRAM_TOKEN ?? '' }))
+// ... createBot and export default exactly as in step 2 ...
+
+// bottom of the file
+if (isMainModule(import.meta)) {
+  const bot = await createBot(new TelegramProvider({ token: process.env.TELEGRAM_TOKEN ?? '' }))
+  bot.on('ready', () => console.log('✅ Connected. Send "hi" to your bot.'))
+  await bot.start()
+}
 ```
 
+Create a file named `.env` next to `bot.js` with your editor, containing one
+line:
+
+```ini
+TELEGRAM_TOKEN=123456:ABC-your-token
+```
+
+Avoid `echo ... > .env` in Windows PowerShell: it writes the file as UTF-16
+or with a BOM, Node does not read the variable, and the provider stops with
+`` `token` is required ``. Then start the bot:
+
 ```bash
-echo TELEGRAM_TOKEN=123456:ABC-your-token > .env
 node --env-file=.env bot.js
 ```
 
@@ -219,12 +249,15 @@ and [Channels](./channels) for what each transport supports.
 
 | Symptom | Fix |
 | --- | --- |
+| `ERR_PNPM_IGNORED_BUILDS` when installing `@botmesh/baileys` with pnpm 11 | pnpm asks you to approve dependency build scripts. Baileys and `protobufjs` need none, so deny them in `pnpm-workspace.yaml` (`allowBuilds:` with `'@whiskeysockets/baileys': false` and `protobufjs: false`) and install again. npm runs them and installs normally. |
+| `ERR_MODULE_NOT_FOUND` for `@botmesh/baileys` (or another provider) | `bot.js` imports a provider package that is not installed. Install it, or change the import to the provider you use (see [Or connect Telegram](#or-connect-telegram)). |
 | `SyntaxError: Cannot use import statement outside a module`, or `ERR_REQUIRE_ESM` | Add `"type": "module"` to `package.json` (`npm pkg set type=module`) or rename the file to `.mjs`. |
 | `botmesh dev` stops with *the entry ran but exports no bot factory* | Default-export `defineBot((provider) => ...)` and start the real provider only inside `if (isMainModule(import.meta))`, as in step 2. |
 | The bot ignores `hi there` or `/hi` | A text trigger matches the **whole** message, normalized (case, accents and extra spaces ignored). For substring matching use `{ pattern: 'hi', match: 'contains' }`; see [Special triggers](./triggers). |
 | WhatsApp shows a new QR on every start | The session was deleted, or WhatsApp unlinked the device (the provider then deletes `sessions/<session>` itself). Scan again. |
 | WhatsApp disconnects with `440` (`connectionReplaced`) | Another process uses the same session. Stop it: the provider does not reconnect and fight for the session. |
 | Telegram logs `getUpdates conflicts with an active webhook` | The token has a webhook set. Call `deleteWebhook`, or run in webhook mode (`polling: false`). |
+| `TelegramProvider: token is required` | `TELEGRAM_TOKEN` did not reach the process. Start with `node --env-file=.env bot.js`, and check that `.env` holds `TELEGRAM_TOKEN=...` saved as plain UTF-8 (in Windows PowerShell, `echo` writes UTF-16 or a BOM; create the file in an editor). |
 | Telegram fails with `Unauthorized — check the bot token` | The token is wrong or was revoked: copy it again from @BotFather. |
 | `BotNotRunningError` when sending | `bot.send()` and `ctx.reply()` need a running bot: send after `await bot.start()` (or from a `'ready'` listener). |
 | The built-in texts (`/help`, timeouts) are in English | That is the default. `new Bot({ provider, lang: 'es' })` switches them to Spanish; see [Internationalization](./i18n). |

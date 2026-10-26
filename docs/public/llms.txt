@@ -14,9 +14,10 @@
 > wins. Constructing a Bot REQUIRES a provider:
 > new Bot({ provider: new BaileysProvider({ session }) }).
 > ESM-only, Node >= 22 (scaffolded projects require Node >= 22.12). Until the
-> stable release (core 2.0.0), install with the prerelease dist-tag
-> (`@botmesh/core@alpha`, `npm create botmesh@alpha`; `@beta` once out): `latest`
-> may point to an older prerelease. A bot module default-exports
+> stable release (core 2.0.0), install with the beta dist-tag once it exists
+> (`@botmesh/core@beta`, `npm create botmesh@beta`): `latest` may point to an
+> older alpha (core 2.0.0-alpha.2, others 0.2.0-alpha.0) that predates these
+> docs (Spanish default locale, pairingCode, no BotNotRunningError). A bot module default-exports
 > defineBot((provider) => new Bot({ provider })) so `npx botmesh dev bot.js` (terminal
 > simulator) and `node bot.js` (real provider inside if (isMainModule(import.meta))) share it.
 
