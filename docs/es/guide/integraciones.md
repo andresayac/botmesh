@@ -428,12 +428,19 @@ Para CX, añade `cx: { agentId, location, environment? }`.
    menos `minConfidence`, se ejecuta el destino; si no, el mensaje sigue
    hacia los demás matchers y el catch-all.
 3. No se envían a Dialogflow: mensajes vacíos, interacciones, comandos
-   (`commandPrefix`, por defecto `'/'`), mensajes de un chat en
+   (`commandPrefix`, por defecto `'/'`), textos de más de `maxTextLength`
+   (256 caracteres, el límite de la API), mensajes de un chat en
    [handoff](/es/guide/handoff), mensajes de un usuario dentro de una
    conversación activa (`skipActiveConversation`, por defecto `true`) y lo
    que rechace `filter`.
-4. Si `detectIntent` falla, se registra en el log, se llama a
-   `onError(error, ctx)` y el mensaje sigue su camino.
+4. Si `detectIntent` (o `filter`) falla, se registra en el log, se llama a
+   `onError(error, ctx)` y el mensaje sigue su camino. Un `401` descarta el
+   access token en caché y reintenta una vez con uno nuevo.
+
+Mientras a una intención de ES le faltan parámetros obligatorios, el
+resultado trae `allRequiredParamsPresent: false` y la pregunta del agente en
+`messages`. La ruta se ejecuta igual, así que comprueba ese campo en el
+handler si la intención depende del rellenado de parámetros de Dialogflow.
 
 `fulfillment: 'all'` también responde con el texto del agente a los
 resultados de fallback / no-match, así que esos mensajes nunca llegan a tu
@@ -445,26 +452,30 @@ un LLM debe responder lo que Dialogflow no entiende.
 | Opción | Por defecto | Descripción |
 | --- | --- | --- |
 | `credentials` | — | JSON de la cuenta de servicio (`client_email`, `private_key`, `project_id`…) |
-| `tokenSource` | — | `{ getAccessToken() }`, alternativa a `credentials` |
+| `tokenSource` | — | `{ getAccessToken(), invalidate?(token) }`, alternativa a `credentials` (con `invalidate`, un `401` se reintenta una vez) |
 | `projectId` | `credentials.project_id` | Proyecto de Google Cloud |
 | `languageCode` / `languageFor(ctx)` | `'en'` | Idioma de las consultas, global / por mensaje |
 | `queryParams(ctx)` | — | `queryParams` crudos por mensaje |
 | `cx` | — | `{ agentId, location, environment? }` cambia a CX |
 | `location` / `environment` | global / draft | Solo ES: agente regional o entorno publicado |
-| `minConfidence` | `0` | Confianza mínima para rutear |
-| `sessionScope` / `sessionKey(ctx)` | `'chat'` | Una sesión por chat, por participante en grupos (`'participant'`) o tu propia clave |
+| `minConfidence` | `0` | Confianza mínima para rutear, entre 0 y 1 |
+| `sessionScope` / `sessionKey(ctx)` | `'participant'` | En grupos, una sesión por participante (como las conversaciones) o por grupo (`'chat'`); o tu propia clave. Un chat privado es una sesión |
 | `routes` | — | Intención → handler o flow |
 | `fulfillment` | `'off'` | `'unrouted'` o `'all'` responden solos con los textos del agente |
 | `commandPrefix` | `'/'` | `false` también envía los comandos |
+| `maxTextLength` | `256` | Los textos más largos no se envían (la API los rechaza) |
 | `skipActiveConversation` | `true` | No consultar dentro de una conversación |
-| `filter(ctx)` | — | Devuelve `false` para saltarte un mensaje |
+| `filter(ctx)` | — | Devuelve `false` para saltarte un mensaje (si lanza, el mensaje no se envía y se llama a `onError`) |
 | `priority` | `0` | Prioridad del before-hook |
-| `onError(error, ctx)` | — | Fallos de `detectIntent` |
+| `onError(error, ctx)` | — | Fallos de `detectIntent` y de `filter` |
 | `http` | — | `{ fetch, resolver, timeoutMs, maxBytes }` para `secureFetch` |
 
 ### Seguridad y privacidad
 
-- Unas credenciales inválidas lanzan `DialogflowError` de forma
+- Unas credenciales inválidas (`code: 'INVALID_CREDENTIALS'`) y unas
+  opciones inválidas (`code: 'INVALID_CONFIG'`: `minConfidence` fuera de 0–1,
+  un `fulfillment` o `sessionScope` desconocido, un `commandPrefix` vacío,
+  una `location` mal formada…) lanzan `DialogflowError` de forma
   **síncrona** al hacer `bot.plug()`. El access token se pide de forma
   perezosa con el primer mensaje, se guarda en caché y se renueva poco
   antes de caducar.
@@ -472,7 +483,7 @@ un LLM debe responder lo que Dialogflow no entiende.
   como id de sesión de Dialogflow, así que ni los ids de chat ni los
   números de teléfono se envían a Google. El **texto** del mensaje sí.
 - Guarda el JSON de la cuenta de servicio en un secreto, nunca en el repo.
-- Los parámetros que se copian a `c.state` omiten `__proto__`, `constructor` y
+- Los parámetros (en el resultado y al copiarse a `c.state`) omiten `__proto__`, `constructor` y
   `prototype`: vienen de un servicio remoto y no deben llegar al prototipo del
   objeto de estado.
 - Un destino de ruta que no sea una función handler, un builder `flow()` o un

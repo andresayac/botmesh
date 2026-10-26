@@ -415,12 +415,19 @@ For CX, add `cx: { agentId, location, environment? }`.
    `minConfidence`, the target runs; otherwise the message falls through
    to other matchers and the catch-all.
 3. Not sent to Dialogflow: empty messages, interactions, commands
-   (`commandPrefix`, default `'/'`), messages from a chat in
+   (`commandPrefix`, default `'/'`), texts longer than `maxTextLength`
+   (256 characters, the API limit), messages from a chat in
    [handoff](/guide/handoff), messages from a user inside an active
    conversation (`skipActiveConversation`, default `true`) and anything
    `filter` rejects.
-4. If `detectIntent` fails, it is logged, `onError(error, ctx)` is called
-   and the message keeps flowing.
+4. If `detectIntent` (or `filter`) fails, it is logged, `onError(error, ctx)`
+   is called and the message keeps flowing. A `401` drops the cached access
+   token and retries once with a fresh one.
+
+While an ES intent still has required parameters to fill, the result has
+`allRequiredParamsPresent: false` and the agent's prompt in `messages`. A
+route runs anyway, so check that flag in the handler if the intent relies on
+Dialogflow's slot filling.
 
 `fulfillment: 'all'` also answers fallback / no-match results with the
 agent's text, so those messages never reach your `onMessage` or the
@@ -432,33 +439,36 @@ what Dialogflow does not understand.
 | Option | Default | Description |
 | --- | --- | --- |
 | `credentials` | — | Service-account JSON (`client_email`, `private_key`, `project_id`…) |
-| `tokenSource` | — | `{ getAccessToken() }`, alternative to `credentials` |
+| `tokenSource` | — | `{ getAccessToken(), invalidate?(token) }`, alternative to `credentials` (with `invalidate`, a `401` is retried once) |
 | `projectId` | `credentials.project_id` | Google Cloud project |
 | `languageCode` / `languageFor(ctx)` | `'en'` | Query language, global / per message |
 | `queryParams(ctx)` | — | Raw `queryParams` per message |
 | `cx` | — | `{ agentId, location, environment? }` switches to CX |
 | `location` / `environment` | global / draft | ES only: regional agent or published environment |
-| `minConfidence` | `0` | Minimum confidence to route |
-| `sessionScope` / `sessionKey(ctx)` | `'chat'` | One session per chat, per participant in groups (`'participant'`), or your own key |
+| `minConfidence` | `0` | Minimum confidence to route, between 0 and 1 |
+| `sessionScope` / `sessionKey(ctx)` | `'participant'` | In groups, one session per participant (like conversations) or per group (`'chat'`); or your own key. A DM is one session |
 | `routes` | — | Intent → handler or flow |
 | `fulfillment` | `'off'` | `'unrouted'` or `'all'` auto-replies with the agent's texts |
 | `commandPrefix` | `'/'` | `false` sends commands too |
+| `maxTextLength` | `256` | Longer texts are not sent (the API rejects them) |
 | `skipActiveConversation` | `true` | Do not query inside a conversation |
-| `filter(ctx)` | — | Return `false` to skip a message |
+| `filter(ctx)` | — | Return `false` to skip a message (if it throws, the message is skipped and `onError` is called) |
 | `priority` | `0` | Before-hook priority |
-| `onError(error, ctx)` | — | `detectIntent` failures |
+| `onError(error, ctx)` | — | `detectIntent` and `filter` failures |
 | `http` | — | `{ fetch, resolver, timeoutMs, maxBytes }` for `secureFetch` |
 
 ### Security and privacy
 
-- Invalid credentials throw `DialogflowError` **synchronously** at
-  `bot.plug()`. The access token is fetched lazily on the first message,
+- Invalid credentials (`code: 'INVALID_CREDENTIALS'`) and invalid options
+  (`code: 'INVALID_CONFIG'`: `minConfidence` outside 0–1, an unknown
+  `fulfillment` or `sessionScope`, an empty `commandPrefix`, a malformed
+  `location`…) throw `DialogflowError` **synchronously** at `bot.plug()`. The access token is fetched lazily on the first message,
   cached and refreshed shortly before it expires.
 - The session key is hashed (SHA-256, 32 characters) before it is used as
   the Dialogflow session id, so chat ids and phone numbers are not sent to
   Google. The message **text** is.
 - Keep the service-account JSON in a secret, never in the repo.
-- Parameters copied into `c.state` skip `__proto__`, `constructor` and
+- Parameters (in the result and copied into `c.state`) skip `__proto__`, `constructor` and
   `prototype`: they come from a remote service and must not reach the
   prototype of the state object.
 - A route target that is not a handler function, a `flow()` builder or a

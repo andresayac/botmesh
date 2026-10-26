@@ -24,6 +24,10 @@ import { definePlugin, type MessageContext, type PluginSpec } from '@botmesh/cor
 import type { DialogflowClient, DialogflowClientConfig } from './client.js'
 import { DialogflowContext, type DialogflowContextOptions } from './context.js'
 import { whenDialogflowIntent, type IntentTarget } from './whenDialogflowIntent.js'
+import { checkOneOf, invalidConfig } from './validate.js'
+
+/** Dialogflow ES and CX reject query texts longer than 256 characters. */
+const DEFAULT_MAX_TEXT_LENGTH = 256
 
 export interface DialogflowPluginConfig extends DialogflowClientConfig, DialogflowContextOptions {
   /** A prebuilt client (otherwise one is built from this config). */
@@ -40,11 +44,16 @@ export interface DialogflowPluginConfig extends DialogflowClientConfig, Dialogfl
   commandPrefix?: string | false
   /** Skip messages while the sender is inside a conversation (default `true`). Chats in handoff are always skipped. */
   skipActiveConversation?: boolean
-  /** Return `false` to skip Dialogflow for a message. */
+  /**
+   * Longest text sent to Dialogflow, in characters (code points; default `256`, the API limit).
+   * Longer messages are not sent: they skip Dialogflow and keep their normal path.
+   */
+  maxTextLength?: number
+  /** Return `false` to skip Dialogflow for a message. If it throws, the message is skipped and `onError` is called. */
   filter?: (ctx: MessageContext) => boolean
   /** Before-hook priority (default `0`; moderation runs at `100`). */
   priority?: number
-  /** Called when detectIntent fails (the message still flows to other handlers). */
+  /** Called when detectIntent (or `filter`) fails; the message still flows to other handlers. */
   onError?: (error: unknown, ctx: MessageContext) => void
 }
 
@@ -56,19 +65,37 @@ export function dialogflowPlugin(config: DialogflowPluginConfig): PluginSpec<Dia
     description: 'Dialogflow ES/CX intent detection and intent-to-flow routing.',
     install(ctx) {
       const { bot, logger } = ctx
+      checkOneOf(config.fulfillment, ['off', 'unrouted', 'all'], 'fulfillment')
+      if (config.commandPrefix !== undefined && config.commandPrefix !== false && (typeof config.commandPrefix !== 'string' || !config.commandPrefix)) {
+        invalidConfig("commandPrefix must be a non-empty string (e.g. '/') or false to send commands too")
+      }
+      const maxTextLength = config.maxTextLength ?? DEFAULT_MAX_TEXT_LENGTH
+      if (!Number.isSafeInteger(maxTextLength) || maxTextLength < 1) {
+        invalidConfig(`maxTextLength must be a positive integer (default ${DEFAULT_MAX_TEXT_LENGTH}), got ${String(config.maxTextLength)}`)
+      }
       const df = new DialogflowContext(config.client ?? config, config)
       ctx.tools.dialogflow = df
       const prefix = config.commandPrefix ?? '/'
 
+      const report = (error: unknown, mctx: MessageContext, what: string) => {
+        logger.warn({ err: error }, `dialogflow: ${what} failed`)
+        try { config.onError?.(error, mctx) } catch { /* reporting must not break routing */ }
+      }
+
       bot.before(
         'message',
         async (mctx: MessageContext, next: () => Promise<void>) => {
-          if (shouldDetect(mctx)) {
+          let detect = false
+          try {
+            detect = shouldDetect(mctx)
+          } catch (error) {
+            report(error, mctx, 'filter')
+          }
+          if (detect) {
             try {
               await df.detect(mctx)
             } catch (error) {
-              logger.warn({ err: error }, 'dialogflow: detectIntent failed')
-              try { config.onError?.(error, mctx) } catch { /* reporting must not break routing */ }
+              report(error, mctx, 'detectIntent')
             }
           }
           await next()
@@ -79,6 +106,7 @@ export function dialogflowPlugin(config: DialogflowPluginConfig): PluginSpec<Dia
       function shouldDetect(mctx: MessageContext): boolean {
         if (!mctx.body || !mctx.body.trim() || mctx.interaction) return false
         if (prefix !== false && mctx.body.startsWith(prefix)) return false
+        if (codePoints(mctx.body) > maxTextLength) return false
         // A human owns a handed-off chat: the dispatcher will not route the message, so
         // spending a detectIntent call (and leaking the text to Google) is pointless.
         if (bot.isHandedOff(mctx.from)) return false
@@ -109,6 +137,13 @@ export function dialogflowPlugin(config: DialogflowPluginConfig): PluginSpec<Dia
       }
     },
   })
+}
+
+/** Length in code points (an emoji counts once). */
+function codePoints(text: string): number {
+  let n = 0
+  for (const _ of text) n++
+  return n
 }
 
 /**
