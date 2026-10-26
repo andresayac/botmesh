@@ -513,12 +513,12 @@ describe('EmailProvider lifecycle', () => {
     expect(t.events.at(-1)).toMatchObject({ kind: 'connection', update: { state: 'closed', reason: 'sessionInvalid' } })
   })
 
-  it('runs SMTP verify on start when asked and closes the transport on stop', async () => {
+  it('runs SMTP verify on start when asked and leaves an injected transport open on stop', async () => {
     const t = setup({ smtp: { host: 'smtp.example.com', verify: true } })
     await t.provider.start()
     expect(t.smtp.verified).toBe(1)
     await t.provider.stop()
-    expect(t.smtp.closed).toBe(true)
+    expect(t.smtp.closed).toBe(false) // the caller owns an injected transport
   })
 
   it('works as an ingest-only provider (no IMAP)', async () => {

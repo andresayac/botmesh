@@ -146,7 +146,7 @@ app.post('/inbound-email', async (req, res) => {
 | `requireAuthentication` | — | `{ authservId }`: accept only emails authenticated by your MTA (`Authentication-Results`). |
 | `reconnect` | `{ baseMs: 1000, maxMs: 60000 }` | IMAP reconnection backoff. |
 | `http` | — | `secureFetch` options for attachments by URL. |
-| `createImapClient` / `smtpTransport` | — | Inject your own clients (or fakes in tests). |
+| `createImapClient` / `smtpTransport` | — | Inject your own clients (or fakes in tests). An injected `smtpTransport` is yours: `stop()` never closes it. A transport built from `smtp` is closed on `stop()` and rebuilt on the next send, so a pooled one (`smtp.options.pool`) keeps working across `stop()`/`start()`. |
 
 ## Integration tests
 

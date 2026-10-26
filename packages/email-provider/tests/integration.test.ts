@@ -361,6 +361,31 @@ describe.skipIf(!ENABLED)('EmailProvider against a real IMAP/SMTP server (GreenM
     expect(out.inReplyTo).toBe(root)
   }, T)
 
+  it('keeps replying after Bot stop()/start() with a pooled SMTP transport, and leaves no sockets behind', async () => {
+    const botAddr = addr('bot')
+    const ana = addr('ana')
+    const sockets = (): number => process.getActiveResourcesInfo().filter((r) => r === 'TCPSocketWrap').length
+    const baseline = sockets()
+    const provider = new EmailProvider(botConfig(botAddr, { smtp: { host: HOST, port: SMTP_PORT, secure: false, options: { ignoreTLS: true, pool: true } } }))
+    providers.push(provider)
+    const bot = new Bot({ provider })
+    bots.push(bot)
+    bot.when('ping', (ctx) => ctx.reply('pong'))
+    await bot.start()
+    await sendAs({ from: ana, to: botAddr, subject: 'a', text: 'ping' })
+    await awaitMail(ana, (m) => m.text?.includes('pong') === true)
+    await bot.stop()
+    await settle(500)
+    expect(sockets()).toBeLessThanOrEqual(baseline)
+
+    await bot.start()
+    await sendAs({ from: ana, to: botAddr, subject: 'b', text: 'ping' })
+    await waitFor(async () => (await mailboxOf(ana)).filter((m) => m.text?.includes('pong')).length === 2)
+    await bot.stop()
+    await settle(500)
+    expect(sockets()).toBeLessThanOrEqual(baseline)
+  }, T)
+
   it('runs a Bot flow over email: ask by mail, answer by mail', async () => {
     const botAddr = addr('bot')
     const ana = addr('ana')

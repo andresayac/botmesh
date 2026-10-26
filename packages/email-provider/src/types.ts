@@ -134,7 +134,7 @@ export interface EmailProviderConfig {
   fromName?: string
   /** Override the IMAP client factory (called on every (re)connect; IMAP clients are single-use). */
   createImapClient?: () => ImapClientLike | Promise<ImapClientLike>
-  /** Override the SMTP transport (e.g. an already-configured nodemailer transporter). */
+  /** Override the SMTP transport (e.g. an already-configured nodemailer transporter). The caller owns it: `stop()` never closes it. */
   smtpTransport?: SmtpTransportLike
   /** `thread` (default): one chat per email thread. `sender`: one chat per correspondent. */
   threading?: EmailThreadingMode
