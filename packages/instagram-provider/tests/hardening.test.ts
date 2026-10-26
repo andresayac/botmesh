@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { OutsideSessionWindowError, RecipientUnreachableError } from '@botmesh/core'
+import { OutsideSessionWindowError, RecipientUnreachableError, UnsupportedContentError } from '@botmesh/core'
 import { InstagramProvider } from '../src/InstagramProvider.js'
 import { toProviderError } from '../src/graphClient.js'
 import { toOutbound } from '../src/toOutbound.js'
@@ -36,11 +36,17 @@ describe('Instagram error mapping', () => {
 })
 
 describe('Instagram outbound hardening', () => {
-  it('quick replies cap at 13 and fall back to the title when a button id is empty', () => {
-    const buttons = Array.from({ length: 15 }, (_, i) => ({ id: i === 0 ? '' : `b${i}`, title: `T${i}` }))
+  it('quick replies allow 13 and fall back to the title when a button id is empty', () => {
+    const buttons = Array.from({ length: 13 }, (_, i) => ({ id: i === 0 ? '' : `b${i}`, title: `T${i}` }))
     const msg = toOutbound({ kind: 'buttons', text: 'x', buttons }) as { quick_replies: Array<{ payload: string }> }
     expect(msg.quick_replies).toHaveLength(13)
     expect(msg.quick_replies[0].payload).toBe('T0')
+  })
+
+  it('rejects more than 13 quick replies instead of dropping them', () => {
+    const buttons = Array.from({ length: 14 }, (_, i) => ({ id: `b${i}`, title: `T${i}` }))
+    expect(() => toOutbound({ kind: 'buttons', text: 'x', buttons })).toThrow(UnsupportedContentError)
+    expect(() => toOutbound({ kind: 'card', title: 't', buttons })).toThrow(UnsupportedContentError)
   })
 
   it('a card keeps its buttons as quick replies', () => {

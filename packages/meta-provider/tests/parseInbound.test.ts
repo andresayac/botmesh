@@ -20,7 +20,7 @@ describe('parseInbound', () => {
       expect(e.message.senderInfo.displayName).toBe('Andres')
       expect(e.message.type).toBe('text')
       expect(e.message.body).toBe('hola')
-      expect(e.message.timestamp).toBe(1669233778)
+      expect(e.message.timestamp).toBe(1669233778000)
     }
   })
 

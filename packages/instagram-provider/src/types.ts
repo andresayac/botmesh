@@ -19,6 +19,12 @@ export interface InstagramProviderConfig {
   appSecret?: string
   /** Explicit local-development escape hatch for unsigned webhook POSTs. */
   allowUnsignedWebhooks?: boolean
+  /**
+   * Time allowed for each Send API request (send, typing, mark seen), in ms. A request
+   * that takes longer rejects with a `ProviderError` ("timed out"). Default 60 000 —
+   * the same as `@botmesh/meta`. Media downloads keep `mediaDownload.timeoutMs`.
+   */
+  requestTimeoutMs?: number
   /** Graph API version. Default 'v21.0'. */
   apiVersion?: string
   /** Graph base URL. Default 'https://graph.facebook.com'. */

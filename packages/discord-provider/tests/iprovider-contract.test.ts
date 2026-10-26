@@ -57,8 +57,8 @@ describe('DiscordProvider — IProvider signature parity', () => {
     const calls = mockFetch()
     const p = provider()
 
-    await p.markRead([ref])
-    expect(calls).toHaveLength(0) // no read-receipt primitive on Discord
+    // No read-receipt primitive on Discord: markRead is absent (capabilities.readReceipts false).
+    expect((p as IProvider).markRead).toBeUndefined()
 
     await p.typing('C1', 'typing')
     await p.typing('C1', 'recording')

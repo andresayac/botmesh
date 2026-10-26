@@ -8,8 +8,8 @@ export { GupshupProvider } from './GupshupProvider.js'
 export type { GupshupIngestRequest } from './GupshupProvider.js'
 export { GupshupApiError, toGupshupError } from './errors.js'
 export { parseInbound } from './parseInbound.js'
-export { toOutbound, mediaUrlOf } from './toOutbound.js'
-export type { GupshupOutbound } from './toOutbound.js'
+export { toOutbound, mediaUrlOf, DEFAULT_LIST_BUTTON_TEXT } from './toOutbound.js'
+export type { GupshupOutbound, GupshupOutboundOptions } from './toOutbound.js'
 export type { ProviderHttpOptions } from './http.js'
 export type {
   GupshupProviderConfig,

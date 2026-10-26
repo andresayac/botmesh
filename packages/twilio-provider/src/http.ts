@@ -113,14 +113,17 @@ export async function request(
   return { status: response.status, ok: response.ok, headers: response.headers, json, body }
 }
 
-/** `Retry-After` (seconds or HTTP date) in ms, or undefined. */
+/** Longest `Retry-After` honoured: 24 h (as in `@botmesh/graph-core`; more would overflow `setTimeout`). */
+const MAX_RETRY_AFTER_MS = 86_400_000
+
+/** `Retry-After` (seconds or HTTP date) in ms, capped at 24 h, or undefined. */
 export function retryAfterMs(headers: Headers): number | undefined {
   const value = headers.get('retry-after')
   if (!value) return undefined
   const seconds = Number(value)
-  if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1000)
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(MAX_RETRY_AFTER_MS, Math.round(seconds * 1000))
   const date = Date.parse(value)
-  if (Number.isFinite(date)) return Math.max(0, date - Date.now())
+  if (Number.isFinite(date)) return Math.min(MAX_RETRY_AFTER_MS, Math.max(0, date - Date.now()))
   return undefined
 }
 

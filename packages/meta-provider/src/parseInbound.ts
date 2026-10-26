@@ -148,9 +148,14 @@ const str = (v: unknown): string | undefined => (typeof v === 'string' && v.leng
 /** Free text (body, caption, emoji): the string itself, `''` for anything else. */
 const textOf = (v: unknown): string => (typeof v === 'string' ? v : '')
 /** Webhook epoch seconds (a digit string in practice); `0` when missing or malformed. */
-const epochSeconds = (v: unknown): number => {
+/**
+ * Epoch ms of a webhook timestamp (Graph sends epoch seconds as a string). The receive
+ * time when it is missing or invalid, so an event never carries `0`.
+ */
+const epochMs = (v: unknown): number => {
   const n = typeof v === 'string' || typeof v === 'number' ? Number(v) : Number.NaN
-  return Number.isFinite(n) && n > 0 ? n : 0
+  const ms = Math.round(n * 1000)
+  return Number.isSafeInteger(ms) && ms > 0 ? ms : Date.now()
 }
 
 const mediaFields = { image: 'image', video: 'video', audio: 'audio', document: 'document', sticker: 'sticker' } as const
@@ -223,7 +228,7 @@ function toMessage(msg: GraphMessage, id: string, who: ResolvedParty): InboundMe
     fromMe: false,
     type,
     body,
-    timestamp: epochSeconds(msg.timestamp),
+    timestamp: epochMs(msg.timestamp),
     mentions: [],
     ...(quotedId !== undefined ? { quoted: { ref: { id: quotedId, chatId } } } : {}),
     media,
@@ -393,7 +398,7 @@ export function extractDrafts(body: GraphWebhookBody, logger: IdentityLogger): I
                 isGroup: false,
                 kind,
                 data,
-                timestamp: epochSeconds(msg.timestamp),
+                timestamp: epochMs(msg.timestamp),
                 raw: msg,
               },
             }),
@@ -430,7 +435,7 @@ export function extractDrafts(body: GraphWebhookBody, logger: IdentityLogger): I
         const party = partyOf(st.recipient_id, st.recipient_user_id, st.recipient_parent_user_id, contact)
         if (!hasId(party)) { drop('status', 'no usable recipient id (recipient_id / recipient_user_id)', id); continue }
         if (id === undefined) { drop('status', 'missing message id'); continue }
-        const timestamp = epochSeconds(st.timestamp)
+        const timestamp = epochMs(st.timestamp)
         const error = st.errors?.[0] ? { code: st.errors[0].code, message: st.errors[0].title } : undefined
         const platformData = statusPlatformData(st)
         pendingEvents.push({

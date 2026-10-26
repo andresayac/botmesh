@@ -89,6 +89,9 @@ export class GupshupProvider implements IProvider<GupshupCallback> {
           'For isolated local development only, set `allowUnsignedWebhooks: true` explicitly.',
       )
     }
+    if (config.listButtonText !== undefined && (typeof config.listButtonText !== 'string' || config.listButtonText.trim() === '' || [...config.listButtonText].length > 20)) {
+      throw new Error('GupshupProvider `listButtonText` must be a non-empty string of at most 20 characters.')
+    }
     // `??` per field: an explicit `undefined` (e.g. an unset env var) keeps the default.
     this.config = {
       ...config,
@@ -175,7 +178,7 @@ export class GupshupProvider implements IProvider<GupshupCallback> {
 
   async send(chatId: ChatId, content: OutboundContent, options?: SendOptions): Promise<SendResult<GupshupCallback>> {
     if (options?.quoted) this.logger.debug('Gupshup v1 send API has no reply context; ignoring options.quoted')
-    const out = toOutbound(content)
+    const out = toOutbound(content, this.config.listButtonText !== undefined ? { listButtonText: this.config.listButtonText } : {})
     const form = new URLSearchParams()
     form.append('channel', 'whatsapp')
     form.append('source', this.config.source)

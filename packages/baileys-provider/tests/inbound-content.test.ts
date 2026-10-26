@@ -78,10 +78,10 @@ describe('toInbound — reply context', () => {
 })
 
 describe('toInbound — timestamps', () => {
-  it('converts a protobuf Long timestamp to a plain number', () => {
+  it('converts a protobuf Long timestamp (epoch seconds) to epoch ms', () => {
     const long = { low: 1_700_000_000, high: 0, unsigned: true, toNumber: () => 1_700_000_000 }
     const m = toInbound(msg({ conversation: 'x' }, { messageTimestamp: long }), new IdentityStore())
-    expect(m.timestamp).toBe(1_700_000_000)
+    expect(m.timestamp).toBe(1_700_000_000_000)
     expect(typeof m.timestamp).toBe('number')
   })
 })

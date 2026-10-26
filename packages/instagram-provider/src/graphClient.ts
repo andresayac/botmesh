@@ -1,11 +1,11 @@
 /**
  * graphClient — thin fetch wrapper over the Messenger API for Instagram (Graph).
- * Node 20 global fetch; zero runtime dependencies. Maps Graph errors to the
+ * Node global fetch with a per-request timeout (`graphRequest` of graph-core). Maps Graph errors to the
  * core's typed provider errors (code 4 / 613 → RateLimitedError).
  */
 
 import { ProviderError, type ChatId, type OutboundContent } from '@botmesh/core'
-import { toGraphError, readGraphResponse, type GraphError } from '@botmesh/graph-core'
+import { toGraphError, graphRequest, type GraphError } from '@botmesh/graph-core'
 import { secureFetch, type SecureFetchOptions } from '@botmesh/http'
 
 export interface GraphClientConfig {
@@ -13,6 +13,8 @@ export interface GraphClientConfig {
   apiVersion: string
   graphUrl: string
   mediaDownload?: Omit<SecureFetchOptions, 'fetch'>
+  /** Time allowed for each Send API request, in ms. Default 60 000 (`DEFAULT_GRAPH_REQUEST_TIMEOUT_MS`). */
+  timeoutMs?: number
 }
 
 /**
@@ -32,6 +34,10 @@ export class GraphClient {
     return `${this.cfg.graphUrl.replace(/\/$/, '')}/${this.cfg.apiVersion}/${path}`
   }
 
+  private timeout(): { timeoutMs?: number } {
+    return this.cfg.timeoutMs !== undefined ? { timeoutMs: this.cfg.timeoutMs } : {}
+  }
+
   private headers(): Record<string, string> {
     return { Authorization: `Bearer ${this.cfg.accessToken}`, 'Content-Type': 'application/json' }
   }
@@ -45,22 +51,20 @@ export class GraphClient {
     message: Record<string, unknown>,
     contentKind?: OutboundContent['kind'],
   ): Promise<{ message_id?: string; recipient_id?: string }> {
-    const res = await fetch(this.base('me/messages'), {
+    return graphRequest<{ message_id?: string; recipient_id?: string }>(this.base('me/messages'), {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ recipient: { id: recipientId }, message }),
-    })
-    return readGraphResponse<{ message_id?: string; recipient_id?: string }>(res, { chatId: recipientId, contentKind })
+    }, { chatId: recipientId, ...(contentKind !== undefined ? { contentKind } : {}), ...this.timeout() })
   }
 
   /** Send a sender_action: 'mark_seen' | 'typing_on' | 'typing_off'. */
   async sendSenderAction(recipientId: string, senderAction: 'mark_seen' | 'typing_on' | 'typing_off'): Promise<void> {
-    const res = await fetch(this.base('me/messages'), {
+    await graphRequest(this.base('me/messages'), {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ recipient: { id: recipientId }, sender_action: senderAction }),
-    })
-    await readGraphResponse(res, { chatId: recipientId })
+    }, { chatId: recipientId, ...this.timeout() })
   }
 
   /** Download media bytes from a hosted URL (attachment payload.url). */

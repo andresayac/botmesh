@@ -92,7 +92,9 @@ An empty `accessToken` or `verifyToken` (an unset env var) fails in the construc
 - **Quotes/replies (`quoted`) are ignored:** the Send API has no first-class reply context.
 - **Outbound reactions:** there is no public endpoint — `kind: 'reaction'` throws `UnsupportedContentError`. Inbound ones are normalized.
 - `acknowledgeInteraction` is a no-op: Messenger postbacks need no ack.
-- **Text length:** the Send API caps `text` at 2000 characters; `capabilities.maxTextLength` says so, which sizes the `ctx.stream()` chunks.
+- **Text length:** the Send API caps `text` at 2000 characters; `capabilities.maxTextLength` says so, so `@botmesh/core` splits longer text into several messages and sizes the `ctx.stream()` chunks.
+- **Option limits:** more than 3 buttons (button template) or 10 list rows (generic template) reject with `UnsupportedContentError` instead of dropping options.
+- **Timeouts:** each Send API call times out after `requestTimeoutMs` (default `60000`) with a `ProviderError`.
 - **Native payloads:** `ctx.sendNative('messenger', message)` posts a Send API `message` object as-is; native content addressed to another provider id is rejected with `UnsupportedContentError`.
 - **Malformed webhooks** never throw: fields of the wrong type are ignored, so `ingest()` always answers a status.
 - **Identity:** `chatId`/`senderId` are the PSID (`sender.id`) — stable per page↔user pair.

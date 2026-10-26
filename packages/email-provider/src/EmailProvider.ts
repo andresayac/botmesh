@@ -111,6 +111,23 @@ function mediaKind(mimetype: string): MediaRef['kind'] {
   return 'document'
 }
 
+/**
+ * Read a local media file. A missing or unreadable path rejects with
+ * `UnsupportedContentError` (the fs error as `cause`), like every channel, never a raw ENOENT.
+ */
+async function readLocalMedia(path: string, kind: OutboundContent['kind']): Promise<Buffer> {
+  try {
+    return await readFile(path)
+  } catch (err) {
+    const code = (err as { code?: string }).code
+    const shown = path.length > 80 ? `${path.slice(0, 80)}…` : path
+    throw Object.assign(
+      new UnsupportedContentError(kind, `Email ${kind}: ${JSON.stringify(shown)} is neither an http(s) URL nor a readable file (${code ?? 'read failed'}).`),
+      { cause: err },
+    )
+  }
+}
+
 export class EmailProvider implements IProvider<EmailRaw> {
   readonly id = 'email'
   readonly capabilities: ProviderCapabilities = {
@@ -404,7 +421,8 @@ export class EmailProvider implements IProvider<EmailRaw> {
     const stripped = this.config.stripQuotes === false ? fullText.trim() : stripQuotedReply(fullText)
     const body = stripped || (media ? '' : email.subject)
     const type: MessageType = media ? media.kind : 'text'
-    const timestamp = email.date?.getTime() ?? meta?.internalDate?.getTime() ?? Date.now()
+    // Epoch ms: the Date header, else the IMAP INTERNALDATE, else the receive time (never 0 or NaN).
+    const timestamp = [email.date?.getTime(), meta?.internalDate?.getTime()].find((t) => t !== undefined && Number.isFinite(t) && t > 0) ?? Date.now()
     const subject = baseSubject(email.subject)
 
     const headers: Record<string, string[]> = {}
@@ -600,12 +618,12 @@ export class EmailProvider implements IProvider<EmailRaw> {
   private async resolveMedia(source: MediaSource, kind: OutboundContent['kind']): Promise<ResolvedMedia> {
     if (typeof source === 'string') {
       if (/^https?:\/\//i.test(source)) return this.fetchUrl(source, kind)
-      return { content: await readFile(source), filename: basename(source) }
+      return { content: await readLocalMedia(source, kind), filename: basename(source) }
     }
     if (Buffer.isBuffer(source)) return { content: source }
     if ('url' in source) return this.fetchUrl(source.url, kind)
     if ('buffer' in source) return { content: source.buffer }
-    if ('path' in source) return { content: await readFile(source.path), filename: basename(source.path) }
+    if ('path' in source) return { content: await readLocalMedia(source.path, kind), filename: basename(source.path) }
     if ('stream' in source) {
       const chunks: Buffer[] = []
       let total = 0

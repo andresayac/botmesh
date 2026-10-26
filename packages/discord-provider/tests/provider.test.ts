@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import type { InboundEvent, InboundInteraction } from '@botmesh/core'
+import type { InboundEvent, InboundInteraction, IProvider } from '@botmesh/core'
 import { ProviderError, RecipientUnreachableError, UnsupportedContentError } from '@botmesh/core'
 import { DiscordProvider } from '../src/DiscordProvider.js'
 import { fakeSocketFactory, wait } from './_fakeSocket.js'
@@ -220,11 +220,8 @@ describe('DiscordProvider — REST outbound', () => {
     await expect(p.send('C1', { kind: 'text', text: 'x' })).rejects.toThrow('Invalid Form Body')
   })
 
-  it('markRead is a no-op (Discord has no read receipts)', async () => {
-    const calls = mockFetch()
-    const p = provider()
-    await p.markRead([{ id: 'M1', chatId: 'C1' }])
-    expect(calls).toHaveLength(0)
+  it('has no markRead (Discord has no read receipts): absent, so ctx.markRead() is a no-op', () => {
+    expect((provider() as IProvider).markRead).toBeUndefined()
   })
 })
 

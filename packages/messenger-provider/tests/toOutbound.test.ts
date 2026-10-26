@@ -31,7 +31,6 @@ describe('toOutbound', () => {
         { id: 'A', title: 'Option A' },
         { id: 'B', title: 'A very long button title that exceeds the limit' },
         { id: 'C', title: 'Option C' },
-        { id: 'D', title: 'Fourth (dropped)' },
       ],
     })
     expect(msg).toMatchObject({
@@ -50,6 +49,13 @@ describe('toOutbound', () => {
     })
     const payload = (msg as { attachment: { payload: { buttons: unknown[] } } }).attachment.payload
     expect(payload.buttons).toHaveLength(3)
+  })
+
+  it('rejects more buttons or list rows than the Send API shows, instead of dropping them', () => {
+    const many = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `b${i}`, title: `T${i}` }))
+    expect(() => toOutbound({ kind: 'buttons', text: 'x', buttons: many(4) })).toThrow(UnsupportedContentError)
+    expect(() => toOutbound({ kind: 'card', title: 't', imageUrl: 'https://x.test/a.png', buttons: many(4) })).toThrow(UnsupportedContentError)
+    expect(() => toOutbound({ kind: 'list', text: 't', buttonText: 'Ver', sections: [{ rows: many(11) }] })).toThrow(UnsupportedContentError)
   })
 
   it('maps lists to a generic template with one element per row', () => {

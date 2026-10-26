@@ -82,7 +82,8 @@ const provider = new CloudAPIProvider({ /* ... */ requestTimeoutMs: 20_000 })
 | Replies quoting a message → `ctx.quoted.ref.id` (the quoted `wamid`) | ✅ |
 | **Forms** (`flow().form()` → static WhatsApp Flows) | ✅ native (see [WhatsApp Flows](#whatsapp-flows-forms)) |
 | Polls | ❌ (Graph 131051 — use buttons or WhatsApp Flows) |
-| Groups, typing/presence, editing/deleting messages | ❌ (does not exist in the API) |
+| Groups, typing/presence, editing/deleting messages | ❌ (does not exist in the API; the provider has no `typing()`/`deleteMessage()`, so `ctx.typing()`/`ctx.delete()` do nothing) |
+| Text over 4096 characters (`maxTextLength`) | ✅ split into several messages by `@botmesh/core` |
 
 ## WhatsApp Flows (forms)
 

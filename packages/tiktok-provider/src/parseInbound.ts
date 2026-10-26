@@ -86,9 +86,11 @@ function decodeContent(content: unknown): Record<string, unknown> | undefined {
   }
 }
 
+/** Epoch ms of an event: its own `timestamp` (ms), else the envelope `create_time` (s), else the receive time. */
 function eventTime(ms: unknown, body: TikTokWebhookBody): number {
-  if (typeof ms === 'number' && Number.isFinite(ms)) return ms
-  return typeof body.create_time === 'number' ? body.create_time * 1000 : 0
+  if (typeof ms === 'number' && Number.isSafeInteger(ms) && ms > 0) return ms
+  const created = typeof body.create_time === 'number' ? Math.round(body.create_time * 1000) : Number.NaN
+  return Number.isSafeInteger(created) && created > 0 ? created : Date.now()
 }
 
 /** Parse one webhook envelope into normalized events (empty when nothing applies). */

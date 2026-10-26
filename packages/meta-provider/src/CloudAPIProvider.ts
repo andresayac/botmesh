@@ -128,6 +128,23 @@ function assertConfig(config: CloudAPIProviderConfig): void {
   }
 }
 
+/**
+ * Read a local media file. A missing or unreadable path rejects with
+ * `UnsupportedContentError` (the fs error as `cause`), like every channel, never a raw ENOENT.
+ */
+async function readLocalMedia(path: string, kind: OutboundContent['kind']): Promise<Buffer> {
+  try {
+    return await readFile(path)
+  } catch (err) {
+    const code = (err as { code?: string }).code
+    const shown = path.length > 80 ? `${path.slice(0, 80)}…` : path
+    throw Object.assign(
+      new UnsupportedContentError(kind, `Cloud API ${kind}: ${JSON.stringify(shown)} is neither an http(s) URL nor a readable file (${code ?? 'read failed'}).`),
+      { cause: err },
+    )
+  }
+}
+
 export class CloudAPIProvider implements IProvider<unknown> {
   readonly id = 'meta'
   readonly capabilities: ProviderCapabilities = {
@@ -135,6 +152,7 @@ export class CloudAPIProvider implements IProvider<unknown> {
     buttons: true, lists: true, polls: false, reactions: true, edit: false,
     typing: false, presence: false, readReceipts: true, groups: false, templates: true,
     interactionsRequireAck: false, pushIngress: true, forms: 'native',
+    maxTextLength: 4096, // text.body limit of the Cloud API (longer text is split by the core)
     textFormat: 'whatsapp', // WhatsApp markup: *bold* _italic_ ~strike~
     streaming: 'none', // no live preview: ctx.stream() sends sentence chunks with typing
   }
@@ -222,7 +240,7 @@ export class CloudAPIProvider implements IProvider<unknown> {
         const pricing = this.usage ? pricingOf(st.platformData) : undefined
         if (pricing && st.ref.id) this.usage?.record(st.ref.chatId, st.ref.id, pricing)
         if (sw && st.status === 'failed' && st.ref.id) {
-          void sw.noteFailedStatus(st.ref.chatId, st.ref.id, st.error?.code, this.rawSend, st.timestamp > 0 ? st.timestamp * 1000 : undefined)
+          void sw.noteFailedStatus(st.ref.chatId, st.ref.id, st.error?.code, this.rawSend, st.timestamp > 0 ? st.timestamp : undefined)
             .catch((err: unknown) => this.logger.error({ err }, 'session window status handling failed'))
         }
         return
@@ -232,7 +250,7 @@ export class CloudAPIProvider implements IProvider<unknown> {
         : e.kind === 'interaction' ? { chatId: e.interaction.chatId, ts: e.interaction.timestamp }
         : undefined // reactions/statuses do not open the customer-service window
       if (!inbound) return
-      void sw.noteInbound(inbound.chatId, this.rawSend, inbound.ts > 0 ? inbound.ts * 1000 : undefined)
+      void sw.noteInbound(inbound.chatId, this.rawSend, inbound.ts > 0 ? inbound.ts : undefined)
         .catch((err: unknown) => this.logger.error({ err }, 'session window inbound handling failed'))
     } catch (err) {
       this.logger.error({ err }, 'session window/usage bookkeeping failed')
@@ -337,11 +355,11 @@ export class CloudAPIProvider implements IProvider<unknown> {
       return { id: await this.graph.uploadMedia(buffer, mime, filename) }
     }
     const baseName = (path: string): string | undefined => path.split(/[\\/]/).pop()
-    if (typeof source === 'string') return /^https?:\/\//i.test(source) ? { link: source } : upload(await readFile(source), baseName(source))
+    if (typeof source === 'string') return /^https?:\/\//i.test(source) ? { link: source } : upload(await readLocalMedia(source, hints.kind), baseName(source))
     if (Buffer.isBuffer(source)) return upload(source)
     if ('url' in source) return { link: source.url }
     if ('buffer' in source) return upload(source.buffer)
-    if ('path' in source) return upload(await readFile(source.path), baseName(source.path))
+    if ('path' in source) return upload(await readLocalMedia(source.path, hints.kind), baseName(source.path))
     if ('stream' in source) {
       const chunks: Buffer[] = []
       for await (const c of source.stream as AsyncIterable<Buffer | string>) chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c))
@@ -458,8 +476,6 @@ export class CloudAPIProvider implements IProvider<unknown> {
     for (const r of refs) if (r.id) await this.graph.markRead(r.id)
   }
 
-  /** Cloud API has no typing/presence primitive. */
-  async typing(): Promise<void> {}
-  /** Cloud API cannot delete a sent message for everyone. */
-  async deleteMessage(): Promise<void> {}
+  // No typing()/deleteMessage(): the Cloud API has no typing primitive and cannot delete a
+  // sent message for everyone, so the optional methods are absent (capabilities.typing false).
 }

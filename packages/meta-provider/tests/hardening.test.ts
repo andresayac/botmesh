@@ -132,18 +132,19 @@ describe('parseInbound field typing', () => {
     expect(e.kind === 'message' && e.message.media?.token).toBeUndefined()
   })
 
-  it('keeps timestamps finite', () => {
+  it('keeps timestamps finite: an invalid one becomes the receive time (epoch ms)', () => {
+    const before = Date.now()
     for (const timestamp of ['NaN', 'abc', { x: 1 }, -5, '1e400']) {
       const e = one({ type: 'text', timestamp, text: { body: 'hi' } })
-      expect(e.kind === 'message' && e.message.timestamp).toBe(0)
+      expect(e.kind === 'message' && e.message.timestamp).toBeGreaterThanOrEqual(before)
     }
     const click = one({ type: 'interactive', timestamp: 'later', interactive: { type: 'button_reply', button_reply: { id: 'a' } } })
-    expect(click.kind === 'interaction' && click.interaction.timestamp).toBe(0)
+    expect(click.kind === 'interaction' && click.interaction.timestamp).toBeGreaterThanOrEqual(before)
     const status = parseInbound({
       object: 'whatsapp_business_account',
       entry: [{ changes: [{ value: { statuses: [{ id: 'wamid.9', status: 'read', recipient_id: '573001112233', timestamp: 'x' }] } }] }],
     })
-    expect(status[0]?.kind === 'status' && status[0].status.timestamp).toBe(0)
+    expect(status[0]?.kind === 'status' && status[0].status.timestamp).toBeGreaterThanOrEqual(before)
   })
 
   it('reads a reaction emoji only when it is a string', () => {

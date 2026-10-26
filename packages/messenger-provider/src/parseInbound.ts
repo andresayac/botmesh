@@ -131,7 +131,7 @@ function toMessage(ev: MessagingEvent, chatId: string, m: MessengerMessage, self
     fromMe: !!selfId && chatId === selfId,
     type,
     body,
-    timestamp: num(ev.timestamp) ?? 0,
+    timestamp: eventTime(ev.timestamp),
     mentions: [],
     media,
     ...(location ? { location } : {}),
@@ -157,7 +157,7 @@ function toInteraction(
       isGroup: false,
       kind: 'button',
       data,
-      timestamp: num(ev.timestamp) ?? 0,
+      timestamp: eventTime(ev.timestamp),
       raw: ev,
     },
   }
@@ -201,6 +201,12 @@ function eventScopedId(kind: 'optin' | 'referral', ev: MessagingEvent): string {
  * (`message_deliveries`/`message_reads`) are not normalized here — use
  * `markRead`/`typing` for the outbound side.
  */
+/** Epoch ms of the event (the webhook sends ms); the receive time when it is missing. */
+function eventTime(v: unknown): number {
+  const ts = num(v)
+  return ts !== undefined && ts > 0 ? Math.round(ts) : Date.now()
+}
+
 export function parseInbound(body: PageWebhookBody, selfId?: string): InboundEvent[] {
   const events: InboundEvent[] = []
   if (rec<PageWebhookBody>(body)?.object !== 'page') return events

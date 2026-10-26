@@ -105,12 +105,28 @@ describe('toOutbound', () => {
 })
 
 describe('toOutbound — hardening', () => {
-  it('caps buttons at 25 (5 rows × 5) and falls back to the title when a button id is empty', () => {
-    const buttons = Array.from({ length: 30 }, (_, i) => ({ id: i === 0 ? '' : `b${i}`, title: `T${i}` }))
+  it('lays out 25 buttons (5 rows × 5) and falls back to the title when a button id is empty', () => {
+    const buttons = Array.from({ length: 25 }, (_, i) => ({ id: i === 0 ? '' : `b${i}`, title: `T${i}` }))
     const rows = toOutbound({ kind: 'buttons', text: 'x', buttons }).payload.components as Row[]
     expect(rows).toHaveLength(5)
     expect(rows.flatMap((r) => r.components)).toHaveLength(25)
     expect(rows[0].components[0]).toMatchObject({ custom_id: 'T0' })
+  })
+
+  it('rejects more options than Discord can show instead of dropping them silently', () => {
+    const many = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `b${i}`, title: `T${i}` }))
+    expect(() => toOutbound({ kind: 'buttons', text: 'x', buttons: many(26) })).toThrow(UnsupportedContentError)
+    expect(() => toOutbound({ kind: 'card', title: 't', buttons: many(26) })).toThrow(UnsupportedContentError)
+    expect(() => toOutbound({ kind: 'list', text: 't', buttonText: 'Ver', sections: [{ rows: many(26) }] })).toThrow(UnsupportedContentError)
+    expect(() => toOutbound({ kind: 'poll', question: 'q', options: many(11).map((b) => b.title) })).toThrow(UnsupportedContentError)
+  })
+
+  it('cuts labels on a code point boundary (never half an emoji)', () => {
+    const title = 'a'.repeat(79) + '😀tail'
+    const rows = toOutbound({ kind: 'buttons', text: 'x', buttons: [{ id: 'x', title }] }).payload.components as Row[]
+    const label = (rows[0].components[0] as { label: string }).label
+    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(label)).toBe(false)
+    expect([...label].length).toBeLessThanOrEqual(80)
   })
 
   it('list options fall back to the title when a row id is empty', () => {

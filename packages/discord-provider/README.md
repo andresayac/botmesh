@@ -54,8 +54,11 @@ Discord requires an interaction to be answered within **~3 seconds**
 slash commands are routed like messages (the button `custom_id`, the
 selected option value or the command name is the body) and carry
 `ctx.interaction` (`id` = `"<id>:<token>"`, `respondBy` = deadline epoch ms).
-The core does **not** acknowledge them for you: answer each one once from
-the handler, or Discord shows "This interaction failed":
+Answer each one once from the handler. If no handler does within
+`autoAcknowledgeMs` (default `2000`), the provider defers it on its own
+(type 6 for components, type 5 for commands and modals), so Discord never
+shows "This interaction failed"; a later `ctx.acknowledge('text')` is then
+posted as a followup (needs `appId`). `autoAcknowledgeMs: false` turns it off.
 
 ```ts
 bot.when('confirm', async (ctx) => {
@@ -92,7 +95,9 @@ non-resumable INVALID_SESSION, and a definitive stop on fatal codes
 | Interactions: button / menu / slash command with mandatory ack (~3s) | ✅ |
 | Groups (guilds) and DMs (with the `DirectMessages` intent) | ✅ |
 | Templates (kind `template`) | ❌ (does not exist in Discord) |
-| Presence, read receipts (`markRead` no-op) | ❌ (not applicable) |
+| Presence, read receipts (no `markRead()`) | ❌ (not applicable) |
+| More than 25 buttons or menu options, more than 10 poll answers | ❌ `UnsupportedContentError` (nothing is dropped silently) |
+| Text over 2000 characters | ✅ split into several messages by `@botmesh/core` |
 | Location / contact | ⚠️ explicit degradation to text (map link / text card) |
 | `native` (`ctx.sendNative('discord', createMessagePayload)`) | ✅ (another provider id → `UnsupportedContentError`) |
 
@@ -145,6 +150,8 @@ new DiscordProvider({
   apiVersion?: string,        // default 'v10'
   socketFactory?: SocketFactory, // tests: fake socket
   reconnectDelayMs?: number,  // reconnection backoff base, default 500
+  requestTimeoutMs?: number,  // client timeout per REST request, default 60000
+  autoAcknowledgeMs?: number | false, // defer unanswered interactions after this many ms, default 2000
   debug?: boolean, logger?: Logger,
 })
 ```

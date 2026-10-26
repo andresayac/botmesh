@@ -43,9 +43,19 @@ const STATUS_MAP: Record<string, 'sent' | 'delivered' | 'read' | 'failed'> = {
   sent: 'sent', delivered: 'delivered', read: 'read', failed: 'failed',
 }
 
+/**
+ * Epoch ms of the callback time (Gupshup sends ms; epoch seconds are converted); the
+ * receive time when it is missing or invalid.
+ */
+function epochMs(value: unknown, now: () => number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return now()
+  const ms = Math.round(value < 1e12 ? value * 1000 : value)
+  return Number.isSafeInteger(ms) ? ms : now()
+}
+
 export function parseInbound(body: GupshupCallback, now: () => number = Date.now): InboundEvent<GupshupCallback>[] {
   if (!isRecord(body)) return []
-  const timestamp = typeof body.timestamp === 'number' && Number.isFinite(body.timestamp) ? body.timestamp : now()
+  const timestamp = epochMs(body.timestamp, now)
 
   if (body.type === 'message-event') {
     const ev = (body.payload ?? {}) as GupshupEventPayload

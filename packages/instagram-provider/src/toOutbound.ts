@@ -38,11 +38,23 @@ function mediaUrl(source: MediaSource, kind: OutboundContent['kind']): string {
   )
 }
 
-/** IG quick replies: at most 13, titles up to 20 chars; an empty payload falls back to the title. */
-function quickReplies(buttons: ReadonlyArray<{ id: string; title: string }>): Array<Record<string, unknown>> {
-  return buttons.slice(0, 13).map((b) => ({
+/** IG quick replies: at most 13 (more rejects instead of dropping some), titles up to 20 chars. */
+const MAX_QUICK_REPLIES = 13
+
+/** First `max` characters (code points: an emoji is never split into a lone surrogate). */
+function cut(text: string, max: number): string {
+  const chars = Array.from(text)
+  return chars.length <= max ? text : chars.slice(0, max).join('')
+}
+
+/** Quick replies for `kind`; an empty payload falls back to the title. */
+function quickReplies(kind: 'buttons' | 'card', buttons: ReadonlyArray<{ id: string; title: string }>): Array<Record<string, unknown>> {
+  if (buttons.length > MAX_QUICK_REPLIES) {
+    throw new UnsupportedContentError(kind, `Instagram allows at most ${MAX_QUICK_REPLIES} quick replies; got ${buttons.length}. Split the options or use a numbered text menu.`)
+  }
+  return buttons.map((b) => ({
     content_type: 'text',
-    title: b.title.slice(0, 20),
+    title: cut(b.title, 20),
     payload: b.id || b.title,
   }))
 }
@@ -83,7 +95,7 @@ export function toOutbound(content: OutboundContent): Record<string, unknown> {
 
     case 'buttons': {
       // IG supports quick replies (tappable chips), NOT structured buttons.
-      return { text: content.text, quick_replies: quickReplies(content.buttons) }
+      return { text: content.text, quick_replies: quickReplies('buttons', content.buttons) }
     }
 
     case 'list':
@@ -93,7 +105,7 @@ export function toOutbound(content: OutboundContent): Record<string, unknown> {
     case 'card': {
       // Degrades to text; its buttons survive as quick replies.
       const text = [content.title, content.body].filter(Boolean).join('\n')
-      return content.buttons?.length ? { text, quick_replies: quickReplies(content.buttons) } : { text }
+      return content.buttons?.length ? { text, quick_replies: quickReplies('card', content.buttons) } : { text }
     }
 
     case 'native':

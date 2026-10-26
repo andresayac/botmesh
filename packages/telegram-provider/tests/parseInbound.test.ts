@@ -182,7 +182,9 @@ describe('parseUpdate', () => {
     expect(i.chatId).toBe('77')
     expect(i.senderId).toBe('77')
     expect(i.ref.id).toBe('30')
-    expect(i.timestamp).toBe(1_700_000_000_000)
+    // The Bot API sends no press time: the receive time, not the (older) message date.
+    expect(i.timestamp).toBeGreaterThan(1_700_000_000_000)
+    expect(i.timestamp).toBeLessThanOrEqual(Date.now())
   })
 
   it('collects text_mention users into mentions', () => {

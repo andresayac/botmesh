@@ -5,6 +5,8 @@
 export { verifyChallenge, verifySignature } from './webhook.js'
 export type { ChallengeQuery } from './webhook.js'
 export { toGraphError, readGraphResponse } from './errors.js'
+export { graphRequest, DEFAULT_GRAPH_REQUEST_TIMEOUT_MS } from './request.js'
+export type { GraphRequestOptions } from './request.js'
 export type { GraphError, GraphErrorOptions, GraphResponseLike } from './errors.js'
 export { checkGraphSignature, parseGraphBody, tryParseGraphBody } from './ingest.js'
 export type { GraphSignatureResult, GraphIngestLogger, GraphParseResult } from './ingest.js'
