@@ -9,7 +9,9 @@
  * Request parameters follow the twilio-oai `twilio_api_v2010` document
  * (`CreateMessageRequest`): `To` is required, plus `From` or
  * `MessagingServiceSid`, plus one of `Body`, `MediaUrl` or `ContentSid`;
- * `Body` is at most 1600 characters and `MediaUrl` at most 10 entries.
+ * `Body` is at most 1600 characters and `MediaUrl` at most 10 entries. The
+ * form is also validated against that schema as vendored from twilio-oai
+ * (`src/specs/twilio.ts`, issues tagged `[openapi]`).
  */
 
 import { createHmac } from 'node:crypto'
@@ -25,6 +27,8 @@ import {
 } from '../sim/base.js'
 import type { SimRequest, SimResponse } from '../sim/http.js'
 import { KIND_MIME } from '../sim/media.js'
+import { formToObject, validate } from '../sim/validate.js'
+import { TWILIO_CREATE_MESSAGE_OPENAPI } from '../specs/twilio.js'
 
 export interface TwilioSimulatorOptions extends BaseSimulatorOptions {
   accountSid?: string
@@ -139,6 +143,7 @@ export class TwilioSimulator extends PlatformSimulator {
     for (const a of f.getAll('PersistentAction')) if (!/^(geo:|mailto:|tel:|sms:)/.test(a)) issues.push(`PersistentAction: unsupported action ${a}`)
     const cb = f.get('StatusCallback')
     if (cb !== null && !/^https?:\/\//.test(cb)) issues.push('StatusCallback: must be a URL')
+    for (const i of validate(TWILIO_CREATE_MESSAGE_OPENAPI, formToObject(f, TWILIO_CREATE_MESSAGE_OPENAPI))) issues.push(`[openapi] ${i}`)
     return issues
   }
 

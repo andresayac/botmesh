@@ -168,7 +168,7 @@ describe('DiscordProvider — REST outbound', () => {
     expect(form).toBeInstanceOf(FormData)
     const payload = JSON.parse(form.get('payload_json') as string)
     expect(payload.content).toBe('mira')
-    expect(payload.attachments[0]).toMatchObject({ id: 0, filename: 'image.png' })
+    expect(payload.attachments[0]).toMatchObject({ id: '0', filename: 'image.png' })
     const f = form.get('files[0]')
     expect(f).toBeInstanceOf(Blob)
     expect((f as Blob).size).toBe(3)

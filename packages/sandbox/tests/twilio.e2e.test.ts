@@ -4,6 +4,8 @@ import { TwilioProvider } from '@botmesh/twilio'
 import { TwilioSimulator, startHarness, type Harness } from '../src/index.js'
 import { JPEG, silent, standardHandlers, type Recorded } from './_bot.js'
 
+const CONTENT_SID = 'HX' + 'b'.repeat(32)
+
 describe('Twilio simulator + TwilioProvider over real HTTP', () => {
   let h: Harness<TwilioSimulator, TwilioProvider>
   let rec: Recorded
@@ -13,6 +15,8 @@ describe('Twilio simulator + TwilioProvider over real HTTP', () => {
       rec = standardHandlers(bot)
       bot.on('status', (s) => { statuses.push(String(s.status)) })
       bot.when('escribe', async (ctx) => { await ctx.typing(); await ctx.reply('listo') })
+      // On Twilio a template's name is its Content SID (HX + 32 hex), as CreateMessageRequest requires.
+      bot.when('plantillahx', (ctx) => bot.send(ctx.from, { kind: 'template', name: CONTENT_SID, language: 'en_US' }))
     }, { bot: { logger: silent } })
   })
   afterAll(() => h.stop())
@@ -53,8 +57,8 @@ describe('Twilio simulator + TwilioProvider over real HTTP', () => {
   it('sends hosted media and content templates', async () => {
     await h.sim.sendText('foto')
     expect((await h.sim.waitForOutbound((r) => r.kind === 'image')).media?.url).toBe('https://example.com/pan.jpg')
-    await h.sim.sendText('plantilla')
-    expect((await h.sim.waitForOutbound((r) => r.kind === 'template')).template?.name).toBe('hello_world')
+    await h.sim.sendText('plantillahx')
+    expect((await h.sim.waitForOutbound((r) => r.kind === 'template')).template?.name).toBe(CONTENT_SID)
     expect(h.sim.issues()).toEqual([])
   })
 

@@ -11,13 +11,17 @@ import { parseArgs } from 'node:util'
 import { pino } from 'pino'
 import { CHANNELS } from './providers.js'
 import { startSandbox } from './hub.js'
+import { SANDBOX_TOKEN_HEADER, isLoopbackHost } from './guard.js'
 import type { ChannelName } from './sim/base.js'
 
 const HELP = `botmesh sandbox — local platform simulators + web chat UI
 
 Options:
   --port <n>          UI port (default 4610; 0 picks a free one)
-  --host <addr>       bind address (default 127.0.0.1)
+  --host <addr>       UI/API bind address (default 127.0.0.1; keep it on loopback;
+                      the simulators always stay on 127.0.0.1)
+  --allow-host <list> extra host names accepted in Host/Origin (comma-separated)
+  --token <value>     fixed API token (default: random per run, printed at start)
   --channels <list>   comma-separated channels (default: all)
                       ${CHANNELS.join(', ')}
   --bot <name>        demo (default) | bakery (examples/bakery-ai, scripted AI) | none
@@ -31,6 +35,8 @@ const { values } = parseArgs({
   options: {
     port: { type: 'string' },
     host: { type: 'string' },
+    'allow-host': { type: 'string' },
+    token: { type: 'string' },
     channels: { type: 'string' },
     bot: { type: 'string' },
     telegram: { type: 'string' },
@@ -65,6 +71,8 @@ const sandbox = await startSandbox({
   channels: channels as ChannelName[],
   ...(values.port !== undefined ? { port: Number(values.port) } : {}),
   ...(values.host ? { host: values.host } : {}),
+  ...(values['allow-host'] ? { allowedHosts: values['allow-host'].split(',').map((h) => h.trim()).filter(Boolean) } : {}),
+  ...(values.token ? { token: values.token } : {}),
   bot,
   ...(values.telegram === 'webhook' ? { telegramMode: 'webhook' as const } : {}),
   ...(values['no-status'] ? { autoStatus: false as const } : {}),
@@ -75,7 +83,10 @@ const sandbox = await startSandbox({
 })
 
 const lines = Object.values(sandbox.sims).map((s) => `  ${s!.channel.padEnd(12)} simulator ${s!.url}${s!.webhook ? `  → bot webhook ${s!.webhook}` : ''}`)
-process.stdout.write(`\nbotmesh sandbox ready (${bot} bot)\n\n  Open the chat UI: ${sandbox.url}\n\n${lines.join('\n')}\n\nCtrl+C to stop.\n`)
+const exposed = values.host && !isLoopbackHost(values.host)
+  ? `\n  WARNING: bound to ${values.host}, not loopback: anyone who can reach the UI can read the chat timelines, and with the token drive the simulators. The simulator ports stay on 127.0.0.1.\n`
+  : ''
+process.stdout.write(`\nbotmesh sandbox ready (${bot} bot)\n\n  Open the chat UI: ${sandbox.url}\n  API token for scripts (header ${SANDBOX_TOKEN_HEADER} on POST /api/*; the UI already has it): ${sandbox.token}\n${exposed}\n${lines.join('\n')}\n\nCtrl+C to stop.\n`)
 
 let stopping = false
 const shutdown = () => {

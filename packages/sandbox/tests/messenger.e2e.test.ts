@@ -74,8 +74,12 @@ describe('Messenger simulator + MessengerProvider over real HTTP', () => {
     expect(rec.sendErrors[0]).toBeInstanceOf(type)
   })
 
-  it('rejects forged webhooks', async () => {
-    expect((await h.sim.post({ object: 'page', entry: [] }, { signature: 'sha256=' + 'a'.repeat(64) }))[0]!.status).toBe(403)
+  it('rejects a forged message webhook and does not process it', async () => {
+    const forged = await h.sim.prepare({ text: 'menu' })
+    expect((await h.sim.post(forged.payload, { signature: 'sha256=' + 'a'.repeat(64) }))[0]!.status).toBe(403)
+    await h.sim.sendText('hola')
+    await h.sim.waitForOutbound((r) => r.text === '¡Hola!')
+    expect(h.sim.outbox.filter((r) => r.kind === 'buttons')).toEqual([])
   })
 })
 
@@ -111,7 +115,11 @@ describe('Instagram simulator + InstagramProvider over real HTTP', () => {
     expect(rec.sendErrors[0]).toBeInstanceOf(type)
   })
 
-  it('rejects unsigned webhooks', async () => {
-    expect((await h.sim.post({ object: 'instagram', entry: [] }, { signature: false }))[0]!.status).toBe(403)
+  it('rejects an unsigned message webhook and does not process it', async () => {
+    const forged = await h.sim.prepare({ text: 'menu' })
+    expect((await h.sim.post(forged.payload, { signature: false }))[0]!.status).toBe(403)
+    await h.sim.sendText('hola')
+    await h.sim.waitForOutbound((r) => r.text === '¡Hola!')
+    expect(h.sim.outbox.filter((r) => r.kind === 'buttons')).toEqual([])
   })
 })

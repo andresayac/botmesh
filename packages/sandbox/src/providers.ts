@@ -25,6 +25,15 @@ import { DiscordSimulator } from './channels/discord.js'
 import { TelegramSimulator } from './channels/telegram.js'
 import { startHarness, type Harness, type HarnessOptions } from './harness.js'
 
+/**
+ * Channels whose provider turns a native poll vote into a 'poll' event, so
+ * the UI sends a real vote there (elsewhere it sends the option text). Empty
+ * while the Telegram (`poll_answer`) and Discord (`MESSAGE_POLL_VOTE_ADD`)
+ * providers ignore votes; `tests/poll-votes.test.ts` fails as soon as one of
+ * them starts parsing them, so this set is kept in sync.
+ */
+export const POLL_VOTE_PARSING: ReadonlySet<ChannelName> = new Set<ChannelName>()
+
 /** Every simulated channel, in UI order. */
 export const CHANNELS: readonly ChannelName[] = ['whatsapp', 'messenger', 'instagram', 'telegram', 'discord', 'twilio', 'gupshup', 'gohighlevel', 'tiktok']
 

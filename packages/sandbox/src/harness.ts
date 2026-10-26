@@ -48,31 +48,42 @@ export async function startHarness<S extends PlatformSimulator, P extends IProvi
   setup: (bot: Bot, provider: P) => void | Promise<void>,
   opts: HarnessOptions = {},
 ): Promise<Harness<S, P>> {
-  if (!sim.started) await sim.start()
+  const startedSim = !sim.started
+  if (startedSim) await sim.start()
   let ingress: BotIngress | undefined
   let provider: P | undefined
+  let bot: Bot | undefined
   const path = opts.path ?? `/webhook/${sim.channel}`
-  if (opts.webhook !== false) {
-    // Late-bound route: the ingress exists before the provider (its URL is part of the provider config).
-    const lazy: WebhookProvider = {
-      ingest: (raw, headers, url) => (provider as unknown as WebhookProvider).ingest?.(raw, headers, url),
-      verifyChallenge: (query) => (provider as unknown as WebhookProvider).verifyChallenge?.(query) ?? null,
+  try {
+    if (opts.webhook !== false) {
+      // Late-bound route: the ingress exists before the provider (its URL is part of the provider config).
+      const lazy: WebhookProvider = {
+        ingest: (raw, headers, url) => (provider as unknown as WebhookProvider).ingest?.(raw, headers, url),
+        verifyChallenge: (query) => (provider as unknown as WebhookProvider).verifyChallenge?.(query) ?? null,
+      }
+      ingress = await serveWebhooks([{ path, provider: lazy, ...(opts.body ? { body: opts.body } : {}) }])
     }
-    ingress = await serveWebhooks([{ path, provider: lazy, ...(opts.body ? { body: opts.body } : {}) }])
+    const webhookUrl = ingress ? ingress.webhook(path) : ''
+    provider = makeProvider(sim, { webhookUrl })
+    if (ingress) sim.setWebhook(webhookUrl)
+    bot = opts.createBot ? await opts.createBot(provider) : new Bot({ ...(opts.bot ?? {}), provider })
+    await setup(bot, provider)
+    if (opts.start !== false) await bot.start()
+  } catch (err) {
+    // Undo what this call set up, newest first; a simulator the caller started keeps running.
+    await bot?.stop().catch(() => undefined)
+    await ingress?.close().catch(() => undefined)
+    if (startedSim) await sim.stop().catch(() => undefined)
+    throw err
   }
-  const webhookUrl = ingress ? ingress.webhook(path) : ''
-  provider = makeProvider(sim, { webhookUrl })
-  if (ingress) sim.setWebhook(webhookUrl)
-  const bot = opts.createBot ? await opts.createBot(provider) : new Bot({ ...(opts.bot ?? {}), provider })
-  await setup(bot, provider)
-  if (opts.start !== false) await bot.start()
+  const started = bot
   return {
     sim,
-    provider,
-    bot,
+    provider: provider!,
+    bot: started,
     ...(ingress ? { ingress } : {}),
     async stop() {
-      await bot.stop().catch(() => undefined)
+      await started.stop().catch(() => undefined)
       await ingress?.close()
       await sim.stop()
     },

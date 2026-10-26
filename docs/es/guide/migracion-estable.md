@@ -151,3 +151,18 @@ El mapeador de errores de bajo nivel de cada provider se llama ahora
 `toEmailError`). Los cambios de comportamiento de estos paquetes (votos de encuestas
 en Telegram, ediciones en Discord, versionado del esquema de SQLite) están en
 [Notas de actualización: canales y plugins](./actualizar-canales-plugins).
+
+## Token de la API del sandbox
+
+`@botmesh/sandbox` es privado, pero los scripts que usan su API web cambian:
+
+- **Ruptura:** `POST /api/<canal>/send|fault|status|reset` necesita ahora el
+  token de la ejecución en la cabecera `x-sandbox-token`. Léelo de
+  `sandbox.token` (o de la salida de la CLI), o fíjalo con
+  `startSandbox({ token })` / `--token`.
+- Las peticiones con un `Host` que no es de loopback, o con un `Origin` de otro
+  sitio, reciben un 403. Pasa `allowedHosts` / `--allow-host` si llegas al hub
+  con otro nombre a propósito.
+- Una entrada incorrecta es ahora un 4xx: se rechazan los campos desconocidos,
+  los tipos erróneos y un cuerpo que no sea un objeto JSON, y `toUserInput()`
+  lanza `SandboxInputError`.

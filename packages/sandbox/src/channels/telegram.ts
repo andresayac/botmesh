@@ -91,6 +91,7 @@ function fail(code: number, description: string, extra: Record<string, unknown> 
 
 export class TelegramSimulator extends PlatformSimulator {
   readonly channel = 'telegram' as const
+  override readonly nativePollVotes = true
   readonly title = 'Telegram'
   readonly token: string
   readonly botId: number

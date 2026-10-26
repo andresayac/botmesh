@@ -38,7 +38,8 @@
   },
   "files": [
     "./lib/**/*",
-    "./ui/**/*"
+    "./ui/**/*",
+    "./src/specs/NOTICE.md"
   ],
   "scripts": {
     "build": "tsc",

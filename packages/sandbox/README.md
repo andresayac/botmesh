@@ -34,6 +34,34 @@ Pick a channel, write as a user, send files, locations and button or list replie
 the bot answer. The inspector shows every API request (with spec violations), every webhook
 delivery, and lets you inject platform errors.
 
+The UI's JSON API is local-only:
+
+- It binds to `127.0.0.1` by default. `--host` only moves the hub: the simulators, which
+  are unauthenticated like the APIs they imitate, always stay on `127.0.0.1`.
+- Every request must carry a loopback `Host` (`127.0.0.1`, `localhost` or `[::1]` on the
+  hub's port, plus any `--allow-host`) and, when the browser sends one, the hub's own
+  `Origin`. That blocks DNS rebinding and cross-site requests.
+- `POST /api/*` also needs the random per-run token in the `x-sandbox-token` header. The
+  token is printed at start and embedded in the page the hub serves (`--token` fixes it for
+  scripts).
+- Bodies are bounded (32 MiB for `send`, 64 KiB otherwise). Malformed or unknown input gets a
+  4xx with `{ "error": "..." }`, never a 500.
+
+Poll buttons send a native vote on channels whose provider parses one (`POLL_VOTE_PARSING`).
+On every other channel they send the option text. Today no provider parses votes:
+`tests/poll-votes.test.ts` fails as soon as Telegram or Discord starts parsing them.
+
+## Official API specs
+
+The Twilio and Discord simulators also check requests against fragments of the official
+OpenAPI documents ([twilio-oai](https://github.com/twilio/twilio-oai),
+[discord-api-spec](https://github.com/discord/discord-api-spec), both MIT). Violations show
+up in `issues()` tagged `[openapi]`. The fragments are vendored in `src/specs/`, with the
+licenses and commits in `src/specs/NOTICE.md`, so tests never fetch anything. To refresh them,
+run `scripts/vendor-openapi.mjs`. The other platforms (Meta Graph, Gupshup, HighLevel, TikTok,
+Telegram) publish no official machine-readable spec, so their schemas are written from the
+docs.
+
 ## In tests
 
 ```ts

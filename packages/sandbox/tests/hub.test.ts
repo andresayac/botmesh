@@ -15,7 +15,7 @@ describe('startSandbox (UI server + every channel)', () => {
     const channels = await (await fetch(`${sandbox.url}/api/channels`)).json() as Array<{ channel: string; ready: string }>
     expect(channels.map((c) => c.channel)).toEqual([...CHANNELS])
     for (const channel of CHANNELS) {
-      const res = await fetch(`${sandbox.url}/api/${channel}/send`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: 'hola' }) })
+      const res = await fetch(`${sandbox.url}/api/${channel}/send`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-sandbox-token': sandbox!.token }, body: JSON.stringify({ text: 'hola' }) })
       expect(res.status, channel).toBe(200)
       const reply = await sandbox.sims[channel]!.waitForOutbound((r) => r.kind === 'buttons' || (r.text ?? '').includes('Hola'), 8_000)
       expect(reply.text ?? '', channel).toContain('panadería de prueba')
@@ -31,7 +31,7 @@ describe('startSandbox (UI server + every channel)', () => {
 
   it('accepts media and locations from the UI API and serves media back', async () => {
     sandbox = await startSandbox({ port: 0, logger, channels: ['whatsapp'], autoStatus: false })
-    const post = (body: unknown) => fetch(`${sandbox!.url}/api/whatsapp/send`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    const post = (body: unknown) => fetch(`${sandbox!.url}/api/whatsapp/send`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-sandbox-token': sandbox!.token }, body: JSON.stringify(body) })
     await post({ media: { kind: 'image', base64: Buffer.from('fake-jpeg').toString('base64'), mimetype: 'image/jpeg', filename: 'a.jpg' } })
     expect((await sandbox.sims.whatsapp!.waitForOutbound((r) => r.text?.startsWith('📎') === true)).text).toContain('image')
     await post({ location: { latitude: 4.6, longitude: -74.08, name: 'Parque' } })

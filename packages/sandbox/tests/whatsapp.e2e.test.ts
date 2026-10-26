@@ -127,10 +127,13 @@ describe('WhatsApp Cloud API simulator + CloudAPIProvider over real HTTP', () =>
     await expect.poll(() => sim.requests.filter((r) => r.path.endsWith('/messages')).map((r) => r.status)).toEqual([429, 200])
   })
 
-  it('rejects a webhook with a bad or missing signature', async () => {
-    const out = await sim.post({ object: 'whatsapp_business_account', entry: [] }, { signature: 'sha256=' + '0'.repeat(64) })
-    expect(out[0]!.status).toBe(403)
-    const unsigned = await sim.post({ object: 'whatsapp_business_account', entry: [] }, { signature: false })
-    expect(unsigned[0]!.status).toBe(403)
+  it('rejects a real message webhook with a bad or missing signature (and does not process it)', async () => {
+    const forged = await sim.prepare({ text: 'menu' })
+    expect((await sim.post(forged.payload, { signature: 'sha256=' + '0'.repeat(64) }))[0]!.status).toBe(403)
+    expect((await sim.post(forged.payload, { signature: false }))[0]!.status).toBe(403)
+    // Same chat queue: once this signed message is answered, a processed forged one would have been too.
+    await sim.sendText('donde')
+    await sim.waitForOutbound((r) => r.kind === 'location')
+    expect(sim.outbox.filter((r) => r.kind === 'buttons')).toEqual([])
   })
 })
