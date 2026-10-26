@@ -121,7 +121,7 @@ Los paquetes operativos son agnósticos de canal y están aislados por tenant.
 
 ### Procesamiento de eventos
 
-Usa `MemoryEventJournal` en tests. `FileEventJournal.open('./data/events.json')` persiste el journal de una sola instancia con snapshots atómicos, idempotencia, leases, reintentos y replay. Para varios procesos en un mismo host, `SharedFileEventJournal.open(path)` comparte un archivo bajo un mutex entre procesos; entre hosts, implementa `LeasedEventJournal` sobre PostgreSQL, Redis o un broker.
+Usa `MemoryEventJournal` en tests. `FileEventJournal.open('./data/events.json')` persiste el journal de una sola instancia con snapshots atómicos, idempotencia, leases, reintentos y replay. Para varios procesos en un mismo host, `SharedFileEventJournal.open(path)` comparte un archivo bajo un mutex entre procesos; entre hosts, implementa `LeasedEventJournal` sobre PostgreSQL, Redis o un broker. Los journals de archivo guardan JSON: un sobre con un `BigInt` o una referencia circular se rechaza con un `TypeError` (no se guarda nada), y un `Date` se lee de vuelta como su cadena ISO. Un registro que no se leería de vuelta como válido (sin `partitionKey`, con un `occurredAt` `NaN` o `Date`, o con un `toJSON` que cambia el id del evento) se rechaza igual, en todos los journals, así que nada de lo que un journal acepta le impide volver a abrirse. Cada operación de `SharedFileEventJournal` toma el mutex y vuelve a leer el archivo (milisegundos en Linux, decenas de milisegundos en Windows), así que resérvalo para volúmenes modestos.
 
 `EventWorker` reclama eventos, invoca el handler, confirma el trabajo exitoso y mueve a la cola de mensajes muertos (DLQ) los que agotan sus reintentos.
 

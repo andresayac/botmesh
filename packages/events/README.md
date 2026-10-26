@@ -42,7 +42,9 @@ const { processed, failed, stale } = await worker.runBatch()
 | `FileEventJournal.open(path, { lock?, fsync? })` | one process | Recovers its snapshot after a restart and writes with atomic replacement. `lock: true` adds an advisory `<file>.lock` so a second process cannot open the same file (a dead process's lock is taken over; nothing is ever killed). |
 | `SharedFileEventJournal.open(path, { lockTimeoutMs?, staleLockMs?, heartbeatMs?, appendLog?, fsync? })` | several processes on one host | Every write takes a cross-process mutex, re-reads the file, applies the change and replaces it atomically, so claims are exclusive and fencing tokens hold across processes. `appendLog` appends a delta per write and compacts every 1000 entries or 4 MiB. |
 
-The file journals rewrite the whole snapshot on each write (the append-log mode excepted): for high traffic, implement `LeasedEventJournal` over your database. A custom journal must check the fencing token in the same atomic operation that changes the state (for example `UPDATE ... WHERE fencing_token = $1 AND state = 'processing'`).
+The file journals store JSON: an envelope JSON cannot hold (a `BigInt`, a circular reference) is rejected with a `TypeError` and nothing is stored, and what you read back is the JSON form (a `Date` comes back as its ISO string). Every journal checks the record before it stores it, with the same rules the file reader applies: an envelope with a missing `eventId`, `eventType`, `idempotencyKey` or `partitionKey`, an `occurredAt` that is not a finite number (`NaN`, a `Date`), a non-object `context`, or a `toJSON` that changes those fields is rejected with a `TypeError`, so nothing a journal accepts can stop it from reopening. `createEnvelope` rejects a non-finite `occurredAt` too. A damaged snapshot or append log is refused on open, or on the operation that reads it, with an error naming the file and the bad record; that includes a record whose lease fields (`leaseUntil`, `fencingToken`, `owner`, `channel`) are damaged, which would otherwise never be claimed again.
+
+The file journals rewrite the whole snapshot on each write (the append-log mode excepted), and every `SharedFileEventJournal` operation (reads too) takes the cross-process mutex and re-reads the file: expect a few milliseconds per operation on Linux and tens on Windows, and several operations per bot message when it backs `eventsDurability`. For high traffic, implement `LeasedEventJournal` over your database. A custom journal must check the fencing token in the same atomic operation that changes the state (for example `UPDATE ... WHERE fencing_token = $1 AND state = 'processing'`).
 
 ### Leases and fencing tokens
 
@@ -58,6 +60,8 @@ Delivery is **at least once**: a handler may run twice, so make it idempotent wi
 | `retryDelayMs` | `exponentialBackoff` (1 s doubling, capped at 60 s) | Fixed delay between attempts. |
 | `leaseMs` | the journal's (30 s) | Lease requested on each claim. |
 | `clock` | `Date.now` | Time source (inject it in tests). |
+
+An invalid value (`maxAttempts: 0`, a negative or `NaN` delay, a zero lease) throws a `TypeError` in the constructor. The journals check their own time and duration arguments the same way before they change anything, so a bad value can never strand a record with a `NaN` lease or due time.
 
 ## Bot durability backend
 

@@ -9,13 +9,17 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Bot, MemoryStore, flow } from '@botmesh/core'
 import { CrashableProvider, MockProvider, crashable } from '@botmesh/core/testing'
 import { runDurabilityConformance } from '../../../test-utils/durability-conformance.js'
 import { runCrashRecoveryMatrix, type CrashMatrixDeps } from '../../../test-utils/durability-crash.js'
 import { FileEventJournal, SharedFileEventJournal, StaleLeaseError, createEnvelope } from '../src/index.js'
 import { eventsDurability } from '../src/durability.js'
+
+// Every operation here takes a file mutex and rewrites the file (tens of ms each on Windows):
+// the concurrency cases run ~100 of them, which outlasts the 10 s default on a loaded machine.
+vi.setConfig({ testTimeout: 60_000 })
 
 const context = { tenantId: 't', environmentId: 'e', botId: 'b', providerId: 'p', connectionId: 'c' }
 const env = (id: string, occurredAt = 1) => createEnvelope({ eventId: id, eventType: 'test.event', occurredAt, context, payload: { id } })
@@ -309,7 +313,10 @@ describe('eventsDurability(SharedFileEventJournal) with two replicas', () => {
     const a = crashable(eventsDurability({ journal: ja }))
     expect(a.exclusive).toBe(false)
     const pa = new CrashableProvider(a)
-    const config = { pollMs: 20, inbox: { leaseMs: 300 } }
+    // The lease must outlast a few shared-journal operations (each one rereads and rewrites the
+    // file under the cross-process mutex: 10-80 ms on a loaded machine). With a 300 ms lease B's own
+    // heartbeat could fall behind and B re-claimed m1 from itself, running the handler twice.
+    const config = { pollMs: 20, inbox: { leaseMs: 2_000 } }
     const botA = new Bot({ provider: pa, store, logger: silentLogger(), durability: { backend: a, instanceId: 'replica-a', ...config } })
     botA.on('error', () => {})
     botA.when('hola', async (ctx) => {
