@@ -535,6 +535,21 @@ describe.skipIf(!URL)('PostgresStore — real PostgreSQL integration', () => {
       expect(await store.getConversation('k')).toEqual([{ role: 'user', content: `x${FFFD}` }])
     })
 
+    it('setCheckpointIf stores text JSONB cannot hold (U+0000, lone surrogates) like setCheckpoint', async () => {
+      const store = makeStore()
+      await store.start()
+      // With coordination the runtime writes checkpoints through setCheckpointIf; its JSON
+      // was not sanitized like setCheckpoint's, so a flow whose state held text cut in the
+      // middle of an emoji (or a U+0000) could not be checkpointed at all.
+      const cp = (revision: number, name: string): FlowCheckpoint => ({ flowId: 'f', step: 0, state: { name }, updatedAt: 1, revision })
+      for (const [i, name] of ['Ana \ud83d', 'A\u0000na', '\udc00x'].entries()) {
+        expect(await store.setCheckpointIf(`k${i}`, cp(1, name), 0)).toBe(true)
+        expect(await store.setCheckpointIf(`k${i}`, cp(2, name), 1)).toBe(true)
+        expect(await store.setCheckpointIf(`k${i}`, cp(3, name), 1)).toBe(false) // still compare-and-set
+        expect(await store.getCheckpoint(`k${i}`)).toEqual(cp(2, name.replace(/\u0000|[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g, '\ufffd')))
+      }
+    })
+
     it('round-trips large JSON documents (multi-MB body, deep nesting, big arrays)', async () => {
       const store = makeStore()
       await store.start()

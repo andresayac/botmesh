@@ -366,6 +366,24 @@ describe.skipIf(!enabled)('MysqlStore — real MySQL integration', () => {
       }
     })
 
+    it('accepts any number as a timestamp (NaN, ±Infinity, huge, fractional) like the other stores', async () => {
+      // The BIGINT sort column used to receive the raw number: mysql2 renders NaN/Infinity as
+      // bare identifiers (ER_BAD_FIELD_ERROR) and 1e300 is out of range, so the save threw.
+      const { store, teardown } = await makeStore()
+      try {
+        await store.saveMessage(msg('c', 'nan', 'nan', Number.NaN))
+        await store.saveMessage(msg('c', 'ninf', 'ninf', Number.NEGATIVE_INFINITY))
+        await store.saveMessage(msg('c', 'mid', 'mid', 1000.7))
+        await store.saveMessage(msg('c', 'huge', 'huge', 1e300))
+        await store.saveMessage(msg('c', 'inf', 'inf', Number.POSITIVE_INFINITY))
+        // Sort key: floor, clamped to ±MAX_SAFE_INTEGER, NaN as 0; ties by id.
+        expect(bodies(await store.getMessagesByChat('c'))).toEqual(['ninf', 'nan', 'mid', 'huge', 'inf'])
+        expect((await store.getMessage({ chatId: 'c', id: 'mid' }))?.timestamp).toBe(1000.7) // exact value kept in the document
+      } finally {
+        await teardown()
+      }
+    })
+
     it('applies the default limit of 50', async () => {
       const { store, teardown } = await makeStore()
       try {
@@ -590,6 +608,24 @@ describe.skipIf(!enabled)('MysqlStore — real MySQL integration', () => {
         expect(await store.getConversation('conv-💬')).toEqual([{ role: 'user', content: text }])
         expect(await store.getCursor('cur-⏱')).toBe(text)
         expect((await store.listCheckpoints()).map(([k]) => k)).toEqual(['cp-🔑'])
+      } finally {
+        await teardown()
+      }
+    })
+
+    it('setCheckpointIf stores lone surrogates as U+FFFD like setCheckpoint (MySQL JSON rejects them)', async () => {
+      const { store, teardown } = await makeStore()
+      try {
+        // With coordination the runtime writes checkpoints through setCheckpointIf; its JSON
+        // was not sanitized like setCheckpoint's, so a flow whose state held text cut in the
+        // middle of an emoji (or a U+0000) could not be checkpointed at all.
+        const cp = (revision: number, name: string): FlowCheckpoint => ({ flowId: 'f', step: 0, state: { name }, updatedAt: 1, revision })
+        for (const [i, name] of ['Ana \ud83d', 'A\u0000na', '\udc00x'].entries()) {
+          expect(await store.setCheckpointIf(`k${i}`, cp(1, name), 0)).toBe(true)
+          expect(await store.setCheckpointIf(`k${i}`, cp(2, name), 1)).toBe(true)
+          expect(await store.setCheckpointIf(`k${i}`, cp(3, name), 1)).toBe(false) // still compare-and-set
+          expect(await store.getCheckpoint(`k${i}`)).toEqual(cp(2, name.replace(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g, '\ufffd')))
+        }
       } finally {
         await teardown()
       }

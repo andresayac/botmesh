@@ -33,6 +33,27 @@ describe('MysqlStore', () => {
   })
   afterEach(async () => { await store.stop() })
 
+  it('sends a safe-integer sort key for any timestamp (NaN, ±Infinity, out of BIGINT range)', async () => {
+    for (const [i, ts] of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, 1e300, 1000.7].entries()) {
+      await store.saveMessage(msg('c', `m${i}`, 'b', ts))
+    }
+    const keys = fake.queries.filter((q) => q.sql.startsWith('INSERT INTO `messages`')).map((q) => q.params?.[2])
+    expect(keys).toEqual([0, Number.MAX_SAFE_INTEGER, -Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, 1000])
+  })
+
+  it('setCheckpointIf stores lone surrogates as U+FFFD like setCheckpoint (MySQL JSON rejects them)', async () => {
+    // With coordination the runtime writes checkpoints through setCheckpointIf; its JSON
+    // was not sanitized like setCheckpoint's, so a flow whose state held text cut in the
+    // middle of an emoji (or a U+0000) could not be checkpointed at all.
+    const cp = (revision: number, name: string): FlowCheckpoint => ({ flowId: 'f', step: 0, state: { name }, updatedAt: 1, revision })
+    for (const [i, name] of ['Ana \ud83d', 'A\u0000na', '\udc00x'].entries()) {
+      expect(await store.setCheckpointIf(`k${i}`, cp(1, name), 0)).toBe(true)
+      expect(await store.setCheckpointIf(`k${i}`, cp(2, name), 1)).toBe(true)
+      expect(await store.setCheckpointIf(`k${i}`, cp(3, name), 1)).toBe(false) // still compare-and-set
+      expect(await store.getCheckpoint(`k${i}`)).toEqual(cp(2, name.replace(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g, '\ufffd')))
+    }
+  })
+
   it('provisions the six state tables + user_data on start (CREATE TABLE IF NOT EXISTS)', async () => {
     const created = fake.queries.map((q) => q.sql).filter((s) => s.startsWith('CREATE TABLE IF NOT EXISTS'))
     expect(created).toHaveLength(7)
