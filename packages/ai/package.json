@@ -51,9 +51,9 @@
     "@botmesh/core": "workspace:^"
   },
   "peerDependencies": {
-    "@anthropic-ai/sdk": "^0.68.0",
-    "@google/generative-ai": "^0.21.0",
-    "openai": "^6.48.0"
+    "@anthropic-ai/sdk": "^0.68.0 || ^1.0.0",
+    "@google/generative-ai": "^0.21.0 || ^0.22.0 || ^0.23.0 || ^0.24.0",
+    "openai": "^6.48.0 || ^7.0.0"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {

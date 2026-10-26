@@ -17,6 +17,10 @@ import type { LocaleMessages, TranslateParams } from '@botmesh/core'
 
 /** Keys of the built-in AI messages (override them under `ai.` in `bot.locale()`). */
 export const AI_MESSAGES = {
+  /** Autoreply when the provider fails or the model answers nothing (unless `errorMessage` is set). */
+  error: 'ai.error',
+  /** Reply when the provider refuses (`stopReason === 'refusal'`) (unless `refusalMessage` is set). */
+  refusal: 'ai.refusal',
   /** Confirmation prompt of a `confirm: true` tool (`{tool}`: its title, `{args}`: a newline + one `• ` line per argument, or empty). */
   toolConfirm: 'ai.tools.confirm',
   /**
@@ -66,6 +70,8 @@ export type AIMessageKey = (typeof AI_MESSAGES)[keyof typeof AI_MESSAGES]
 export const AI_LOCALES: Readonly<Record<'es' | 'en', LocaleMessages>> = {
   es: {
     ai: {
+      error: '⚠️ Ahora no puedo responder, intenta luego.',
+      refusal: 'No puedo ayudar con eso.',
       tools: {
         confirm: 'Voy a: {tool}{args}\n¿Confirmas? (sí/no)',
         confirmButtons: 'Voy a: {tool}{args}\n¿Confirmas?',
@@ -94,6 +100,8 @@ export const AI_LOCALES: Readonly<Record<'es' | 'en', LocaleMessages>> = {
   },
   en: {
     ai: {
+      error: "⚠️ I can't answer right now, please try again later.",
+      refusal: "I can't help with that.",
       tools: {
         confirm: 'About to: {tool}{args}\nDo you confirm? (yes/no)',
         confirmButtons: 'About to: {tool}{args}\nDo you confirm?',

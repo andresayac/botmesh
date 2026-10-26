@@ -45,6 +45,7 @@ export interface OpenAIProviderOptions {
 
 export class OpenAIProvider implements AIProvider {
   readonly name: string
+  private callSeq = 0
   private readonly maxTokensField: 'max_tokens' | 'max_completion_tokens'
   constructor(
     private client: OpenAILike,
@@ -62,7 +63,7 @@ export class OpenAIProvider implements AIProvider {
   }
   private model(input: GenerateInput): string {
     const m = input.model ?? this.cfg.model
-    if (!m) throw new Error('OpenAIProvider requiere `model` en la config (sin default).')
+    if (!m) throw new Error(`${this.name}: the provider needs a \`model\` (it has no default): set aiPlugin({ model: '...' }) or pass one per call`)
     return m
   }
   private baseArgs(input: GenerateInput): Record<string, unknown> {
@@ -97,7 +98,8 @@ export class OpenAIProvider implements AIProvider {
     }
     const toolCalls: AIToolCall[] = (choice?.message?.tool_calls ?? [])
       .filter((c) => typeof c.function?.name === 'string')
-      .map((c) => ({ id: c.id, name: c.function.name, args: parseArguments(c.function.arguments) }))
+      // Some OpenAI-compatible servers omit the call id: synthesize one so results still match.
+      .map((c) => ({ id: c.id || `call_${++this.callSeq}`, name: c.function.name, args: parseArguments(c.function.arguments) }))
     // A declined answer comes as `message.refusal` (content null): report it like the
     // other providers do, so the autoreply answers `refusalMessage`.
     const refused = !!choice?.message?.refusal && !choice.message.content && !toolCalls.length

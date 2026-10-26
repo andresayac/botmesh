@@ -102,7 +102,6 @@ const NO_MEMORY = 'AI memory is not available: build the AIClient with `memory` 
 
 const DEFAULT_TIMEOUT_MS = 60_000
 const DEFAULT_RAG_TIMEOUT_MS = 10_000
-const DEFAULT_REFUSAL = 'No puedo ayudar con eso.'
 /** Soft output cap of a memory-extraction call when `autoExtract.maxTokens` is not set (room for reasoning models). */
 const DEFAULT_EXTRACT_MAX_TOKENS = 1024
 
@@ -247,9 +246,23 @@ export class AIClient {
       if (userSignal.aborted) ctrl.abort()
       else userSignal.addEventListener('abort', onUserAbort, { once: true })
     }
+    // `abortInFlight()` (the bot stopped) cancels the request AND releases the caller,
+    // even when the provider ignores its signal.
+    const stop = this.stopCtrl.signal
+    let onStop: (() => void) | undefined
+    const stopped = new Promise<never>((_, reject) => {
+      onStop = () => { reject(stop.reason); ctrl.abort(stop.reason) }
+      if (stop.aborted) onStop()
+      else stop.addEventListener('abort', onStop, { once: true })
+    })
+    stopped.catch(() => undefined)
+    const cleanup = (): void => {
+      if (userSignal) userSignal.removeEventListener('abort', onUserAbort)
+      if (onStop) stop.removeEventListener('abort', onStop)
+    }
     if (ms <= 0) {
-      try { return await op(ctrl.signal) }
-      finally { if (userSignal) userSignal.removeEventListener('abort', onUserAbort) }
+      try { return await Promise.race([op(ctrl.signal), stopped]) }
+      finally { cleanup() }
     }
     let timer: ReturnType<typeof setTimeout> | undefined
     const timeout = new Promise<never>((_, reject) => {
@@ -260,24 +273,35 @@ export class AIClient {
       timer = setTimeout(() => { const err = new AITimeoutError(ms); reject(err); ctrl.abort(err) }, ms)
     })
     try {
-      return await Promise.race([op(ctrl.signal), timeout])
+      return await Promise.race([op(ctrl.signal), timeout, stopped])
     } finally {
       if (timer) clearTimeout(timer)
-      if (userSignal) userSignal.removeEventListener('abort', onUserAbort)
+      cleanup()
     }
+  }
+
+  /** The caller's signal joined with the client's stop signal (see {@link abortInFlight}). */
+  private withStop(signal?: AbortSignal): AbortSignal {
+    const stop = this.stopCtrl.signal
+    return signal ? AbortSignal.any([signal, stop]) : stop
   }
 
   async ask(prompt: string, opts?: AIToolCallOptions): Promise<string> {
     const messages: AIChatMessage[] = [{ role: 'user', content: prompt }]
     if (this.usesTools(opts)) {
       const r = await this.runTools({ messages }, opts)
-      return r.stopReason === 'refusal' ? (this.opts.refusalMessage ?? DEFAULT_REFUSAL) : r.text
+      return r.stopReason === 'refusal' ? this.refusalText(opts?.ctx) : r.text
     }
     const r = await this.callModel('ask', this.base(messages), () => this.withTimeout(
       (signal) => this.provider.generate({ ...this.base(messages), signal }),
       opts?.signal,
     ))
-    return r.stopReason === 'refusal' ? (this.opts.refusalMessage ?? DEFAULT_REFUSAL) : r.text
+    return r.stopReason === 'refusal' ? this.refusalText(opts?.ctx) : r.text
+  }
+
+  /** `refusalMessage`, else the localized `ai.refusal` text of the turn's chat (Spanish without one). */
+  private refusalText(ctx: MessageContext | undefined): string {
+    return this.opts.refusalMessage ?? aiText(ctx, AI_MESSAGES.refusal)
   }
 
   async generate(input: Partial<GenerateInput> & { messages: AIChatMessage[] }): Promise<GenerateResult> {
@@ -293,9 +317,11 @@ export class AIClient {
   stream(input: Partial<GenerateInput> & { messages: AIChatMessage[] }): AsyncIterable<string> {
     // Streaming passes the caller's signal straight through; the timeout guard
     // applies to non-streaming calls (a stream's duration is legitimately open-ended).
+    // The bot stopping (`abortInFlight`) aborts the stream too.
+    const signal = this.withStop(input.signal)
     const tracing = activeTracing(this.opts.tracing)
-    if (!tracing) return this.provider.stream({ ...this.base(input.messages), ...input })
-    const full = { ...this.base(input.messages), ...input }
+    if (!tracing) return this.provider.stream({ ...this.base(input.messages), ...input, signal })
+    const full = { ...this.base(input.messages), ...input, signal }
     return traceStream(tracing, { purpose: 'generate', provider: this.providerName, model: full.model, maxTokens: full.maxTokens }, (record) =>
       this.provider.stream({ ...full, onStreamEnd: (info) => { record(info); input.onStreamEnd?.(info) } }))
   }
@@ -344,10 +370,10 @@ export class AIClient {
     opts?: AIStreamReplyOptions,
   ): AsyncGenerator<string, void, undefined> {
     const onUserAbort = () => ctrl.abort()
-    if (opts?.signal) {
-      if (opts.signal.aborted) ctrl.abort()
-      else opts.signal.addEventListener('abort', onUserAbort, { once: true })
-    }
+    // The caller's signal and the bot stopping (`abortInFlight`) both end the stream.
+    const userSignal = this.withStop(opts?.signal)
+    if (userSignal.aborted) ctrl.abort()
+    else userSignal.addEventListener('abort', onUserAbort, { once: true })
     let text = ''
     let completed = false
     let failed = false
@@ -396,7 +422,7 @@ export class AIClient {
       if (streamSpan) setResponseAttributes(streamSpan, { stopReason, usage })
       if (completed && stopReason === 'refusal') {
         refused = true
-        yield (text ? '\n\n' : '') + (this.opts.refusalMessage ?? DEFAULT_REFUSAL)
+        yield (text ? '\n\n' : '') + this.refusalText(opts?.ctx)
       } else if (completed) {
         // RAG `appendSources`: the sources go out as a last piece (not stored in the history).
         const shown = this.withSources(text, citations, opts?.ctx)
@@ -411,7 +437,7 @@ export class AIClient {
         if (!completed && !failed) streamSpan.setAttribute(TRACE_ATTR.aiCancelled, true)
         streamSpan.end()
       }
-      if (opts?.signal) opts.signal.removeEventListener('abort', onUserAbort)
+      userSignal.removeEventListener('abort', onUserAbort)
       if (!completed) {
         ctrl.abort()
         const pending = iterator
@@ -425,7 +451,7 @@ export class AIClient {
         const userId = opts?.userId
         if (completed && userId && epoch !== undefined && this.opts.memory?.extraction) {
           // Background: never block the chat's FIFO queue on the extraction call.
-          this.track(this.extractMemory(userId, userText, text, { epoch }).catch((err) => this.report(err, 'memory-extract')))
+          this.background((signal) => this.extractMemory(userId, userText, text, { epoch, signal }))
         }
       }
     }
@@ -471,6 +497,8 @@ export class AIClient {
     const notes = this.toolNotes(opts, ledger)
     if (notes.length) base.system = [base.system, ...notes].filter(Boolean).join('\n\n')
     let step = 0
+    // The bot stopping (`abortInFlight`) also ends the loop between steps and its tools.
+    const loopSignal = this.withStop(opts.signal ?? input.signal)
     return runToolLoop({
       tools: this.toolsFor(opts.tools),
       generate: (gi) => this.callModel('tool_step', gi, () => this.withTimeout((signal) => this.provider.generate({ ...gi, signal }), opts.signal ?? input.signal), ++step),
@@ -485,7 +513,7 @@ export class AIClient {
       onEvent: this.opts.onToolEvent,
       chatKey: opts.chatKey,
       ctx: opts.ctx,
-      signal: opts.signal ?? input.signal,
+      signal: loopSignal,
     })
   }
 
@@ -507,7 +535,7 @@ export class AIClient {
     const [history, facts, citations, epoch] = await Promise.all([
       this.ctx.history(chatKey),
       this.factsForPrompt(userId, opts?.isGroup === true),
-      this.retrieveFor(userText, opts?.signal),
+      this.retrieveFor(userText, this.withStop(opts?.signal)),
       // Taken BEFORE generating: an erasure during the turn invalidates its extraction.
       this.extractionEpoch(userId),
     ])
@@ -527,7 +555,7 @@ export class AIClient {
     // never write the stale turn back nor answer it.
     opts?.signal?.throwIfAborted()
     if (r.stopReason === 'refusal') {
-      const text = this.opts.refusalMessage ?? DEFAULT_REFUSAL
+      const text = this.refusalText(opts?.ctx)
       return { text, answer: text, citations: [], facts }
     }
     // An empty answer (e.g. the token budget spent on reasoning) is not a turn: storing
@@ -543,7 +571,7 @@ export class AIClient {
     await this.ctx.appendMany(chatKey, turn)
     if (userId && epoch !== undefined && this.opts.memory?.extraction) {
       // Background: never block the chat's FIFO queue on the extraction call.
-      this.track(this.extractMemory(userId, userText, r.text, { epoch }).catch((err) => this.report(err, 'memory-extract')))
+      this.background((signal) => this.extractMemory(userId, userText, r.text, { epoch, signal }))
     }
     return { text: this.withSources(r.text, citations, opts?.ctx), answer: r.text, citations, facts }
   }
@@ -726,6 +754,44 @@ export class AIClient {
   private track(p: Promise<unknown>): void {
     this.pending.add(p)
     void p.finally(() => this.pending.delete(p))
+  }
+
+  /** Aborts the background work started since the last {@link abortBackground}. */
+  private backgroundCtrl = new AbortController()
+
+  /** Run background work (memory extraction) under the client's background signal; errors are reported. */
+  private background(op: (signal: AbortSignal) => Promise<unknown>): void {
+    const signal = this.backgroundCtrl.signal
+    this.track(op(signal).catch((err) => { if (!signal.aborted) this.report(err, 'memory-extract') }))
+  }
+
+  /**
+   * Abort the background work in flight (memory extraction): its model calls are
+   * cancelled and their facts dropped. Later turns start new background work as usual.
+   * `aiPlugin` calls it when the bot stops.
+   * @internal
+   */
+  abortBackground(): void {
+    const ctrl = this.backgroundCtrl
+    this.backgroundCtrl = new AbortController()
+    ctrl.abort()
+  }
+
+  /** Aborted by {@link abortInFlight}: every model call, stream and tool loop listens to it. */
+  private stopCtrl = new AbortController()
+
+  /**
+   * Abort every call in flight on this client: `ask`, `generate`, `stream`, `replyInChat`,
+   * `streamReplyInChat`, `runTools` and the background memory extraction. Each pending
+   * call rejects with an `AbortError` (even when the provider ignores its signal).
+   * Calls made afterwards work as usual. `aiPlugin` calls it when the bot stops.
+   * @internal
+   */
+  abortInFlight(): void {
+    const ctrl = this.stopCtrl
+    this.stopCtrl = new AbortController()
+    this.abortBackground()
+    ctrl.abort(new DOMException('AI call aborted: the bot stopped', 'AbortError'))
   }
 
   /** Resolves when background work (memory extraction) has settled — for tests and graceful shutdown. */

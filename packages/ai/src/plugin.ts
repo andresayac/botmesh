@@ -33,6 +33,7 @@ import { ContextManager } from './ContextManager.js'
 import { AIClient } from './AIClient.js'
 import { resolveProvider } from './providers/resolve.js'
 import { assertThinking } from './providers/anthropicModels.js'
+import { assertAIConfig } from './config.js'
 import { LazyProvider } from './providers/LazyProvider.js'
 import { chatKeyOf } from './chatKey.js'
 import { createMemory } from './memory/createMemory.js'
@@ -60,7 +61,6 @@ export type AIPluginConfig = AIConfig & {
   __provider?: AIProvider
 }
 
-const DEFAULT_ERROR_MESSAGE = '⚠️ Ahora no puedo responder, intenta luego.'
 const DEFAULT_CONFIRM_TIMEOUT = '2m'
 
 interface InflightTurn {
@@ -72,15 +72,22 @@ interface InflightTurn {
 export function aiPlugin(config: AIPluginConfig = {}): PluginSpec<AIPluginConfig> {
   // Fail at config time (the caller's own stack), never inside the lazy provider.
   assertThinking(config.thinking)
+  assertAIConfig(config)
   return definePlugin<AIPluginConfig>({
     name: 'ai',
     version: '0.1.0',
     description: 'Multi-provider AI autoresponder + ctx.tools.ai',
     install(ctx: PluginContext, cfg: AIPluginConfig = config) {
+      // A config given to `bot.plug(aiPlugin(), cfg)` is checked here (a throw reverts the plug).
+      if (cfg !== config) { assertThinking(cfg.thinking); assertAIConfig(cfg) }
       const bot = ctx.bot
       // Resolve lazily so install stays sync: a bad config can't crash the process.
       const injected = cfg.instance ?? cfg.__provider
       const lazy = injected ? undefined : new LazyProvider(() => resolveProvider(cfg))
+      if (lazy && !cfg.model && (cfg.provider === 'openai' || cfg.provider === 'ollama')) {
+        // Not fatal (a call may pass its own `model`), but the autoresponder would fail on every message.
+        ctx.logger.warn(`ai provider "${cfg.provider}" has no default model: set aiPlugin({ model: '...' }) or every call without its own model fails`)
+      }
       const provider: AIProvider = injected ?? lazy!
       const ctxMgr = new ContextManager(bot.getStore(), { maxMessages: cfg.context?.maxMessages })
       const rag = toRagConfig(cfg.rag)
@@ -117,7 +124,8 @@ export function aiPlugin(config: AIPluginConfig = {}): PluginSpec<AIPluginConfig
       // (Reflect: the DefaultTools augmentation types `ai` as required, so `delete` won't type-check.)
       ctx.onDispose(() => { Reflect.deleteProperty(ctx.tools, 'ai') })
 
-      const errorMessage = cfg.errorMessage ?? DEFAULT_ERROR_MESSAGE
+      // `errorMessage`, else the localized `ai.error` text of the chat (Spanish by default).
+      const errorText = (mctx: MessageContext): string => cfg.errorMessage ?? aiText(mctx, AI_MESSAGES.error)
       const streamCfg = resolveStreamConfig(cfg.stream)
 
       // Tool turns that may outlive their handler (detached after a confirmation), per chat key.
@@ -126,11 +134,22 @@ export function aiPlugin(config: AIPluginConfig = {}): PluginSpec<AIPluginConfig
       const generation = new Map<string, number>()
       // Global, monotonic turn counter: ids are never reused, even after `/reset` drops a key.
       let turnSeq = 0
+      // Every autoreply turn still talking to the model: `bot.stop()` aborts them, so a slow
+      // or hung provider neither answers into a stopped bot nor keeps the process alive.
+      // `abortInFlight` also cancels the calls user handlers make through `ctx.tools.ai`.
+      const running = new Set<AbortController>()
+      const abortRunning = (): void => {
+        for (const turn of [...running]) turn.abort()
+        client.abortInFlight()
+      }
+      bot.on('stopped', abortRunning)
+      ctx.onDispose(() => { bot.off('stopped', abortRunning) })
 
       if (cfg.autoReply !== false) {
 
         bot.onMessage(async (mctx: MessageContext) => {
-          if (mctx.type !== 'text' || !mctx.body) return
+          // Blank text (only whitespace) is not a question: no model call, no empty history turn.
+          if (mctx.type !== 'text' || !mctx.body?.trim()) return
           const key = chatKeyOf(mctx)
           // Markdown from the model → this chat's own markup (or none): `ctx.textFormat` is the
           // provider's per-chat format (Twilio WhatsApp vs SMS), else `capabilities.textFormat`.
@@ -138,19 +157,27 @@ export function aiPlugin(config: AIPluginConfig = {}): PluginSpec<AIPluginConfig
           const shown = (text: string): string => (textFormat ? formatMarkdown(text, textFormat) : text)
           // Tool turns (loop + confirmations) are not streamed: they take the one-shot path below.
           if (streamCfg && !client.hasTools && typeof mctx.stream === 'function') {
+            const stop = new AbortController()
+            running.add(stop)
             try {
               // A discarded (cancelled) answer was never shown in full: keep it out of the context too.
               const keepPartial = streamCfg.onCancel !== 'discard'
-              const source = client.streamReplyInChat(key, mctx.body, { keepPartial, userId: mctx.sender, isGroup: mctx.isGroup, ctx: mctx })
+              const source = client.streamReplyInChat(key, mctx.body, {
+                keepPartial, userId: mctx.sender, isGroup: mctx.isGroup, ctx: mctx, signal: stop.signal,
+              })
               const result = await mctx.stream(textFormat ? formatMarkdownStream(source, textFormat) : source, {
                 typing: cfg.humanizeTyping !== false,
                 ...streamCfg,
               })
               // The model ended without a single character: never leave the user in silence.
-              if (!result.cancelled && !result.text.trim()) await mctx.reply(errorMessage)
+              if (!result.cancelled && !stop.signal.aborted && !result.text.trim()) await mctx.reply(errorText(mctx))
             } catch (err) {
+              // Stopped with the bot: nothing to say (and nowhere to say it).
+              if (stop.signal.aborted) return
               ctx.logger.warn({ err }, 'ai streamed autoreply failed')
-              await mctx.reply(errorMessage)
+              await mctx.reply(errorText(mctx))
+            } finally {
+              running.delete(stop)
             }
             return
           }
@@ -176,8 +203,9 @@ export function aiPlugin(config: AIPluginConfig = {}): PluginSpec<AIPluginConfig
                 ...(cfg.toolConfirm?.answeredNotice !== undefined ? { answeredNotice: cfg.toolConfirm.answeredNotice } : {}),
               })
             : undefined
-          // Lets `/reset` cancel the turn even after its confirmation was answered.
+          // Lets `/reset` (and `bot.stop()`) cancel the turn, even after its confirmation was answered.
           const abort = new AbortController()
+          running.add(abort)
           // `humanizeTyping` shows the indicator while the model generates; the reply then
           // skips the BotConfig.typing pacer so the user never sees a second typing round.
           const typedAhead = cfg.humanizeTyping !== false
@@ -193,7 +221,7 @@ export function aiPlugin(config: AIPluginConfig = {}): PluginSpec<AIPluginConfig
                 isGroup: mctx.isGroup,
                 ctx: mctx,
                 confirm: confirmer?.confirm,
-                ...(confirmer ? { signal: abort.signal } : {}),
+                signal: abort.signal,
               })
               // A detached turn must not talk over a flow the user started meanwhile.
               if (confirmer?.isDetached() && bot.inspectConversation(mctx) !== undefined) {
@@ -204,7 +232,7 @@ export function aiPlugin(config: AIPluginConfig = {}): PluginSpec<AIPluginConfig
               // (nor send a blank message, which several channels reject).
               if (!text.trim()) {
                 ctx.logger.warn('ai autoreply: the model returned an empty answer (if it was cut off, raise maxTokens)')
-                await mctx.reply(errorMessage, replyOpts)
+                await mctx.reply(errorText(mctx), replyOpts)
                 return
               }
               await mctx.reply(shown(text), replyOpts)
@@ -212,7 +240,9 @@ export function aiPlugin(config: AIPluginConfig = {}): PluginSpec<AIPluginConfig
               // Cancelled confirmation or turn (/reset, timeout, superseded turn): nothing to say.
               if (err instanceof AIToolCancelledError || abort.signal.aborted) return
               ctx.logger.warn({ err }, 'ai autoreply failed')
-              await mctx.reply(errorMessage, replyOpts).catch(() => {})
+              await mctx.reply(errorText(mctx), replyOpts).catch(() => {})
+            } finally {
+              running.delete(abort)
             }
           })()
           if (!confirmer) return turn

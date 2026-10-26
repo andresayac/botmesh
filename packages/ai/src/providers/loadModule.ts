@@ -10,7 +10,7 @@ export async function loadModule<T = unknown>(name: string, installHint: string)
     return (await import(/* @vite-ignore */ name)) as T
   } catch (err) {
     if (!isNotFound(err, name)) throw err
-    throw new Error(`El proveedor requiere el paquete "${name}", que no está instalado. Instálalo: ${installHint}`, {
+    throw new Error(`This AI provider needs the package "${name}", which is not installed. Install it: ${installHint}`, {
       cause: err,
     })
   }

@@ -101,3 +101,53 @@ describe('ai i18n — follows ctx.lang through the plugin', () => {
     expect(r.text).toBe("I couldn't complete the request. Please try again with more detail.")
   })
 })
+
+describe('ai i18n — error and refusal replies', () => {
+  it('keep their Spanish defaults without i18n (unchanged)', async () => {
+    const mock = new MockAIProvider()
+    mock.generate = async () => { throw new Error('boom') }
+    const { bot, chat } = await createTestBot()
+    bot.plug(aiPlugin({ instance: mock }))
+    await chat.send('hola')
+    await chat.expectReply('⚠️ Ahora no puedo responder, intenta luego.')
+    await bot.stop()
+    const refusal = new AIClient(new MockAIProvider({ stopReason: 'refusal' }), new ContextManager(new MemoryStore()))
+    expect(await refusal.ask('x')).toBe('No puedo ayudar con eso.')
+  })
+
+  it('follow ctx.lang when the bot speaks English (and an explicit message still wins)', async () => {
+    const mock = new MockAIProvider()
+    mock.generate = async () => { throw new Error('boom') }
+    const { bot, chat } = await createTestBot({ i18n: { defaultLocale: 'en' } })
+    bot.plug(aiPlugin({ instance: mock }))
+    await chat.send('hello')
+    await chat.expectReply("⚠️ I can't answer right now, please try again later.")
+    await bot.stop()
+
+    const t = await createTestBot({ i18n: { defaultLocale: 'en' } })
+    t.bot.plug(aiPlugin({ instance: new MockAIProvider({ stopReason: 'refusal' }) }))
+    await t.chat.send('something bad')
+    await t.chat.expectReply("I can't help with that.")
+    await t.bot.stop()
+
+    const own = await createTestBot({ i18n: { defaultLocale: 'en' } })
+    own.bot.plug(aiPlugin({ instance: new MockAIProvider({ stopReason: 'refusal' }), refusalMessage: 'Nope.' }))
+    await own.chat.send('x')
+    await own.chat.expectReply('Nope.')
+    await own.bot.stop()
+  })
+
+  it('can be translated with bot.locale()', async () => {
+    const mock = new MockAIProvider()
+    mock.generate = async () => { throw new Error('boom') }
+    const { bot, chat } = await createTestBot({ i18n: { defaultLocale: 'pt' } })
+    bot.locale('pt', { ai: { error: 'Não posso responder agora.' } })
+    bot.plug(aiPlugin({ instance: mock }))
+    await chat.send('olá')
+    await chat.expectReply('Não posso responder agora.')
+    await bot.stop()
+    expect(AI_LOCALES.es.ai).toHaveProperty('error')
+    expect(AI_MESSAGES.error).toBe('ai.error')
+    expect(AI_MESSAGES.refusal).toBe('ai.refusal')
+  })
+})
