@@ -5,11 +5,12 @@
 it works the same on WhatsApp (Baileys or Cloud API), Telegram or any
 provider that delivers `voice` / `audio` messages.
 
-::: warning Experimental — not on npm
-`@botmesh/voice` is a working, tested package, but it is **private**: it is not
-published to npm and its API may change. Use it from the monorepo
-(`workspace:*`).
-:::
+```bash
+pnpm add @botmesh/voice
+```
+
+During the beta, add the `@beta` dist-tag (`pnpm add @botmesh/voice@beta`): until the
+stable release npm's `latest` tag can point to an older build.
 
 - STT: OpenAI (`whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, and
   compatible servers) and Deepgram (`nova-3`).

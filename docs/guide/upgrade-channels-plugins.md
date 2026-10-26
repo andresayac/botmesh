@@ -169,13 +169,40 @@ New on npm in the beta (they were private before). If you used them from the mon
 - The `debug` option was removed: pass a `logger` (`pino({ level: 'debug' })`).
 - Invalid options throw a `TypeError` (it was a plain `Error`; the messages are the same).
 
+## Plugins promoted to npm
+
+`@botmesh/rag`, `@botmesh/voice`, `@botmesh/nlu`, `@botmesh/dialogflow`,
+`@botmesh/chatwoot`, `@botmesh/tickets` and `@botmesh/moderation` are published on npm
+from the beta (`1.0.0-beta`; install them with `@beta` until the stable release). Code
+that used them from the monorepo (`workspace:*`) needs these changes:
+
+- **Helpers moved to a `/internal` entry** (no semver; applications rarely need them):
+  `@botmesh/rag/internal` (`splitMarkdownSections`, `resolveChunkOptions`, `cosine`,
+  `hashText`, `tokenize`, `resolveEmbedder`, `createPdfParser`),
+  `@botmesh/voice/internal` (`trimPunctuation`, `resolveStt`, `resolveTts`,
+  `OPENAI_TTS_MIMETYPES`, `elevenLabsMimetype`, `estimateOggDurationSec`,
+  `estimateDurationSec`, `sniffMimetype`), `@botmesh/dialogflow/internal`
+  (`normalizeEsResult`, `normalizeCxResult`, `toSessionId`, `parseCredentials`,
+  `createServiceAccountJwt`, `DIALOGFLOW_SCOPE`, `DEFAULT_TOKEN_URI`),
+  `@botmesh/chatwoot/internal` (`ChatwootMapping`, `verifyWebhook`, `inboundText`,
+  `outboundText`), `@botmesh/tickets/internal` (`renderTemplate`, `localClock`) and
+  `@botmesh/moderation/internal` (`findLinks`, `findInviteLinks`, `compileTerms`,
+  `foldText`).
+- **`@botmesh/dialogflow`:** `dialogflowPlugin` is the canonical name and
+  `dialogflowContext` a deprecated alias. `languageCode` defaults to `'en'` (it was
+  `'es'`): set it to your agent's language.
+- **Frozen data:** `DEFAULT_VOICE_LIMITS`, `SUPPORTED_EXTENSIONS` (rag),
+  `TICKET_PRIORITIES` and `TICKET_STATUSES` can no longer be mutated; copy them first.
+- **`@botmesh/chatwoot`:** a webhook signature without `x-chatwoot-timestamp` is rejected
+  (it never expired, so a captured request could be replayed). Set
+  `webhookAllowUntimedSignature: true` only for a sender that cannot add the timestamp.
+- **`@botmesh/tickets`:** `TicketKeyValue` has an optional `setIf`. A custom storage that
+  implements it switches the desk to shared mode (safe for replicas).
+
 ## Private packages
 
 These are not on npm; the notes matter only inside the monorepo or a fork.
 
-- **`@botmesh/chatwoot`:** a webhook signature without `x-chatwoot-timestamp` is rejected
-  (it never expired, so a captured request could be replayed). Set
-  `webhookAllowUntimedSignature: true` only for a sender that cannot add the timestamp.
 - **`@botmesh/discord`:** `ctx.interaction.id` (`interactionId`) is the bare interaction id;
   the token stays in the provider. `acknowledgeInteraction()` still accepts the old
   `"<id>:<token>"` form. Interactions the bot does not acknowledge within `autoAcknowledgeMs` (2 s; `autoAckMs` is its deprecated alias)
@@ -184,8 +211,6 @@ These are not on npm; the notes matter only inside the monorepo or a fork.
   (`isEditedMessage(ctx)`; `editedMessages: 'ignore'` drops them).
 - **Error mappers renamed** (old names are deprecated aliases): `toDiscordError`,
   `toTikTokError`, `toEmailError`.
-- **`@botmesh/tickets`:** `TicketKeyValue` has an optional `setIf`. A custom storage that
-  implements it switches the desk to shared mode (safe for replicas).
 - **Product stores:** `InboxStore.erase`, `ContactStore.erase` and `DeploymentStore.prune`
   are new required methods, and `DeploymentStore.list` / `InboxStore.listNotes` accept an
   `after` cursor. A custom store must add them (the shared conformance suites in

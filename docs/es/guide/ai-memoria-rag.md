@@ -197,10 +197,12 @@ fragmento.
 
 ### `@botmesh/rag`
 
-::: warning Experimental — no está en npm
-`@botmesh/rag` es un paquete real y probado, pero **privado**: no se publica en
-npm y su API puede cambiar. Úsalo desde el monorepo (`workspace:*`).
-:::
+```bash
+pnpm add @botmesh/rag
+```
+
+Durante la beta, añade el dist-tag `@beta` (`pnpm add @botmesh/rag@beta`). No depende de
+`@botmesh/ai`: `aiPlugin` acepta cualquier retriever y `createRag()` devuelve uno.
 
 `createRag(options)` construye un retriever sin base de datos vectorial: un
 índice coseno en memoria con persistencia opcional en JSON.

@@ -1,54 +1,82 @@
 # @botmesh/nlu
 
-> **Experimental — not yet published on npm.** A real, tested implementation, but the package is `private`: it is not part of the first alpha and its API may change. Use it from this monorepo (`workspace:*`); the `pnpm add` below will work once it is published.
+Lightweight, **fully local** intent matching for [`@botmesh/core`](https://www.npmjs.com/package/@botmesh/core). Define intents with example phrases (utterances) and match the incoming text against them: no network calls, no ML models, no external services, no runtime dependency beyond `@botmesh/core`.
 
-Lightweight, **fully-local** intent matching for [`@botmesh/core`](../core). Define intents
-with training phrases (utterances) and match incoming message text against them — no
-network calls, no ML models, no external services. Zero runtime dependencies beyond
-`@botmesh/core`.
+- **Deterministic scoring** over normalized text (case, accents and punctuation ignored).
+- **`{slot}` entities**: `'my order {id}'` matches `'my order 12345'` and captures `{ id: '12345' }`.
+- **Bot integration**: `nluPlugin` exposes the engine as `ctx.tools.nlu`, and `whenIntent` routes an intent to a handler; unmatched messages fall through to your other handlers.
+
+It is a keyword/token-overlap matcher, not a full NLU (no embeddings, no stemming, no multilingual models). It works well for command-like intents ("my order", "cancel", "talk to a human"). For open-ended language, use [`@botmesh/ai`](https://www.npmjs.com/package/@botmesh/ai) instead of it or next to it, or [`@botmesh/dialogflow`](https://www.npmjs.com/package/@botmesh/dialogflow) for a hosted NLU.
+
+## Install
 
 ```bash
-pnpm add @botmesh/nlu
+pnpm add @botmesh/core @botmesh/nlu
 ```
 
-> **Scope note** — this is a deterministic keyword/token-overlap matcher, not a full ML
-> NLU (no embeddings, no stemming, no multilingual models). It's great for command-like
-> intents ("mi pedido", "cancelar", "hablar con un agente"). For open-ended language
-> understanding, use the LLM-based [`@botmesh/ai`](../ai) plugin instead (or alongside).
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/nlu@beta` during the beta (`npm view @botmesh/nlu dist-tags` lists the tags). Once stable, the plain command above works.
 
 ## Quick start
+
+```ts
+import { Bot } from '@botmesh/core'
+import { nluPlugin, whenIntent } from '@botmesh/nlu'
+
+const bot = new Bot({ provider })
+bot.plug(nluPlugin, {
+  intents: {
+    greeting: ['hello', 'hi', 'good morning'],
+    'order.status': ['my order {id}', 'where is my order', 'order status'],
+  },
+})
+const nlu = bot.injectTools.nlu!
+
+whenIntent(bot, nlu, 'greeting', (ctx) => ctx.reply('Hi! How can I help?'))
+whenIntent(bot, nlu, 'order.status', async (ctx, match) => {
+  const id = match.entities?.id
+  await ctx.reply(id ? `Looking up order ${id}…` : 'What is your order number?')
+})
+
+// Anything no intent matched:
+bot.onMessage((ctx) => ctx.reply("Sorry, I didn't get that."))
+await bot.start()
+```
+
+The engine also works on its own, without a bot:
 
 ```ts
 import { IntentEngine } from '@botmesh/nlu'
 
 const nlu = new IntentEngine() // default threshold: 0.5
-nlu.define('greeting', ['hola', 'buenas', 'buenos días'])
-nlu.define('order.status', ['mi pedido {id}', 'estado de mi pedido', 'quiero ver el estado de mi pedido'])
-nlu.define('cancel', ['cancelar', 'cancelar mi pedido'])
+nlu.define('greeting', ['hello', 'hi', 'good morning'])
+nlu.define('order.status', ['my order {id}', 'order status', 'where is my order'])
 
-nlu.match('¡HOLA!')          // → { intent: 'greeting', confidence: 1 }
-nlu.match('mi pedido 12345') // → { intent: 'order.status', confidence: 1, entities: { id: '12345' } }
-nlu.match('estado de mi pedido por favor') // → { intent: 'order.status', confidence: 0.9… }
-nlu.match('zzz qqq')         // → null (nothing crosses the threshold)
+nlu.match('HELLO!')                 // → { intent: 'greeting', confidence: 1 }
+nlu.match('my order 12345')         // → { intent: 'order.status', confidence: 1, entities: { id: '12345' } }
+nlu.match('order status please')    // → { intent: 'order.status', confidence: 0.9… }
+nlu.match('zzz qqq')                // → null (nothing crosses the threshold)
 ```
 
-## API
+## Options
 
-### `new IntentEngine(options?)`
+`nluPlugin` (a plugin spec: `bot.plug(nluPlugin, config)`) and `new IntentEngine(options)`:
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
-| `threshold` | `number` | `0.5` | Minimum confidence for `match()` to return a result. Must be in `[0, 1]`. |
+| `threshold` | `number` | `0.5` | Minimum confidence for `match()` to return a result. Must be in `[0, 1]`; anything else throws. |
+| `intents` | `Record<string, string[]>` | — | `nluPlugin` only: intents to define at install, `{ name: [utterance, …] }`. |
 
-### `engine.define(intent, utterances)`
+## API
 
-Add training phrases to an intent (chainable). Calling `define` again for an existing
-intent **appends** utterances. Throws on empty intent names or empty utterance lists.
-
-### `engine.match(text, threshold?) → IntentMatch | null`
-
-Returns the best intent at or above the threshold (per-call override optional; like the
-constructor option, it must be a number in `[0, 1]` or `match()` throws):
+| Member | Description |
+| --- | --- |
+| `engine.define(intent, utterances)` | Adds example phrases to an intent (chainable). Calling it again for the same intent **appends**. Throws on an empty name or an empty list. |
+| `engine.match(text, threshold?)` | The best intent at or above the threshold, or `null`. The per-call threshold follows the same rule as the option. |
+| `engine.rank(text)` | Every intent with a positive score, best first. Useful for debugging and "did you mean…?" menus. |
+| `engine.intents()` / `engine.threshold` | Intent names in definition order, and the configured threshold. |
+| `nluPlugin` | Installs an engine as `ctx.tools.nlu` (typed by importing the package; `bot.injectTools.nlu` outside handlers). |
+| `whenIntent(bot, engine, intent, handler)` | Runs `handler(ctx, match)` only when the text's **best** match is `intent`. Returns an unsubscribe function, like `bot.when`. |
+| `normalizeText(text)` | The normalization the engine applies (accents, case and punctuation removed, whitespace collapsed). |
 
 ```ts
 interface IntentMatch {
@@ -58,16 +86,7 @@ interface IntentMatch {
 }
 ```
 
-### `engine.rank(text) → IntentMatch[]`
-
-Scores **every** intent against the text and returns all positive scores sorted by
-confidence (descending). Useful for debugging and disambiguation UIs.
-
-### `engine.intents() → string[]` and `engine.threshold`
-
-Registered intent names (definition order) and the configured threshold.
-
-### `{slot}` entities (minimal)
+## `{slot}` entities
 
 Utterances may contain `{name}` placeholders. A slot captures a **single
 whitespace-delimited token** from the fully-normalized input (lowercased, diacritics
@@ -75,9 +94,9 @@ stripped). When the anchored slot pattern matches the whole input, confidence is
 and `entities` carries the captured values:
 
 ```ts
-nlu.define('travel', ['vuelo de {origen} a {destino}'])
-nlu.match('vuelo de Bogotá a Lima')
-// → { intent: 'travel', confidence: 1, entities: { origen: 'bogota', destino: 'lima' } }
+nlu.define('travel', ['flight from {origin} to {destination}'])
+nlu.match('Flight from Bogotá to Lima')
+// → { intent: 'travel', confidence: 1, entities: { origin: 'bogota', destination: 'lima' } }
 ```
 
 Limits (by design): slots are single-token and the pattern is anchored to the whole
@@ -113,74 +132,18 @@ extract entities.
 Tips for good accuracy: provide several short utterances per intent using the words
 your users actually type; avoid intents that share most of their vocabulary.
 
-## Bot integration
+## Troubleshooting
 
-### `nluPlugin(config?)`
+| Symptom | Cause and fix |
+| --- | --- |
+| A phrase you expect never matches | Its score is under `threshold`. Check `engine.rank(text)` to see the scores, add utterances with the words your users type, or lower the threshold. |
+| The wrong intent wins | Two intents share most of their words. Make their utterances more distinct, or remove the shared words from one of them. |
+| A slot is not captured | Slots take **one** word and the whole message must line up with the pattern. Extra words still score through token overlap, but without `entities`. |
+| `define()` throws "adjacent slots" | `'{a}{b}'` is ambiguous (and slow on long words): separate the slots with a space or a word. |
+| `whenIntent` never fires but `match()` works | Another handler registered earlier caught the message (a command, an active conversation or a more specific trigger wins). See the dispatch order in the triggers guide. |
+| `ctx.tools.nlu` is `undefined` | `nluPlugin` was not plugged into this bot. |
 
-Installs an engine on the Bot and exposes it as `ctx.tools.nlu` (typed automatically —
-the package augments `@botmesh/core`'s `DefaultTools`).
+## Links
 
-```ts
-import { nluPlugin } from '@botmesh/nlu'
-
-bot.plug(nluPlugin, {
-  threshold: 0.5, // optional
-  intents: {      // optional seed data
-    greeting: ['hola', 'buenas'],
-    'order.status': ['mi pedido {id}'],
-  },
-})
-
-// Retrieve the engine:
-const nlu = bot.injectTools.nlu // IntentEngine
-// …or inside any handler:
-bot.onMessage(async (ctx) => {
-  const best = ctx.tools.nlu?.rank(ctx.body)[0]
-  await ctx.reply(best ? `Creo que dices: ${best.intent}` : 'No entendí 🤔')
-})
-```
-
-### `whenIntent(bot, engine, intent, handler)`
-
-Sugar over `bot.when` with a predicate trigger: the handler runs **only** when the
-incoming text's *best* match is `intent` (above the engine threshold). The handler
-receives `(ctx, match)` so you can read `match.confidence` and `match.entities`.
-Messages that don't match — or whose best match is a different intent — fall through to
-other matchers and, eventually, `onMessage`. Returns an unsubscribe function.
-
-```ts
-import { nluPlugin, whenIntent, IntentEngine } from '@botmesh/nlu'
-
-bot.plug(nluPlugin, {
-  intents: {
-    greeting: ['hola', 'buenas'],
-    'order.status': ['mi pedido {id}', 'estado de mi pedido'],
-  },
-})
-const nlu = bot.injectTools.nlu as IntentEngine
-
-whenIntent(bot, nlu, 'greeting', async (ctx) => {
-  await ctx.reply('¡Hola! 👋 ¿En qué te ayudo?')
-})
-
-whenIntent(bot, nlu, 'order.status', async (ctx, match) => {
-  const id = match.entities?.id
-  await ctx.reply(id ? `Buscando el pedido ${id}…` : '¿Cuál es tu número de pedido?')
-})
-
-// Anything no intent matched:
-bot.onMessage(async (ctx) => {
-  await ctx.reply('No entendí 🤔 (para IA de verdad, usa @botmesh/ai)')
-})
-```
-
-## Development
-
-```bash
-pnpm --filter @botmesh/nlu build
-pnpm --filter @botmesh/nlu test
-```
-
-## License
-
-MIT
+- [Integrations guide (local intent matching)](https://andresayac.github.io/botmesh/guide/integrations#local-intent-matching-nlu) · [Triggers](https://andresayac.github.io/botmesh/guide/triggers) · [Plugins](https://andresayac.github.io/botmesh/guide/plugins) · [AI plugin](https://andresayac.github.io/botmesh/guide/ai)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/nlu/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/nlu) · [Issues](https://github.com/andresayac/botmesh/issues)

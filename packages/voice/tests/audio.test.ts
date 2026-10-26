@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { estimateDurationSec, estimateOggDurationSec, sniffMimetype } from '../src/index.js'
+import { estimateDurationSec, estimateOggDurationSec, sniffMimetype } from '../src/internal.js'
 import { audioFilename, effectiveMimetype } from '../src/audio.js'
 import { encodeMultipart } from '../src/multipart.js'
 import { makeOgg } from './helpers.js'
@@ -83,7 +83,7 @@ describe('encodeMultipart', () => {
 
 describe('trimPunctuation', () => {
   it('strips surrounding punctuation and whitespace only', async () => {
-    const { trimPunctuation } = await import('../src/index.js')
+    const { trimPunctuation } = await import('../src/internal.js')
     expect(trimPunctuation(' ¡Hola! ')).toBe('Hola')
     expect(trimPunctuation('Sí.')).toBe('Sí')
     expect(trimPunctuation('¿Mi pedido 12, por favor?')).toBe('Mi pedido 12, por favor')

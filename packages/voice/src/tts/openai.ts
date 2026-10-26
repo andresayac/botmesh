@@ -32,14 +32,14 @@ export interface OpenAITtsOptions extends VoiceHttpOptions {
 
 const SERVICE = 'openai-tts'
 
-export const OPENAI_TTS_MIMETYPES: Record<OpenAITtsFormat, string> = {
+export const OPENAI_TTS_MIMETYPES: Readonly<Record<OpenAITtsFormat, string>> = Object.freeze({
   opus: 'audio/ogg; codecs=opus',
   mp3: 'audio/mpeg',
   aac: 'audio/aac',
   flac: 'audio/flac',
   wav: 'audio/wav',
   pcm: 'audio/pcm',
-}
+})
 
 export function openaiTts(options: OpenAITtsOptions = {}): TtsAdapter {
   const apiKey = options.apiKey ?? process.env.OPENAI_API_KEY

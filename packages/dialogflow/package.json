@@ -1,20 +1,61 @@
 {
   "name": "@botmesh/dialogflow",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "Dialogflow ES/CX context for @botmesh/core — detectIntent over REST with a service-account JWT (no Google SDK) and intent-to-flow routing.",
-  "main": "lib/index.js", "types": "lib/index.d.ts",
-  "exports": { ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" } },
-  "engines": { "node": ">=22" },
-  "keywords": ["botmesh", "dialogflow", "dialogflow-cx", "nlu", "intent"],
-  "author": "Andres Aya", "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/andresayac/botmesh.git", "directory": "packages/dialogflow" },
-  "homepage": "https://github.com/andresayac/botmesh/tree/main/packages/dialogflow#readme",
-  "bugs": { "url": "https://github.com/andresayac/botmesh/issues" },
-  "files": ["./lib/**/*"],
-  "scripts": { "build": "tsc", "test": "vitest run", "prepublishOnly": "pnpm build", "typecheck": "tsc -p tsconfig.test.json" },
-  "dependencies": { "@botmesh/core": "workspace:*", "@botmesh/http": "workspace:*" },
-  "devDependencies": { "@types/node": "^26.1.1", "typescript": "^7.0.2", "vite": "^7.3.7", "vitest": "^4.1.12" },
-  "publishConfig": { "access": "public" }
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./internal": {
+      "types": "./lib/internal.d.ts",
+      "default": "./lib/internal.js"
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "botmesh",
+    "dialogflow",
+    "dialogflow-cx",
+    "nlu",
+    "intent"
+  ],
+  "author": "Andres Aya",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andresayac/botmesh.git",
+    "directory": "packages/dialogflow"
+  },
+  "homepage": "https://andresayac.github.io/botmesh/guide/integrations#dialogflow",
+  "bugs": {
+    "url": "https://github.com/andresayac/botmesh/issues"
+  },
+  "files": [
+    "./lib/**/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "prepublishOnly": "pnpm build",
+    "typecheck": "tsc -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "@botmesh/core": "workspace:^",
+    "@botmesh/http": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.7",
+    "vitest": "^4.1.12"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

@@ -202,10 +202,10 @@ importers:
   packages/chatwoot:
     dependencies:
       '@botmesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@botmesh/http':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../http
     devDependencies:
       '@types/node':
@@ -344,10 +344,10 @@ importers:
   packages/dialogflow:
     dependencies:
       '@botmesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@botmesh/http':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../http
     devDependencies:
       '@types/node':
@@ -834,7 +834,7 @@ importers:
   packages/moderation:
     dependencies:
       '@botmesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
     devDependencies:
       '@types/node':
@@ -900,7 +900,7 @@ importers:
   packages/nlu:
     dependencies:
       '@botmesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
     devDependencies:
       '@types/node':
@@ -975,14 +975,14 @@ importers:
   packages/rag:
     dependencies:
       '@botmesh/http':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../http
     devDependencies:
       '@botmesh/ai':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../ai
       '@botmesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@types/node':
         specifier: ^26.1.1
@@ -1209,7 +1209,7 @@ importers:
   packages/tickets:
     dependencies:
       '@botmesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
     devDependencies:
       '@types/node':
@@ -1278,10 +1278,10 @@ importers:
   packages/voice:
     dependencies:
       '@botmesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@botmesh/http':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../http
     devDependencies:
       '@types/node':

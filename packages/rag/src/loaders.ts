@@ -26,7 +26,7 @@ const MD_EXT = new Set(['.md', '.markdown', '.mdx'])
 const JSON_EXT = new Set(['.json'])
 const PDF_EXT = new Set(['.pdf'])
 /** Extensions picked up when a directory is given. */
-export const SUPPORTED_EXTENSIONS: readonly string[] = [...TEXT_EXT, ...MD_EXT, ...JSON_EXT, ...PDF_EXT]
+export const SUPPORTED_EXTENSIONS: readonly string[] = Object.freeze([...TEXT_EXT, ...MD_EXT, ...JSON_EXT, ...PDF_EXT])
 
 const toPosix = (p: string): string => p.split('\\').join('/')
 

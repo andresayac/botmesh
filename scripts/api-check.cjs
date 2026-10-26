@@ -25,7 +25,13 @@ const fs = require('fs')
 const root = path.resolve(__dirname, '..')
 const mode = process.argv[2] || 'missing'
 const ts = require(path.join(root, 'node_modules/typescript'))
-const PUBLIC = ['core', 'baileys-provider', 'meta-provider', 'telegram-provider', 'messenger-provider', 'instagram-provider', 'evolution-provider', 'wppconnect-provider', 'wa-gateway-kit', 'discord-provider', 'twilio-provider', 'gupshup-provider', 'email-provider', 'gohighlevel-provider', 'sqlite-store', 'redis-store', 'postgres-store', 'mysql-store', 'mongo-store', 'ai', 'http', 'graph-core', 'create-botmesh', 'server', 'events', 'otel']
+const PUBLIC = [
+  'core', 'baileys-provider', 'meta-provider', 'telegram-provider', 'messenger-provider', 'instagram-provider', 'evolution-provider', 'wppconnect-provider', 'wa-gateway-kit',
+  'discord-provider', 'twilio-provider', 'gupshup-provider', 'email-provider', 'gohighlevel-provider',
+  'sqlite-store', 'redis-store', 'postgres-store', 'mysql-store', 'mongo-store', 'ai', 'http', 'graph-core', 'create-botmesh',
+  'server', 'events', 'otel',
+  'rag', 'voice', 'nlu', 'dialogflow', 'chatwoot', 'tickets', 'moderation',
+]
 /** Reviewed and accepted (see docs/api-review.md): the EventEmitter-compatible overloads of Bot.on/once/off/emit. */
 const ALLOWED_ANY = new Set(['Bot'])
 /**
@@ -41,6 +47,7 @@ const SEMVER_FORBIDDEN_IMPORTS = {
   'postgres-store': ['pg'],
   'mysql-store': ['mysql2'],
   'mongo-store': ['mongodb'],
+  rag: ['pdf-parse'],
 }
 /** Entries without a semver promise: `missing` skips their signatures, and a type exported only there counts as missing. */
 const UNSTABLE_ENTRIES = new Set(['./internal'])

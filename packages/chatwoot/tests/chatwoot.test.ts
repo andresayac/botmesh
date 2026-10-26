@@ -402,6 +402,23 @@ describe('chatwootPlugin — webhook authentication', () => {
     await bot.stop()
   })
 
+  it('accepts a framework-parsed query object (Express req.query / ParsedQs shape)', async () => {
+    const { bot } = await createTestBot()
+    const { plugin } = setup()
+    bot.plug(plugin)
+    const ping = JSON.stringify({ event: 'conversation_created', id: 1 })
+    // Shape of Express's ParsedQs: values may be strings, arrays or nested objects.
+    interface ParsedQsLike { [key: string]: undefined | string | string[] | ParsedQsLike | ParsedQsLike[] }
+    const ok: ParsedQsLike = { token: 'hook-token', extra: ['a', 'b'] }
+    const repeated: ParsedQsLike = { token: ['hook-token', 'other'] }
+    const nested: ParsedQsLike = { token: { value: 'hook-token' } }
+    expect((await plugin.handleWebhook({ rawBody: ping, headers: {}, query: ok })).status).toBe(200)
+    // Non-string token values are never accepted as a token.
+    expect((await plugin.handleWebhook({ rawBody: ping, headers: {}, query: repeated })).status).toBe(401)
+    expect((await plugin.handleWebhook({ rawBody: ping, headers: {}, query: nested })).status).toBe(401)
+    await bot.stop()
+  })
+
   it('HMAC: signature over the raw body (optionally timestamp-bound) with tolerance', async () => {
     const { bot } = await createTestBot()
     const now = 1_800_000_000_000

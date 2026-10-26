@@ -96,7 +96,9 @@ Los paquetes de npm son `@botmesh/core`, `@botmesh/baileys`, `@botmesh/meta`,
 `@botmesh/evolution`, `@botmesh/wppconnect`, `@botmesh/sqlite-store`,
 `@botmesh/redis-store`, `@botmesh/postgres-store`, `@botmesh/mysql-store`,
 `@botmesh/mongo-store`, `@botmesh/ai`, `@botmesh/http`, `@botmesh/graph-core`,
-`@botmesh/wa-gateway-kit`, `@botmesh/server`, `@botmesh/events`, `@botmesh/otel`
+`@botmesh/wa-gateway-kit`, `@botmesh/server`, `@botmesh/events`, `@botmesh/otel`,
+`@botmesh/rag`, `@botmesh/voice`, `@botmesh/nlu`, `@botmesh/dialogflow`,
+`@botmesh/chatwoot`, `@botmesh/tickets`, `@botmesh/moderation`
 y `create-botmesh` (todos salvo `@botmesh/telegram`, `@botmesh/sqlite-store`,
 `@botmesh/redis-store`, `@botmesh/ai`, `@botmesh/http` y `@botmesh/graph-core`
 se publican por primera vez con la beta).

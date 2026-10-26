@@ -22,8 +22,9 @@
  *     TypeScript, and check: every exports subpath imports at runtime; a
  *     consumer .ts typechecks with moduleResolution nodenext AND bundler
  *     (including the `ctx.tools.ai` DefaultTools augmentation); a small runtime
- *     scenario (createTestBot, aiPlugin + MockAIProvider from @botmesh/ai/testing, SQLiteStore); optional
- *     AI SDK, email (imapflow, nodemailer) and @opentelemetry/api peers absent → import works, a clear
+ *     scenario (createTestBot, aiPlugin + MockAIProvider from @botmesh/ai/testing, SQLiteStore, the
+ *     nlu/rag/tickets/moderation/voice plugins); optional
+ *     AI SDK, email (imapflow, nodemailer), pdf-parse and @opentelemetry/api peers absent → import works, a clear
  *     lazy error only on use; the
  *     `botmesh` and `create-botmesh` bins run.
  *  4. Scaffold every create-botmesh template, check its @botmesh ranges resolve
@@ -103,6 +104,51 @@ import { eventsDurability } from '@botmesh/events/durability'
 import { otelMetricsPlugin, otelTracer } from '@botmesh/otel'
 import { SpanMetrics } from '@botmesh/otel/internal'
 import * as otelApi from '@opentelemetry/api'
+import { createRag, HashEmbedder, RagError, type RetrievedChunk } from '@botmesh/rag'
+import { resolveEmbedder } from '@botmesh/rag/internal'
+import { voicePlugin, VoiceError, type SttAdapter } from '@botmesh/voice'
+import { sniffMimetype } from '@botmesh/voice/internal'
+import { IntentEngine, nluPlugin, whenIntent, type IntentMatch } from '@botmesh/nlu'
+import { dialogflowPlugin, whenDialogflowIntent, type DialogflowResult } from '@botmesh/dialogflow'
+import { toSessionId } from '@botmesh/dialogflow/internal'
+import { chatwootPlugin, type ChatwootApi } from '@botmesh/chatwoot'
+import { verifyWebhook } from '@botmesh/chatwoot/internal'
+import { ticketsPlugin, TicketDesk, memoryTicketStorage, type Ticket } from '@botmesh/tickets'
+import { renderTemplate } from '@botmesh/tickets/internal'
+import { moderationPlugin, type ModerationReport } from '@botmesh/moderation'
+import { findInviteLinks } from '@botmesh/moderation/internal'
+
+// The promoted plugins: each one types its ctx.tools entry, and the main entries name every option type.
+export const pluginRefs = [resolveEmbedder, sniffMimetype, toSessionId, verifyWebhook, renderTemplate, findInviteLinks, HashEmbedder, RagError, VoiceError]
+export const rag = createRag({ documents: [{ id: 'faq', source: 'faq', text: 'We ship in 3 days.' }] })
+export const fakeStt: SttAdapter = { name: 'fake', transcribe: async () => ({ text: 'hi', provider: 'fake' }) }
+export const voice = voicePlugin({ stt: fakeStt })
+export const desk = new TicketDesk({ storage: memoryTicketStorage() })
+export const hits: RetrievedChunk[] = []
+export const match: IntentMatch | null = new IntentEngine().define('hi', ['hi']).match('hi')
+export const dfResult: DialogflowResult | undefined = undefined
+export const ticket: Ticket | undefined = undefined
+export const report: ModerationReport | undefined = undefined
+export const plugins = [
+  ticketsPlugin(),
+  moderationPlugin({ antiSpam: { maxMessages: 5, windowMs: 10_000 } }),
+  chatwootPlugin({ baseUrl: 'https://cw.example.com', apiKey: 'k', accountId: 1, inboxId: 2, webhookToken: 't' }),
+]
+export function wire(bot: Bot): void {
+  bot.plug(nluPlugin, { intents: { hi: ['hi'] } })
+  const nlu: IntentEngine | undefined = bot.injectTools.nlu
+  if (nlu) whenIntent(bot, nlu, 'hi', (ctx, m) => ctx.reply(m.intent))
+  const cw: ChatwootApi | undefined = bot.injectTools.chatwoot
+  void cw
+  const df = bot.injectTools.dialogflow
+  if (df) whenDialogflowIntent(bot, df, 'order.status', (ctx, r) => ctx.reply(String(r.parameters.order)))
+  void dialogflowPlugin
+  bot.when('t', async (ctx) => {
+    const created = await ctx.tools.tickets?.create({ chatId: ctx.from, subject: ctx.body })
+    await ctx.tools.voice.speak(ctx, 'ticket ' + (created?.id ?? ''))
+    ctx.tools.moderation?.mute(ctx.from, ctx.sender, 1000)
+  })
+}
 
 export const providers: IProvider[] = [
   // logger takes any LoggerLike (console included), not only pino.
@@ -292,6 +338,44 @@ t4.bot.when('hola', (ctx) => ctx.reply('durable hi'))
 await t4.chat.send('hola')
 await t4.chat.expectReply('durable hi')
 await t4.bot.stop()
+
+// The promoted plugins work from their tarballs.
+const { nluPlugin, whenIntent } = await import('@botmesh/nlu')
+const t7 = await createTestBot()
+t7.bot.plug(nluPlugin, { intents: { greeting: ['hello', 'hi'] } })
+whenIntent(t7.bot, t7.bot.injectTools.nlu, 'greeting', (ctx) => ctx.reply('NLU-HI'))
+await t7.chat.send('Hello!')
+await t7.chat.expectReply('NLU-HI')
+
+const { createRag, defaultPdfParser, RagError } = await import('@botmesh/rag')
+const rag = createRag({ documents: [{ id: 'faq', source: 'faq.md', format: 'markdown', text: '# Shipping\\nWe ship in 3 days.\\n\\n# Payments\\nCards and cash.' }] })
+const hits = await rag.retrieve('how long does shipping take', { topK: 1 })
+assert.equal(hits[0]?.citation, 'faq.md › Shipping')
+// The optional pdf-parse peer is absent: a typed error only when a PDF is parsed.
+const pdfErr = await defaultPdfParser(Buffer.from('%PDF-1.4')).then(() => undefined, (e) => e)
+assert.ok(pdfErr instanceof RagError && pdfErr.code === 'MISSING_DEPENDENCY', 'expected MISSING_DEPENDENCY without pdf-parse')
+
+const { ticketsPlugin } = await import('@botmesh/tickets')
+const { moderationPlugin } = await import('@botmesh/moderation')
+const t5 = await createTestBot({ logger: silent })
+t5.bot.plug(ticketsPlugin({ queueMessage: 'TICKET-{{id}}' }))
+t5.bot.plug(moderationPlugin({ applyTo: 'all', wordFilter: { banned: ['scam'], action: 'warn' } }))
+t5.bot.when('help', async (ctx) => { await ctx.tools.tickets.create({ chatId: ctx.from, subject: 'help' }) })
+await t5.chat.send('help')
+await t5.chat.expectReply('TICKET-1')
+await t5.chat.send('this is a scam')
+await t5.chat.expectReply(/scam|warning/i)
+
+const { voicePlugin } = await import('@botmesh/voice')
+const t6 = await createTestBot({ logger: silent })
+t6.provider.downloadMedia = async () => Buffer.from('OggS')
+t6.bot.plug(voicePlugin({ stt: { name: 'fake', transcribe: async () => ({ text: 'Hello.', provider: 'fake' }) } }))
+t6.bot.when('hello', (ctx) => ctx.reply('VOICE-OK'))
+await t6.chat.send('', { type: 'voice' })
+await t6.chat.expectReply('VOICE-OK')
+
+const { dialogflowPlugin } = await import('@botmesh/dialogflow')
+assert.throws(() => t6.bot.plug(dialogflowPlugin({ credentials: { client_email: 'x@y', private_key: 'nope' } })), /private_key/)
 console.log('RUNTIME OK')
 process.exit(0)
 `
@@ -619,7 +703,7 @@ if (consumerOk) {
   }
   walk(nm, 0)
   if (dupes.length) fail('consumer', `duplicate @botmesh/core copies: ${dupes.join(', ')}`)
-  for (const sdk of ['@anthropic-ai/sdk', 'openai', '@google/generative-ai', 'imapflow', 'nodemailer', '@opentelemetry/api']) {
+  for (const sdk of ['@anthropic-ai/sdk', 'openai', '@google/generative-ai', 'imapflow', 'nodemailer', '@opentelemetry/api', 'pdf-parse']) {
     if (existsSync(join(nm, sdk))) fail('consumer', `optional peer ${sdk} got installed`)
   }
 
@@ -704,7 +788,7 @@ console.log('OTEL LAZY OK')
   writeFileSync(join(CONSUMER, 'runtime.mjs'), RUNTIME_MJS)
   const rt = run('node', ['runtime.mjs'], { cwd: CONSUMER, timeout: 60_000 })
   if (!rt.ok || !rt.out.includes('RUNTIME OK')) fail('runtime', rt.out.split('\n').slice(-20).join('\n'))
-  else console.log('  runtime scenario OK (createTestBot, aiPlugin+MockAIProvider, SQLiteStore, SQL/Mongo stores on injected pools, lazy SDK error, server ingress, events worker + durability)')
+  else console.log('  runtime scenario OK (createTestBot, aiPlugin+MockAIProvider, SQLiteStore, SQL/Mongo stores on injected pools, lazy SDK error, server ingress, events worker + durability, plugins)')
 
   // 3d. bins.
   const binOf = (pkgName, bin) => {

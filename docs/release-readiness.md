@@ -561,11 +561,42 @@ Follow-ups from the API freeze reviews (all LOW, none blocks stable):
 - **Repo instructions:** `AGENTS.md` still says `MockAIProvider` comes from `@botmesh/ai`
   (it works through the deprecated alias; `@botmesh/ai/testing` is the documented path).
 
+### Promoted plugins (beta)
+
+`@botmesh/rag`, `@botmesh/voice`, `@botmesh/nlu`, `@botmesh/dialogflow`,
+`@botmesh/chatwoot`, `@botmesh/tickets` and `@botmesh/moderation` went public after this
+report (branch `pp/plugins`, changeset `promote-plugins.md`, `1.0.0-beta.0`). They depend
+only on `@botmesh/core` and `@botmesh/http`; each one got the same freeze as the other
+public packages (an `/internal` entry except `nlu`, frozen data, an entry-pin test,
+`api-check` and `pack:smoke` coverage, a README in the shared layout). Main entry before →
+after: rag 49 → 41, voice 49 → 41, nlu 8 → 8, dialogflow 28 → 21 (`dialogflowContext`
+deprecated), chatwoot 25 → 20, tickets 30 → 28, moderation 29 → 23. Verdict: **GO after one
+beta and the live calls below**, with these honest limits:
+
+- **Live verification (blocks `pre exit`).** Chatwoot passed the real round trip against a
+  self-hosted Chatwoot 4.7 (Docker suite of `@botmesh/sandbox`). Dialogflow (Google OAuth
+  JWT exchange plus ES and CX `detectIntent`), the OpenAI, Deepgram and ElevenLabs voice
+  adapters and the OpenAI (`/embeddings`) and Ollama (`/api/embed`) embedders were **never
+  run against the real services**: every test uses injected `fetch` fakes shaped after the
+  public API docs. A wrong request shape or auth header would ship as 1.0, so one real call
+  of each is a hard exit criterion (see [Before stable](#before-stable-pre-exit)). If one
+  cannot be run before `pre exit`, hold that package at a prerelease instead of shipping it
+  as 1.0.0.
+- **moderation:** `kick` and provider admin lists need a `groups` namespace that no bundled
+  provider exposes yet, so `kick` degrades to `mute`. `GroupAdminApi` and
+  `ModerationProvider.groups` are `@experimental` (outside semver, pinned by
+  `tests/group-admin-stability.test.ts`) until core defines a groups capability; the rest of
+  the moderation API is frozen. State lives in memory (not shared between replicas).
+- **chatwoot:** `handleWebhook({ query })` takes `URLSearchParams` or any parsed query object
+  (`Record<string, unknown>`, so Express `req.query` type-checks); only a string `token` is
+  read.
+- **tickets:** `list()` with closed tickets scans every id in storage.
+
 ### Private packages
 
-Discord, Twilio, Gupshup, email and HighLevel were promoted (see above). None of the
-remaining private packages is a promotion candidate yet; promoting one still means removing `"private"`,
-switching `workspace:*` to `workspace:^`, a changeset and a README section.
+Discord, Twilio, Gupshup, email and HighLevel were promoted (see above), and so were the
+other promotion rounds listed in this report. Promoting another private package still means removing `"private"`, switching
+`workspace:*` to `workspace:^`, the API freeze above, a changeset and a README section.
 
 - **channels**: TikTok stays private (approval-gated API, no public spec) and its
   inbound media stays `application/octet-stream`; the promoted channels' open items are
@@ -586,7 +617,7 @@ switching `workspace:*` to `workspace:^`, a changeset and a README section.
 - **product**: `attachInbox` without `tenantId` now uses the bot's tenant (no data
   migration for conversations stored under `'local'`); the new `after` cursors need the
   cursor item to still exist; the hub manifest range type became optional.
-- **plugins**: the plugins depend on core through `workspace:*`; the chatwoot, tickets,
+- **plugins**: the private plugins depend on core through `workspace:*`; the chatwoot, tickets,
   moderation, dialogflow and inbox-projection plugins have fixed names, so plugging two
   instances now throws unless they set `multiple`.
 
@@ -624,6 +655,11 @@ switching `workspace:*` to `workspace:^`, a changeset and a README section.
 ### Before stable (`pre exit`)
 
 - [ ] No open HIGH or MEDIUM defect in any public package.
+- [ ] One real call, with real credentials, of each promoted-plugin path that has only
+  run against `fetch` fakes: Dialogflow ES and CX `detectIntent` (including the Google
+  OAuth JWT exchange), voice STT/TTS on OpenAI, Deepgram and ElevenLabs, and the rag
+  embedders on OpenAI `/embeddings` and Ollama `/api/embed`. Record the date and result
+  here. A package whose call was not run stays at a prerelease (do not ship it as 1.0.0).
 - [ ] At least one beta used for a few weeks by a real bot on Baileys, the Cloud API
   and Telegram, with no new MEDIUM defect.
 - [ ] One live test each for the promoted channels (Discord, Twilio, Gupshup, email,

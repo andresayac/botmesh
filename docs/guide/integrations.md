@@ -1,9 +1,9 @@
 # Integrations
 
-::: warning Experimental — not on npm
-The packages on this page are **experimental**: real, tested implementations
-that are still private (not published to npm) and whose API may change. Use
-them from the monorepo (`workspace:*`).
+::: tip Public packages
+The packages on this page are published on npm and covered by semver from
+their stable release (1.0.0). Each one keeps its building blocks in a
+`/internal` entry with no semver guarantee (`@botmesh/nlu` has none).
 :::
 
 | Package | What it does | Tool |
@@ -18,17 +18,11 @@ All of them are regular plugins with a synchronous `install`
 (`bot.plug(factory({...}))`; `nluPlugin` is a spec, `bot.plug(nluPlugin, config)`). Importing a package types its `ctx.tools.*` entry;
 outside a handler, use `bot.injectTools.<name>`.
 
-```json
-{
-  "dependencies": {
-    "@botmesh/chatwoot": "workspace:*",
-    "@botmesh/tickets": "workspace:*",
-    "@botmesh/moderation": "workspace:*",
-    "@botmesh/dialogflow": "workspace:*",
-    "@botmesh/nlu": "workspace:*"
-  }
-}
+```bash
+pnpm add @botmesh/chatwoot @botmesh/tickets @botmesh/moderation @botmesh/dialogflow @botmesh/nlu
 ```
+
+Install only the ones you use. During the beta, add the `@beta` dist-tag (`pnpm add @botmesh/chatwoot@beta`): npm's `latest` tag can point to an older build until the stable release.
 
 ## How they fit in the pipeline
 
@@ -370,6 +364,9 @@ logs a warning at install when it sees a restrictive mode.
 - No provider in the monorepo exposes `groups.removeParticipants` /
   `getAdmins` yet, so `kick` degrades to `mute` and admin detection relies
   on `admins` / `isAdmin`.
+- `GroupAdminApi` and `ModerationProvider.groups` are `@experimental`
+  (outside semver) until `@botmesh/core` defines a groups capability for
+  providers; their shape may change in a minor release.
 
 ## Dialogflow
 
@@ -380,11 +377,11 @@ requests go through `secureFetch`.
 
 ```ts
 import { Bot, flow } from '@botmesh/core'
-import { dialogflowContext, whenDialogflowIntent } from '@botmesh/dialogflow'
+import { dialogflowPlugin, whenDialogflowIntent } from '@botmesh/dialogflow'
 
 const bot = new Bot({ provider })
 
-bot.plug(dialogflowContext({                        // alias of dialogflowPlugin
+bot.plug(dialogflowPlugin({                         // dialogflowContext is a deprecated alias
   credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS!), // service-account JSON
   languageCode: 'en',
   fulfillment: 'unrouted',     // reply with the agent's text when the intent has no route
@@ -437,7 +434,7 @@ what Dialogflow does not understand.
 | `credentials` | — | Service-account JSON (`client_email`, `private_key`, `project_id`…) |
 | `tokenSource` | — | `{ getAccessToken() }`, alternative to `credentials` |
 | `projectId` | `credentials.project_id` | Google Cloud project |
-| `languageCode` / `languageFor(ctx)` | `'es'` | Query language, global / per message |
+| `languageCode` / `languageFor(ctx)` | `'en'` | Query language, global / per message |
 | `queryParams(ctx)` | — | Raw `queryParams` per message |
 | `cx` | — | `{ agentId, location, environment? }` switches to CX |
 | `location` / `environment` | global / draft | ES only: regional agent or published environment |

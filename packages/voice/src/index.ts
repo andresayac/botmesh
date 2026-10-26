@@ -14,11 +14,16 @@
  * bot.when('hola', (ctx) => ctx.reply('¡Hola! 👋'))        // also matches a voice note saying "hola"
  * bot.when(VOICE_NOTE, (ctx) => ctx.reply(`Dijiste: ${ctx.transcript}`))
  * ```
+ *
+ * The building blocks (config resolvers, audio sniffing and duration estimates, MIME tables
+ * and the punctuation trimmer) live in `@botmesh/voice/internal`, without a semver guarantee.
+ *
+ * @packageDocumentation
  */
 
 import type { VoiceClient } from './VoiceClient.js'
 
-export { voicePlugin, trimPunctuation } from './plugin.js'
+export { voicePlugin } from './plugin.js'
 export type {
   VoicePluginConfig,
   AutoTranscribeOptions,
@@ -27,15 +32,14 @@ export type {
 } from './plugin.js'
 export { VoiceClient, DEFAULT_VOICE_LIMITS } from './VoiceClient.js'
 export type { VoiceClientOptions, VoiceLimits, ResolvedVoiceLimits, TranscribeSource } from './VoiceClient.js'
-export { resolveStt, resolveTts } from './resolve.js'
 export type { SttConfig, TtsConfig, SttProviderName, TtsProviderName } from './resolve.js'
 export { openaiStt } from './stt/openai.js'
 export type { OpenAISttOptions } from './stt/openai.js'
 export { deepgramStt } from './stt/deepgram.js'
 export type { DeepgramSttOptions } from './stt/deepgram.js'
-export { openaiTts, OPENAI_TTS_MIMETYPES } from './tts/openai.js'
+export { openaiTts } from './tts/openai.js'
 export type { OpenAITtsOptions, OpenAITtsFormat } from './tts/openai.js'
-export { elevenlabsTts, elevenLabsMimetype } from './tts/elevenlabs.js'
+export { elevenlabsTts } from './tts/elevenlabs.js'
 export type { ElevenLabsTtsOptions } from './tts/elevenlabs.js'
 export {
   VoiceError,
@@ -48,7 +52,6 @@ export {
   VoiceRateLimitedError,
 } from './errors.js'
 export type { VoiceErrorCode } from './errors.js'
-export { estimateOggDurationSec, estimateDurationSec, sniffMimetype } from './audio.js'
 export type {
   AudioInput,
   Transcription,

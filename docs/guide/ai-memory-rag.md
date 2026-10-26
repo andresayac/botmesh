@@ -192,11 +192,12 @@ same way; with `appendSources` the sources line arrives as the last piece.
 
 ### `@botmesh/rag`
 
-::: warning Experimental — not on npm
-`@botmesh/rag` is a working, tested package, but it is **private**: it is not
-published to npm and its API may change. Use it from the monorepo
-(`workspace:*`).
-:::
+```bash
+pnpm add @botmesh/rag
+```
+
+During the beta, add the `@beta` dist-tag (`pnpm add @botmesh/rag@beta`). It does not
+depend on `@botmesh/ai`: `aiPlugin` takes any retriever and `createRag()` returns one.
 
 `createRag(options)` builds a retriever without a vector database: an
 in-memory cosine index with optional JSON persistence.

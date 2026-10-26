@@ -87,16 +87,16 @@ This is a pnpm monorepo with **45 packages**: 36 **Public**, 3 **Experimental** 
 | [`@botmesh/mongo-store`](packages/mongo-store) | Public | MongoDB (`mongodb` 6 or 7): shared state and durable scheduler. |
 | **Plugins** | | |
 | [`@botmesh/ai`](packages/ai) | Public | AI: Anthropic/OpenAI/Ollama/Gemini + 9 OpenAI-compatible presets (DeepSeek/Qwen/GLM/Kimi/Groq/…), auto-reply, tool calling with confirmation, per-user long-term memory and RAG. See the [WhatsApp AI policy](docs/guide/ai.md#whatsapp-ai-policy-since-2026-01-15). |
-| [`@botmesh/nlu`](packages/nlu) | Experimental | Local intents/NLU (define/match + `whenIntent`), no external services. |
+| [`@botmesh/nlu`](packages/nlu) | Public | Local intents/NLU (define/match + `whenIntent`), no external services. |
 | [`@botmesh/manager`](packages/manager) | Experimental | Multi-bot orchestrator (registry, lifecycle) + dependency-free HTTP API (control plane `/v1` with API keys). |
 | [`@botmesh/otel`](packages/otel) | Public | OpenTelemetry: bot traces (inbound, dispatch, conversations, sends, AI) and `bot.metrics()` as OTel metrics. `@opentelemetry/api` as an optional peer. |
 | [`@botmesh/events`](packages/events) | Public | Versioned envelopes, leased journals with fencing tokens, retries and DLQ for asynchronous processes, and a bot durability backend. |
-| [`@botmesh/rag`](packages/rag) | Experimental | RAG for `@botmesh/ai`: loaders, chunking, pluggable embeddings (OpenAI-compatible, Ollama, local hashing) and an in-memory vector index with optional JSON persistence. |
-| [`@botmesh/voice`](packages/voice) | Experimental | Voice: voice-note transcription (OpenAI-compatible, Deepgram) and spoken replies (OpenAI, ElevenLabs). |
-| [`@botmesh/chatwoot`](packages/chatwoot) | Experimental | Chatwoot bridge: two-way sync and human handoff driven by Chatwoot agents. |
-| [`@botmesh/tickets`](packages/tickets) | Experimental | Support tickets and queues (`ctx.tools.tickets`): queue position, business hours and store persistence. |
-| [`@botmesh/moderation`](packages/moderation) | Experimental | Group moderation: anti-spam, word/regex and invite-link filters, warn/mute/kick/delete actions. |
-| [`@botmesh/dialogflow`](packages/dialogflow) | Experimental | Dialogflow ES/CX: `detectIntent` over REST (service-account JWT, no Google SDK) and intent routing to flows. |
+| [`@botmesh/rag`](packages/rag) | Public | RAG for `@botmesh/ai`: loaders, chunking, pluggable embeddings (OpenAI-compatible, Ollama, local hashing) and an in-memory vector index with optional JSON persistence. |
+| [`@botmesh/voice`](packages/voice) | Public | Voice: voice-note transcription (OpenAI-compatible, Deepgram) and spoken replies (OpenAI, ElevenLabs). |
+| [`@botmesh/chatwoot`](packages/chatwoot) | Public | Chatwoot bridge: two-way sync and human handoff driven by Chatwoot agents. |
+| [`@botmesh/tickets`](packages/tickets) | Public | Support tickets and queues (`ctx.tools.tickets`): queue position, business hours and store persistence. |
+| [`@botmesh/moderation`](packages/moderation) | Public | Group moderation: anti-spam, word/regex and invite-link filters, warn/mute/kick/delete actions. |
+| [`@botmesh/dialogflow`](packages/dialogflow) | Public | Dialogflow ES/CX: `detectIntent` over REST (service-account JWT, no Google SDK) and intent routing to flows. |
 | **Shared infrastructure** (dependencies of the public packages) | | |
 | [`@botmesh/http`](packages/http) | Public | Safe HTTP client: anti-SSRF, redirect validation, timeouts and download limits. |
 | [`@botmesh/graph-core`](packages/graph-core) | Public | Shared Meta Graph helpers (webhook verification, error mapping, ingest guard) used by meta/messenger/instagram. |

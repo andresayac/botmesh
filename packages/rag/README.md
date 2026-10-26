@@ -1,15 +1,24 @@
 # @botmesh/rag
 
-> **Experimental — not yet published on npm.** Real, tested implementation, but the package is `private`: it is not part of the first alpha and its API may change. Use it from this monorepo (`workspace:*`).
+Retrieval Augmented Generation for [`@botmesh/ai`](https://www.npmjs.com/package/@botmesh/ai): it loads your documents, chunks them, computes embeddings and gives the model the most relevant passages, **with citations**. No vector database: an in-memory cosine index with optional persistence to a JSON file.
 
-Retrieval Augmented Generation for [`@botmesh/ai`](../ai): it loads your documents, chunks them, computes embeddings and answers with the most relevant passages **with citations**. No vector database: an in-memory index with cosine similarity and optional persistence to a JSON file.
-
-- **Loaders:** Markdown (split by heading sections), text, JSON (one document per array element) and PDF (with the optional `pdf-parse` peer, loaded on demand). Recursive directories.
-- **Chunking:** paragraphs → sentences → words, with overlap (`chunkSize`, `chunkOverlap`).
-- **Interchangeable embeddings:** OpenAI-compatible (through secure `fetch`, no SDK), Ollama and a deterministic local hashing embedder (tests, offline, small FAQs).
+- **Loaders:** Markdown (split by heading sections), text, JSON (one document per array element) and PDF (with the optional `pdf-parse` peer, loaded on demand). Directories are read recursively.
+- **Chunking:** paragraphs, then sentences, then words, with overlap (`chunkSize`, `chunkOverlap`).
+- **Interchangeable embeddings:** any OpenAI-compatible `/embeddings` API and Ollama over plain HTTPS (no SDK), or a deterministic local hashing embedder (tests, offline, small FAQs), or your own.
 - **Index:** in-memory cosine, `topK`, `minScore`, filters; saved to JSON and, on restart, **only chunks that changed are re-embedded**.
 
-## Usage with `aiPlugin`
+## Install
+
+```bash
+pnpm add @botmesh/core @botmesh/ai @botmesh/rag
+pnpm add pdf-parse   # optional: only to load PDF files
+```
+
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/ai@beta @botmesh/rag@beta` during the beta (`npm view @botmesh/rag dist-tags` lists the tags). Once stable, the plain command above works.
+
+`@botmesh/rag` does not depend on `@botmesh/ai`: `aiPlugin` takes any object with `retrieve()`, and `createRag()` returns one. You can also use the retriever on its own (see [Direct usage](#direct-usage)).
+
+## Quick start
 
 ```ts
 import { aiPlugin } from '@botmesh/ai'
@@ -17,8 +26,7 @@ import { createRag } from '@botmesh/rag'
 
 const rag = createRag({
   documents: ['./docs/faq.md', './docs/products.pdf', './docs/catalog.json'],
-  embeddings: 'openai',          // 'local' | 'openai' | 'ollama' | { provider, ... } | custom Embedder
-  chunkSize: 1000,
+  embeddings: 'openai',          // 'local' | 'openai' | 'ollama' | { provider, ... } | your own Embedder
   topK: 3,
   persistPath: './data/rag-index.json',
 })
@@ -32,15 +40,15 @@ bot.plug(aiPlugin({
 // Bot:  "It takes 3 business days [1].\n\nSources: [1] docs/faq.md › Shipping"
 ```
 
-`createRag()` is synchronous: documents are loaded and embedded on the first `retrieve()`; `aiPlugin` calls `warmup()` on install (an error is logged, it does not crash the process).
+`createRag()` is synchronous: the documents are loaded and embedded on the first `retrieve()`, and `aiPlugin` calls `warmup()` at install (an error is logged; it does not crash the process).
 
 ## Direct usage
 
 ```ts
+import { formatContext } from '@botmesh/rag'
+
 const hits = await rag.retrieve('payment methods', { topK: 2 })
 // [{ text, score, source: 'docs/faq.md', section: 'Payments', citation: 'docs/faq.md › Payments', id, docId, index }]
-
-import { formatContext } from '@botmesh/rag'
 const answer = await ctx.tools.ai.ask(`Context:\n${formatContext(hits)}\n\nQuestion: ${ctx.body}`)
 
 await rag.addText('We are open on Sundays from 10 to 14.', { source: 'hours' })
@@ -48,6 +56,27 @@ await rag.addFiles(['./docs/new'])
 await rag.removeDocument('hours')
 await rag.save()
 ```
+
+## Options
+
+`createRag(options)` / `new Rag(options)`:
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `documents` | `[]` | File or directory paths (`.md`, `.mdx`, `.markdown`, `.txt`, `.json`, `.pdf`) and/or `{ id, text, source, format?, metadata? }` objects. Ingested on first use. |
+| `embeddings` | `'local'` | See [Embeddings](#embeddings). |
+| `chunkSize` | `1000` | Maximum characters per chunk. |
+| `chunkOverlap` | `150` (at most a quarter of `chunkSize`) | Characters carried over from the previous chunk; must be smaller than `chunkSize`. |
+| `topK` | `3` | Chunks returned by `retrieve()` (positive integer). |
+| `minScore` | `0` | Minimum cosine score. |
+| `persistPath` | — | JSON file for the index; vectors of unchanged chunks are reused across restarts. |
+| `cwd` | `process.cwd()` | Base directory for relative paths. |
+| `pdf` | `pdf-parse` peer | Your own PDF extractor: `async (bytes) => text`. |
+| `maxFileBytes` | 20 MiB | Maximum bytes per loaded file. |
+| `retryDelayMs` | `30000` | After a failed ingest, `retrieve()` rejects at once with the same error for this long. |
+| `onError` | — | Non-fatal problems, e.g. a corrupt persisted index that was set aside and rebuilt. |
+
+`retrieve(query, { topK, minScore, filter, signal })` overrides the defaults per call; `filter` receives each chunk (with its `metadata`).
 
 ## Embeddings
 
@@ -58,7 +87,7 @@ await rag.save()
 | `'ollama'` / `{ provider: 'ollama', model, baseUrl }` | `POST {baseUrl}/api/embed`, `nomic-embed-text` on `http://localhost:11434` by default. |
 | Custom `Embedder` | `{ id, embed(texts) }`. |
 
-Requests go through [`@botmesh/http`](../http)'s `secureFetch` (anti-SSRF): HTTPS and public hosts by default. Ollama allows `http` and private hosts by default; for other internal endpoints use `http: { allowHttp: true, allowPrivateHosts: true }`.
+Requests go through [`@botmesh/http`](https://www.npmjs.com/package/@botmesh/http)'s `secureFetch` (anti-SSRF): HTTPS and public hosts by default. Ollama allows `http` and private hosts by default; for other internal endpoints use `http: { allowHttp: true, allowPrivateHosts: true }`.
 
 ## Persistence
 
@@ -82,4 +111,21 @@ Everything fails with `RagError` and a `code`: `INVALID_OPTIONS`, `UNSUPPORTED_F
 
 ## Limits
 
-Brute-force index: intended for thousands of chunks (FAQ, catalog, manual). For millions, implement your own `retrieve()` over a vector database; `aiPlugin` only needs `{ retrieve(query, { topK }) }`.
+The index is brute force: it is meant for thousands of chunks (a FAQ, a catalogue, a manual). For millions, write your own `retrieve()` over a vector database; `aiPlugin` only needs `{ retrieve(query, { topK }) }`.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| `RagError` `MISSING_DEPENDENCY` when loading a PDF | The optional `pdf-parse` peer is not installed: `pnpm add pdf-parse`, or pass your own extractor in `pdf`. |
+| `RagError` `EMBEDDING_FAILED` with `HTTP 401` | Wrong or missing API key: set `OPENAI_API_KEY` or `embeddings: { provider: 'openai', apiKey }`. |
+| `EMBEDDING_FAILED` against a local or internal endpoint | `secureFetch` blocks plain `http` and private addresses by default. For a self-hosted OpenAI-compatible server pass `http: { allowHttp: true, allowPrivateHosts: true }` (Ollama already allows them). |
+| Every query fails right after a failed start | `retrieve()` fails fast with the last ingest error for `retryDelayMs`; fix the cause and call `rag.ready()` to retry at once. |
+| The whole corpus is re-embedded on every restart | The embedder id changed (another model or `dimensions`), or there is no `persistPath`. |
+| A `<persistPath>.corrupt` file appeared | The saved index could not be read; it was set aside and rebuilt from `documents` (and reported to `onError`). |
+| Answers ignore an obviously relevant passage | The default `'local'` embedder is lexical (word overlap, no synonyms). Use `'openai'` or `'ollama'` for semantic search, or tune `chunkSize`/`topK`. |
+
+## Links
+
+- [AI memory and RAG guide](https://andresayac.github.io/botmesh/guide/ai-memory-rag) · [AI plugin](https://andresayac.github.io/botmesh/guide/ai) · [Security](https://andresayac.github.io/botmesh/guide/security)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/rag/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/rag) · [Issues](https://github.com/andresayac/botmesh/issues)

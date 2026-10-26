@@ -209,16 +209,17 @@ Besides `slashCommandsPlugin`, these packages ship ready-made plugins:
 - [AI](/guide/ai) — `@botmesh/ai`: LLM replies (`aiPlugin`), with
   [tools](/guide/ai-tools), [memory and RAG](/guide/ai-memory-rag) and
   [streaming](/guide/streaming).
-- [Voice](/guide/voice) — experimental `@botmesh/voice` (`voicePlugin`):
+- [Voice](/guide/voice) — `@botmesh/voice` (`voicePlugin`):
   speech-to-text for inbound voice notes and text-to-speech replies.
-- [Integrations](/guide/integrations) — experimental `@botmesh/chatwoot`,
+- [Integrations](/guide/integrations) — `@botmesh/chatwoot`,
   `@botmesh/tickets`, `@botmesh/moderation`, `@botmesh/dialogflow` and
   `@botmesh/nlu` (local intent matching).
 - [Tracing](/guide/tracing) — `@botmesh/otel`
   (`otelMetricsPlugin`): `bot.metrics()` and the bot's spans in OpenTelemetry.
 
-Only `@botmesh/ai` is published to npm; the experimental packages are private
-for now and are used from the monorepo (`workspace:*`).
+All of them are on npm except `@botmesh/otel`, which is still private and is used
+from the monorepo (`workspace:*`). `@botmesh/rag` (retrieval for `aiPlugin`) is
+described with [memory and RAG](/guide/ai-memory-rag).
 
 ## Next steps
 

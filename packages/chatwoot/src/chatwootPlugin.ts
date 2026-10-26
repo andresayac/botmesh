@@ -123,7 +123,11 @@ export interface ChatwootPluginConfig {
 export interface ChatwootWebhookRequest {
   rawBody: string | Uint8Array
   headers: HeaderBag
-  query?: URLSearchParams | Record<string, string | undefined>
+  /**
+   * Query string: a `URLSearchParams` or any parsed query object (e.g. Express `req.query`).
+   * Only a plain string `token` value is read; arrays and nested objects are ignored.
+   */
+  query?: URLSearchParams | Record<string, unknown>
 }
 
 export interface ChatwootWebhookResponse {
@@ -481,7 +485,8 @@ export function chatwootPlugin(config: ChatwootPluginConfig): ChatwootPlugin {
     try {
       const raw = typeof req.rawBody === 'string' ? Buffer.from(req.rawBody, 'utf8') : Buffer.from(req.rawBody)
       const q = req.query
-      const queryToken = q instanceof URLSearchParams ? q.get('token') ?? undefined : q?.token
+      const rawToken: unknown = q instanceof URLSearchParams ? q.get('token') : q?.token
+      const queryToken = typeof rawToken === 'string' ? rawToken : undefined
       if (!verifyWebhook(auth, raw, req.headers ?? {}, queryToken)) return { status: 401, body: 'unauthorized' }
       if (!bot) return { status: 503, body: 'not installed' }
       let payload: Json

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { flow } from '@botmesh/core'
 import { createTestBot } from '@botmesh/core/testing'
-import { DialogflowContext, dialogflowContext, dialogflowPlugin, toSessionId, whenDialogflowIntent, type DialogflowPluginConfig } from '../src/index.js'
+import { DialogflowContext, dialogflowContext, dialogflowPlugin, whenDialogflowIntent, type DialogflowPluginConfig } from '../src/index.js'
+import { toSessionId } from '../src/internal.js'
 import { FakeGoogle, credentials, esResponse, type RecordedRequest } from './fakes.js'
 
 const flush = () => new Promise((r) => setTimeout(r, 20))

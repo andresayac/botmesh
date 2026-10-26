@@ -3,6 +3,11 @@
  *
  * - {@link chatwootPlugin} — the plugin (also exposes the webhook handler and helpers).
  * - {@link ChatwootClient} — the minimal Application API client it uses (via secureFetch).
+ *
+ * The chat ↔ conversation mapping, the webhook verifier and the text formatters live in
+ * `@botmesh/chatwoot/internal`, without a semver guarantee.
+ *
+ * @packageDocumentation
  */
 
 import type { ChatwootApi } from './chatwootPlugin.js'
@@ -25,11 +30,9 @@ export type {
   ChatwootContactInput,
   ChatwootContactRef,
 } from './client.js'
-export { ChatwootMapping, memoryKeyValue, storeKeyValue } from './mapping.js'
+export { memoryKeyValue, storeKeyValue } from './mapping.js'
 export type { ChatwootKeyValue, ChatwootChatLink } from './mapping.js'
-export { verifyWebhook } from './webhookAuth.js'
-export type { HeaderBag, WebhookAuthConfig } from './webhookAuth.js'
-export { inboundText, outboundText } from './format.js'
+export type { HeaderBag } from './webhookAuth.js'
 
 /** Types `ctx.tools.chatwoot` once this package is imported. */
 declare module '@botmesh/core' {

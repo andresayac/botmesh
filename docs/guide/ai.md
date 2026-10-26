@@ -347,7 +347,7 @@ bot.plug(aiPlugin({
 **[Memory and RAG](/guide/ai-memory-rag)**: `memory` remembers facts about each
 user across conversations (stored in `ctx.user`); `rag` answers from your
 documents with numbered citations, through any retriever, such as `createRag()`
-from the experimental `@botmesh/rag`.
+from `@botmesh/rag`.
 
 ```ts
 import { createRag } from '@botmesh/rag'

@@ -68,12 +68,12 @@ export interface ResolvedVoiceLimits {
   timeoutMs: number
 }
 
-export const DEFAULT_VOICE_LIMITS: ResolvedVoiceLimits = {
+export const DEFAULT_VOICE_LIMITS: Readonly<ResolvedVoiceLimits> = Object.freeze({
   maxInputBytes: 25 * 1024 * 1024,
   maxDurationSec: 300,
   maxTextChars: 4096,
   timeoutMs: DEFAULT_TIMEOUT_MS,
-}
+})
 
 export interface VoiceClientOptions {
   stt?: SttConfig
