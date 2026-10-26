@@ -364,6 +364,9 @@ logs a warning at install when it sees a restrictive mode.
 - No provider in the monorepo exposes `groups.removeParticipants` /
   `getAdmins` yet, so `kick` degrades to `mute` and admin detection relies
   on `admins` / `isAdmin`.
+- `GroupAdminApi` and `ModerationProvider.groups` are `@experimental`
+  (outside semver) until `@botmesh/core` defines a groups capability for
+  providers; their shape may change in a minor release.
 
 ## Dialogflow
 

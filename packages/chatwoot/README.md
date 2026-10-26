@@ -100,7 +100,7 @@ Ignored: private notes, `incoming` messages, *agent bot* messages, other inboxes
 
 `chatwootPlugin()` returns the plugin with these methods (also available as `ctx.tools.chatwoot`):
 
-- `handleWebhook({ rawBody, headers, query })` → `{ status, body }` (401 without auth, 400 invalid JSON, 503 if it is not installed yet). Never throws.
+- `handleWebhook({ rawBody, headers, query })` → `{ status, body }` (`query` is a `URLSearchParams` or a parsed object such as Express `req.query`; 401 without auth, 400 invalid JSON, 503 if it is not installed yet). Never throws.
 - `webhookHandler({ maxBytes })` → `node:http` handler (`POST` only, 1 MiB limit by default).
 - `conversationOf(chatId)`, `chatOf(conversationId)`.
 - `addLabels(chatId, labels)`, `removeLabels(chatId, labels)`.

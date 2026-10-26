@@ -83,7 +83,13 @@ export interface ModerationRules {
   messages?: ModerationMessages
 }
 
-/** Optional group-admin namespace a provider MAY expose. Every method is optional. */
+/**
+ * Optional group-admin namespace a provider MAY expose. Every method is optional.
+ *
+ * @experimental Outside semver: no bundled provider implements it yet and `@botmesh/core`'s
+ * `IProvider` has no groups namespace. When core defines one, this shape may change in a
+ * minor release. Today you can wrap your provider to add it yourself.
+ */
 export interface GroupAdminApi {
   /** Remove (kick) participants from a group. */
   removeParticipants?(chatId: ChatId, userIds: UserId[]): Promise<unknown>
@@ -99,6 +105,11 @@ export interface ModerationProvider {
   /** Transport tag (every `IProvider` has one), used in logs. */
   readonly id?: string
   deleteMessage?(ref: MessageRef): Promise<void>
+  /**
+   * Group admin calls (kick, admin list). Without it, `kick` degrades (see `kickFallback`).
+   *
+   * @experimental Outside semver, like {@link GroupAdminApi}.
+   */
   groups?: GroupAdminApi
 }
 

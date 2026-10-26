@@ -102,6 +102,8 @@ interface GroupAdminApi {
 
 No bundled provider exposes it yet, so today `kick` degrades to `mute` and admins come from `admins` / `isAdmin`. You can wrap your provider to add it (for example with your own WhatsApp or Telegram admin calls).
 
+`GroupAdminApi` and `ModerationProvider.groups` are **`@experimental`**: they are outside semver until `@botmesh/core` defines a groups capability for providers, and their shape may change in a minor release. The rest of the API is covered by semver.
+
 ## Administrators
 
 With `adminBypass` administrators are not moderated. Considered admins:

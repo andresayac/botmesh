@@ -377,6 +377,9 @@ restrictivo.
 - Ningún provider del monorepo expone todavía
   `groups.removeParticipants` / `getAdmins`, así que `kick` se degrada a
   `mute` y la detección de admins depende de `admins` / `isAdmin`.
+- `GroupAdminApi` y `ModerationProvider.groups` son `@experimental`
+  (fuera de semver) hasta que `@botmesh/core` defina una capacidad de
+  grupos para los providers; su forma puede cambiar en una versión minor.
 
 ## Dialogflow
 
