@@ -29,6 +29,8 @@ export type {
   ChatwootConversationStatus,
   ChatwootContactInput,
   ChatwootContactRef,
+  ChatwootConversationRef,
+  ChatwootMessageStatus,
 } from './client.js'
 export { memoryKeyValue, storeKeyValue } from './mapping.js'
 export type { ChatwootKeyValue, ChatwootChatLink } from './mapping.js'

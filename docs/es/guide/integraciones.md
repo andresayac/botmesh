@@ -103,7 +103,7 @@ app.post('/chatwoot', express.raw({ type: '*/*' }), async (req, res) => {
 | Mensaje entrante (también durante el handoff) | Se publica como `incoming` en la conversación del chat (se crea la primera vez). En grupos, el texto va prefijado con el nombre del participante |
 | El bot envía | Se publica como `outgoing`. Los medios se reflejan como texto (`[image] caption`…) |
 | `ctx.handoff()` / `bot.handoff()` | Conversación en `open`, nota privada (`handoffNote`) y se añaden `labels.handoff`. Si el handoff lo originó el propio Chatwoot (`reason` que empieza por `chatwoot:`), solo se añaden las labels |
-| Respuesta pública de un agente (`message_created`) | `bot.handoff(chatId, { reason: 'chatwoot:agent' })` si `autoHandoff` y el chat no está en handoff; luego `bot.send()` (adjuntos por URL). Nunca se re-refleja; un reenvío del mismo id de mensaje se ignora |
+| Respuesta pública de un agente (`message_created`) | `bot.handoff(chatId, { reason: 'chatwoot:agent' })` si `autoHandoff` y el chat no está en handoff; luego `bot.send()` (adjuntos por URL). Nunca se re-refleja; un reenvío del mismo id de mensaje se ignora. Si el canal lo rechaza (por ejemplo `OutsideSessionWindowError` en la Cloud API), el mensaje queda **fallido** en Chatwoot con el nombre del error, para que el agente lo vea |
 | Conversación resuelta (`conversation_status_changed`, `conversation_resolved`, o `conversation_updated` con cambio de `status`) | `bot.resume(chatId, { reason: 'chatwoot:resolved' })` si el chat está en handoff (`resumeOnResolve`). Solo termina el handoff: no cierra ningún ticket |
 | `bot.resume()` por otra causa | Conversación `resolved` (`resolveOnResume`), se quitan `labels.handoff` y se añaden `labels.resume` |
 
@@ -115,7 +115,15 @@ Cada chat se asocia a un contacto de Chatwoot (`identifier` = id del chat)
 y a una conversación. El mapeo vive en el store del bot a través de la API
 de cursores (`chatwoot:chat:<chatId>`, `chatwoot:conv:<id>`), así que
 sobrevive a reinicios con un store persistente. Los ids de chat solo se
-usan como claves opacas.
+usan como claves opacas. Si el mapeo se pierde (un store nuevo, o un
+reinicio con `MemoryStore`), el plugin encuentra el contacto por
+`identifier` exacto (API de filtros de contactos) y sigue usando su
+conversación más reciente en el inbox, así que los agentes que responden
+ahí siguen llegando al chat.
+
+Una instancia de `chatwootPlugin()` sirve a un bot: enchufar la misma
+instancia en un segundo bot lanza un error (crea una por bot, cada una con
+su URL de webhook).
 
 ### Opciones de Chatwoot
 
@@ -150,7 +158,10 @@ pendiente, útil al apagar y en tests) y `client` (`ChatwootClient`).
   error sin `webhookToken`, `webhookSecret` o `insecureNoWebhookAuth: true`.
   Reserva esta última para un endpoint que no sea accesible desde fuera.
 - El token se acepta en `?token=`, `x-chatwoot-token` o
-  `Authorization: Bearer`. La firma HMAC-SHA256 va en
+  `Authorization: Bearer`. Chatwoot (comprobado en 4.7) no firma los
+  webhooks de cuenta, así que pon el token en la URL del webhook;
+  `webhookSecret` es para un emisor o proxy que firme como se describe a
+  continuación. La firma HMAC-SHA256 va en
   `x-chatwoot-signature` (hex, admite el prefijo `sha256=`) y se calcula
   sobre `${timestamp}.${rawBody}`, con `x-chatwoot-timestamp` (segundos)
   dentro de `webhookToleranceSec` (300). Una firma sobre el body solo no
@@ -164,7 +175,8 @@ pendiente, útil al apagar y en tests) y `client` (`ChatwootClient`).
   protección anti-SSRF, timeouts y sin seguir redirecciones, así que el
   `api_access_token` nunca llega a otro origen. Un Chatwoot self-hosted en
   la LAN necesita `http.allowPrivateHosts` (y `http.allowHttp` para HTTP
-  plano).
+  plano): una `baseUrl` `http://` sin `http.allowHttp` lanza al crear el
+  plugin, y un host privado bloqueado se reporta indicando la opción.
 - Con `syncMode: 'all'` todas las conversaciones se copian a Chatwoot. Usa
   `syncMode: 'handoff'` si solo los chats escalados deben salir del bot.
 
@@ -172,8 +184,12 @@ pendiente, útil al apagar y en tests) y `client` (`ChatwootClient`).
 
 - Los medios entrantes se reflejan como texto (`[image] caption`), no se
   suben como adjuntos.
-- Un chat, una conversación. Si Chatwoot responde 404 para la conversación
-  mapeada, se crea otra.
+- Un chat, una conversación. Si la conversación mapeada ya no existe
+  (Chatwoot responde 404, o 422 mientras aún borra un contacto), se crea
+  otra y el mensaje va ahí.
+- Marcar como fallida una respuesta rechazada usa la API de estado de
+  mensajes, que Chatwoot solo ofrece en inboxes de canal API (el tipo que
+  este plugin necesita de todos modos).
 - Si el store no tiene cursores, el mapeo vive en memoria (se avisa en el
   log al instalar).
 

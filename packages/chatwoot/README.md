@@ -9,7 +9,7 @@
 - **Labels** on handoff/resume, per message (`labels.message`) or by hand (`addLabels`/`removeLabels`).
 - All outbound HTTP goes through the `secureFetch` of [`@botmesh/http`](https://www.npmjs.com/package/@botmesh/http) (HTTPS, anti-SSRF, timeouts, no redirect following).
 
-Tested end to end against a self-hosted Chatwoot 4.7 (Docker): user and bot messages appear in a conversation, an agent reply comes back through Chatwoot's own webhook and hands the chat off, and resolving the conversation resumes the bot.
+Tested end to end against a self-hosted Chatwoot 4.7 (Docker): user and bot messages appear in a conversation, an agent reply comes back through Chatwoot's own webhook and hands the chat off, and resolving the conversation resumes the bot. The same suite covers the failure paths: a contact hidden by search pagination, a lost mapping, a contact deleted by an agent and an agent reply the channel refuses (`packages/sandbox/tests/docker/chatwoot*.integration.test.ts`).
 
 ## Install
 
@@ -68,18 +68,20 @@ app.post('/chatwoot', express.raw({ type: '*/*' }), async (req, res) => {
 | Inbound message | `incoming` in the chat's conversation (created on first use). In groups, the text is prefixed with the participant's name. |
 | The bot sends | `outgoing` (media is mirrored as `[image] caption`, etc.). |
 | `ctx.handoff()` / `bot.handoff()` | `open` conversation, private note (`handoffNote`) and `labels.handoff`. |
-| Public reply from an agent (`message_created` webhook) | `bot.handoff()` if `autoHandoff` and the chat is not already handed off; then `bot.send()` (attachments by URL). It is not mirrored back into Chatwoot, and a re-delivery of the same message (same id) is ignored. |
+| Public reply from an agent (`message_created` webhook) | `bot.handoff()` if `autoHandoff` and the chat is not already handed off; then `bot.send()` (attachments by URL). It is not mirrored back into Chatwoot, and a re-delivery of the same message (same id) is ignored. If the channel refuses it (e.g. `OutsideSessionWindowError` on the Cloud API), the message is marked **failed** in Chatwoot with the error name. |
 | Conversation resolved (`conversation_status_changed` webhook, or `conversation_updated` only when `changed_attributes` carries the `status` change) | `bot.resume(chatId, { reason: 'chatwoot:resolved' })`. |
 | `bot.resume()` for another reason | `resolved` conversation (`resolveOnResume`), removes `labels.handoff`, adds `labels.resume`. |
 
 Ignored: private notes, `incoming` messages, *agent bot* messages, other inboxes, unknown conversations and echoes of the messages the plugin itself created.
+
+Contacts are matched by exact `identifier` (the chat id) through Chatwoot's contacts filter API. If the mapping is lost (new store, restart on `MemoryStore`), the chat keeps its contact and its newest conversation in the inbox. One plugin instance serves one bot: plugging it into a second bot throws.
 
 ## Options
 
 | Option | Default | Description |
 | --- | --- | --- |
 | `baseUrl`, `apiKey`, `accountId`, `inboxId` | — | Chatwoot connection (required; the constructor throws when one is missing or invalid). |
-| `webhookToken` / `webhookSecret` | — | At least one (or `insecureNoWebhookAuth: true`). Token in `?token=`, `x-chatwoot-token` or `Authorization: Bearer`. HMAC in `x-chatwoot-signature` (hex, accepts `sha256=`), over `${timestamp}.${body}` with `x-chatwoot-timestamp` within `webhookToleranceSec`. A signature over the bare body is replayable, so it is rejected unless `webhookAllowUntimedSignature: true`. |
+| `webhookToken` / `webhookSecret` | — | At least one (or `insecureNoWebhookAuth: true`). Token in `?token=`, `x-chatwoot-token` or `Authorization: Bearer` (Chatwoot itself does not sign account webhooks, checked on 4.7: put the token in the URL). HMAC, for a sender or proxy that signs, in `x-chatwoot-signature` (hex, accepts `sha256=`), over `${timestamp}.${body}` with `x-chatwoot-timestamp` within `webhookToleranceSec`. A signature over the bare body is replayable, so it is rejected unless `webhookAllowUntimedSignature: true`. |
 | `webhookToleranceSec` | `300` | Allowed clock skew of the signed timestamp. |
 | `webhookAllowUntimedSignature` | `false` | Also accept a signature without `x-chatwoot-timestamp`. It never expires, so a captured request can be replayed. |
 | `insecureNoWebhookAuth` | `false` | Accept unauthenticated webhooks. Only for an endpoint that is not reachable from outside. |
@@ -92,7 +94,7 @@ Ignored: private notes, `incoming` messages, *agent bot* messages, other inboxes
 | `labels` | — | `{ handoff?, resume?, message?(ctx) }`. |
 | `contact(chatId, ctx)` | — | New contact data (`name`, `phoneNumber`, `email`, `customAttributes`). The core does not derive phone numbers from the id. |
 | `forwardAttachments` | `true` | Forward agent attachments as media by URL. |
-| `http` | — | `{ fetch, resolver, allowHttp, allowPrivateHosts, timeoutMs }` (a self-hosted Chatwoot on a LAN needs `allowPrivateHosts`). |
+| `http` | — | `{ fetch, resolver, allowHttp, allowPrivateHosts, timeoutMs }` (a self-hosted Chatwoot on a LAN needs `allowPrivateHosts`; an `http://` `baseUrl` without `allowHttp` throws at construction). |
 | `storage` | bot store | String `{ get, set }` for the mapping (`memoryKeyValue()` and `storeKeyValue(store)` are exported). |
 | `onError(error, context)` | `warn` log | Sync errors; they never break the bot. |
 
@@ -105,12 +107,12 @@ Ignored: private notes, `incoming` messages, *agent bot* messages, other inboxes
 - `conversationOf(chatId)`, `chatOf(conversationId)`.
 - `addLabels(chatId, labels)`, `removeLabels(chatId, labels)`.
 - `flush()` — waits for pending sync to finish (tests, graceful shutdown).
-- `client` — `ChatwootClient` (contacts, conversations, messages, status, labels); API failures reject with `ChatwootApiError` (`status`).
+- `client` — `ChatwootClient` (contacts, conversations, messages, message status, labels); API failures reject with `ChatwootApiError` (`status`; its message and `path` leave out the query string, so no chat id ends up in logs).
 
 ## Limitations
 
 - Inbound media is mirrored as text (`[image] caption`); it is not uploaded as an attachment.
-- One chat ↔ one conversation; if Chatwoot answers 404 for the mapped conversation, a new one is created.
+- One chat ↔ one conversation; if the mapped conversation is gone (404, or 422 while Chatwoot is still deleting a contact), a new one is created.
 - Resolving the conversation in Chatwoot **resumes the bot** (`bot.resume()`), but **does not close any ticket**: the plugin does not know about [`@botmesh/tickets`](https://www.npmjs.com/package/@botmesh/tickets) (or any other ticketing system). If you use both, close it yourself in the `'resume'` event:
 
   ```ts
@@ -131,6 +133,9 @@ Ignored: private notes, `incoming` messages, *agent bot* messages, other inboxes
 | Webhook requests answered `503` | The plugin is not plugged into a bot yet (call `bot.plug(chatwoot)` before serving the webhook). |
 | Nothing appears in Chatwoot | `inboxId` is not an **API** inbox of `accountId`, or the token lacks access to it; sync errors go to `onError` (a `ChatwootApiError` with its `status`). |
 | `SecureHttpError` (blocked URL) for a self-hosted Chatwoot | `secureFetch` refuses plain `http` and private addresses by default: pass `http: { allowHttp: true, allowPrivateHosts: true }` for a LAN install. |
+| `handleWebhook` answers `500` and logs "rawBody must be the raw request body" | A body parser (e.g. `express.json()`) consumed the body: use `express.raw({ type: '*/*' })` on that route. |
+| `already plugged into a bot` | One `chatwootPlugin()` per bot. |
+| An agent message shows as failed in Chatwoot | The channel refused it; the error name is on the message (`OutsideSessionWindowError`: the 24 h window is closed, send a template from the bot). |
 | Agent replies do not reach the user | The webhook is not subscribed to `message_created`, the reply was a private note, or it came from another inbox. |
 | The bot does not resume after resolving | Subscribe the webhook to `conversation_status_changed`, and keep `resumeOnResolve: true`. |
 

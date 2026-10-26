@@ -170,6 +170,8 @@ const RESOLVED_REASON = 'chatwoot:resolved'
 const AGENT_REASON = 'chatwoot:agent'
 const MAX_OWN_IDS = 2000
 const MAX_SEEN_AGENT_IDS = 5000
+/** Body of the 422 Chatwoot 4.7 returns for a message to a conversation whose contact was deleted. */
+const NIL_CONTACT_422 = /undefined method .*for nil\b/i
 
 type Json = Record<string, unknown>
 const obj = (v: unknown): Json => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Json) : {})
@@ -183,8 +185,8 @@ export function chatwootPlugin(config: ChatwootPluginConfig): ChatwootPlugin {
   if (!config || typeof config !== 'object') throw new Error('chatwootPlugin: config is required')
   normalizeBaseUrl(config.baseUrl)
   if (typeof config.apiKey !== 'string' || config.apiKey === '') throw new Error('Invalid chatwoot config.apiKey: expected a non-empty string')
-  if (num(config.accountId) === undefined) throw new Error('Invalid chatwoot config.accountId')
-  if (num(config.inboxId) === undefined) throw new Error('Invalid chatwoot config.inboxId')
+  if (num(config.accountId) === undefined) throw new Error(`Invalid chatwoot config.accountId: expected a number (the id in the dashboard URL /app/accounts/<id>), got ${JSON.stringify(config.accountId)}`)
+  if (num(config.inboxId) === undefined) throw new Error(`Invalid chatwoot config.inboxId: expected the number of an API-channel inbox, got ${JSON.stringify(config.inboxId)}`)
   const hasToken = typeof config.webhookToken === 'string' && config.webhookToken !== ''
   const hasSecret = typeof config.webhookSecret === 'string' && config.webhookSecret !== ''
   if (!hasToken && !hasSecret && !config.insecureNoWebhookAuth) {
@@ -257,7 +259,7 @@ export function chatwootPlugin(config: ChatwootPluginConfig): ChatwootPlugin {
     const stored = link !== undefined
     if (!link) {
       const info = config.contact?.(chatId, ctx) ?? {}
-      const found = await client.findContactByIdentifier(chatId)
+      const found = await client.findContactByIdentifier(chatId, inboxId)
       const contact = found ?? await client.createContact({
         inboxId,
         identifier: chatId,
@@ -267,6 +269,14 @@ export function chatwootPlugin(config: ChatwootPluginConfig): ChatwootPlugin {
         ...(info.customAttributes !== undefined ? { customAttributes: info.customAttributes } : {}),
       })
       link = { contactId: contact.id, ...(contact.sourceId !== undefined ? { sourceId: contact.sourceId } : {}) }
+      // A known contact (the mapping was lost: new store, restart on memory) keeps its
+      // newest conversation in this inbox, so agents answering there still reach the chat.
+      if (found) {
+        const existing = (await client.listContactConversations(found.id))
+          .filter((c) => c.inboxId === inboxId)
+          .sort((a, b) => b.id - a.id)[0]
+        if (existing) link = { ...link, conversationId: existing.id }
+      }
       await mapping.set(chatId, link)
     }
     if (link.conversationId === undefined) {
@@ -293,13 +303,32 @@ export function chatwootPlugin(config: ChatwootPluginConfig): ChatwootPlugin {
     return link as ChatwootChatLink & { conversationId: number }
   }
 
-  /** Run `op` against the chat's conversation; on 404 drop it, recreate once and retry. */
+  /** Whether `error` means the conversation no longer exists (422 while Chatwoot is still deleting it). */
+  const conversationGone = async (error: unknown, conversationId: number): Promise<boolean> => {
+    if (!(error instanceof ChatwootApiError)) return false
+    if (error.status === 404) return true
+    if (error.status !== 422) return false
+    // Chatwoot 4.7 answers 422 "undefined method 'blocked?' for nil" while it destroys a
+    // deleted contact's conversations; in that window the probe below answers 404 or,
+    // often, 500. A 5xx probe only counts as gone together with that nil-contact error,
+    // so a real validation error during an outage is not re-linked.
+    const nilContact = NIL_CONTACT_422.test(error.responseBody)
+    try {
+      await client.getConversation(conversationId)
+      return false
+    } catch (probe) {
+      if (!(probe instanceof ChatwootApiError)) return false
+      return probe.status === 404 || (nilContact && probe.status >= 500)
+    }
+  }
+
+  /** Run `op` against the chat's conversation; when it is gone, recreate it once and retry. */
   const withConversation = async <T>(chatId: ChatId, ctx: MessageContext | undefined, op: (conversationId: number) => Promise<T>): Promise<T> => {
     const link = await ensureLink(chatId, ctx)
     try {
       return await op(link.conversationId)
     } catch (error) {
-      if (!(error instanceof ChatwootApiError) || error.status !== 404) throw error
+      if (!(await conversationGone(error, link.conversationId))) throw error
       const { conversationId: _gone, ...rest } = link
       await mapping.set(chatId, rest)
       const fresh = await ensureLink(chatId, ctx)
@@ -454,9 +483,19 @@ export function chatwootPlugin(config: ChatwootPluginConfig): ChatwootPlugin {
         },
       })
     }
-    for (const c of contents) {
-      agentContents.add(c)
-      await bot.send(chatId, c)
+    try {
+      for (const c of contents) {
+        agentContents.add(c)
+        await bot.send(chatId, c)
+      }
+    } catch (error) {
+      // Tell the agent in Chatwoot: the message shows as failed with the error's name
+      // (never its text, which can carry ids or numbers).
+      if (messageId !== undefined) {
+        const name = error instanceof Error && error.name ? error.name : 'DeliveryError'
+        await client.updateMessageStatus(conversationId, messageId, 'failed', name).catch((e: unknown) => report(e, 'webhook:message_status'))
+      }
+      throw error
     }
   }
 
@@ -483,7 +522,12 @@ export function chatwootPlugin(config: ChatwootPluginConfig): ChatwootPlugin {
 
   const handleWebhook = async (req: ChatwootWebhookRequest): Promise<ChatwootWebhookResponse> => {
     try {
-      const raw = typeof req.rawBody === 'string' ? Buffer.from(req.rawBody, 'utf8') : Buffer.from(req.rawBody)
+      const body: unknown = req?.rawBody
+      if (typeof body !== 'string' && !(body instanceof Uint8Array)) {
+        report(new TypeError(`chatwoot handleWebhook: rawBody must be the raw request body (Buffer, Uint8Array or string), got ${body === null ? 'null' : typeof body}. A body parser already consumed it: with Express use express.raw({ type: '*/*' }) on this route`), 'webhook')
+        return { status: 500, body: 'error' }
+      }
+      const raw = typeof body === 'string' ? Buffer.from(body, 'utf8') : Buffer.from(body)
       const q = req.query
       const rawToken: unknown = q instanceof URLSearchParams ? q.get('token') : q?.token
       const queryToken = typeof rawToken === 'string' ? rawToken : undefined
@@ -579,6 +623,7 @@ export function chatwootPlugin(config: ChatwootPluginConfig): ChatwootPlugin {
     version: '0.1.0',
     description: 'Chatwoot inbox sync + human handoff driven by Chatwoot agents.',
     install(ctx) {
+      if (bot) throw new Error('chatwootPlugin: this instance is already plugged into a bot (its webhook and mapping belong to that bot); create one chatwootPlugin() per bot')
       const scoped = ctx.bot
       bot = scoped
       logger = ctx.logger

@@ -72,14 +72,27 @@ describe('chatwootPlugin — bot → Chatwoot sync', () => {
   it('reuses an existing contact found by identifier', async () => {
     const { bot, chat } = await createTestBot()
     const { fake, plugin } = setup()
-    fake.contacts.push({ id: 55, name: 'Old', identifier: CHAT, source_id: 'x' })
+    fake.contacts.push({ id: 55, name: 'Old', identifier: CHAT, source_id: 'x', inboxes: [9] })
     bot.plug(plugin)
     await chat.send('hola')
     await plugin.flush()
     expect(fake.contacts).toHaveLength(1)
     expect(fake.onlyConversation().contactId).toBe(55)
-    // no source id from search → a contact inbox is created
+    // not linked to this inbox yet → a contact inbox is created
     expect(fake.requests.some((r) => r.path.endsWith('/contacts/55/contact_inboxes'))).toBe(true)
+    await bot.stop()
+  })
+
+  it('reuses the contact inbox an existing contact already has in this inbox', async () => {
+    const { bot, chat } = await createTestBot()
+    const { fake, plugin } = setup()
+    fake.contacts.push({ id: 55, name: 'Old', identifier: CHAT, source_id: 'x' })
+    bot.plug(plugin)
+    await chat.send('hola')
+    await plugin.flush()
+    expect(fake.requests.some((r) => r.path.endsWith('/contact_inboxes'))).toBe(false)
+    const create = fake.requests.find((r) => r.method === 'POST' && r.path.endsWith('/conversations'))!
+    expect(create.body).toMatchObject({ contact_id: 55, source_id: 'x' })
     await bot.stop()
   })
 
