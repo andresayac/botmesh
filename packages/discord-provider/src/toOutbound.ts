@@ -45,13 +45,18 @@ function mediaPayload(content: OutboundContent & { caption?: string }, file: Dis
 /** Discord: at most 5 buttons per action row and 5 action rows per message. */
 const BUTTONS_PER_ROW = 5
 const MAX_ROWS = 5
+/** Discord: at most 25 options in a select menu. */
+const MAX_SELECT_OPTIONS = 25
 
 /**
  * Buttons -> action rows (type 1) of up to 5 buttons each, at most 25 buttons.
  * `custom_id` must be 1-100 chars, so an empty id falls back to the title.
  */
 function buttonRows(buttons: Array<{ id: string; title: string; url?: string }>): Array<Record<string, unknown>> {
-  const components = buttons.slice(0, BUTTONS_PER_ROW * MAX_ROWS).map((b) =>
+  if (buttons.length > BUTTONS_PER_ROW * MAX_ROWS) {
+    throw new UnsupportedContentError('buttons', `Discord allows at most ${BUTTONS_PER_ROW * MAX_ROWS} buttons per message; got ${buttons.length}. Send a list (up to 25 options) or split the message.`)
+  }
+  const components = buttons.map((b) =>
     b.url
       ? { type: 2, style: 5, label: b.title.slice(0, 80), url: b.url }
       : { type: 2, style: 1, label: b.title.slice(0, 80), custom_id: (b.id || b.title).slice(0, 100) },
@@ -86,9 +91,11 @@ export function toOutbound(content: OutboundContent, file?: DiscordFile): Discor
       }
 
     case 'list': {
-      const options = content.sections
-        .flatMap((s) => s.rows)
-        .slice(0, 25)
+      const rows = content.sections.flatMap((s) => s.rows)
+      if (rows.length > MAX_SELECT_OPTIONS) {
+        throw new UnsupportedContentError('list', `Discord select menus allow at most ${MAX_SELECT_OPTIONS} options; got ${rows.length}. Split the menu.`)
+      }
+      const options = rows
         .map((r) => ({
           label: r.title.slice(0, 100),
           value: (r.id || r.title).slice(0, 100),

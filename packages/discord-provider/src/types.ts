@@ -65,6 +65,18 @@ export interface DiscordProviderConfig {
    * unsupported.
    */
   reactionMemory?: number
+  /**
+   * Discord drops an interaction (button, select, slash command) that gets no response
+   * within 3 s. When the bot has not acknowledged one after this many ms, the provider
+   * defers it (type 6 for components, type 5 for commands) so the user sees no error;
+   * a later `ctx.acknowledge(text)` then goes out as a followup (needs `appId`).
+   * Default 2000; `false` turns it off.
+   */
+  autoAckMs?: number | false
+  /** Timeout of each REST request, in ms. Default 30000. */
+  requestTimeoutMs?: number
+  /** Timeout of a REST request that uploads files, in ms. Default 300000. */
+  uploadTimeoutMs?: number
   debug?: boolean
   logger?: LoggerLike
 }

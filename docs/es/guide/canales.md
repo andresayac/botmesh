@@ -354,11 +354,17 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
   (en memoria, `reactionMemory`, 1000 mensajes por defecto); si no lo conoce
   (se puso antes de reiniciar o salió del LRU) rechaza con
   `UnsupportedContentError`.
-- Las interacciones tienen un plazo estricto de confirmación
-  (`interactionsRequireAck`): el core no las confirma por ti, así que un
-  handler que responde a un botón, menú o comando slash llama a
-  `ctx.acknowledge()` (o `ctx.acknowledge('texto')`) en menos de ~3 s; si no,
-  Discord muestra "This interaction failed".
+- Las interacciones tienen un plazo estricto de confirmación de ~3 s
+  (`interactionsRequireAck`). Un handler responde a un botón, menú o comando
+  slash con `ctx.acknowledge()` (o `ctx.acknowledge('texto')`); si no la ha
+  confirmado tras `autoAckMs` (2 s por defecto, `false` lo desactiva), el
+  provider la difiere, así que Discord nunca muestra "This interaction
+  failed". Un `ctx.acknowledge('texto')` posterior sale entonces como
+  followup (necesita `appId`). `ctx.interaction.id` es el id de la
+  interacción a secas: su token no sale del provider.
+- Las peticiones REST caducan tras `requestTimeoutMs` (30 s; las subidas,
+  `uploadTimeoutMs`, 5 min). Más de 25 botones o 25 opciones de menú
+  rechazan con `UnsupportedContentError` en vez de cortarse.
 - Los mensajes de sistema (entradas al servidor, fijados, boosts...) y los de
   bots no se enrutan.
 - Un mensaje reenviado trae el texto y la media reenviados (de su snapshot),

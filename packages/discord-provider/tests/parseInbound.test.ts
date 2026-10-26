@@ -143,7 +143,7 @@ describe('parseDispatch', () => {
     }, null))
     expect(i.kind).toBe('button')
     expect(i.data).toBe('btn_yes')
-    expect(i.interactionId).toBe('175928847299117063:ITOK')
+    expect(i.interactionId).toBe('175928847299117063') // the token stays in the provider
     expect(i.ref.id).toBe('M9')
     expect(i.chatId).toBe('C1')
     expect(i.senderId).toBe('U1')

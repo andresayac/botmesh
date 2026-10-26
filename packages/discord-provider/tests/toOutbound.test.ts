@@ -105,8 +105,8 @@ describe('toOutbound', () => {
 })
 
 describe('toOutbound — hardening', () => {
-  it('caps buttons at 25 (5 rows × 5) and falls back to the title when a button id is empty', () => {
-    const buttons = Array.from({ length: 30 }, (_, i) => ({ id: i === 0 ? '' : `b${i}`, title: `T${i}` }))
+  it('lays 25 buttons out as 5 rows × 5 and falls back to the title when a button id is empty', () => {
+    const buttons = Array.from({ length: 25 }, (_, i) => ({ id: i === 0 ? '' : `b${i}`, title: `T${i}` }))
     const rows = toOutbound({ kind: 'buttons', text: 'x', buttons }).payload.components as Row[]
     expect(rows).toHaveLength(5)
     expect(rows.flatMap((r) => r.components)).toHaveLength(25)

@@ -220,11 +220,14 @@ function parseInteractionCreate(d: DiscordInteractionPayload | undefined): Inbou
       return undefined // Ping etc. — internal to the gateway/REST layer
   }
   const member = rec<{ nick?: unknown }>(d.member)
+  // The token lets anyone answer as the bot for 15 minutes: it never leaves the
+  // provider (which remembers it by interaction id), so it is not in raw/native.
+  const { token: _token, ...safe } = d
 
-  const interaction: InboundInteraction<DiscordInteractionPayload> = {
-    // `<id>:<token>` — acknowledgeInteraction splits it back to POST the callback.
-    interactionId: `${id}:${token}`,
-    ref: { id: str(rec<{ id?: unknown }>(d.message)?.id) ?? id, chatId, native: d },
+  const interaction: InboundInteraction<Omit<DiscordInteractionPayload, 'token'>> = {
+    // The interaction id (a snowflake); acknowledgeInteraction looks its token up.
+    interactionId: id,
+    ref: { id: str(rec<{ id?: unknown }>(d.message)?.id) ?? id, chatId, native: safe },
     chat: { id: chatId, kind: isGroup ? 'group' : 'dm', isGroup, isBroadcast: false },
     senderInfo: {
       id: userId,
@@ -242,7 +245,7 @@ function parseInteractionCreate(d: DiscordInteractionPayload | undefined): Inbou
     // Discord requires an interaction response within ~3s.
     respondBy: timestamp + 3_000,
     timestamp,
-    raw: d,
+    raw: safe,
   }
   return { kind: 'interaction', interaction }
 }

@@ -338,11 +338,17 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
   Discord deletes reactions by emoji, so the provider remembers the emoji it
   set (in memory, `reactionMemory`, default 1000 messages); an unknown one
   (set before a restart, or evicted) rejects with `UnsupportedContentError`.
-- Interactions have a hard acknowledgement deadline
-  (`interactionsRequireAck`): the core does not acknowledge them for you, so a
-  handler that answers a button, menu or slash command calls
-  `ctx.acknowledge()` (or `ctx.acknowledge('text')`) within ~3 s, or Discord
-  shows "This interaction failed".
+- Interactions have a hard acknowledgement deadline of ~3 s
+  (`interactionsRequireAck`). A handler answers a button, menu or slash
+  command with `ctx.acknowledge()` (or `ctx.acknowledge('text')`); one it has
+  not acknowledged after `autoAckMs` (2 s by default, `false` turns it off) is
+  deferred by the provider, so Discord never shows "This interaction failed".
+  A later `ctx.acknowledge('text')` then goes out as a followup (needs
+  `appId`). `ctx.interaction.id` is the bare interaction id: its token stays
+  inside the provider.
+- REST requests time out after `requestTimeoutMs` (30 s; uploads
+  `uploadTimeoutMs`, 5 min). More than 25 buttons or 25 menu options reject
+  with `UnsupportedContentError` instead of being cut.
 - System messages (member joins, pins, boosts...) and messages from bots are
   not routed.
 - A forwarded message carries the forwarded text and media (from its

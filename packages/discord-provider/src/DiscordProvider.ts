@@ -63,6 +63,13 @@ function mimeFor(path: string): string | undefined {
   return EXT_MIME[path.split('.').pop()?.toLowerCase() ?? '']
 }
 
+/** Default delay before an unanswered interaction is deferred automatically (Discord allows 3 s). */
+const DEFAULT_AUTO_ACK_MS = 2000
+/** Discord interaction tokens are valid for 15 minutes. */
+const INTERACTION_TOKEN_TTL_MS = 15 * 60_000
+/** Most interaction tokens remembered at once. */
+const MAX_INTERACTIONS = 1000
+
 export class DiscordProvider implements IProvider<unknown> {
   readonly id = 'discord'
   readonly capabilities: ProviderCapabilities = {
@@ -104,6 +111,12 @@ export class DiscordProvider implements IProvider<unknown> {
    */
   private readonly ownReactions = new Map<string, string>()
   private readonly reactionMemory: number
+  /**
+   * Interaction id → its token (valid 15 minutes) and ack state. The token never leaves
+   * the provider: `interactionId` is the bare id. Bounded by TTL and size.
+   */
+  private readonly interactions = new Map<string, { token: string; command: boolean; acked: boolean; at: number; timer?: ReturnType<typeof setTimeout> }>()
+  private readonly autoAckMs: number | false
 
   constructor(config: DiscordProviderConfig) {
     if (typeof config.token !== 'string' || config.token.trim() === '') {
@@ -114,6 +127,17 @@ export class DiscordProvider implements IProvider<unknown> {
       throw new Error(`DiscordProvider: reactionMemory must be a non-negative integer (got ${String(memory)})`)
     }
     this.reactionMemory = memory
+    const autoAck = config.autoAckMs ?? DEFAULT_AUTO_ACK_MS
+    if (autoAck !== false && !(typeof autoAck === 'number' && Number.isFinite(autoAck) && autoAck >= 0 && autoAck < 3000)) {
+      throw new TypeError(`DiscordProvider: autoAckMs must be false or a number of ms below 3000 (Discord's deadline), got ${String(autoAck)}`)
+    }
+    this.autoAckMs = autoAck
+    for (const field of ['requestTimeoutMs', 'uploadTimeoutMs'] as const) {
+      const v = config[field]
+      if (v !== undefined && !(Number.isFinite(v) && v > 0 && v <= 2 ** 31 - 1)) {
+        throw new TypeError(`DiscordProvider: ${field} must be a positive number of milliseconds`)
+      }
+    }
     if (config.mediaRefHosts !== undefined &&
       (!Array.isArray(config.mediaRefHosts) || config.mediaRefHosts.some((h) => typeof h !== 'string' || h.trim() === ''))) {
       throw new TypeError('DiscordProvider: mediaRefHosts must be an array of host names')
@@ -132,6 +156,8 @@ export class DiscordProvider implements IProvider<unknown> {
       apiUrl: this.config.apiUrl,
       apiVersion: this.config.apiVersion,
       mediaDownload: this.config.mediaDownload,
+      ...(this.config.requestTimeoutMs !== undefined ? { requestTimeoutMs: this.config.requestTimeoutMs } : {}),
+      ...(this.config.uploadTimeoutMs !== undefined ? { uploadTimeoutMs: this.config.uploadTimeoutMs } : {}),
     })
     this._selfId = config.selfId ?? null
   }
@@ -176,6 +202,8 @@ export class DiscordProvider implements IProvider<unknown> {
   async stop(): Promise<void> {
     await this.gateway?.stop()
     this.gateway = null
+    for (const entry of this.interactions.values()) if (entry.timer) clearTimeout(entry.timer)
+    this.interactions.clear()
   }
 
   private onGatewayDispatch(t: string, d: unknown): void {
@@ -189,7 +217,42 @@ export class DiscordProvider implements IProvider<unknown> {
       this.fan({ kind: 'connection', update: { state: 'ready' } })
     }
     const event = parseDispatch(t, d, this._selfId)
+    if (event?.kind === 'interaction') this.rememberInteraction(d)
     if (event) this.fan(event)
+  }
+
+  /** Keep the token of an incoming interaction (by id) and arm its auto-ack. */
+  private rememberInteraction(d: unknown): void {
+    const { id, token, type } = (d ?? {}) as { id?: unknown; token?: unknown; type?: unknown }
+    if (typeof id !== 'string' || typeof token !== 'string' || !id || !token) return
+    const now = Date.now()
+    for (const [key, entry] of this.interactions) {
+      if (now - entry.at <= INTERACTION_TOKEN_TTL_MS && this.interactions.size < MAX_INTERACTIONS) break
+      if (entry.timer) clearTimeout(entry.timer)
+      this.interactions.delete(key)
+    }
+    const entry: { token: string; command: boolean; acked: boolean; at: number; timer?: ReturnType<typeof setTimeout> } = {
+      token, command: type === 2, acked: false, at: now,
+    }
+    if (this.autoAckMs !== false) {
+      entry.timer = setTimeout(() => {
+        entry.timer = undefined
+        if (entry.acked) return
+        entry.acked = true
+        this.rest.ackInteraction(id, token, { type: entry.command ? 5 : 6 })
+          .catch((err: unknown) => this.logger.warn({ err }, 'discord: automatic interaction acknowledgement failed'))
+      }, this.autoAckMs)
+      entry.timer.unref?.()
+    }
+    this.interactions.set(id, entry)
+  }
+
+  /** The token for an `interactionId` (a remembered id, or the old `<id>:<token>` form). */
+  private interactionToken(interactionId: string): { id: string; token: string } | undefined {
+    const known = this.interactions.get(interactionId)
+    if (known) return { id: interactionId, token: known.token }
+    const sep = interactionId.indexOf(':')
+    return sep > 0 ? { id: interactionId.slice(0, sep), token: interactionId.slice(sep + 1) } : undefined
   }
 
   /* Outbound ---------------------------------------------------------------- */
@@ -257,11 +320,9 @@ export class DiscordProvider implements IProvider<unknown> {
     if (options?.platformData) Object.assign(payload, options.platformData)
 
     // Reply INTO an interaction (Discord followup) when we can.
-    if (options?.interactionId && this.config.appId) {
-      const token = options.interactionId.includes(':')
-        ? options.interactionId.slice(options.interactionId.indexOf(':') + 1)
-        : options.interactionId
-      const body = await this.rest.sendFollowup(this.config.appId, token, payload, files)
+    const followup = options?.interactionId ? this.interactionToken(options.interactionId) : undefined
+    if (followup && this.config.appId) {
+      const body = await this.rest.sendFollowup(this.config.appId, followup.token, payload, files)
       return { ref: { id: body.id ?? '', chatId }, raw: body }
     }
 
@@ -378,13 +439,34 @@ export class DiscordProvider implements IProvider<unknown> {
    * an immediate response (type 4); otherwise defers (type 6).
    */
   async acknowledgeInteraction(interactionId: string, opts?: { text?: string; defer?: boolean }): Promise<void> {
-    const sep = interactionId.indexOf(':')
-    if (sep === -1) throw new ProviderError('acknowledgeInteraction requires the "<id>:<token>" interactionId')
-    const id = interactionId.slice(0, sep)
-    const token = interactionId.slice(sep + 1)
-    const callback = opts?.text && !opts?.defer
-      ? { type: 4, data: { content: opts.text } }
-      : { type: 6 }
-    await this.rest.ackInteraction(id, token, callback)
+    const target = this.interactionToken(interactionId)
+    if (!target) {
+      throw new ProviderError('acknowledgeInteraction: unknown interaction (its token expired after 15 minutes, or it reached another process)')
+    }
+    const entry = this.interactions.get(target.id)
+    const text = opts?.text && !opts?.defer ? opts.text : undefined
+    if (entry?.acked) {
+      // Already answered (by the bot or the automatic defer): a text can only follow up.
+      if (text === undefined) return
+      if (!this.config.appId) {
+        this.logger.warn('discord: the interaction was already acknowledged; set appId to send this text as a followup')
+        return
+      }
+      await this.rest.sendFollowup(this.config.appId, target.token, { content: text })
+      return
+    }
+    if (entry) {
+      entry.acked = true
+      if (entry.timer) { clearTimeout(entry.timer); entry.timer = undefined }
+    }
+    const callback = text !== undefined
+      ? { type: 4, data: { content: text } }
+      : { type: entry?.command ? 5 : 6 }
+    try {
+      await this.rest.ackInteraction(target.id, target.token, callback)
+    } catch (err) {
+      if (entry) entry.acked = false
+      throw err
+    }
   }
 }

@@ -21,6 +21,10 @@ export interface DiscordRestClientConfig {
   /** E.g. 'v10'. */
   apiVersion: string
   mediaDownload?: Omit<SecureFetchOptions, 'fetch'>
+  /** Timeout of each request, in ms. Default 30000. */
+  requestTimeoutMs?: number
+  /** Timeout of a multipart (file upload) request, in ms. Default 300000. */
+  uploadTimeoutMs?: number
 }
 
 /**
@@ -83,8 +87,28 @@ export class DiscordRestClient {
       headers['Content-Type'] = 'application/json'
       body = JSON.stringify(opts.json)
     }
-    const res = await fetch(this.base(path), { method, headers, body })
-    const parsed = (await res.json().catch(() => ({}))) as DiscordApiErrorBody & Record<string, unknown>
+    // Every request is bounded: a hung connection must not stall a send forever.
+    const timeoutMs = opts.form ? (this.cfg.uploadTimeoutMs ?? 300_000) : (this.cfg.requestTimeoutMs ?? 30_000)
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    let res: Response
+    let parsed: DiscordApiErrorBody & Record<string, unknown>
+    try {
+      res = await fetch(this.base(path), { method, headers, body, signal: controller.signal })
+      parsed = (await res.json().catch((err: unknown) => {
+        if (controller.signal.aborted) throw err
+        return {}
+      })) as DiscordApiErrorBody & Record<string, unknown>
+    } catch (err) {
+      // Never the URL (an interaction route carries its token) nor the bot token.
+      const wrapped = new ProviderError(controller.signal.aborted
+        ? `Discord API request timed out after ${timeoutMs}ms (${method})`
+        : `Discord API request failed (${method}): ${err instanceof Error ? err.name : 'network error'}`)
+      ;(wrapped as { cause?: unknown }).cause = err
+      throw wrapped
+    } finally {
+      clearTimeout(timer)
+    }
     if (!res.ok) throw toProviderError(opts.chatId ?? '', res.status, parsed)
     return parsed
   }

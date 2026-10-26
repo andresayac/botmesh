@@ -53,9 +53,12 @@ Discord requires an interaction to be answered within **~3 seconds**
 (`interactionsRequireAck: true`). Button clicks / menu selections /
 slash commands are routed like messages (the button `custom_id`, the
 selected option value or the command name is the body) and carry
-`ctx.interaction` (`id` = `"<id>:<token>"`, `respondBy` = deadline epoch ms).
-The core does **not** acknowledge them for you: answer each one once from
-the handler, or Discord shows "This interaction failed":
+`ctx.interaction` (`id` = the interaction id, `respondBy` = deadline epoch ms).
+The interaction token never leaves the provider (it remembers it by id for its
+15-minute lifetime). Answer each one from the handler; one the bot has not
+acknowledged after `autoAckMs` (default 2000, `false` turns it off) is deferred
+automatically (type 6, or type 5 for a slash command), so Discord never shows
+"This interaction failed":
 
 ```ts
 bot.when('confirm', async (ctx) => {
@@ -66,7 +69,13 @@ bot.when('confirm', async (ctx) => {
 ```
 
 Outside a handler, `provider.acknowledgeInteraction(interactionId, { text? })`
-does the same; acknowledge an interaction only once.
+does the same. Once an interaction is acknowledged (by the bot or automatically),
+a later call with `text` sends it as a followup (needs `appId`) and a call
+without text is a no-op. The old `"<id>:<token>"` form is still accepted.
+
+REST requests time out after `requestTimeoutMs` (default 30000) and file uploads
+after `uploadTimeoutMs` (default 300000). More than 25 buttons or 25 select
+options reject with `UnsupportedContentError` instead of being cut.
 
 ### Gateway (technical note)
 

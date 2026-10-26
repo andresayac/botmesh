@@ -125,7 +125,7 @@ describe('DiscordProvider — gateway ingress', () => {
     expect(inter).toBeDefined()
     expect(inter!.kind).toBe('button')
     expect(inter!.data).toBe('btn_yes')
-    expect(inter!.interactionId).toBe('175928847299117063:ITOK')
+    expect(inter!.interactionId).toBe('175928847299117063') // the token stays in the provider
     expect(inter!.respondBy).toBe(inter!.timestamp + 3000)
   })
 })
