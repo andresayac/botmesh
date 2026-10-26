@@ -158,11 +158,11 @@ export const EXAMPLE_FLOW_DOCUMENT = Object.freeze({
 
 const flowValidate: ToolDefinition = {
   name: 'flow_validate',
-  title: 'Validate a BotWA flow document',
+  title: 'Validate a botmesh flow document',
   description:
     'Validate a code-free JSON flow document against the versioned schema (draft 2020-12) and return every issue with its JSON Pointer path. '
     + 'A document that fails validation is NOT an error: the result carries "valid": false and the issues. '
-    + 'Run this before compiling or publishing a flow. BotWA v2 only: the v1 API (.addAnswer, .addAction, { capture: true }, createBot/createFlow) does not exist.',
+    + 'Run this before compiling or publishing a flow. botmesh (v2) only: the v1 API (.addAnswer, .addAction, { capture: true }, createBot/createFlow) does not exist.',
   inputSchema: DOCUMENT_ARGUMENT,
   handler(args) {
     const document = requireDocument(args)
@@ -345,7 +345,7 @@ function docsTools(docsDir: string): ToolDefinition[] {
   return [
     {
       name: 'docs_search',
-      title: 'Search the BotWA documentation',
+      title: 'Search the botmesh documentation',
       description:
         'Search the documentation of this checkout and return the best matching sections with their path, heading and a snippet. '
         + 'Bilingual: the English guides live under guide/ and the Spanish ones under es/guide/.',

@@ -33,7 +33,7 @@ export const MCP_PROTOCOL_VERSION: string = MCP_PROTOCOL_VERSIONS[0]
  * before calling a tool, so it states the invariants that are expensive to get wrong.
  */
 export const MCP_INSTRUCTIONS = [
-  'BotWA v2. The v1 API (.addAnswer, .addAction, { capture: true }, createBot/createFlow, BaileysClass) does not exist: never generate it.',
+  'botmesh (v2). The v1 API (.addAnswer, .addAction, { capture: true }, createBot/createFlow, BaileysClass) does not exist: never generate it.',
   'Flow documents are data: version 1, `steps` array, no code, no local paths, no eval. The only expressions are the safe grammar of `condition.if` / `ask.validate.expr`; texts only interpolate `{{ path }}` over c.state and $body/$from/$sender/$isGroup.',
   'Workflow: flow_example or flow_schema to write a document, flow_validate on every iteration, flow_analyze for the graph and the static lint, flow_migrate for old versions, flow_diff/flow_digest before publishing.',
   'A handler that starts a conversation must not await it: `void runtime.enter(...).catch(...)` (enter resolves when the conversation ENDS and would block the chat FIFO queue).',
@@ -100,7 +100,7 @@ export function createMcpServer(options: McpServerOptions = {}): McpServer {
           return resultResponse(id, {
             protocolVersion,
             capabilities: { tools: { listChanged: false } },
-            serverInfo: { name: options.name ?? MCP_SERVER_NAME, version: options.version ?? MCP_SERVER_VERSION, title: 'BotWA flow tools' },
+            serverInfo: { name: options.name ?? MCP_SERVER_NAME, version: options.version ?? MCP_SERVER_VERSION, title: 'botmesh flow tools' },
             instructions: options.instructions ?? MCP_INSTRUCTIONS,
           })
         }
