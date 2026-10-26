@@ -28,7 +28,7 @@ Every issue fixed during the audit has a regression test (look for
 | HighLevel | `X-GHL-Signature` Ed25519 (legacy RSA `X-WH-Signature` only when you configure its key) | yes | n/a (signature verify) | none enforced; see residual risks |
 | Gupshup, WPPConnect | shared token in the callback URL or a header (they do not sign) | n/a | yes | none |
 | Evolution | shared header secret or HS256 JWT (`exp` required, ±30 s skew) | n/a | yes | JWT `exp` |
-| Chatwoot | shared token and/or HMAC-SHA256 (`x-chatwoot-signature`, optional `x-chatwoot-timestamp` ±300 s) | yes | yes | only when the timestamp header is sent |
+| Chatwoot | shared token and/or HMAC-SHA256 (`x-chatwoot-signature` over `x-chatwoot-timestamp` + body, ±300 s) | yes | yes | **yes**, ±300 s; the untimed form needs `webhookAllowUntimedSignature` |
 
 Every provider refuses to start without credentials unless you set
 `allowUnsignedWebhooks: true` (or `insecureNoWebhookAuth` in Chatwoot), and

@@ -129,6 +129,7 @@ usan como claves opacas.
 | `baseUrl`, `apiKey`, `accountId`, `inboxId` | — | Conexión a Chatwoot (obligatorias) |
 | `webhookToken` / `webhookSecret` | — | Al menos una, o `insecureNoWebhookAuth: true` |
 | `webhookToleranceSec` | `300` | Desfase admitido del timestamp firmado |
+| `webhookAllowUntimedSignature` | `false` | Aceptar también una firma sin `x-chatwoot-timestamp` (repetible) |
 | `autoHandoff` | `true` | Pausar el bot cuando responde un agente |
 | `resumeOnResolve` | `true` | Reanudar el bot al resolver la conversación |
 | `resolveOnResume` | `true` | Resolver la conversación cuando el bot se reanuda por otra vía |
@@ -156,8 +157,11 @@ pendiente, útil al apagar y en tests) y `client` (`ChatwootClient`).
 - El token se acepta en `?token=`, `x-chatwoot-token` o
   `Authorization: Bearer`. La firma HMAC-SHA256 va en
   `x-chatwoot-signature` (hex, admite el prefijo `sha256=`) y se calcula
-  sobre el **body crudo**, o sobre `${timestamp}.${body}` si llega
-  `x-chatwoot-timestamp`. Las comparaciones son de tiempo constante.
+  sobre `${timestamp}.${rawBody}`, con `x-chatwoot-timestamp` (segundos)
+  dentro de `webhookToleranceSec` (300). Una firma sobre el body solo no
+  caduca nunca, así que una petición capturada se podría repetir: se
+  rechaza salvo con `webhookAllowUntimedSignature: true`. Las comparaciones
+  son de tiempo constante.
 - `handleWebhook` responde `401` sin autenticación válida, `400` con JSON
   inválido y `503` antes de que el plugin esté instalado; nunca lanza.
   `webhookHandler` solo acepta `POST` y limita el body a 1 MiB.
