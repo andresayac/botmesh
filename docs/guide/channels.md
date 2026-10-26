@@ -189,10 +189,20 @@ const provider = new CloudAPIProvider({
   send a list instead), lists, templates and WhatsApp Flows forms. A button
   with `url` goes out as a `cta_url` link button (one per message: several
   links, or a link mixed with reply buttons, reject). A `card` keeps its
-  image (as the media or the interactive header) and its buttons.
+  image (as the media or the interactive header) and its buttons. Graph's
+  limits are checked before sending: no buttons, repeated button ids or
+  titles (compared after the 20-character cut), a list with no rows, more
+  than 10 rows in total or repeated row ids reject with
+  `UnsupportedContentError`. Labels are cut on grapheme boundaries, so an
+  emoji is kept whole or dropped, never split.
 - A missing `accessToken`, `phoneNumberId` or `verifyToken` fails at
-  construction with an error naming the field. Every Graph request has a
-  timeout (`requestTimeoutMs`, 60 s by default).
+  construction with an error naming the field (`phoneNumberId` may also be
+  a safe integer). Every Graph request has a timeout (`requestTimeoutMs`,
+  60 s by default); media uploads have their own (`uploadTimeoutMs`, 5 min
+  by default).
+- An interactive reply that is not a button or list press (for example
+  `call_permission_reply`) arrives as an `unknown` message with the raw
+  payload in `ctx.ref.native`.
 - Users with a WhatsApp username may arrive with a BSUID instead of a phone
   number; the provider keeps one stable id per person (`identityMap`).
 - Outside the 24 h window free-form sends reject with

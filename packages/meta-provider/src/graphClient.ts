@@ -17,10 +17,17 @@ export interface GraphClientConfig {
   mediaDownload?: Omit<SecureFetchOptions, 'fetch'>
   /** Time allowed for each Graph API request, in ms. Default {@link DEFAULT_GRAPH_TIMEOUT_MS}. */
   timeoutMs?: number
+  /**
+   * Time allowed for one media upload, in ms. Default {@link DEFAULT_UPLOAD_TIMEOUT_MS},
+   * or `timeoutMs` when that is larger.
+   */
+  uploadTimeoutMs?: number
 }
 
-/** Default time allowed for one Graph API request (uploads included). */
+/** Default time allowed for one Graph API request (uploads have their own). */
 export const DEFAULT_GRAPH_TIMEOUT_MS = 60_000
+/** Default time allowed for one media upload (up to 100 MB). */
+export const DEFAULT_UPLOAD_TIMEOUT_MS = 300_000
 
 /**
  * Translate a Graph error into a typed provider error. Thin wrapper over the
@@ -61,9 +68,11 @@ async function secureFetchTyped(url: string, init: SecureFetchOptions): Promise<
 
 export class GraphClient {
   private readonly timeoutMs: number
+  private readonly uploadTimeoutMs: number
 
   constructor(private cfg: GraphClientConfig) {
     this.timeoutMs = cfg.timeoutMs ?? DEFAULT_GRAPH_TIMEOUT_MS
+    this.uploadTimeoutMs = cfg.uploadTimeoutMs ?? Math.max(DEFAULT_UPLOAD_TIMEOUT_MS, this.timeoutMs)
   }
 
   /**
@@ -72,26 +81,26 @@ export class GraphClient {
    * failures reject with a typed {@link ProviderError} whose message never
    * includes the URL or the token; the timer is cleared as soon as it settles.
    */
-  private async call(path: string, init: RequestInit, opts: GraphErrorOptions = {}): Promise<unknown> {
+  private async call(path: string, init: RequestInit, opts: GraphErrorOptions = {}, timeoutMs = this.timeoutMs): Promise<unknown> {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs)
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
     timer.unref?.()
     try {
       let res: Response
       try {
         res = await fetch(this.base(path), { ...init, signal: controller.signal })
       } catch (err) {
-        throw transportError(err, this.timeoutMs, controller.signal.aborted)
+        throw transportError(err, timeoutMs, controller.signal.aborted)
       }
       let body: unknown
       try {
         body = await readGraphResponse(res, opts)
       } catch (err) {
-        if (controller.signal.aborted && !(err instanceof ProviderError)) throw transportError(err, this.timeoutMs, true)
+        if (controller.signal.aborted && !(err instanceof ProviderError)) throw transportError(err, timeoutMs, true)
         throw err
       }
       // readGraphResponse reads an unreadable body as `{}`: an abort mid-body must not pass as success.
-      if (controller.signal.aborted) throw transportError(controller.signal.reason, this.timeoutMs, true)
+      if (controller.signal.aborted) throw transportError(controller.signal.reason, timeoutMs, true)
       return body
     } finally {
       clearTimeout(timer)
@@ -155,7 +164,7 @@ export class GraphClient {
       method: 'POST',
       headers: this.headers(),
       body: form,
-    })) as { id?: string }
+    }, {}, this.uploadTimeoutMs)) as { id?: string }
     if (!body.id) throw new ProviderError('Media upload returned no id')
     return body.id
   }

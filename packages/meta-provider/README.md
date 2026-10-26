@@ -57,9 +57,10 @@ app.listen(3000)
 
 The constructor fails fast, naming the field (never its value), when `accessToken`, `phoneNumberId` or
 `verifyToken` is missing or empty: a typo in an environment variable surfaces at startup instead of as a Graph
-`401` or a webhook that never verifies. Every Graph request (send, upload, mark read, media lookup) has a timeout,
-`requestTimeoutMs` (default `60000`); a request that takes longer rejects with a `ProviderError`. The media CDN
-download has its own `mediaDownload.timeoutMs` (default 15 s).
+`401` or a webhook that never verifies. `phoneNumberId` may also be given as a safe integer. Every Graph request
+(send, mark read, media lookup) has a timeout, `requestTimeoutMs` (default `60000`); a request that takes longer
+rejects with a `ProviderError`. Media uploads (up to 100 MB) use `uploadTimeoutMs` (default `300000`, or
+`requestTimeoutMs` when larger). The media CDN download has its own `mediaDownload.timeoutMs` (default 15 s).
 
 ```ts
 const provider = new CloudAPIProvider({ /* ... */ requestTimeoutMs: 20_000 })

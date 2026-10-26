@@ -26,12 +26,37 @@ function mediaObject(kind: OutboundContent['kind'], media: ResolvedMedia | undef
 }
 
 /** Graph limits of the interactive labels this mapper truncates (in characters). */
-const LIMITS = { buttons: 3, buttonTitle: 20, ctaLabel: 20, listButton: 20, sectionTitle: 24, rowTitle: 24, rowDescription: 72 } as const
+const LIMITS = { buttons: 3, buttonTitle: 20, ctaLabel: 20, listButton: 20, listRows: 10, sectionTitle: 24, rowTitle: 24, rowDescription: 72 } as const
 
-/** First `max` characters (code points: an emoji is never split into a lone surrogate). */
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+
+/**
+ * At most `max` characters (code points), cut on a grapheme boundary: an emoji ZWJ
+ * sequence, a flag or a letter with combining marks is kept whole or dropped whole,
+ * never split into a different symbol.
+ */
 function cut(text: string, max: number): string {
-  const chars = Array.from(text)
-  return chars.length <= max ? text : chars.slice(0, max).join('')
+  if (Array.from(text).length <= max) return text
+  let out = ''
+  let used = 0
+  for (const { segment } of graphemes.segment(text)) {
+    const size = Array.from(segment).length
+    if (used + size > max) break
+    out += segment
+    used += size
+  }
+  return out
+}
+
+/** Reject an interactive message Graph would refuse with an opaque error. */
+function assertUnique(kind: 'buttons' | 'card' | 'list', what: string, values: readonly string[]): void {
+  const seen = new Set<string>()
+  for (const v of values) {
+    if (seen.has(v)) {
+      throw new UnsupportedContentError(kind, `Cloud API needs unique ${what}; ${JSON.stringify(v)} repeats (titles are compared after the length cut).`)
+    }
+    seen.add(v)
+  }
 }
 
 /**
@@ -46,6 +71,9 @@ function interactiveButtons(
   buttons: Button[],
   extra: { footer?: string; imageUrl?: string } = {},
 ): Record<string, unknown> {
+  if (buttons.length === 0) {
+    throw new UnsupportedContentError(kind, 'Cloud API interactive messages need at least one button; send plain text instead.')
+  }
   const links = buttons.filter((b) => b.url)
   if (links.length > 0 && buttons.length > 1) {
     throw new UnsupportedContentError(
@@ -76,13 +104,16 @@ function interactiveButtons(
       },
     }
   }
+  const replies = buttons.map((b) => ({ type: 'reply', reply: { id: b.id, title: cut(b.title, LIMITS.buttonTitle) } }))
+  assertUnique(kind, 'button ids', replies.map((r) => r.reply.id))
+  assertUnique(kind, 'button titles', replies.map((r) => r.reply.title))
   return {
     type: 'interactive',
     interactive: {
       type: 'button',
       ...header,
       body: { text },
-      action: { buttons: buttons.map((b) => ({ type: 'reply', reply: { id: b.id, title: cut(b.title, LIMITS.buttonTitle) } })) },
+      action: { buttons: replies },
       ...footer,
     },
   }
@@ -137,6 +168,17 @@ export function toOutbound(content: OutboundContent, media?: ResolvedMedia): Rec
       return interactiveButtons('buttons', content.text, content.buttons, content.footer ? { footer: content.footer } : {})
 
     case 'list': {
+      const allRows = content.sections.flatMap((s) => s.rows)
+      if (allRows.length === 0 || content.sections.some((s) => s.rows.length === 0)) {
+        throw new UnsupportedContentError('list', 'Cloud API lists need at least one row in every section.')
+      }
+      if (allRows.length > LIMITS.listRows || content.sections.length > LIMITS.listRows) {
+        throw new UnsupportedContentError(
+          'list',
+          `Cloud API lists allow at most ${LIMITS.listRows} rows in total (across all sections); got ${allRows.length}. Split the menu or use a numbered choose() menu.`,
+        )
+      }
+      assertUnique('list', 'row ids', allRows.map((r) => r.id))
       const sections = content.sections.map((s) => ({
         ...(s.title ? { title: cut(s.title, LIMITS.sectionTitle) } : {}),
         rows: s.rows.map((r) => ({

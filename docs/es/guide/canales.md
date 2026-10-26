@@ -197,10 +197,20 @@ const provider = new CloudAPIProvider({
   formularios con WhatsApp Flows. Un botón con `url` sale como botón de
   enlace `cta_url` (uno por mensaje: varios enlaces, o un enlace mezclado
   con botones de respuesta, rechazan). Una `card` conserva su imagen (como
-  media o como cabecera del mensaje interactivo) y sus botones.
+  media o como cabecera del mensaje interactivo) y sus botones. Los límites
+  de Graph se comprueban antes de enviar: sin botones, ids o títulos de
+  botón repetidos (comparados tras el corte a 20 caracteres), una lista sin
+  filas, con más de 10 filas en total o con ids de fila repetidos rechazan
+  con `UnsupportedContentError`. Las etiquetas se cortan por grafemas, así
+  que un emoji se conserva entero o se quita, nunca se parte.
 - Si falta `accessToken`, `phoneNumberId` o `verifyToken`, el constructor
-  falla con un error que nombra el campo. Cada petición a Graph tiene un
-  límite de tiempo (`requestTimeoutMs`, 60 s por defecto).
+  falla con un error que nombra el campo (`phoneNumberId` también puede ser
+  un entero seguro). Cada petición a Graph tiene un límite de tiempo
+  (`requestTimeoutMs`, 60 s por defecto); las subidas de media tienen el
+  suyo (`uploadTimeoutMs`, 5 min por defecto).
+- Una respuesta interactiva que no es la pulsación de un botón o una lista
+  (por ejemplo `call_permission_reply`) llega como mensaje `unknown`, con el
+  payload crudo en `ctx.ref.native`.
 - Los usuarios con username de WhatsApp pueden llegar con un BSUID en lugar
   del teléfono; el provider mantiene un id estable por persona
   (`identityMap`).

@@ -145,6 +145,27 @@ export type InboundDraft =
   | { kind: 'alias'; previous: Party; next: Party }
 
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v.length > 0 ? v : undefined)
+/** Longest status error text kept (Graph sends a title, sometimes a long `error_data.details`). */
+const MAX_STATUS_ERROR_TEXT = 1000
+
+/**
+ * The first entry of a status' `errors`, checked: a numeric `code` (a digit string is
+ * converted) and a string `title` (or `message`), clipped. Other shapes are dropped
+ * field by field; a non-object entry gives `undefined`.
+ */
+function statusError(errors: unknown): { code?: number; message?: string } | undefined {
+  const first: unknown = Array.isArray(errors) ? errors[0] : undefined
+  if (!first || typeof first !== 'object') return undefined
+  const raw = first as { code?: unknown; title?: unknown; message?: unknown }
+  const code = typeof raw.code === 'number' && Number.isFinite(raw.code)
+    ? raw.code
+    : typeof raw.code === 'string' && /^\d{1,10}$/.test(raw.code) ? Number(raw.code) : undefined
+  const text = str(raw.title) ?? str(raw.message)
+  return {
+    ...(code !== undefined ? { code } : {}),
+    ...(text !== undefined ? { message: text.length > MAX_STATUS_ERROR_TEXT ? text.slice(0, MAX_STATUS_ERROR_TEXT) : text } : {}),
+  }
+}
 /** Free text (body, caption, emoji): the string itself, `''` for anything else. */
 const textOf = (v: unknown): string => (typeof v === 'string' ? v : '')
 /** Webhook epoch seconds (a digit string in practice); `0` when missing or malformed. */
@@ -373,8 +394,11 @@ export function extractDrafts(body: GraphWebhookBody, logger: IdentityLogger): I
         }
 
         // Interactive replies (button/list clicks) and template quick-reply
-        // buttons (`type: 'button'`) → interaction events.
-        if ((msg.type === 'interactive' && msg.interactive) || (msg.type === 'button' && msg.button)) {
+        // buttons (`type: 'button'`) → interaction events. Other interactive types
+        // (`call_permission_reply`…) are not presses: they fall through to an `unknown`
+        // message that keeps the raw payload in `ref.native`.
+        const pressed = msg.type === 'interactive' && (msg.interactive?.type === 'button_reply' || msg.interactive?.type === 'list_reply')
+        if (pressed || (msg.type === 'button' && msg.button)) {
           const data = msg.type === 'button'
             ? str(msg.button?.payload) ?? str(msg.button?.text) ?? ''
             : str((msg.interactive?.button_reply ?? msg.interactive?.list_reply)?.id) ?? ''
@@ -431,7 +455,7 @@ export function extractDrafts(body: GraphWebhookBody, logger: IdentityLogger): I
         if (!hasId(party)) { drop('status', 'no usable recipient id (recipient_id / recipient_user_id)', id); continue }
         if (id === undefined) { drop('status', 'missing message id'); continue }
         const timestamp = epochSeconds(st.timestamp)
-        const error = st.errors?.[0] ? { code: st.errors[0].code, message: st.errors[0].title } : undefined
+        const error = statusError(st.errors)
         const platformData = statusPlatformData(st)
         pendingEvents.push({
           kind: 'event',
