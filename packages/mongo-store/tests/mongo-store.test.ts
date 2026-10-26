@@ -239,4 +239,16 @@ describe('MongoStore — options validation', () => {
       expect(() => new MongoStore({ client: new FakeMongoClient(), maxMessagesPerChat: bad })).toThrow(RangeError)
     }
   })
+
+  it('rejects an empty dbName instead of silently using the driver default database', () => {
+    expect(() => new MongoStore({ client: new FakeMongoClient(), dbName: '' })).toThrow(/dbName/)
+    expect(() => new MongoStore({ client: new FakeMongoClient(), dbName: 'my.db' })).toThrow(/dbName/)
+  })
+
+  it('rejects a collectionPrefix MongoDB cannot use in a collection name, up front', () => {
+    for (const bad of ['a$b', 'a\u0000b', 'system.']) {
+      expect(() => new MongoStore({ client: new FakeMongoClient(), collectionPrefix: bad })).toThrow(/collectionPrefix/)
+    }
+    expect(() => new MongoStore({ client: new FakeMongoClient(), collectionPrefix: 'bot.v2_' })).not.toThrow()
+  })
 })

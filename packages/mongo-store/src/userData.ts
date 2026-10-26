@@ -16,6 +16,7 @@
 
 import type { UserDataEntry, UserId } from '@botmesh/core'
 import type { MongoLikeCollection } from './MongoStore.js'
+import { idString } from './ids.js'
 
 export interface UserDataDoc {
   _id: string
@@ -32,7 +33,8 @@ export interface UserDataDoc {
 const UPSERT = { upsert: true, ignoreUndefined: true } as const
 const READ = { promoteBuffers: true } as const
 
-const docId = (userId: UserId, namespace: string, key: string): string => JSON.stringify([userId, namespace, key])
+const docId = (userId: UserId, namespace: string, key: string): string =>
+  JSON.stringify([idString(userId, 'userId'), idString(namespace, 'namespace'), idString(key, 'key')])
 
 const isLive = (doc: UserDataDoc, now: number): boolean => typeof doc.expiresAt !== 'number' || doc.expiresAt > now
 
@@ -89,12 +91,16 @@ export class MongoUserData {
   }
 
   async delete(userId: UserId, namespace?: string, key?: string): Promise<void> {
+    idString(userId, 'userId')
+    if (namespace !== undefined) idString(namespace, 'namespace')
     if (namespace === undefined) await this.collection.deleteMany({ userId })
     else if (key === undefined) await this.collection.deleteMany({ userId, namespace })
     else await this.collection.deleteOne({ _id: docId(userId, namespace, key) })
   }
 
   async list(userId: UserId, namespace: string | undefined, now: number): Promise<UserDataEntry[]> {
+    idString(userId, 'userId')
+    if (namespace !== undefined) idString(namespace, 'namespace')
     const docs = await this.collection.find(namespace === undefined ? { userId } : { userId, namespace }, READ).toArray()
     return docs.filter((doc) => isLive(doc, now)).map(toEntry)
   }

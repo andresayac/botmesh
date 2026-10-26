@@ -48,6 +48,7 @@ import type {
   UserId,
 } from '@botmesh/core'
 import { legacyMessageKey, messageKey } from '@botmesh/core'
+import { idString } from './ids.js'
 import { MongoScheduleStore } from './schedules.js'
 import { MongoUserData, type UserDataDoc } from './userData.js'
 
@@ -227,6 +228,11 @@ function shallowMerge<T extends object>(patch: T): { $set: Partial<T>; $unset?: 
   return update
 }
 
+/** Characters MongoDB refuses in a database name (any platform), plus the empty name. */
+const INVALID_DB_NAME = /^$|[/\\. "$*<>:|?\u0000]/
+/** A collection name may not contain `$` or NUL, nor start with `system.`. */
+const INVALID_COLLECTION_PREFIX = /[$\u0000]|^system\./
+
 export class MongoStore implements IStore {
   private readonly client: MongoLikeClient
   private readonly ownsClient: boolean
@@ -252,6 +258,11 @@ export class MongoStore implements IStore {
       throw new RangeError(`MongoStore: purgeBatchSize must be a positive integer, got ${opts.purgeBatchSize}`)
     }
     this.dbName = opts.dbName ?? 'botwa'
+    if (INVALID_DB_NAME.test(this.dbName)) {
+      // An empty name made the driver fall back to the URL's (or its default) database;
+      // the other characters only failed at the first command.
+      throw new Error(`MongoStore: invalid dbName ${JSON.stringify(this.dbName)} — use a non-empty name without / \\ . space " $ * < > : | ?`)
+    }
     this.logger = opts.logger
     this.maxMessagesPerChat = opts.maxMessagesPerChat
     this.ownsClient = !opts.client
@@ -262,6 +273,9 @@ export class MongoStore implements IStore {
     this.client = client as unknown as MongoLikeClient
 
     const p = opts.collectionPrefix ?? ''
+    if (INVALID_COLLECTION_PREFIX.test(p)) {
+      throw new Error(`MongoStore: invalid collectionPrefix ${JSON.stringify(p)} — it may not contain $ or NUL, nor start with "system."`)
+    }
     this.collectionPrefix = p
     const db = this.client.db(this.dbName)
     this.messages = db.collection<MessageDoc>(`${p}messages`)
@@ -282,6 +296,9 @@ export class MongoStore implements IStore {
    */
   async saveMessage(msg: StoredMessage): Promise<void> {
     if (!msg.ref?.id || !msg.chatId) return
+    idString(msg.chatId, 'chatId')
+    idString(msg.ref.id, 'ref.id')
+    idString(msg.ref.chatId, 'ref.chatId')
     const key = messageKey(msg.ref)
     await this.messages.updateOne(
       { _id: key },
@@ -314,6 +331,8 @@ export class MongoStore implements IStore {
 
   async getMessage(ref: MessageRef): Promise<StoredMessage | undefined> {
     if (!ref.id || !ref.chatId) return undefined
+    idString(ref.id, 'ref.id')
+    idString(ref.chatId, 'ref.chatId')
     const key = messageKey(ref)
     const found = await this.messageIn(key, ref)
     if (found) return found
@@ -337,6 +356,7 @@ export class MongoStore implements IStore {
     // MemoryStore's window for ANY number: non-positive/NaN gives nothing, a
     // fraction rounds up, Infinity means everything. MongoDB reads limit(0) as
     // "no limit" and limit(-n) as n, and rejects a fraction, so normalize first.
+    idString(chatId, 'chatId')
     if (!(limit > 0)) return []
     // Latest `limit` messages, newest first, then flipped to oldest -> newest.
     const cursor = this.messages.find({ chatId }, READ).sort(NEWEST_FIRST)
@@ -346,6 +366,8 @@ export class MongoStore implements IStore {
   }
 
   async deleteMessage(ref: MessageRef): Promise<void> {
+    idString(ref.id, 'ref.id')
+    idString(ref.chatId, 'ref.chatId')
     // Both key formats, scoped to the chat and to THIS message (see ownedBy).
     await this.messages.deleteMany({
       _id: { $in: [messageKey(ref), legacyMessageKey(ref)] },
@@ -357,10 +379,10 @@ export class MongoStore implements IStore {
   /* Chats ----------------------------------------------------------------- */
 
   async upsertChat(chat: StoredChat): Promise<void> {
-    await this.chats.updateOne({ _id: chat.id }, shallowMerge(chat), UPSERT)
+    await this.chats.updateOne({ _id: idString(chat.id, 'chat.id') }, shallowMerge(chat), UPSERT)
   }
   async getChat(chatId: string): Promise<StoredChat | undefined> {
-    const doc = await this.chats.findOne({ _id: chatId }, READ)
+    const doc = await this.chats.findOne({ _id: idString(chatId, 'chatId') }, READ)
     if (!doc) return undefined
     const { _id, ...chat } = doc
     return chat
@@ -371,6 +393,7 @@ export class MongoStore implements IStore {
   }
   /** Removes the chat document AND purges its message log (consistent with MemoryStore). */
   async deleteChat(chatId: string): Promise<void> {
+    idString(chatId, 'chatId')
     await this.messages.deleteMany({ chatId })
     await this.chats.deleteOne({ _id: chatId })
   }
@@ -378,10 +401,10 @@ export class MongoStore implements IStore {
   /* Contacts -------------------------------------------------------------- */
 
   async upsertContact(contact: StoredContact): Promise<void> {
-    await this.contacts.updateOne({ _id: contact.id }, shallowMerge(contact), UPSERT)
+    await this.contacts.updateOne({ _id: idString(contact.id, 'contact.id') }, shallowMerge(contact), UPSERT)
   }
   async getContact(userId: string): Promise<StoredContact | undefined> {
-    const doc = await this.contacts.findOne({ _id: userId }, READ)
+    const doc = await this.contacts.findOne({ _id: idString(userId, 'userId') }, READ)
     if (!doc) return undefined
     const { _id, ...contact } = doc
     return contact
@@ -392,28 +415,28 @@ export class MongoStore implements IStore {
   }
 
   async deleteContact(userId: string): Promise<void> {
-    await this.contacts.deleteOne({ _id: userId })
+    await this.contacts.deleteOne({ _id: idString(userId, 'userId') })
   }
 
   /* Delivery cursor ------------------------------------------------------- */
 
   async getCursor(key: string): Promise<string | undefined> {
-    return (await this.cursors.findOne({ _id: key }))?.value
+    return (await this.cursors.findOne({ _id: idString(key, 'key') }))?.value
   }
   async setCursor(key: string, value: string): Promise<void> {
-    await this.cursors.updateOne({ _id: key }, { $set: { value } }, UPSERT)
+    await this.cursors.updateOne({ _id: idString(key, 'key') }, { $set: { value } }, UPSERT)
   }
 
   /* Flow checkpoints ------------------------------------------------------ */
 
   async getCheckpoint(key: string): Promise<FlowCheckpoint | undefined> {
-    return (await this.checkpoints.findOne({ _id: key }, READ))?.cp
+    return (await this.checkpoints.findOne({ _id: idString(key, 'key') }, READ))?.cp
   }
   async setCheckpoint(key: string, cp: FlowCheckpoint): Promise<void> {
-    await this.checkpoints.updateOne({ _id: key }, { $set: { cp } }, UPSERT)
+    await this.checkpoints.updateOne({ _id: idString(key, 'key') }, { $set: { cp } }, UPSERT)
   }
   async clearCheckpoint(key: string): Promise<void> {
-    await this.checkpoints.deleteOne({ _id: key })
+    await this.checkpoints.deleteOne({ _id: idString(key, 'key') })
   }
   /**
    * Compare-and-set write (see `IStore.setCheckpointIf`): one `updateOne` filtered by the
@@ -425,6 +448,7 @@ export class MongoStore implements IStore {
     if (!Number.isInteger(expectedRevision) || expectedRevision < 0) {
       throw new RangeError(`MongoStore.setCheckpointIf: expectedRevision must be a non-negative integer, got ${String(expectedRevision)}`)
     }
+    idString(key, 'key')
     if (expectedRevision === 0) {
       try {
         await this.checkpoints.updateOne({ _id: key, ...UNREVISIONED }, { $set: { cp } }, UPSERT)
@@ -441,6 +465,7 @@ export class MongoStore implements IStore {
     if (!Number.isInteger(expectedRevision) || expectedRevision < 0) {
       throw new RangeError(`MongoStore.clearCheckpointIf: expectedRevision must be a non-negative integer, got ${String(expectedRevision)}`)
     }
+    idString(key, 'key')
     const filter = expectedRevision === 0 ? { _id: key, ...UNREVISIONED } : { _id: key, 'cp.revision': expectedRevision }
     if ((await this.checkpoints.deleteOne(filter)).deletedCount === 1) return true
     return (await this.checkpoints.findOne({ _id: key })) === null // absent counts as cleared
@@ -453,13 +478,13 @@ export class MongoStore implements IStore {
   /* AI conversation history ----------------------------------------------- */
 
   async getConversation(key: string): Promise<AIMessage[] | undefined> {
-    return (await this.conversations.findOne({ _id: key }, READ))?.messages
+    return (await this.conversations.findOne({ _id: idString(key, 'key') }, READ))?.messages
   }
   async setConversation(key: string, messages: AIMessage[]): Promise<void> {
-    await this.conversations.updateOne({ _id: key }, { $set: { messages } }, UPSERT)
+    await this.conversations.updateOne({ _id: idString(key, 'key') }, { $set: { messages } }, UPSERT)
   }
   async clearConversation(key: string): Promise<void> {
-    await this.conversations.deleteOne({ _id: key })
+    await this.conversations.deleteOne({ _id: idString(key, 'key') })
   }
 
   /* User data (ctx.user) — collection `user_data`, lazy expiry + purge ---- */

@@ -23,6 +23,10 @@
  */
 
 import type { ClaimResult, CompletePatch, ScheduleKind, ScheduleRecord, ScheduleStore } from '@botmesh/core'
+import { idString } from './ids.js'
+
+/** Task ids and owners enter MongoDB filters: strings only (see {@link idString}). */
+const taskId = (id: unknown): string => idString(id, 'the task id', 'MongoScheduleStore')
 
 /** A stored schedule document. */
 export interface ScheduleDoc {
@@ -102,12 +106,13 @@ export class MongoScheduleStore implements ScheduleStore {
   }
 
   async get(id: string): Promise<ScheduleRecord | null> {
-    const doc = await this.col.findOne({ _id: id, deleted: false })
+    const doc = await this.col.findOne({ _id: taskId(id), deleted: false })
     return doc ? fromDoc(doc) : null
   }
 
   async register(rec: Pick<ScheduleRecord, 'id' | 'kind' | 'spec' | 'nextRunAt'>, now: number): Promise<ScheduleRecord> {
     const { id, kind, spec, nextRunAt } = rec
+    taskId(id)
     for (let attempt = 1; ; attempt++) {
       try {
         const fresh: ScheduleDoc = { _id: id, kind, spec, nextRunAt, fencingToken: 0, deleted: false, updatedAt: now }
@@ -139,6 +144,8 @@ export class MongoScheduleStore implements ScheduleStore {
   }
 
   async claimDue(id: string, owner: string, now: number, leaseMs: number): Promise<ClaimResult | null> {
+    taskId(id)
+    idString(owner, 'the lease owner', 'MongoScheduleStore')
     const doc = await this.col.findOneAndUpdate(
       {
         _id: id,
@@ -155,6 +162,7 @@ export class MongoScheduleStore implements ScheduleStore {
   }
 
   async renew(id: string, fencingToken: number, leaseUntil: number): Promise<boolean> {
+    taskId(id)
     // matchedCount, not modifiedCount: renewing with the same value is still a success.
     const res = await this.col.updateOne(
       { _id: id, deleted: false, fencingToken, leaseOwner: { $type: 'string' } },
@@ -164,6 +172,7 @@ export class MongoScheduleStore implements ScheduleStore {
   }
 
   async complete(id: string, fencingToken: number, patch: CompletePatch, now: number): Promise<boolean> {
+    taskId(id)
     const $set: Record<string, unknown> = { nextRunAt: patch.nextRunAt, updatedAt: now }
     if (patch.lastRunAt !== undefined) $set.lastRunAt = patch.lastRunAt
     if (patch.lastStatus !== undefined) $set.lastStatus = patch.lastStatus
@@ -175,6 +184,7 @@ export class MongoScheduleStore implements ScheduleStore {
   }
 
   async delete(id: string): Promise<void> {
+    taskId(id)
     // Soft delete: the tombstone keeps the fencing token (updatedAt is only a purge hint).
     await this.col.updateOne({ _id: id, deleted: false }, { $set: { deleted: true, updatedAt: Date.now() }, $unset: LEASE_UNSET })
   }
