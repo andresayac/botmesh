@@ -147,7 +147,7 @@ pnpm changeset                              # if anything publishable changed
 pnpm run docs                               # optional: checks the site builds with no dead links (use `pnpm run`: `pnpm docs` is a pnpm builtin)
 ```
 
-CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs `build` and `test` on Node 22 and 24 on every push to `main` and on every PR against `main` (plus `pnpm run docs` on Node 24). `pnpm typecheck` and the store integration tests do **not** run in CI: run them locally before opening the PR (the store ones only if you touch a store).
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs `build`, `typecheck`, `test` and `test:scripts` on Node 22 and 24 on every push to `main` and on every PR against `main` (plus `pnpm run docs` on Node 24). The store integration tests, `api-check`, `pack:smoke` and `docs:check` do **not** run in CI: run them locally before opening the PR (the store ones only if you touch a store).
 
 ## Publishing a version
 
@@ -198,7 +198,7 @@ git push --follow-tags
 Run the whole thing before `changeset publish` (it is the checklist the [`ROADMAP.md`](ROADMAP.md) safety gate asks for); the threat model and its residual risks live in [docs/guide/threat-model.md](docs/guide/threat-model.md).
 
 - [ ] `main` clean, no `wave*` branches or worktrees, everything that gets published already committed.
-- [ ] `pnpm build && pnpm typecheck && pnpm test` green (Node 22 and 24; CI covers build and test).
+- [ ] `pnpm build && pnpm typecheck && pnpm test` green (Node 22 and 24; CI covers build, typecheck and test).
 - [ ] `pnpm api-check` (0 findings) and `pnpm pack:smoke` (tarballs installed for real and templates resolved).
 - [ ] `pnpm version-packages` run and reviewed with `pnpm changeset status --verbose` and `pnpm changeset publish-plan`; commit `chore(release): version packages`.
 - [ ] `pnpm run docs:site && pnpm docs:check` with no errors or warnings, and `docs/public/llms.txt` up to date.

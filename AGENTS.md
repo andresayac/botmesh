@@ -64,7 +64,7 @@ pnpm docs:deploy                          # publica a mano en GitHub Pages (rama
 
 Antes de dar un cambio por terminado: `pnpm build && pnpm typecheck && pnpm test` en verde. En Windows, si la terminal abre el repo con la unidad en minúscula (`c:\...`, habitual en VS Code), `pnpm -r <script>` lanzado a mano no reconoce el directorio, incluye el paquete raíz y todo se ejecuta dos veces; trabaja desde la ruta con la unidad en mayúscula (`C:\...`). Los scripts raíz (`pnpm build`, `pnpm test`, `pnpm typecheck`) no tienen ese problema.
 
-CI (`.github/workflows/ci.yml`) corre `build` y `test` en Node 22 y 24 (más `pnpm run docs` en Node 24) en cada push a `main` y en cada PR contra `main`. `pnpm typecheck` y los tests de integración de stores **no** corren en CI: ejecútalos en local. **No añadas workflows nuevos de GitHub Actions** (tampoco para desplegar GitHub Pages): el mantenedor no los quiere; pregunta antes de tocar `.github/`. El sitio de docs se publica a mano con `pnpm docs:deploy` (ver [Documentación](#documentación)).
+CI (`.github/workflows/ci.yml`) corre `build`, `typecheck`, `test` y `test:scripts` en Node 22 y 24 (más `pnpm run docs` en Node 24) en cada push a `main` y en cada PR contra `main`. Los tests de integración de stores (y `api-check`, `pack:smoke`, `bench:soak`, `docs:check`) **no** corren en CI: ejecútalos en local. **No añadas workflows nuevos de GitHub Actions** (tampoco para desplegar GitHub Pages): el mantenedor no los quiere; pregunta antes de tocar `.github/`. El sitio de docs se publica a mano con `pnpm docs:deploy` (ver [Documentación](#documentación)).
 
 ## Toolchain
 
@@ -207,5 +207,5 @@ Son los errores que más caro han salido. Respétalos aunque un cambio "parezca"
 ## Commits y PRs
 
 - [Conventional Commits](https://www.conventionalcommits.org/) con scope de paquete o área: `feat(core): ...`, `fix(stores): ...`, `feat(channels): ...`, `docs: ...`. Asunto en imperativo, ≤ 72 caracteres.
-- Los PRs van contra `main`, con `build`, `typecheck` y `test` en verde en Node 22 y 24, más `pnpm typecheck` y, si tocas stores, sus tests de integración en local. Si cambian algo visible de un paquete público, incluyen su changeset.
+- Los PRs van contra `main`, con `build`, `typecheck` y `test` en verde en Node 22 y 24 (CI ya incluye `typecheck` y `test:scripts`) y, si tocas stores, sus tests de integración en local. Si cambian algo visible de un paquete público, incluyen su changeset.
 - No hagas commit ni push salvo que te lo pidan.
