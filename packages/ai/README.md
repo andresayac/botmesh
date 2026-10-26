@@ -14,10 +14,12 @@ Full guide: <https://andresayac.github.io/botmesh/guide/ai>
 ## Installation
 
 ```bash
-pnpm add @botmesh/core @botmesh/ai @anthropic-ai/sdk
+pnpm add @botmesh/core @botmesh/ai @botmesh/baileys @anthropic-ai/sdk
 ```
 
-The last package is the SDK of your provider (see [Providers](#providers)).
+`@botmesh/baileys` is the channel used in the Quickstart (swap it for yours,
+e.g. `@botmesh/meta` or `@botmesh/telegram`); the last package is the SDK of
+your AI provider (see [Providers](#providers)).
 Requires **Node >= 22**.
 
 > **Prerelease.** Until the stable release there is no `latest` dist-tag: add
