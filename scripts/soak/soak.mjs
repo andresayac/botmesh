@@ -31,7 +31,8 @@ const lib = (p) => new URL(`file:///${resolve(root, p).replace(/\\/g, '/')}`).hr
 
 const { Bot, flow } = await import(lib('packages/core/lib/index.js'))
 const { MockProvider } = await import(lib('packages/core/lib/testing/index.js'))
-const { aiPlugin, MockAIProvider } = await import(lib('packages/ai/lib/index.js'))
+const { aiPlugin } = await import(lib('packages/ai/lib/index.js'))
+const { MockAIProvider } = await import(lib('packages/ai/lib/testing.js'))
 
 const { values: args } = parseArgs({
   // `pnpm bench:soak -- --chats 2000` forwards a literal `--`: drop it.
