@@ -4,6 +4,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### `@botmesh/events`: endurecimiento antes de la beta (2026-10)
+- Un sobre que JSON no puede guardar (un `BigInt`, una referencia circular) ya no envenena un `FileEventJournal`: antes el registro quedaba en memoria sin escribirse y todas las escrituras siguientes fallaban para siempre. Ahora `append`/`appendRecord` lo rechazan con un `TypeError` que lo explica y no guardan nada; `SharedFileEventJournal` da el mismo error. Lo que se lee de un journal de archivo es la forma JSON que se escribió (un `Date` vuelve como cadena ISO), y `MemoryEventJournal` guarda una copia del sobre (mutarlo después de `append` ya no cambia el registro).
+- `EventWorker` valida sus opciones en el constructor (`maxAttempts` entero positivo, `retryDelayMs` finito y no negativo, `leaseMs` finito y positivo, `clock` función), y los journals validan `now`, `leaseMs`, `retryDelayMs`, `retryAt`, `maxAttempts`, `leaseUntil`, `limit` y `doneBefore` antes de cambiar nada: un `NaN` dejaba un registro con lease o vencimiento `NaN` que nunca se volvía a reclamar.
+- `createEnvelope` explica qué falta (`eventType`, `context` o uno de sus ids obligatorios) en lugar de un `TypeError` interno.
+- Un snapshot dañado se rechaza con `invalid event journal snapshot <archivo>: <motivo>` (JSON inválido o el registro concreto que está mal) y una entrada de append log mal formada con `invalid event journal append log <archivo>: entry <n>: <motivo>`, en lugar de errores internos (`Cannot read properties of undefined`, `localeCompare is not a function`). Lo cubre un fuzzing con semilla de los dos formatos.
+- Un `FileEventJournal` cerrado ya no aplica en memoria una escritura que luego rechaza.
+- README y guía de operaciones (EN/ES): los journals de archivo guardan JSON y el coste por operación de `SharedFileEventJournal`.
+
 ### Integración de los 26 paquetes promovidos en `main` (2026-10)
 - Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
 - Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).

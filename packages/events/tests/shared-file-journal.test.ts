@@ -9,13 +9,17 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Bot, MemoryStore, flow } from '@botmesh/core'
 import { CrashableProvider, MockProvider, crashable } from '@botmesh/core/testing'
 import { runDurabilityConformance } from '../../../test-utils/durability-conformance.js'
 import { runCrashRecoveryMatrix, type CrashMatrixDeps } from '../../../test-utils/durability-crash.js'
 import { FileEventJournal, SharedFileEventJournal, StaleLeaseError, createEnvelope } from '../src/index.js'
 import { eventsDurability } from '../src/durability.js'
+
+// Every operation here takes a file mutex and rewrites the file (tens of ms each on Windows):
+// the concurrency cases run ~100 of them, which outlasts the 10 s default on a loaded machine.
+vi.setConfig({ testTimeout: 60_000 })
 
 const context = { tenantId: 't', environmentId: 'e', botId: 'b', providerId: 'p', connectionId: 'c' }
 const env = (id: string, occurredAt = 1) => createEnvelope({ eventId: id, eventType: 'test.event', occurredAt, context, payload: { id } })

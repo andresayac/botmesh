@@ -43,10 +43,23 @@ export interface CreateEnvelopeInput<TPayload> {
   payload: TPayload
 }
 
+const REQUIRED_CONTEXT = ['tenantId', 'environmentId', 'botId', 'providerId', 'connectionId'] as const
+
+/**
+ * Build an envelope with defaults (`eventId` a random UUID, `correlationId` and `idempotencyKey`
+ * the `eventId`, `partitionKey` `tenant/bot/connection/chat`, `occurredAt` now).
+ * @throws {TypeError} when `eventType` or a required `context` id is missing.
+ */
 export function createEnvelope<TPayload>(input: CreateEnvelopeInput<TPayload>): EventEnvelope<TPayload> {
-  if (!input.eventType.trim()) throw new Error('eventType is required')
+  if (typeof input?.eventType !== 'string' || !input.eventType.trim()) throw new TypeError('createEnvelope(): eventType is required (a non-empty string)')
   if (!Number.isInteger(input.schemaVersion ?? 1) || (input.schemaVersion ?? 1) <= 0) {
     throw new Error('schemaVersion must be a positive integer')
+  }
+  if (typeof input.context !== 'object' || input.context === null) {
+    throw new TypeError('createEnvelope(): context is required ({ tenantId, environmentId, botId, providerId, connectionId })')
+  }
+  for (const field of REQUIRED_CONTEXT) {
+    if (typeof input.context[field] !== 'string') throw new TypeError(`createEnvelope(): context.${field} is required (a non-empty string)`)
   }
   for (const [field, value] of Object.entries(input.context)) {
     if (field.endsWith('Id') && typeof value === 'string' && value.trim() === '') {
@@ -304,6 +317,37 @@ function lease(record: EventRecord, now: number, leaseMs: number, owner: string 
   else delete record.owner
 }
 
+/** A finite number (time or duration), checked before a journal call changes anything. */
+function checkFinite(value: number | undefined, name: string, who: string, min = Number.NEGATIVE_INFINITY, exclusiveMin = false): void {
+  if (value === undefined) return
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < min || (exclusiveMin && value === min)) {
+    const bound = min === Number.NEGATIVE_INFINITY ? 'a finite number' : exclusiveMin ? `a finite number above ${min}` : `a finite number >= ${min}`
+    throw new TypeError(`${who}: ${name} must be ${bound} (got ${String(value)})`)
+  }
+}
+
+function checkLease(lease: EventLease | undefined, who: string): void {
+  if (!lease) return
+  checkFinite(lease.now, 'lease.now', who)
+  checkFinite(lease.leaseMs, 'lease.leaseMs', who, 0, true)
+}
+
+/**
+ * A JSON copy of `envelope`: what a file journal writes and reads back. Checked before the
+ * journal changes anything, so a payload that cannot be stored never poisons later writes.
+ * @throws {TypeError} for a payload JSON cannot hold (a BigInt, a circular reference).
+ */
+function jsonEnvelope<TPayload>(envelope: EventEnvelope<TPayload>): EventEnvelope<TPayload> {
+  let text: string | undefined
+  try {
+    text = JSON.stringify(envelope)
+  } catch (error) {
+    throw new TypeError(`event ${String(envelope?.eventId)} is not JSON-serializable (${(error as Error).message}): file journals store JSON, so convert BigInt values and remove circular references from the payload`)
+  }
+  if (text === undefined) throw new TypeError('event envelope is not JSON-serializable')
+  return JSON.parse(text) as EventEnvelope<TPayload>
+}
+
 export class MemoryEventJournal implements LeasedEventJournal {
   /** A memory journal is only ever used by the process that holds it. */
   readonly exclusive = true
@@ -316,10 +360,13 @@ export class MemoryEventJournal implements LeasedEventJournal {
   }
 
   async appendRecord<TPayload>(envelope: EventEnvelope<TPayload>, options: AppendEventOptions = {}): Promise<{ status: 'appended' | 'duplicate'; record: EventRecord }> {
+    checkFinite(options.now, 'now', 'appendRecord()')
+    checkLease(options.lease, 'appendRecord()')
     const existing = this.records.get(envelope.eventId) ?? this.records.get(this.idempotency.get(envelope.idempotencyKey) ?? '')
     if (existing) return { status: 'duplicate', record: structuredClone(existing) }
     const record: EventRecord<TPayload> = {
-      envelope,
+      // A copy: a caller mutating its envelope later must not change the stored record.
+      envelope: structuredClone(envelope),
       state: 'pending',
       attempts: 0,
       nextAttemptAt: options.now ?? envelope.occurredAt,
@@ -337,6 +384,8 @@ export class MemoryEventJournal implements LeasedEventJournal {
   }
 
   async claim(limit: number, options: ClaimEventOptions = {}): Promise<EventRecord[]> {
+    checkFinite(options.now, 'now', 'claim()')
+    checkFinite(options.leaseMs, 'leaseMs', 'claim()', 0, true)
     const now = options.now ?? Date.now()
     const leaseMs = options.leaseMs ?? 30_000
     if (!Number.isInteger(limit) || limit <= 0) throw new Error('claim limit must be a positive integer')
@@ -355,6 +404,7 @@ export class MemoryEventJournal implements LeasedEventJournal {
   }
 
   async claimOne(eventId: string, options: EventLease): Promise<EventRecord | null> {
+    checkLease(options, 'claimOne()')
     const record = this.records.get(eventId)
     if (!record || !claimable(record, options.now, options.owner, false)) return null
     lease(record, options.now, options.leaseMs, options.owner)
@@ -362,10 +412,12 @@ export class MemoryEventJournal implements LeasedEventJournal {
   }
 
   async extend(eventId: string, options: { fencingToken: number; leaseUntil: number }): Promise<void> {
+    checkFinite(options.leaseUntil, 'leaseUntil', 'extend()')
     this.fenced(eventId, options.fencingToken).leaseUntil = options.leaseUntil
   }
 
   async ack(eventId: string, options: AckEventOptions = {}): Promise<void> {
+    checkFinite(options.now, 'now', 'ack()')
     const record = this.fenced(eventId, options.fencingToken)
     const now = options.now ?? Date.now()
     record.state = 'done'
@@ -376,6 +428,12 @@ export class MemoryEventJournal implements LeasedEventJournal {
   }
 
   async fail(eventId: string, error: unknown, options: FailEventOptions = {}): Promise<void> {
+    checkFinite(options.now, 'now', 'fail()')
+    checkFinite(options.retryDelayMs, 'retryDelayMs', 'fail()', 0)
+    checkFinite(options.retryAt, 'retryAt', 'fail()')
+    if (options.maxAttempts !== undefined && (!Number.isInteger(options.maxAttempts) || options.maxAttempts < 1)) {
+      throw new TypeError(`fail(): maxAttempts must be a positive integer (got ${String(options.maxAttempts)})`)
+    }
     const record = this.fenced(eventId, options.fencingToken)
     const maxAttempts = options.maxAttempts ?? 5
     const now = options.now ?? Date.now()
@@ -403,6 +461,7 @@ export class MemoryEventJournal implements LeasedEventJournal {
   }
 
   async release(eventId: string, options: ReleaseEventOptions = {}): Promise<void> {
+    checkFinite(options.now, 'now', 'release()')
     const record = this.fenced(eventId, options.fencingToken)
     if (record.state !== 'processing') return
     const now = options.now ?? Date.now()
@@ -414,6 +473,7 @@ export class MemoryEventJournal implements LeasedEventJournal {
   }
 
   async replay(eventId: string, now = Date.now()): Promise<void> {
+    checkFinite(now, 'now', 'replay()')
     const record = this.required(eventId)
     record.state = 'pending'
     record.attempts = 0
@@ -426,6 +486,9 @@ export class MemoryEventJournal implements LeasedEventJournal {
 
   async list(options: ListEventOptions = {}): Promise<EventRecord[]> {
     const limit = options.limit ?? 100
+    if (typeof limit !== 'number' || !(limit === Number.POSITIVE_INFINITY || (Number.isInteger(limit) && limit >= 0))) {
+      throw new TypeError(`list(): limit must be a non-negative integer or Infinity (got ${String(limit)})`)
+    }
     return structuredClone(
       [...this.records.values()]
         .filter((record) => !options.state || record.state === options.state)
@@ -437,6 +500,9 @@ export class MemoryEventJournal implements LeasedEventJournal {
   }
 
   async purge(options: PurgeEventOptions): Promise<number> {
+    if (typeof options?.doneBefore !== 'number' || Number.isNaN(options.doneBefore)) {
+      throw new TypeError(`purge(): doneBefore must be a number (epoch ms; got ${String(options?.doneBefore)})`)
+    }
     let n = 0
     for (const [eventId, record] of this.records) {
       if (record.channel !== options.channel) continue
@@ -502,13 +568,43 @@ export interface FileEventJournalOptions {
   fsync?: boolean
 }
 
-/** Parse a journal snapshot (format version 1 or 2, plus the append-log sequence). @throws {Error} when it is not one. */
-function parseSnapshot(text: string): { records: EventRecord[]; sidecars: Record<string, unknown>; logSeq?: number } {
-  const parsed = JSON.parse(text) as { version?: number; records?: EventRecord[]; sidecars?: unknown; logSeq?: unknown }
+const RECORD_STATES: ReadonlySet<string> = new Set<EventRecordState>(['pending', 'processing', 'failed', 'done', 'dead'])
+
+/** Why `value` is not a journal record (`undefined` when it is one). */
+function recordProblem(value: unknown): string | undefined {
+  const r = value as Partial<EventRecord> | null
+  if (typeof r !== 'object' || r === null) return 'not an object'
+  const e = r.envelope as Partial<EventEnvelope> | undefined
+  if (typeof e !== 'object' || e === null) return 'no envelope'
+  for (const field of ['eventId', 'eventType', 'idempotencyKey', 'partitionKey'] as const) {
+    if (typeof e[field] !== 'string') return `envelope.${field} is not a string`
+  }
+  if (typeof e.occurredAt !== 'number') return 'envelope.occurredAt is not a number'
+  if (typeof r.state !== 'string' || !RECORD_STATES.has(r.state)) return `unknown state ${JSON.stringify(r.state)}`
+  if (typeof r.attempts !== 'number' || typeof r.nextAttemptAt !== 'number') return 'attempts/nextAttemptAt are not numbers'
+  return undefined
+}
+
+/**
+ * Parse a journal snapshot (format version 1 or 2, plus the append-log sequence).
+ * @throws {Error} naming `filePath` and the problem when it is not one.
+ */
+function parseSnapshot(text: string, filePath: string): { records: EventRecord[]; sidecars: Record<string, unknown>; logSeq?: number } {
+  const invalid = (why: string) => new Error(`invalid event journal snapshot ${filePath}: ${why}. Restore it from a backup (or move it aside to start empty).`)
+  let parsed: { version?: number; records?: EventRecord[]; sidecars?: unknown; logSeq?: unknown }
+  try {
+    parsed = JSON.parse(text) as typeof parsed
+  } catch (error) {
+    throw invalid(`not JSON (${(error as Error).message})`)
+  }
   const okSidecars = parsed?.version === 1 || (typeof parsed?.sidecars === 'object' && parsed.sidecars !== null && !Array.isArray(parsed.sidecars))
   const okLogSeq = parsed?.logSeq === undefined || (typeof parsed.logSeq === 'number' && Number.isInteger(parsed.logSeq) && parsed.logSeq >= 0)
   if ((parsed?.version !== 1 && parsed?.version !== 2) || !Array.isArray(parsed.records) || !okSidecars || !okLogSeq) {
-    throw new Error('invalid event journal snapshot')
+    throw invalid('not a version 1 or 2 journal')
+  }
+  for (let i = 0; i < parsed.records.length; i++) {
+    const why = recordProblem(parsed.records[i])
+    if (why) throw invalid(`record ${i}: ${why}`)
   }
   return {
     records: parsed.records,
@@ -533,6 +629,27 @@ interface JournalDelta {
   del?: string[]
   /** Side state written or removed. */
   sidecars?: { set?: Record<string, unknown>; del?: string[] }
+}
+
+/** Why `value` is not a {@link JournalDelta} (`undefined` when it is one). */
+function deltaProblem(value: unknown): string | undefined {
+  const d = value as JournalDelta | null
+  if (typeof d !== 'object' || d === null || Array.isArray(d)) return 'not an object'
+  if (d.put !== undefined) {
+    if (!Array.isArray(d.put)) return 'put is not an array'
+    for (let i = 0; i < d.put.length; i++) {
+      const why = recordProblem(d.put[i])
+      if (why) return `put[${i}]: ${why}`
+    }
+  }
+  if (d.del !== undefined && (!Array.isArray(d.del) || d.del.some((id) => typeof id !== 'string'))) return 'del is not a list of ids'
+  const sc = d.sidecars
+  if (sc !== undefined) {
+    if (typeof sc !== 'object' || sc === null || Array.isArray(sc)) return 'sidecars is not an object'
+    if (sc.set !== undefined && (typeof sc.set !== 'object' || sc.set === null || Array.isArray(sc.set))) return 'sidecars.set is not an object'
+    if (sc.del !== undefined && (!Array.isArray(sc.del) || sc.del.some((name) => typeof name !== 'string'))) return 'sidecars.del is not a list of names'
+  }
+  return undefined
 }
 
 /** Append a delta to the state read from the snapshot. */
@@ -683,7 +800,7 @@ export class FileEventJournal implements LeasedEventJournal {
     let releaseMutex: (() => Promise<void>) | undefined
     try {
       if (lockPath) releaseMutex = await acquireMutex(`${filePath}.mutex`, 10_000, 30_000, 10_000)
-      ;({ records, sidecars } = parseSnapshot(await readFile(filePath, 'utf8')))
+      ;({ records, sidecars } = parseSnapshot(await readFile(filePath, 'utf8'), filePath))
     } catch (error: unknown) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         await releaseMutex?.().catch(() => {})
@@ -695,15 +812,17 @@ export class FileEventJournal implements LeasedEventJournal {
     await releaseMutex?.()
     return new FileEventJournal(filePath, MemoryEventJournal.fromSnapshot(records), lockPath, key, sidecars, options.fsync === true)
   }
-  async append<TPayload>(envelope: EventEnvelope<TPayload>): Promise<boolean> { const changed = await this.memory.append(envelope); if (changed) await this.persist(); return changed }
+  async append<TPayload>(envelope: EventEnvelope<TPayload>): Promise<boolean> { return (await this.appendRecord(envelope)).status === 'appended' }
+  /** @throws {TypeError} when the envelope is not JSON-serializable (nothing is stored then). */
   async appendRecord<TPayload>(envelope: EventEnvelope<TPayload>, options?: AppendEventOptions): Promise<{ status: 'appended' | 'duplicate'; record: EventRecord }> {
-    const result = await this.memory.appendRecord(envelope, options)
+    this.assertOpen()
+    const result = await this.memory.appendRecord(jsonEnvelope(envelope), options)
     if (result.status === 'appended') await this.persist()
     return result
   }
   get(eventId: string): Promise<EventRecord | undefined> { return this.memory.get(eventId) }
-  async claim(limit: number, options?: ClaimEventOptions): Promise<EventRecord[]> { const records = await this.memory.claim(limit, options); if (records.length) await this.persist(); return records }
-  async claimOne(eventId: string, lease: EventLease): Promise<EventRecord | null> { const record = await this.memory.claimOne(eventId, lease); if (record) await this.persist(); return record }
+  async claim(limit: number, options?: ClaimEventOptions): Promise<EventRecord[]> { this.assertOpen(); const records = await this.memory.claim(limit, options); if (records.length) await this.persist(); return records }
+  async claimOne(eventId: string, lease: EventLease): Promise<EventRecord | null> { this.assertOpen(); const record = await this.memory.claimOne(eventId, lease); if (record) await this.persist(); return record }
   /**
    * Extends the lease in memory only; the file gets it with the next write (or `close()`).
    * A lease matters only while this process lives, so a heartbeat never rewrites the file.
@@ -713,12 +832,12 @@ export class FileEventJournal implements LeasedEventJournal {
     await this.memory.extend(eventId, options)
     this.dirty = true
   }
-  async ack(eventId: string, options?: AckEventOptions): Promise<void> { await this.memory.ack(eventId, options); await this.persist() }
-  async fail(eventId: string, error: unknown, options?: FailEventOptions): Promise<void> { await this.memory.fail(eventId, error, options); await this.persist() }
-  async release(eventId: string, options?: ReleaseEventOptions): Promise<void> { await this.memory.release(eventId, options); await this.persist() }
-  async replay(eventId: string, now?: number): Promise<void> { await this.memory.replay(eventId, now); await this.persist() }
+  async ack(eventId: string, options?: AckEventOptions): Promise<void> { this.assertOpen(); await this.memory.ack(eventId, options); await this.persist() }
+  async fail(eventId: string, error: unknown, options?: FailEventOptions): Promise<void> { this.assertOpen(); await this.memory.fail(eventId, error, options); await this.persist() }
+  async release(eventId: string, options?: ReleaseEventOptions): Promise<void> { this.assertOpen(); await this.memory.release(eventId, options); await this.persist() }
+  async replay(eventId: string, now?: number): Promise<void> { this.assertOpen(); await this.memory.replay(eventId, now); await this.persist() }
   list(options?: ListEventOptions): Promise<EventRecord[]> { return this.memory.list(options) }
-  async purge(options: PurgeEventOptions): Promise<number> { const n = await this.memory.purge(options); if (n > 0) await this.persist(); return n }
+  async purge(options: PurgeEventOptions): Promise<number> { this.assertOpen(); const n = await this.memory.purge(options); if (n > 0) await this.persist(); return n }
 
   sidecar(name: string, state: JournalSidecar): SidecarHandle {
     if (this.registered.has(name)) throw new Error(`sidecar ${name} is already registered on this journal`)
@@ -994,7 +1113,7 @@ export class SharedFileEventJournal implements LeasedEventJournal {
     // Claimed at once so a FileEventJournal of this process opened from now on is refused.
     sharedOpen.set(key, (sharedOpen.get(key) ?? 0) + 1)
     try {
-      parseSnapshot(await readFile(filePath, 'utf8'))
+      parseSnapshot(await readFile(filePath, 'utf8'), filePath)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         unregisterShared(key)
@@ -1015,9 +1134,12 @@ export class SharedFileEventJournal implements LeasedEventJournal {
     return (await this.appendRecord(envelope)).status === 'appended'
   }
 
+  /** @throws {TypeError} when the envelope is not JSON-serializable (nothing is stored then). */
   appendRecord<TPayload>(envelope: EventEnvelope<TPayload>, options?: AppendEventOptions): Promise<{ status: 'appended' | 'duplicate'; record: EventRecord }> {
+    let stored: EventEnvelope<TPayload>
+    try { stored = jsonEnvelope(envelope) } catch (error) { return Promise.reject(error) }
     return this.write(async (m) => {
-      const out = await m.appendRecord(envelope, options)
+      const out = await m.appendRecord(stored, options)
       return { changed: out.status === 'appended', result: out }
     })
   }
@@ -1109,7 +1231,7 @@ export class SharedFileEventJournal implements LeasedEventJournal {
     let logSeq = 0
     try {
       const text = await retrying(() => readFile(this.filePath, 'utf8'))
-      ;({ records, sidecars, logSeq = 0 } = parseSnapshot(text))
+      ;({ records, sidecars, logSeq = 0 } = parseSnapshot(text, this.filePath))
     } catch (error) {
       // A missing snapshot is normal (nothing written yet, or a crash before the first
       // compaction); a log may still hold entries, so keep going.
@@ -1120,7 +1242,13 @@ export class SharedFileEventJournal implements LeasedEventJournal {
     }
     const replay = await AppendLog.replay<JournalDelta>(this.filePath, logSeq)
     let state = { records, sidecars }
-    for (const { entry } of replay.entries) state = applyDelta(state.records, state.sidecars, entry)
+    for (const { s, entry } of replay.entries) {
+      const why = deltaProblem(entry)
+      if (why) {
+        throw new Error(`invalid event journal append log ${AppendLog.pathOf(this.filePath)}: entry ${s}: ${why}. Restore the journal from a backup, or cut the log before that entry.`)
+      }
+      state = applyDelta(state.records, state.sidecars, entry)
+    }
     return { memory: MemoryEventJournal.fromSnapshot(state.records), sidecars: state.sidecars, replay }
   }
 
@@ -1219,10 +1347,19 @@ export interface EventBatchResult {
 export class EventWorker {
   private handlers = new Map<string, EventHandler>()
 
+  /** @throws {TypeError} for an invalid option (`maxAttempts`, `retryDelayMs`, `leaseMs`, `clock`). */
   constructor(
     private readonly journal: EventJournal,
     private readonly options: EventWorkerOptions = {},
-  ) {}
+  ) {
+    const { maxAttempts, retryDelayMs, leaseMs, clock } = options
+    if (maxAttempts !== undefined && (!Number.isInteger(maxAttempts) || maxAttempts < 1)) {
+      throw new TypeError(`EventWorker: maxAttempts must be a positive integer (got ${String(maxAttempts)})`)
+    }
+    checkFinite(retryDelayMs, 'retryDelayMs', 'EventWorker', 0)
+    checkFinite(leaseMs, 'leaseMs', 'EventWorker', 0, true)
+    if (clock !== undefined && typeof clock !== 'function') throw new TypeError('EventWorker: clock must be a function returning epoch ms')
+  }
 
   on<TPayload>(eventType: string, handler: EventHandler<TPayload>): () => void {
     if (this.handlers.has(eventType)) throw new Error(`Handler already registered for ${eventType}`)
