@@ -26,24 +26,31 @@ npm install @botmesh/core @botmesh/baileys
 
 ```js
 // bot.js
-import { Bot, defineBot, isMainModule, loadMediaOf } from '@botmesh/core'
+import { Bot, defineBot, isMainModule, loadMediaOf, MediaTooLargeError } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
 
 const createBot = defineBot((provider) => {
   const bot = new Bot({ provider })
 
-  // Every source can be a URL, a local path or a Buffer
+  // Every source can be a URL, a local path or a Buffer.
+  // The example.com URLs are placeholders: point them at your own files.
   bot.when('photo', (ctx) => ctx.photo('https://picsum.photos/400/300', '📸 A random photo'))
   bot.when('menu', (ctx) => ctx.file('https://example.com/menu.pdf', 'menu.pdf', '📄 Our menu'))
   bot.when('video', (ctx) => ctx.video('https://example.com/clip.mp4', '🎬 A short clip'))
   bot.when('voice', (ctx) => ctx.voice('https://example.com/note.ogg'))
-  bot.when('sticker', (ctx) => ctx.sticker('https://picsum.photos/512/512', { pack: 'My bot', author: 'me' }))
+  bot.when('sticker', (ctx) => ctx.sticker('https://picsum.photos/512/512.webp', { pack: 'My bot', author: 'me' }))
   bot.when('where', (ctx) => ctx.location(4.711, -74.0721, 'Bogotá, Colombia'))
   bot.when('contact', (ctx) => ctx.contact('+573001234567', 'Support'))
 
   // Inbound media: download the bytes only when you need them
   bot.onType('image', async (ctx) => {
-    const media = await loadMediaOf(ctx, { maxBytes: 5 * 1024 * 1024 })
+    let media
+    try {
+      media = await loadMediaOf(ctx, { maxBytes: 5 * 1024 * 1024 })
+    } catch (err) {
+      if (err instanceof MediaTooLargeError) return ctx.reply('That image is too large (5 MB max).')
+      throw err
+    }
     if (!media) return ctx.reply('I could not download that image.')
     await ctx.react('😍')
     await ctx.reply(`🖼️ Got your ${media.mimetype} image${ctx.body ? `: "${ctx.body}"` : ''}`)
@@ -73,7 +80,9 @@ if (isMainModule(import.meta)) {
 ## Sample transcript
 
 Captured with `npx botmesh dev bot.js`. The simulator prints media as
-`[kind: source]`; `:media image ./cat.jpg My cat` sends a file from disk:
+`[kind: source]` without downloading it, so the placeholder URLs work there.
+`:media image ./cat.jpg My cat` sends `cat.jpg` from the folder you run the
+command in (use any image you have):
 
 ```text
 user › photo
@@ -88,7 +97,7 @@ bot › [video: https://example.com/clip.mp4]
 user › voice
 bot › [voice note: https://example.com/note.ogg]
 user › sticker
-bot › [sticker: https://picsum.photos/512/512]
+bot › [sticker: https://picsum.photos/512/512.webp]
 user › where
 bot › [location: 4.711, -74.0721 · Bogotá, Colombia]
 user › contact
@@ -105,16 +114,19 @@ bot › 🖼️ Got your image/jpeg image: "My cat"
   local path or a `Buffer`. `ctx.file(source, filename, caption)` sets the
   name the user sees.
 - **Transport details stay in the provider.** On WhatsApp a voice note is
-  converted with ffmpeg and a sticker needs the optional `sharp` package;
-  Telegram sends them as they are. What each channel supports is in the
+  converted with ffmpeg and a sticker needs the optional `sharp` package.
+  Telegram sends them as they are, so there a sticker URL must point at a
+  `.webp` file (hence `512.webp`). What each channel supports is in the
   [capability matrix](/guide/channels#capability-matrix).
 - **Inbound media is lazy.** The message only carries a reference;
-  `loadMediaOf(ctx, { maxBytes })` downloads it once (rejecting files that
-  are too large) and returns `{ buffer, mimetype }`. `ctx.body` is the
-  caption.
+  `loadMediaOf(ctx, { maxBytes })` downloads it once and returns
+  `{ buffer, mimetype }`, or `undefined` if the download fails. A file over
+  `maxBytes` throws `MediaTooLargeError`, which the handler turns into a
+  reply. `ctx.body` is the caption.
 - **Locations** arrive as `type: 'location'` with `ctx.sharedLocation`
   (`latitude`, `longitude`, `name?`); `ctx.location()` is the method that
-  **sends** one.
+  **sends** one. The simulator has no command to share a location; the
+  docs test sends one with `MockProvider.incomingLocation()`.
 - **Outside a handler**, `bot.send(chatId, { kind: 'image', media: { url }, caption })`
   sends the same contents, for example from a [scheduled task](./reminders).
 

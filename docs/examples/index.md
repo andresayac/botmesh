@@ -37,4 +37,7 @@ example's code and checks its transcript, so what you read is what you get.
 | [Support with timeout](./support-flow) | Intermediate | Conversations | `bot.conversation()`, `c.waitText()`, `c.choose()`, `ConversationTimeout`, `ConversationCancelled` | A support desk that opens tickets and handles abandoned sessions |
 | [Plugin: rate limiter](./rate-limiter) | Intermediate | Plugins, Hooks | `definePlugin()`, `before('message')`, `abort()`, `onDispose()` | A reusable plugin that limits messages per user |
 
-Every example above runs on WhatsApp (Baileys) and Telegram unchanged.
+The bot code of every example is the same on WhatsApp (Baileys) and
+Telegram: only the provider changes. Where a channel renders something
+differently (buttons, stickers), the example page says so, and the
+[capability matrix](/guide/channels#capability-matrix) lists the details.

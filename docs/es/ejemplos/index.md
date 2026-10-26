@@ -38,5 +38,8 @@ transcripción, así que lo que lees es lo que obtienes.
 | [Soporte con timeout](./flujo-soporte) | Intermedio | Conversaciones | `bot.conversation()`, `c.waitText()`, `c.choose()`, `ConversationTimeout`, `ConversationCancelled` | Un servicio de soporte que abre tickets y maneja sesiones abandonadas |
 | [Plugin: rate limiter](./rate-limiter) | Intermedio | Plugins, Hooks | `definePlugin()`, `before('message')`, `abort()`, `onDispose()` | Un plugin reutilizable que limita los mensajes por usuario |
 
-Todos los ejemplos de arriba funcionan sin cambios en WhatsApp (Baileys) y
-Telegram.
+El código de cada ejemplo es el mismo en WhatsApp (Baileys) y Telegram:
+solo cambia el provider. Cuando un canal muestra algo distinto (botones,
+stickers), la página del ejemplo lo dice, y la
+[matriz de capacidades](/es/guide/canales#matriz-de-capacidades) da los
+detalles.

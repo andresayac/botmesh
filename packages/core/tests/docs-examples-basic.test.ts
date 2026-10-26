@@ -113,3 +113,32 @@ describe('reminder bot daily tip', () => {
     }
   })
 })
+
+describe('media replies example beyond the simulator', () => {
+  const pages = [
+    { page: EXAMPLES['media replies']!.en, location: '📍 You are at 4.6, -74.08', tooLarge: 'That image is too large (5 MB max).' },
+    { page: EXAMPLES['media replies']!.es, location: '📍 Estás en 4.6, -74.08', tooLarge: 'Esa imagen es demasiado grande (máximo 5 MB).' },
+  ]
+
+  it.each(pages)('$page answers a shared location and refuses an image over 5 MB', async ({ page, location, tooLarge }) => {
+    const createBot = await loadPageFactory(page)
+    const provider = new MockProvider()
+    const bot = await createBot(provider)
+    const errors: unknown[] = []
+    bot.on('error', (e: unknown) => { errors.push(e) })
+    await bot.start()
+    try {
+      provider.incomingLocation({ latitude: 4.6, longitude: -74.08 })
+      await vi.waitFor(() => expect(provider.outbox).toHaveLength(1))
+      expect(provider.outbox[0]!.content).toEqual({ kind: 'text', text: location })
+
+      // The size the provider declares is checked before downloading anything.
+      provider.incomingMedia('image', { url: 'https://example.com/huge.jpg' }, { size: 6 * 1024 * 1024 })
+      await vi.waitFor(() => expect(provider.outbox).toHaveLength(2))
+      expect(provider.outbox[1]!.content).toEqual({ kind: 'text', text: tooLarge })
+      expect(errors).toEqual([])
+    } finally {
+      await bot.stop()
+    }
+  })
+})
