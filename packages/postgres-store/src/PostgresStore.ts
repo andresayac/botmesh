@@ -174,6 +174,12 @@ export class PostgresStore implements IStore {
   /** The `start()` in progress, which `stop()` waits for (else it could not end the pool being opened). */
   private starting?: Promise<void>
   private started = false
+  /**
+   * The schema exists on `pool`: set by the first `start()`. With an injected pool it stays
+   * set after `stop()` (the pool is the caller's, and bots sharing this store each stop it),
+   * so only use before the first `start()` fails; an own pool is ended by `stop()`.
+   */
+  private ready = false
   private readonly userData: PostgresUserData
 
   constructor(opts: PostgresStoreOptions = {}) {
@@ -231,7 +237,7 @@ export class PostgresStore implements IStore {
   private async query<T = Record<string, unknown>>(text: string, values?: unknown[]): Promise<{ rows: T[] }> {
     const pool = this.pool
     // An injected pool exists from the constructor, but the tables only after start().
-    if (!pool || !this.started) {
+    if (!pool || !this.ready) {
       throw new Error('PostgresStore is not started — call start() before using it')
     }
     return (await pool.query(text, values)) as { rows: T[] }
@@ -574,6 +580,7 @@ export class PostgresStore implements IStore {
     if (!this.pool) this.pool = await (this.opening ??= this.createOwnPool().finally(() => { this.opening = undefined }))
     for (const stmt of this.schemaStatements()) await this.createSchemaObject(this.pool, stmt)
     this.started = true
+    this.ready = true
   }
 
   private async createOwnPool(): Promise<PostgresPoolLike> {
@@ -603,7 +610,9 @@ export class PostgresStore implements IStore {
 
   /**
    * Ends the pool ONLY when the store created it; injected pools are
-   * caller-managed and left open. After stop() an own-pool store can be
+   * caller-managed and left open, and the store keeps working on them (several
+   * bots may share one store; stopping one must not break the others). After
+   * stop() an own-pool store can be
    * started again (a fresh pool + idempotent schema pass). A `start()` still in
    * progress is awaited first, so the pool it is opening is ended too.
    */
@@ -611,6 +620,7 @@ export class PostgresStore implements IStore {
     await this.starting?.catch(() => undefined)
     this.started = false
     if (this.injectedPool) return
+    this.ready = false
     const pool = this.pool
     this.pool = undefined
     if (!pool) return

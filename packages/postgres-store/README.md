@@ -36,7 +36,7 @@ const bot = new Bot({ provider: new BaileysProvider({ session: 'my-bot' }), stor
 await bot.start() // starts the store too: creates the pool and the tables
 ```
 
-Using the store before it is started (or after `stop()`) fails with an error that tells you to call `start()`, also with an injected `pool`. After `stop()`, the store can be started again; a `stop()` that arrives while `start()` is still connecting waits for it and ends the new pool.
+Using the store before it is started fails with an error that tells you to call `start()`, also with an injected `pool`. `stop()` ends only a pool the store created: a store on an injected `pool` keeps working after `stop()`, so several bots can share one store (or one `PostgresDurability`) and stopping one does not break the others, as with the Redis, MySQL and MongoDB stores. After `stop()`, an own-pool store can be started again; a `stop()` that arrives while `start()` is still connecting waits for it and ends the new pool.
 
 ### Bring your own pool
 

@@ -61,6 +61,12 @@ export class PostgresDurableKv implements DurableKv {
   /** The `start()` in progress, which `stop()` waits for (else it could not end the pool being opened). */
   private starting?: Promise<void>
   private started = false
+  /**
+   * The table exists on `pool`: set by the first `start()`. With an injected pool it stays
+   * set after `stop()`: the scoped views of one backend (one per bot) and product stores
+   * share this KV, and stopping one of them must not turn it off for the others.
+   */
+  private ready = false
   private readonly owned: boolean
   readonly table: string
 
@@ -103,6 +109,7 @@ export class PostgresDurableKv implements DurableKv {
       }
     }
     this.started = true
+    this.ready = true
   }
 
   private async createOwnPool(): Promise<PostgresPoolLike> {
@@ -118,12 +125,13 @@ export class PostgresDurableKv implements DurableKv {
 
   /**
    * Ends the pool only when this backend created it (a `start()` still in progress is
-   * awaited first). A failure to end it goes to `logger.error`. It can be started again.
+   * awaited first); an injected pool stays usable, so other bots sharing it keep working. A failure to end it goes to `logger.error`. It can be started again.
    */
   async stop(): Promise<void> {
     await this.starting?.catch(() => undefined)
     this.started = false
     if (!this.owned || !this.pool) return
+    this.ready = false
     const pool = this.pool
     this.pool = undefined
     try {
@@ -135,7 +143,7 @@ export class PostgresDurableKv implements DurableKv {
 
   private q(text: string, values: unknown[]): Promise<{ rows: unknown[]; rowCount?: number | null }> {
     // An injected pool exists from the constructor, but the table only after start().
-    if (!this.pool || !this.started) throw new Error('PostgresDurability is not started — the bot starts it (or call start())')
+    if (!this.pool || !this.ready) throw new Error('PostgresDurability is not started — the bot starts it (or call start())')
     return this.pool.query(text, values)
   }
 

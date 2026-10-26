@@ -89,14 +89,44 @@ describe('use before start()', () => {
     await expect(store.getChat('c')).rejects.toThrow(/not started.*start\(\)/)
     await store.start()
     await expect(store.getChat('c')).resolves.toBeUndefined()
-    await store.stop()
-    await expect(store.getChat('c')).rejects.toThrow(/not started/)
   })
 
   it('PostgresDurableKv with an injected pool fails with the "not started" error', async () => {
     const kv = new PostgresDurableKv({ pool: new MockPool({}) as never })
     await expect(kv.get('inbox', 'a')).rejects.toThrow(/not started/)
     await kv.start()
+    await expect(kv.get('inbox', 'a')).resolves.toBeUndefined()
+  })
+})
+
+describe('an injected pool keeps working after stop() (one backend shared by several bots)', () => {
+  // Bots that share one store or one durability backend each call start()/stop() on it;
+  // stopping one bot must not turn the shared instance off for the others. Only an own
+  // pool is ended by stop() (like redis-store, mysql-store and mongo-store).
+  it('PostgresStore: start(); start(); stop() leaves the injected-pool store usable', async () => {
+    const store = new PostgresStore({ pool: new FakePool() })
+    await store.start()
+    await store.start()
+    await store.stop()
+    await expect(store.getChat('c')).resolves.toBeUndefined()
+  })
+
+  it('PostgresDurability: stopping one scope does not stop the other scopes', async () => {
+    const shared = new PostgresDurability({ pool: new MockPool({}) as never })
+    const a = shared.scope('botA')
+    const b = shared.scope('botB')
+    await a.start()
+    await b.start()
+    await a.stop()
+    await expect(b.inbox.get('m1')).resolves.toBeUndefined()
+    await expect(b.outbox.get('k1')).resolves.toBeUndefined()
+  })
+
+  it('PostgresDurableKv shared by a product store and a bot stays usable after one stops', async () => {
+    const kv = new PostgresDurableKv({ pool: new MockPool({}) as never })
+    await kv.start()
+    await kv.start()
+    await kv.stop()
     await expect(kv.get('inbox', 'a')).resolves.toBeUndefined()
   })
 })
