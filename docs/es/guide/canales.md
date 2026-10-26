@@ -142,7 +142,9 @@ pasan a un menú de texto numerado, `ctx.edit` envía un mensaje nuevo,
 - Todos los providers salvo Baileys aceptan el tipo de contenido `native`
   (`ctx.sendNative('<id del provider>', payload)`) como vía de escape a la API
   propia del canal, con un payload específico de cada provider. Baileys lo
-  rechaza con `UnsupportedContentError`.
+  rechaza con `UnsupportedContentError`. Discord, Messenger, Instagram,
+  Evolution, WPPConnect, Twilio, Gupshup y HighLevel también rechazan un
+  payload dirigido a otro id de provider en lugar de enviarlo.
 
 ## Providers
 
@@ -259,7 +261,11 @@ const provider = new MessengerProvider({
 })
 ```
 
-- Botones y listas nativos; las reacciones llegan pero no se pueden enviar.
+- Botones y listas nativos; las reacciones llegan pero no se pueden enviar
+  (suscribe el webhook a `message_reactions`; `emoji` es el carácter y
+  `removed` se marca con `unreact`).
+- El texto se limita a 2000 caracteres (`maxTextLength`), así los trozos de
+  `ctx.stream()` caben en la Send API.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/messenger-provider)
 
@@ -281,6 +287,9 @@ const provider = new InstagramProvider({
 - Los botones salen como quick replies; las listas se degradan a texto
   numerado.
 - Solo DMs (sin grupos); las reacciones llegan pero no se pueden enviar.
+- El texto se limita a 1000 (`maxTextLength`; Meta cuenta bytes UTF-8, así
+  que el texto no ASCII cabe menos), lo que dimensiona los trozos de
+  `ctx.stream()`.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/instagram-provider)
 
@@ -305,7 +314,12 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
   (se puso antes de reiniciar o salió del LRU) rechaza con
   `UnsupportedContentError`.
 - Las interacciones tienen un plazo estricto de confirmación
-  (`interactionsRequireAck`).
+  (`interactionsRequireAck`): el core no las confirma por ti, así que un
+  handler que responde a un botón, menú o comando slash llama a
+  `ctx.acknowledge()` (o `ctx.acknowledge('texto')`) en menos de ~3 s; si no,
+  Discord muestra "This interaction failed".
+- Los mensajes de sistema (entradas al servidor, fijados, boosts...) y los de
+  bots no se enrutan.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/discord-provider)
 
