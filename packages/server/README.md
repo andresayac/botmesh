@@ -123,7 +123,7 @@ const handler = createFetchHandler(ingress) // (Request) => Promise<Response>, 4
 | Situation | Status |
 | --- | --- |
 | `ingest` returns an integer 200–599 | that number |
-| `ingest` returns `{ status, body, headers }` | that status; a string `body` is sent as text, an object as JSON |
+| `ingest` returns `{ status, body, headers }` | that status; a string `body` is sent as text, an object as JSON; `headers` replace the ingress's own case-insensitively (names are sent lowercase), and framing/hop-by-hop headers (`content-length`, `transfer-encoding`, `connection`, `keep-alive`, `upgrade`, `proxy-connection`, `te`, `trailer`) are ignored |
 | `ingest` returns anything else (including a `1xx` code), or nothing | `200` |
 | `ingest` throws a `SyntaxError` / another error | `400` / `500` |
 | `GET` and `verifyChallenge` returns a string / `null` | `200` with the challenge / `403` |

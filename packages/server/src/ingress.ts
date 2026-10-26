@@ -52,8 +52,25 @@ function timeoutMs(name: string, value: number | undefined, fallback: number): n
 const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/
 const HEADER_VALUE = /^[\t\x20-\x7e\x80-\xff]*$/
 
-function validHeader([name, value]: [string, unknown]): boolean {
-  return typeof value === 'string' && HEADER_NAME.test(name) && HEADER_VALUE.test(value)
+/**
+ * Framing and hop-by-hop headers the adapters own: letting `ingest()` set them would produce a
+ * second `Content-Length`, or one that contradicts `Transfer-Encoding`, which clients reject.
+ */
+const RESERVED_HEADERS = new Set([
+  'content-length', 'transfer-encoding', 'connection', 'keep-alive', 'upgrade',
+  'proxy-connection', 'te', 'trailer',
+])
+
+/** Valid, non-reserved headers from an `ingest()` result, with lowercase names (they replace ours). */
+function resultHeaders(headers: unknown): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (!headers || typeof headers !== 'object') return out
+  for (const [name, value] of Object.entries(headers as Record<string, unknown>)) {
+    if (typeof value !== 'string' || !HEADER_NAME.test(name) || !HEADER_VALUE.test(value)) continue
+    const key = name.toLowerCase()
+    if (!RESERVED_HEADERS.has(key)) out[key] = value
+  }
+  return out
 }
 
 /** Map whatever `ingest` returned to a response. */
@@ -62,9 +79,7 @@ function fromIngestResult(result: unknown): IngressResponse {
   if (result && typeof result === 'object') {
     const { status, body, headers } = result as { status?: unknown; body?: unknown; headers?: unknown }
     const code = isStatus(status) ? status : 200
-    const extraHeaders = headers && typeof headers === 'object' ? Object.fromEntries(
-      Object.entries(headers as Record<string, unknown>).filter(validHeader),
-    ) as Record<string, string> : {}
+    const extraHeaders = resultHeaders(headers)
     let res: IngressResponse
     if (body === undefined || body === null) res = text(code, '')
     else if (typeof body === 'string') res = text(code, body)

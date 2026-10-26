@@ -186,7 +186,7 @@ createIngress({
 | Situation | Status |
 | --- | --- |
 | `ingest()` returns (or resolves to) an integer 200-599 | that status |
-| `ingest()` returns `{ status, body?, headers? }` | that status; a string `body` is sent as text, an object as JSON |
+| `ingest()` returns `{ status, body?, headers? }` | that status; a string `body` is sent as text, an object as JSON; `headers` replace the ingress's own case-insensitively (names are sent lowercase), and framing/hop-by-hop headers (`content-length`, `transfer-encoding`, `connection`, `keep-alive`, `upgrade`, `proxy-connection`, `te`, `trailer`) are ignored |
 | `ingest()` returns anything else (including a `1xx` code) / nothing | `200` |
 | `ingest()` throws a `SyntaxError` / another error | `400` / `500` |
 | `GET`/`HEAD` with `verifyChallenge()` → string / `null` | `200` with the challenge / `403` |

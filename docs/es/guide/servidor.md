@@ -189,7 +189,7 @@ createIngress({
 | Situación | Status |
 | --- | --- |
 | `ingest()` devuelve (o resuelve) un entero 200-599 | ese status |
-| `ingest()` devuelve `{ status, body?, headers? }` | ese status; un `body` string se envía como texto, un objeto como JSON |
+| `ingest()` devuelve `{ status, body?, headers? }` | ese status; un `body` string se envía como texto, un objeto como JSON; los `headers` sustituyen a los del ingress sin distinguir mayúsculas (los nombres salen en minúscula) y se ignoran los de framing/hop-by-hop (`content-length`, `transfer-encoding`, `connection`, `keep-alive`, `upgrade`, `proxy-connection`, `te`, `trailer`) |
 | `ingest()` devuelve otra cosa (también un código `1xx`) / nada | `200` |
 | `ingest()` lanza un `SyntaxError` / otro error | `400` / `500` |
 | `GET`/`HEAD` con `verifyChallenge()` → string / `null` | `200` con el challenge / `403` |

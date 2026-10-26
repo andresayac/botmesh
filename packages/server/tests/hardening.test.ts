@@ -59,7 +59,7 @@ describe('ingress hardening: readiness never rejects handle()', () => {
 describe('ingress hardening: statuses returned by ingest()', () => {
   const statuses = [100, 101, 199, 204, 205, 304, 600, 1.5]
   for (const status of statuses) {
-    it(`node and fetch agree on ingest() → ${status}`, async () => {
+    it(`node and fetch agree on ingest() â†’ ${status}`, async () => {
       const provider = new FakeWebhookProvider()
       provider.result = status
       const ingress = createIngress({ routes: [{ path: '/webhook', provider }] })
@@ -88,7 +88,7 @@ describe('ingress hardening: request targets', () => {
     expect(splitUrl('*').path).toBe('*')
   })
 
-  it('routes an absolute-form request (RFC 9112 §3.2.2)', async () => {
+  it('routes an absolute-form request (RFC 9112 Â§3.2.2)', async () => {
     const provider = new FakeWebhookProvider()
     running = await listen(createNodeHandler(createIngress({ routes: [{ path: '/webhook', provider }] })))
     const status = await new Promise<string>((resolve, reject) => {
@@ -124,7 +124,7 @@ describe('ingress hardening: seeded fuzz of the fetch path', () => {
     for (let i = 0; i < 400; i++) {
       const method = pick(['POST', 'POST', 'GET', 'HEAD', 'PUT', 'OPTIONS'])
       const path = pick(['/w', '/w/', '/w?c=1', '/healthz', '/readyz', '/x', '/w?c=%F0%9F%8E%89'])
-      const body = method === 'GET' || method === 'HEAD' ? undefined : 'é🎉'.repeat(Math.floor(rand() * 100))
+      const body = method === 'GET' || method === 'HEAD' ? undefined : 'Ã©ðŸŽ‰'.repeat(Math.floor(rand() * 100))
       const res = await handler(new Request(`http://h${path}`, { method, body }))
       expect(res.status).toBeGreaterThanOrEqual(200)
       expect(res.status).toBeLessThanOrEqual(599)
@@ -153,5 +153,34 @@ describe('ingress hardening: connection loss', () => {
     expect(provider.calls).toHaveLength(0)
     const timersAfter = process.getActiveResourcesInfo().filter((r) => r === 'Timeout').length
     expect(timersAfter).toBeLessThanOrEqual(timersBefore)
+  })
+})
+
+describe('ingress hardening: headers returned by ingest()', () => {
+  const routes = (headers: Record<string, string>) => [{ path: '/w', provider: { ingest: () => ({ status: 200, body: { ok: 1 }, headers }) } }]
+
+  it('replaces the ingress headers case-insensitively instead of duplicating them', async () => {
+    const ingress = createIngress({ routes: routes({ 'Content-Type': 'application/vnd.x+json', 'X-Trace': 'abc' }) })
+    const res = await ingress.handle({ method: 'POST', path: '/w', query: new URLSearchParams(), headers: {}, readBody: async () => Buffer.alloc(0) })
+    expect(res?.headers).toEqual({ 'content-type': 'application/vnd.x+json', 'cache-control': 'no-store', 'x-trace': 'abc' })
+
+    const fetchRes = await createFetchHandler(ingress)(new Request('http://h/w', { method: 'POST', body: '{}' }))
+    expect(fetchRes.headers.get('content-type')).toBe('application/vnd.x+json')
+  })
+
+  it('drops framing and hop-by-hop headers so the response stays parseable', async () => {
+    const ingress = createIngress({ routes: routes({
+      'Content-Length': '1', 'Transfer-Encoding': 'chunked', Connection: 'upgrade', 'Keep-Alive': 'timeout=5', Upgrade: 'h2c',
+      'Proxy-Connection': 'x', TE: 'trailers', Trailer: 'x-a', 'X-Ok': '1',
+    }) })
+    const res = await ingress.handle({ method: 'POST', path: '/w', query: new URLSearchParams(), headers: {}, readBody: async () => Buffer.alloc(0) })
+    expect(Object.keys(res?.headers ?? {}).sort()).toEqual(['cache-control', 'content-type', 'x-ok'])
+
+    running = await listen(createNodeHandler(ingress))
+    const viaNode = await fetch(`${running.url}/w`, { method: 'POST', body: '{}' })
+    expect(viaNode.status).toBe(200)
+    expect(await viaNode.json()).toEqual({ ok: 1 })
+    expect(viaNode.headers.get('content-length')).toBe('8')
+    expect(viaNode.headers.get('x-ok')).toBe('1')
   })
 })
