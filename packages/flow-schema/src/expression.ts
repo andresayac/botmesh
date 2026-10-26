@@ -310,9 +310,16 @@ function compare(op: '<' | '<=' | '>' | '>=', a: unknown, b: unknown): boolean {
   }
 }
 
-/** Render `{{ path }}` placeholders from `scope` (missing → empty string). Only paths, never expressions. */
-export function renderTemplate(template: string, scope: Readonly<Record<string, unknown>>): string {
-  return template.replace(TEMPLATE_RE, (_m, path: string) => str(resolvePath(scope, path.split('.'))))
+/**
+ * Render `{{ path }}` placeholders from `scope` (missing → empty string). Only paths, never
+ * expressions. `encode`, when given, transforms each rendered value (the `http` step passes
+ * a URL encoder so a value cannot add path segments, a query or a fragment).
+ */
+export function renderTemplate(template: string, scope: Readonly<Record<string, unknown>>, encode?: (value: string) => string): string {
+  return template.replace(TEMPLATE_RE, (_m, path: string) => {
+    const value = str(resolvePath(scope, path.split('.')))
+    return encode ? encode(value) : value
+  })
 }
 
 /** Whether `text` contains at least one `{{ path }}` placeholder. */

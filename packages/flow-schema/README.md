@@ -33,9 +33,13 @@ if (validateFlowDocument(document).length === 0) bot.registerFlow(compileFlowDoc
 
 A stored document cannot execute code, read local files or escape its scope: expressions read own properties only, templates resolve paths only, URLs must be http(s), `http` requests go through `@botmesh/http` (anti-SSRF, redirects, timeout and size) and the `ai` step can only restrict already-configured tools, never add new ones.
 
+- `http` URLs accept `{{ path }}` placeholders only in the path, query or fragment; values are percent-encoded and a bare `.`/`..` is refused, so user input can neither redirect the request (and its headers) to another host nor climb the path.
+- Form field `pattern`s are checked for catastrophic backtracking (nested repetition, alternation inside a repeated group, backreferences) and a text field with a `pattern` but no `maxLength` is capped at 500 characters.
+- Nested `delay` steps end with the conversation (`bot.stop()`, `/reset`, abort) instead of keeping a timer alive.
+
 ## Integration
 
 - `@botmesh/manager` consumes this package for `GET /v1/flows/schema` and to compile the flows of its REST API (the contract does not change).
 - `@botmesh/deployments` owns storage; this package only provides `publishFlow`/`flowDocumentGate`.
 
-Guía: [`docs/guide/flow-schema.md`](../../docs/guide/flow-schema.md) (EN) y [`docs/es/guide/flow-schema.md`](../../docs/es/guide/flow-schema.md) (ES).
+Guide: [`docs/guide/flow-schema.md`](../../docs/guide/flow-schema.md) (English) and [`docs/es/guide/flow-schema.md`](../../docs/es/guide/flow-schema.md) (Spanish).

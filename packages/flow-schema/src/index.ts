@@ -1,5 +1,5 @@
 /**
- * @botmesh/flow-schema — versioned, code-free JSON flows for BotWA.
+ * @botmesh/flow-schema — versioned, code-free JSON flows for botmesh.
  *
  * - **Validation**: {@link validateFlowDocument} / {@link isFlowDocument} and the
  *   JSON Schema itself ({@link FLOW_DOCUMENT_SCHEMA}, draft 2020-12), with precise
