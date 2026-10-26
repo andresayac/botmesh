@@ -16,7 +16,9 @@ import type { InboundEvent, MediaRef, MessageType } from '@botmesh/core'
 import type { GhlChannel, GhlWebhookBody } from './types.js'
 import { htmlToText, looksLikeHtml } from './html.js'
 
-const CHANNEL_ALIASES: Record<string, GhlChannel> = {
+// Null prototype + own-property lookup: webhook-supplied names such as
+// `constructor` must not resolve to inherited Object.prototype members.
+const CHANNEL_ALIASES: Readonly<Record<string, GhlChannel>> = Object.assign(Object.create(null) as Record<string, GhlChannel>, {
   sms: 'SMS', type_sms: 'SMS',
   whatsapp: 'WhatsApp', type_whatsapp: 'WhatsApp',
   email: 'Email', type_email: 'Email',
@@ -25,6 +27,10 @@ const CHANNEL_ALIASES: Record<string, GhlChannel> = {
   live_chat: 'Live_Chat', 'live chat': 'Live_Chat', livechat: 'Live_Chat', type_live_chat: 'Live_Chat',
   gmb: 'GMB', type_gmb: 'GMB',
   custom: 'Custom', type_custom_sms: 'Custom', type_custom_provider_sms: 'Custom',
+})
+
+function channelAlias(name: string): GhlChannel | undefined {
+  return Object.hasOwn(CHANNEL_ALIASES, name) ? CHANNEL_ALIASES[name] : undefined
 }
 
 /**
@@ -33,14 +39,14 @@ const CHANNEL_ALIASES: Record<string, GhlChannel> = {
  * `'Live_Chat'`); anything else is returned unchanged.
  */
 export function canonicalChannel(name: string): GhlChannel {
-  return CHANNEL_ALIASES[name.trim().toLowerCase()] ?? name
+  return channelAlias(name.trim().toLowerCase()) ?? name
 }
 
 /** HighLevel `messageType` / `messageTypeString` → send `type`, or undefined when unknown. */
 export function channelOf(body: Pick<GhlWebhookBody, 'messageType' | 'messageTypeString'>): GhlChannel | undefined {
   for (const raw of [body.messageType, body.messageTypeString]) {
     if (typeof raw !== 'string' || !raw) continue
-    const hit = CHANNEL_ALIASES[raw.toLowerCase()]
+    const hit = channelAlias(raw.toLowerCase())
     if (hit) return hit
   }
   return undefined

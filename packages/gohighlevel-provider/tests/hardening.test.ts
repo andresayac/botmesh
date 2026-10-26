@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { InboundEvent, InboundMessage } from '@botmesh/core'
 import { GoHighLevelProvider } from '../src/GoHighLevelProvider.js'
-import { parseInbound } from '../src/parseInbound.js'
+import { parseInbound, canonicalChannel, channelOf } from '../src/parseInbound.js'
 import { htmlToText } from '../src/html.js'
 import { fakeHttp, type Call } from './support.js'
 import { keys, LOCATION, SMS_INBOUND } from './fixtures.js'
@@ -122,5 +122,21 @@ describe('GoHighLevelProvider — Email bodies arrive as text', () => {
     const started = performance.now()
     htmlToText(hostile)
     expect(performance.now() - started).toBeLessThan(1000)
+  })
+
+  it('Object.prototype names are not entities: &constructor; and friends stay literal', () => {
+    const body = '<p>Pay &constructor; &toString; &__proto__; &hasOwnProperty; &valueOf; now &amp; &Eacute;</p>'
+    expect(htmlToText(body)).toBe('Pay &constructor; &toString; &__proto__; &hasOwnProperty; &valueOf; now & É')
+    const { events } = parseInbound({ ...EMAIL_INBOUND, body: '<p>Hi &constructor; &toString;</p>' })
+    expect(messageOf(events).body).toBe('Hi &constructor; &toString;')
+  })
+
+  it('Object.prototype names are not channel aliases', () => {
+    for (const name of ['constructor', 'toString', '__proto__', 'hasOwnProperty', 'valueOf']) {
+      expect(canonicalChannel(name)).toBe(name)
+      expect(channelOf({ messageType: name, messageTypeString: name })).toBeUndefined()
+    }
+    expect(channelOf({ messageType: 'constructor', messageTypeString: 'TYPE_SMS' })).toBe('SMS')
+    expect(canonicalChannel('Live Chat')).toBe('Live_Chat')
   })
 })
