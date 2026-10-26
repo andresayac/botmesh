@@ -114,7 +114,9 @@ El almacenamiento es intercambiable mediante `BotConfigStore` (`list`, `get`,
   `configStore: new FileBotConfigStore({ dir })`: un archivo JSON por bot en
   `<dir>/<tenantId>/<botId>.json`, escrituras atómicas, modo `0600`
   (directorios `0700`). Los archivos que no se pueden parsear se saltan, nunca
-  se borran (`onCorrupt` los recibe).
+  se borran (`onCorrupt` los recibe). Los ids de bot y de tenant que solo se
+  diferencian de uno existente en mayúsculas/minúsculas (`shop` / `Shop`) se
+  rechazan con `CONFLICT`: en Windows y macOS compartirían archivo o carpeta.
 - `MemoryBotConfigStore` guarda las configs en RAM (tests). Sin store no se
   persiste nada y `restore()` lanza `NOT_CONFIGURED`.
 
@@ -245,7 +247,11 @@ En un bot gestionado usa `manager.addFlow(botId, doc)`,
 `manager.putFlow(botId, flowId, doc)` (crea o cambia en caliente; el `id` del
 documento debe coincidir), `manager.removeFlow(botId, flowId)` y
 `manager.listFlowDocuments(botId)`. En los bots con config, los documentos se
-persisten con la config y se vuelven a registrar en cada reconstrucción.
+persisten con la config y se vuelven a registrar en cada reconstrucción. Los
+pasos `subflow` se resuelven contra los demás flujos guardados del bot (también
+en `createBot({ flows })`, `updateBot()` y `restore()`), y `removeFlow()`
+responde `CONFLICT` (`409` por REST) mientras otro flujo guardado siga usando
+como subflujo el que se quiere borrar.
 
 ## API REST `/v1` (`createRestApi`)
 
@@ -413,16 +419,20 @@ createServer(createControlPlaneApi(manager, {
   `POST /v1/bots/:id/start` y `POST /v1/bots/:id/stop` (`bots:operate`),
   `GET /v1/audit` (`audit:read`).
 - Las respuestas son `{ data, requestId }`; los errores,
-  `{ error: { code, requestId } }` con `401 UNAUTHORIZED`, `403 FORBIDDEN`,
-  `404 NOT_FOUND`, `409 CONFLICT` (una `Idempotency-Key` reutilizada para otra
-  petición) y `500 INTERNAL`.
+  `{ error: { code, requestId } }` con `400 BAD_REQUEST` (un id de bot mal
+  codificado en la ruta), `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 NOT_FOUND`,
+  `409 CONFLICT` (una `Idempotency-Key` reutilizada para otra petición) y
+  `500 INTERNAL`. El `X-Request-Id` solo se devuelve tal cual si tiene de 1 a
+  128 caracteres de `[A-Za-z0-9._:-]`; si no, se genera uno.
 - Las llamadas de health, listado y start/stop, y toda petición denegada o a
   un bot desconocido de una clave autenticada, se escriben en un `AuditLog`
-  (en memoria; pasa el tuyo con `auditLog`). Las claves de metadatos que
-  parecen tokens, secretos, contraseñas o API keys se redactan.
+  (en memoria y acotado: las últimas `maxEntries`, 10 000 por defecto; pasa el
+  tuyo con `auditLog`). Las claves de metadatos que parecen tokens, secretos,
+  contraseñas o API keys se redactan.
 
 Piezas relacionadas: `SecretVault` (AES-256-GCM, clave maestra de 32 bytes;
-`put` solo devuelve `{ ref, version }`), `IdempotencyRegistry`,
+`put` solo devuelve `{ ref, version }`), `IdempotencyRegistry` (recuerda las
+últimas `maxEntries` claves, 1000 por defecto),
 `assertAuthorized` y `verifyApiKey` (comparación en tiempo constante).
 
 ### Reconciliador de estado deseado

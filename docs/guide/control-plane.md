@@ -114,7 +114,9 @@ Storage is pluggable through `BotConfigStore` (`list`, `get`, `put`,
   `configStore: new FileBotConfigStore({ dir })`: one JSON file per bot under
   `<dir>/<tenantId>/<botId>.json`, atomic writes, mode `0600` (directories
   `0700`). Unparseable files are skipped, never deleted (`onCorrupt` receives
-  them).
+  them). Bot and tenant ids that differ from an existing one only by letter
+  case (`shop` / `Shop`) are refused with `CONFLICT`: on Windows and macOS they
+  would share a file or directory.
 - `MemoryBotConfigStore` keeps configs in RAM (tests). Without a store nothing
   is persisted and `restore()` throws `NOT_CONFIGURED`.
 
@@ -244,7 +246,10 @@ On a managed bot use `manager.addFlow(botId, doc)`, `manager.putFlow(botId,
 flowId, doc)` (create or hot-swap; the document `id` must match),
 `manager.removeFlow(botId, flowId)` and `manager.listFlowDocuments(botId)`. For
 config-backed bots the documents are persisted with the config and registered
-again on every rebuild.
+again on every rebuild. `subflow` steps resolve against the bot's other stored
+flows (also in `createBot({ flows })`, `updateBot()` and `restore()`), and
+`removeFlow()` answers `CONFLICT` (`409` over REST) while another stored flow
+still uses the one being removed as a subflow.
 
 ## REST API `/v1` (`createRestApi`)
 
@@ -409,15 +414,19 @@ createServer(createControlPlaneApi(manager, {
   `POST /v1/bots/:id/start` and `POST /v1/bots/:id/stop` (`bots:operate`),
   `GET /v1/audit` (`audit:read`).
 - Responses are `{ data, requestId }`; errors are `{ error: { code, requestId } }`
-  with `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 NOT_FOUND`, `409 CONFLICT`
-  (an `Idempotency-Key` reused for another request) and `500 INTERNAL`.
+  with `400 BAD_REQUEST` (a malformed bot id in the path), `401 UNAUTHORIZED`,
+  `403 FORBIDDEN`, `404 NOT_FOUND`, `409 CONFLICT` (an `Idempotency-Key` reused
+  for another request) and `500 INTERNAL`. An `X-Request-Id` is echoed only
+  when it is 1-128 characters of `[A-Za-z0-9._:-]`; otherwise one is generated.
 - Health, list and start/stop calls, and every denied or unknown-bot request
-  of an authenticated key, are written to an `AuditLog` (in memory; pass your
-  own through `auditLog`). Metadata keys that look like tokens, secrets,
-  passwords or API keys are redacted.
+  of an authenticated key, are written to an `AuditLog` (in memory and bounded:
+  the last `maxEntries`, 10 000 by default; pass your own through `auditLog`).
+  Metadata keys that look like tokens, secrets, passwords or API keys are
+  redacted.
 
 Related building blocks: `SecretVault` (AES-256-GCM, 32-byte master key;
-`put` returns only `{ ref, version }`), `IdempotencyRegistry`,
+`put` returns only `{ ref, version }`), `IdempotencyRegistry` (remembers the
+last `maxEntries` keys, 1000 by default),
 `assertAuthorized` and `verifyApiKey` (constant-time comparison).
 
 ### Desired state reconciler
