@@ -14,6 +14,7 @@
 
 import type { InboundEvent, MediaRef, MessageType } from '@botmesh/core'
 import type { GhlChannel, GhlWebhookBody } from './types.js'
+import { htmlToText, looksLikeHtml } from './html.js'
 
 const CHANNEL_ALIASES: Record<string, GhlChannel> = {
   sms: 'SMS', type_sms: 'SMS',
@@ -24,6 +25,15 @@ const CHANNEL_ALIASES: Record<string, GhlChannel> = {
   live_chat: 'Live_Chat', 'live chat': 'Live_Chat', livechat: 'Live_Chat', type_live_chat: 'Live_Chat',
   gmb: 'GMB', type_gmb: 'GMB',
   custom: 'Custom', type_custom_sms: 'Custom', type_custom_provider_sms: 'Custom',
+}
+
+/**
+ * A configured or per-send channel name in HighLevel's spelling: known names and
+ * aliases match case-insensitively (`'whatsapp'` → `'WhatsApp'`, `'Live Chat'` →
+ * `'Live_Chat'`); anything else is returned unchanged.
+ */
+export function canonicalChannel(name: string): GhlChannel {
+  return CHANNEL_ALIASES[name.trim().toLowerCase()] ?? name
 }
 
 /** HighLevel `messageType` / `messageTypeString` → send `type`, or undefined when unknown. */
@@ -64,6 +74,20 @@ function timestampOf(body: GhlWebhookBody, now: () => number): number {
   return Number.isFinite(parsed) ? parsed : now()
 }
 
+/**
+ * The message text. HighLevel sends an Email's HTML in `body` (with no
+ * `contentType`, or `text/html`): it is turned into plain text so text triggers
+ * match; `ctx.raw.body` keeps the original markup.
+ */
+function textOf(body: GhlWebhookBody, channel: GhlChannel | undefined): string {
+  const text = typeof body.body === 'string' ? body.body : ''
+  const contentType = typeof body.contentType === 'string' ? body.contentType.toLowerCase() : undefined
+  const html = contentType !== undefined
+    ? contentType.includes('html')
+    : channel === 'Email'
+  return html && looksLikeHtml(text) ? htmlToText(text) : text
+}
+
 export interface ParsedGhl {
   events: InboundEvent<GhlWebhookBody>[]
   /** The channel a contact last wrote on (reply routing). */
@@ -97,6 +121,9 @@ export function parseInbound(body: GhlWebhookBody, now: () => number = Date.now)
     ...(typeof body.locationId === 'string' && body.locationId ? { locationId: body.locationId } : {}),
     ...(from ? { from } : {}),
     ...(to ? { to } : {}),
+    ...(str(body.subject) ? { subject: str(body.subject) } : {}),
+    ...(str(body.threadId) ? { threadId: str(body.threadId) } : {}),
+    ...(str(body.emailMessageId) ? { emailMessageId: str(body.emailMessageId) } : {}),
   }
   const attachments = Array.isArray(body.attachments) ? Array.from(body.attachments as unknown[]).filter((a): a is string => typeof a === 'string' && a.length > 0) : []
   let type: MessageType = 'text'
@@ -106,7 +133,7 @@ export function parseInbound(body: GhlWebhookBody, now: () => number = Date.now)
     type = kind
     media = { kind, token: { url: attachments[0] } }
   }
-  const text = typeof body.body === 'string' ? body.body : ''
+  const text = textOf(body, channel)
 
   return {
     ...(channel ? { channel: { contactId, channel } } : {}),

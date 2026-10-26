@@ -60,7 +60,7 @@ app.listen(3000)
 | `template` | `templateId` (= `name`) |
 | `native` (`provider: 'gohighlevel'`) | body fields as-is |
 
-Inbound: messages (with attachments as `ctx.media`), `CALL` calls → `call` event. `OutboundMessage` echoes and the rest of the CRM events are ignored. `ctx.markRead()` sets `unreadCount: 0` on the conversation. `options.quoted` → `replyMessageId`.
+Inbound: messages (the first attachment as `ctx.media`; every URL stays in `ctx.raw.attachments`), `CALL` calls → `call` event. An **Email**'s HTML body arrives as plain text in `ctx.body` (so text triggers match); `ctx.raw.body` keeps the markup, and `ctx.chat.platformData` carries `subject`, `threadId` and `emailMessageId` when HighLevel sends them. `OutboundMessage` echoes and the rest of the CRM events are ignored. `ctx.markRead()` sets `unreadCount: 0` on the conversation. `options.quoted` → `replyMessageId`.
 
 ## Errors
 
@@ -70,11 +70,11 @@ Inbound: messages (with attachments as `ctx.media`), `CALL` calls → `call` eve
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `accessToken` | required | Private Integration Token or location OAuth token (sent as Bearer). |
+| `accessToken` | required | Private Integration Token or location OAuth token, without the `Bearer ` prefix (the provider adds it). Surrounding whitespace is trimmed; spaces, line breaks or non-ASCII characters inside it throw at construction. |
 | `locationId` | required | Sub-account id. Webhooks for another location are acknowledged and dropped. |
-| `defaultChannel` | `'SMS'` | Channel used to reply before the contact has written. |
+| `defaultChannel` | `'SMS'` | Channel used to reply before the contact has written. Known names match in any casing (`'whatsapp'`, `'Live Chat'`), like `platformData.type`. |
 | `apiVersion` | `'2021-04-15'` | `Version` header of the Conversations API. |
-| `baseUrl` | `https://services.leadconnectorhq.com` | API base (a proxy or a local simulator). |
+| `baseUrl` | `https://services.leadconnectorhq.com` | API base (a proxy or a local simulator). Must be an absolute http(s) URL. |
 | `publicKey` | HighLevel's key (`GHL_WEBHOOK_PUBLIC_KEY`) | Ed25519 key (PEM) that verifies `X-GHL-Signature`; override only if HighLevel rotates it. |
 | `legacyPublicKey` | — | RSA key for the retired `X-WH-Signature`; leave unset unless you still receive it. |
 | `allowUnsignedWebhooks` | `false` | Accept webhooks without a signature. Isolated local development only. |

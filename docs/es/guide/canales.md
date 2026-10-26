@@ -741,6 +741,8 @@ const provider = new GoHighLevelProvider({
   así que no hace falta secreto de webhook. `ingest()` necesita el body
   **crudo**.
 - Media solo desde URLs públicas; `template` se traduce a `templateId`.
+- El cuerpo HTML de un Email llega como texto plano en `ctx.body`;
+  `ctx.raw.body` conserva el HTML y `ctx.chat.platformData.subject` el asunto.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/gohighlevel-provider)
 

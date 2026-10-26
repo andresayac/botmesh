@@ -36,7 +36,7 @@ import type {
 } from '@botmesh/core'
 import { ProviderError } from '@botmesh/core'
 import { BoundedMap, fetchTyped, header, request, retryAfterMs, type HeaderBag } from './http.js'
-import { parseInbound } from './parseInbound.js'
+import { canonicalChannel, parseInbound } from './parseInbound.js'
 import { GHL_WEBHOOK_PUBLIC_KEY, verifyGhlSignature } from './signature.js'
 import { toOutbound } from './toOutbound.js'
 import { toGhlError } from './errors.js'
@@ -53,6 +53,36 @@ import type { GhlChannel, GhlErrorBody, GhlSendResponse, GhlWebhookBody, GoHighL
 
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')
+}
+
+/**
+ * The trimmed access token. Refuses a non-string, blank or `Bearer `-prefixed
+ * value, and one that is not a valid HTTP header value (fetch would otherwise
+ * reject every request with an error that quotes the token).
+ */
+function validToken(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error('GoHighLevelProvider requires `accessToken` (a Private Integration Token or location OAuth access token, as a string).')
+  }
+  const token = value.trim()
+  if (/^bearer\s/i.test(token)) {
+    throw new Error('GoHighLevelProvider: pass `accessToken` without the "Bearer " prefix; the provider adds it.')
+  }
+  // Visible ASCII only: what a Private Integration Token / OAuth JWT is made of.
+  if (!/^[!-~]+$/.test(token)) {
+    throw new Error('GoHighLevelProvider: `accessToken` contains spaces, line breaks or non-ASCII characters; copy the token again (its value is not shown here).')
+  }
+  return token
+}
+
+function isHttpBase(value: unknown): boolean {
+  if (typeof value !== 'string') return false
+  try {
+    const url = new URL(value)
+    return (url.protocol === 'https:' || url.protocol === 'http:') && url.hostname !== ''
+  } catch {
+    return false
+  }
 }
 
 /** Parse a configured PEM key, naming the option when it is not one. */
@@ -87,14 +117,22 @@ export class GoHighLevelProvider implements IProvider<GhlWebhookBody> {
   private readonly legacyPublicKey: KeyObject | undefined
 
   constructor(config: GoHighLevelProviderConfig) {
-    if (!config.accessToken) throw new Error('GoHighLevelProvider requires `accessToken`.')
-    if (!config.locationId) throw new Error('GoHighLevelProvider requires `locationId`.')
+    const accessToken = validToken(config.accessToken)
+    if (typeof config.locationId !== 'string' || !config.locationId.trim()) {
+      throw new Error('GoHighLevelProvider requires `locationId` (the sub-account id, a non-empty string).')
+    }
+    const baseUrl = config.baseUrl ?? 'https://services.leadconnectorhq.com'
+    if (!isHttpBase(baseUrl)) {
+      throw new Error(`GoHighLevelProvider: \`baseUrl\` must be an absolute http(s) URL such as https://services.leadconnectorhq.com; check the scheme and host.`)
+    }
     // `??` per field: an explicit `undefined` (e.g. an unset env var) keeps the default.
     this.config = {
       ...config,
+      accessToken,
+      locationId: config.locationId.trim(),
       apiVersion: config.apiVersion ?? '2021-04-15',
-      baseUrl: config.baseUrl ?? 'https://services.leadconnectorhq.com',
-      defaultChannel: config.defaultChannel ?? 'SMS',
+      baseUrl,
+      defaultChannel: canonicalChannel(config.defaultChannel ?? 'SMS'),
     }
     // Parsed once (and validated at construction, not on the first webhook).
     this.publicKey = pemKey('publicKey', config.publicKey ?? GHL_WEBHOOK_PUBLIC_KEY)
@@ -226,7 +264,7 @@ export class GoHighLevelProvider implements IProvider<GhlWebhookBody> {
   async send(chatId: ChatId, content: OutboundContent, options?: SendOptions): Promise<SendResult<GhlWebhookBody>> {
     const fields = toOutbound(content)
     const extra = { ...(options?.platformData ?? {}) }
-    const type = (typeof extra['type'] === 'string' ? extra['type'] : undefined) ?? this.channels.get(chatId) ?? this.config.defaultChannel
+    const type = (typeof extra['type'] === 'string' && extra['type'] ? canonicalChannel(extra['type']) : undefined) ?? this.channels.get(chatId) ?? this.config.defaultChannel
     delete extra['type']
     const payload: Record<string, unknown> = { type, contactId: chatId, ...fields, ...extra }
     if (options?.quoted?.id) payload['replyMessageId'] = options.quoted.id
