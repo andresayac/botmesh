@@ -86,8 +86,8 @@ mensaje:
 | `endFlow()` | volver del paso, o `c.end(message)` |
 
 ```js
-addKeyword('hola').addAnswer('¿Tu nombre?', { capture: true })   // reported
-flow('hola').ask('¿Tu nombre?', 'name', { timeout: '5m' })         // ok
+addKeyword('hola').addAnswer('¿Tu nombre?', { capture: true })   // se marca
+flow('hola').ask('¿Tu nombre?', 'name', { timeout: '5m' })         // bien
 ```
 
 Sin opciones.
@@ -104,8 +104,8 @@ encadenados o con llamadas opcionales (`await runtime?.enter(...)`): la promesa
 encadenada también se resuelve solo cuando la conversación termina.
 
 ```js
-await runtime.enter(handle, msg)                                     // reported
-void runtime.enter(handle, msg).catch((err) => log.error({ err }))   // ok
+await runtime.enter(handle, msg)                                     // se marca
+void runtime.enter(handle, msg).catch((err) => log.error({ err }))   // bien
 ```
 
 Opción: `{ receiverPattern: string }`, el código de una regex que debe cumplir
@@ -163,10 +163,10 @@ comando como `/reset`. La regla marca los dos casos.
   llamada) o contiene un spread, la regla no puede ver su contenido y no avisa.
 
 ```js
-await c.ask('¿Tu email?')                        // reported (usa el valor por defecto)
-await c.ask('¿Tu email?', { timeout: 0 })        // reported (nunca expira)
-await c.ask('¿Tu email?', { timeout: '10m' })    // ok
-await c.waitAny({ timeoutMs: 60_000 })           // ok (con 'waitAny' en methods)
+await c.ask('¿Tu email?')                        // se marca (usa el valor por defecto)
+await c.ask('¿Tu email?', { timeout: 0 })        // se marca (nunca expira)
+await c.ask('¿Tu email?', { timeout: '10m' })    // bien
+await c.waitAny({ timeoutMs: 60_000 })           // bien (con 'waitAny' en methods)
 ```
 
 Si todas las esperas deben usar el `conversation.timeout` del bot, desactiva la
@@ -204,13 +204,14 @@ del handler (por defecto `['ctx']`).
 import botmesh, { rules, configs, PLUGIN_NAMESPACE } from 'eslint-plugin-botmesh'
 
 botmesh.meta      // { name: 'eslint-plugin-botmesh', version, namespace: 'botmesh' }
-botmesh.rules     // the six rules, by name without the 'botmesh/' prefix
+botmesh.rules     // las seis reglas, por nombre sin el prefijo 'botmesh/'
 botmesh.configs   // { recommended, strict } (flat configs)
 ```
 
 Los módulos de las reglas se alcanzan por `rules` (`rules['no-v1-api']`); no
 son exports con nombre. El `meta.docs.url` de cada regla apunta a su sección
-de esta página, así que el editor enlaza cada aviso con su explicación.
+de la versión en inglés de esta página, así que el editor enlaza cada aviso con
+su explicación.
 
 ## Ver también
 

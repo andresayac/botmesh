@@ -120,8 +120,8 @@ option text. The Telegram and Discord simulators can deliver native votes (`poll
 native vote and Discord the option text. A test fails as soon as a provider and the set
 disagree, so the set is updated together with the provider.
 
-The **demo bot** (`--bot demo`, the default) answers `hi` (or `hola`), `menu`, `ubicacion`
-(a location) and `encuesta` (a poll), echoes media and locations, and sends anything else to `aiPlugin` with a scripted
+The **demo bot** (`--bot demo`, the default) answers `hi`, `menu`, `location` (sends a location)
+and `poll` (sends a poll), also in Spanish (`hola`, `ubicacion`, `encuesta`), echoes media and locations, and sends anything else to `aiPlugin` with a scripted
 `MockAIProvider` (no API key). `--bot bakery` runs the [bakery example](https://github.com/andresayac/botmesh/tree/main/examples/bakery-ai)
 through the same channels.
 
@@ -133,7 +133,7 @@ import { startSandbox } from '@botmesh/sandbox'
 const sandbox = await startSandbox({
   bot: 'none',
   setup: (bot, channel) => {
-    bot.when('hola', (ctx) => ctx.reply(`Hi from ${channel}`))
+    bot.when('hi', (ctx) => ctx.reply(`Hi from ${channel}`))
   },
 })
 console.log(sandbox.url)
@@ -146,7 +146,6 @@ on the real provider:
 
 ```ts
 import { CloudAPIProvider } from '@botmesh/meta'
-import { RateLimitedError } from '@botmesh/core'
 import { WhatsAppSimulator, startHarness } from '@botmesh/sandbox'
 
 const h = await startHarness(
@@ -187,7 +186,7 @@ simulators also validate every create-message request (and Discord's edits and w
 followups) against fragments of [twilio-oai](https://github.com/twilio/twilio-oai) and
 [discord-api-spec](https://github.com/discord/discord-api-spec). Those issues are tagged
 `[openapi]`. The fragments are vendored in `packages/sandbox/src/specs/` with their licenses
-and commits, so tests never touch the network. `scripts/vendor-openapi.mjs` regenerates them
+and commits, so tests never touch the network. `packages/sandbox/scripts/vendor-openapi.mjs` regenerates them
 from downloaded copies. Meta, Gupshup, HighLevel, TikTok and Telegram publish no official
 machine-readable spec, so their schemas stay hand-written from the docs.
 

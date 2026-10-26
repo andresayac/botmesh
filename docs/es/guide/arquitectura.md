@@ -13,7 +13,7 @@ El framework es un monorepo pnpm. Las dependencias solo van **hacia abajo**:
 | Capa | Paquetes |
 | --- | --- |
 | Motor | `@botmesh/core` (su única dependencia runtime es `pino`) |
-| Infra compartida | `@botmesh/http` (cliente anti-SSRF), `@botmesh/graph-core` (helpers de Meta Graph) |
+| Infra compartida | `@botmesh/http` (cliente anti-SSRF), `@botmesh/graph-core` (helpers de Meta Graph), `@botmesh/wa-gateway-kit` (identidad, REST y media comunes a Evolution y WPPConnect), `@botmesh/server` (ingress de webhooks) |
 | Canales | `@botmesh/baileys`, `@botmesh/meta`, `@botmesh/telegram`, … (cada uno implementa `IProvider`) |
 | Stores | `@botmesh/sqlite-store`, `@botmesh/redis-store`, … (cada uno implementa `IStore`) |
 | Plugins / producto | `@botmesh/ai`, `nlu`, `manager`, `inbox`, … |
@@ -33,14 +33,16 @@ El motor vive en `packages/core/src/core/bot/`:
 | --- | --- |
 | `compose.ts` | El cuerpo del constructor: valores por defecto, logger, store + namespace y cada subsistema, en un orden fijo; construye el kernel y los módulos de abajo |
 | `kernel.ts` | `BotKernel`, los internos compartidos (subsistemas + estado del ciclo de vida) que recibe cada módulo, más pequeños helpers comunes |
+| `logger.ts` | Adapta `BotConfig.logger` (pino, `console` o cualquier `{ debug, info, warn, error }`) al logger con `child()` que usan los módulos |
 | `lifecycle.ts` | `start()` / `stop()` como una lista ordenada de pasos, con rollback y drenado |
-| `inbound.ts` | El flujo de eventos del provider → listas de acceso → dedupe → persistencia → `groupMode` → Dispatcher; llamadas y eventos del provider (reacciones, recibos…) |
+| `inbound.ts` | El flujo de eventos del provider → `fromMe` / filtro de ecos → listas de acceso → dedupe → persistencia → `groupMode` → Dispatcher; llamadas y eventos del provider (reacciones, recibos…) |
 | `outbound.ts` | Envíos y ediciones por los hooks de `send`, el registro de mensajes, respuestas pausadas, typing y `ctx.stream()` |
 | `presence.ts` | La política de presencia sin conexión: `typing` / `markRead` se omiten (log en debug + `metrics().presenceSkipped`) mientras el transporte no está `'ready'` |
 | `rateLimitRetry.ts` | El reintento corto en el sitio de las respuestas de `ctx` limitadas por tasa (`BotConfig.rateLimitRetry`) |
 | `contextFactory.ts` | Construye el `MessageContext` (`ctx`) de un mensaje, una llamada proyectada o un `bot.trigger()` |
 | `interactionAck.ts` | La única confirmación automática de una interacción en un transporte con `interactionsRequireAck` (Discord): antes del primer envío, cerca de `respondBy` o al terminar el enrutado |
 | `gates.ts` | Admisión por listas de acceso y handoff a humano, con sus contadores y logs de descarte |
+| `handover.ts` | `coordination.handover` (solo con `coordination`): guarda la respuesta de un paso de flow en su checkpoint y la reconstruye en la réplica que toma el chat |
 | `lang.ts` | La resolución de `ctx.lang` y los puntos de idioma del Dispatcher |
 | `persistence.ts` | Escrituras de chat / contacto / handoff, ordenadas por chat |
 | `events.ts` | La salida de errores y eventos de observabilidad |
@@ -69,7 +71,9 @@ flowchart TD
     P["Evento del provider"] --> K{"¿mensaje / interacción?"}
     K -->|"llamada"| CALL["Listas de acceso + handoff → hooks y evento 'call' → triggers CALL (dispatchEvent)"]
     K -->|"reacción, encuesta, grupo, presencia, estado"| HE["hooks before/after + evento del bot"]
-    K -->|"sí"| ACL{"Listas de acceso"}
+    K -->|"sí"| FM{"¿fromMe / eco de un envío del bot?"}
+    FM -->|"sí"| X0["Descartado (fromMe; eco: dropped.echo)"]
+    FM -->|"no"| ACL{"Listas de acceso"}
     ACL -->|"bloqueado"| X1["Descartado (dropped.blocked)"]
     ACL -->|"permitido"| DD{"Dedupe: chatId + id"}
     DD -->|"ya visto"| X2["Descartado (dropped.duplicate)"]

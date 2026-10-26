@@ -10,7 +10,6 @@ import { join } from 'node:path'
 import { scaffold } from '../src/scaffold.js'
 // Plain-JS bin; typed through its JSDoc because tsconfig sets `allowJs`.
 import { copyEnvCommand, createCommand, main, nodeVersionWarning } from '../src/cli.js'
-import { BOTMESH_VERSIONS } from '../src/versions.js'
 
 const dirs: string[] = []
 afterEach(async () => { while (dirs.length) await rm(dirs.pop()!, { recursive: true, force: true }) })
@@ -58,8 +57,15 @@ describe('Node version check', () => {
   })
 })
 
-describe('--help', () => {
-  it('names the dist-tag of the current prerelease, not a stale one', async () => {
+describe('the help text names the right dist-tag', () => {
+  it('derives the tag from the prerelease of the CLI version', () => {
+    expect(createCommand('1.0.0-beta.1')).toBe('npm create botmesh@beta')
+    expect(createCommand('2.0.0-rc.0')).toBe('npm create botmesh@rc')
+    expect(createCommand('1.2.3')).toBe('npm create botmesh')
+  })
+
+  it('--help prints the tag of this package version, never a stale one', async () => {
+    const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }
     const lines: string[] = []
     const spy = vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => { lines.push(args.join(' ')) })
     try {
@@ -67,16 +73,9 @@ describe('--help', () => {
     } finally {
       spy.mockRestore()
     }
-    const help = lines.join('\n')
-    const core = BOTMESH_VERSIONS['@botmesh/core'].replace(/^\^/, '')
-    const tag = core.includes('-') ? '@' + core.split('-')[1]!.split('.')[0] : ''
-    expect(help).toContain('npm create botmesh' + tag + ' my-bot')
-    for (const m of help.matchAll(/npm create botmesh(@[a-z]+)?/g)) expect(m[1] ?? '').toBe(tag)
-  })
-
-  it('createCommand() drops the tag for a stable core and keeps the prerelease id otherwise', () => {
-    expect(createCommand('2.0.0-beta.3')).toBe('npm create botmesh@beta')
-    expect(createCommand('^2.0.0-rc.1')).toBe('npm create botmesh@rc')
-    expect(createCommand('^2.0.0')).toBe('npm create botmesh')
+    const text = lines.join('\n')
+    expect(text).toContain(`${createCommand(version)} my-bot`)
+    const tag = /-([0-9A-Za-z]+)/.exec(version)?.[1]
+    for (const stale of ['alpha', 'beta', 'rc'].filter((t) => t !== tag)) expect(text).not.toContain(`botmesh@${stale}`)
   })
 })

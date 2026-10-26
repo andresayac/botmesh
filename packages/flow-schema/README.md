@@ -74,7 +74,7 @@ Expressions (`condition.if`, `guard.if`, `ask.validate.expr`) are a small safe l
 | Option | Default | What it does |
 | --- | --- | --- |
 | `resolveSubflow` | none | `(id) => FlowDocument \| undefined` for `subflow` steps. A missing document or a cycle is a compile error. |
-| `fetch` | `secureFetch` | Custom fetch for `http` steps (tests, an egress proxy). |
+| `fetch` | `secureFetch` | Custom fetch for `http` steps (tests, an egress proxy), with the signature of `@botmesh/http`'s `secureFetch`. |
 | `http` | 10 s, 64 KiB | Bounds of `http` steps: `{ timeoutMs, maxBytes, allowHttp }`. |
 | `media` | https, public hosts | Policy for `media` URLs read from state: `{ allowHttp, allowPrivateHosts, resolver }`. |
 | `formTimeoutMs` | the form's own option | Timeout of the waits of a nested `form` step. |

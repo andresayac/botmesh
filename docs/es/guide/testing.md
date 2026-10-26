@@ -28,7 +28,7 @@ import { createTestBot } from '@botmesh/core/testing'
 import { registerFlows } from '../src/flows.js'
 
 test('el registro pide el nombre y saluda', async () => {
-  const { bot, chat } = await createTestBot()
+  const { bot, chat } = await createTestBot({ lang: 'es' })
   registerFlows(bot)
 
   await chat.send('registro')
@@ -49,7 +49,7 @@ llega, así que un test que falla te dice qué envió el bot en su lugar.
 import { flow } from '@botmesh/core'
 import { createTestBot } from '@botmesh/core/testing'
 
-const { bot, provider, chat } = await createTestBot()
+const { bot, provider, chat } = await createTestBot({ lang: 'es' })
 bot.use(flow('hola').ask('¿Tu nombre?', 'name').say((_ctx, c) => `Hola ${c.state.name}`))
 
 await chat.send('hola')
@@ -106,7 +106,7 @@ simular un transporte sin él (también oculta la versión de una subclase).
 ### Varios usuarios y grupos
 
 ```ts
-const { bot, chat, dm, group } = await createTestBot()
+const { bot, chat, dm, group } = await createTestBot({ lang: 'es' })
 
 const ana = dm('ana@s.whatsapp.net', { displayName: 'Ana' })      // otro DM
 const team = group('team@g.us', { as: 'ana@s.whatsapp.net' })     // un grupo, manejado por Ana
@@ -173,7 +173,7 @@ determinista para una `seed` dada.
 ```ts
 import { createTestBot } from '@botmesh/core/testing'
 
-const { bot, provider, chaos } = await createTestBot({}, {
+const { bot, provider, chaos } = await createTestBot({ lang: 'es' }, {
   chaos: {
     seed: 7,
     duplicates: 0.3,                        // o { probability, copies, delayMs }
@@ -189,7 +189,7 @@ provider.incoming('hola', { from: 'u1' })   // se sigue manejando el mock
 await chaos.settle()                        // espera las entregas pendientes (timers reales)
 ```
 
-Con cualquier provider: `const chaos = withChaos(miProvider, { seed: 1, duplicates: 1 }); new Bot({ provider: chaos })`.
+Con cualquier provider: `const chaos = withChaos(miProvider, { seed: 1, duplicates: 1 }); new Bot({ provider: chaos, lang: 'es' })`.
 
 | Opción | Qué simula |
 | --- | --- |

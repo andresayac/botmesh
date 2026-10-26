@@ -39,8 +39,8 @@ import { MockProvider, recordTranscript, redactTranscript, serializeTranscript }
 import { writeFileSync } from 'node:fs'
 
 const recorder = recordTranscript(new MockProvider())
-const bot = new Bot({ provider: recorder.provider })
-// ... register handlers, start the bot, drive the conversation ...
+const bot = new Bot({ provider: recorder.provider, lang: 'es' })
+// ... registra los handlers, arranca el bot, maneja la conversación ...
 
 const golden = redactTranscript(recorder.transcript({ name: 'checkout' }))
 writeFileSync('tests/golden/checkout.json', serializeTranscript(golden))
@@ -58,7 +58,7 @@ directamente desde el mock (ver [Snapshots de conversación](/es/guide/testing#s
 | `now` | `Date.now` | Reloj de los offsets `t`. |
 
 Los envíos fallidos u omitidos no se graban. La grabación también funciona en
-producción (por eso se exporta desde `@botmesh/core`), pero el buffer guarda en
+producción (`RecordingProvider` envuelve tanto un transporte real como el mock), pero el buffer guarda en
 RAM los cuerpos de los mensajes, los nombres visibles y los ids **sin
 redactar**: mantén `maxTurns` acotado y llama a `clear()` en cuanto hayas
 sacado una transcripción.
@@ -173,12 +173,12 @@ import { assertTranscript, parseTranscript, REPLAY_MASKS } from '@botmesh/core/t
 import { registerFlows } from '../src/flows.js'
 
 function buildBot(provider: IProvider) {
-  const bot = new Bot({ provider })
+  const bot = new Bot({ provider, lang: 'es' })
   registerFlows(bot)
   return bot
 }
 
-it('checkout still answers the same', async () => {
+it('el checkout sigue respondiendo igual', async () => {
   const golden = parseTranscript(readFileSync('tests/golden/checkout.json', 'utf8'))
   await assertTranscript(golden, buildBot, { masks: [REPLAY_MASKS.isoDate] })
 })
@@ -256,14 +256,14 @@ import { DeploymentGateError, DeploymentRegistry, KvDeploymentStore, goldenTrans
 const registry = new DeploymentRegistry(new KvDeploymentStore(new MemoryKv()))
 const gate = goldenTranscriptGate({
   transcripts: [parseTranscript(readFileSync('golden/checkout.json', 'utf8'))],
-  createBot: (candidate) => loadBotFactory(candidate.artifact),   // returns (provider) => Bot, not started
+  createBot: (candidate) => loadBotFactory(candidate.artifact),   // devuelve (provider) => Bot, sin arrancar
   replay: { masks: [REPLAY_MASKS.isoDate] },
 })
 
 try {
   await registry.publish('acme', 'support', '1.4.0', 'sha256:...', { gate })
 } catch (error) {
-  if (error instanceof DeploymentGateError) console.error(error.message)   // includes the expected vs actual report
+  if (error instanceof DeploymentGateError) console.error(error.message)   // incluye el informe esperado frente a real
 }
 ```
 

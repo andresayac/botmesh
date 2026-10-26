@@ -17,11 +17,11 @@ import { compileFlowDocument, validateFlowDocument } from '@botmesh/flow-schema'
 const document = {
   version: 2 as const,
   id: 'checkout',
-  trigger: { keywords: ['comprar', 'pedido'], match: 'contains' },
+  trigger: { keywords: ['buy', 'order'], match: 'contains' },
   timeout: '5m',
   steps: [
-    { kind: 'ask' as const, text: '¿Tu nombre?', stateKey: 'name' },
-    { kind: 'condition' as const, if: 'len(name) > 2', then: [{ kind: 'say' as const, text: 'Hola {{name}}' }] },
+    { kind: 'ask' as const, text: 'Your name?', stateKey: 'name' },
+    { kind: 'condition' as const, if: 'len(name) > 2', then: [{ kind: 'say' as const, text: 'Hi {{name}}' }] },
     { kind: 'handoff' as const, reason: 'checkout' },
   ],
 }

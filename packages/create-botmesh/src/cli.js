@@ -9,7 +9,7 @@
  * Templates: baileys, meta, telegram, ai, games, support, store, restaurant, clinic, ai-full.
  */
 
-import { realpathSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
 import { isAbsolute, relative } from 'node:path'
 import process from 'node:process'
 import { createInterface } from 'node:readline/promises'
@@ -17,9 +17,21 @@ import { fileURLToPath } from 'node:url'
 
 import { scaffold } from './scaffold.js'
 import { TEMPLATE_NAMES, getTemplate } from './templates.js'
-import { BOTMESH_VERSIONS } from './versions.js'
 
 const DEFAULT_TEMPLATE = 'baileys'
+
+/** This CLI's own version (lib/cli.js and src/cli.js both sit one level below package.json). */
+const CLI_VERSION = /** @type {{ version: string }} */ (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))).version
+
+/**
+ * The `npm create` command for a CLI version (exported for tests): a prerelease carries its
+ * dist-tag (`1.0.0-beta.1` -> `npm create botmesh@beta`), so the help never names a stale tag.
+ * @param {string} version
+ */
+export function createCommand(version) {
+  const tag = /^\d+\.\d+\.\d+-([0-9A-Za-z]+)/.exec(version)?.[1]
+  return tag ? 'npm create botmesh@' + tag : 'npm create botmesh'
+}
 
 /**
  * Parse CLI arguments (exported for tests — pure, no I/O).
@@ -52,19 +64,8 @@ export function parseArgs(argv) {
   return out
 }
 
-/**
- * The `npm create` command for this release (exported for tests): a prerelease of
- * `@botmesh/core` is installed through its dist-tag (`2.0.0-beta.3` → `npm create botmesh@beta`),
- * because npm's `latest` can still point to an older prerelease; a stable core needs no tag.
- * @param {string} [coreRange] the `@botmesh/core` range or version (default: the one stamped into projects)
- */
-export function createCommand(coreRange = BOTMESH_VERSIONS['@botmesh/core']) {
-  const pre = /-([0-9A-Za-z]+)/.exec(coreRange.replace(/^[\^~]/, ''))
-  return 'npm create botmesh' + (pre ? '@' + pre[1] : '')
-}
-
 function printUsage(log = console.log) {
-  const create = createCommand()
+  const create = createCommand(CLI_VERSION)
   log('Usage: create-botmesh <dir> [options]')
   log('')
   log('Scaffold a new @botmesh bot (' + create + ').')
