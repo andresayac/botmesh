@@ -13,9 +13,12 @@
 > type triggers) > catch-all > after hooks + 'message' event; first consumer
 > wins. Constructing a Bot REQUIRES a provider:
 > new Bot({ provider: new BaileysProvider({ session }) }).
-> ESM-only, Node >= 22 (scaffolded projects require Node >= 22.12). The packages
-> are published on npm under the `alpha` dist-tag: install them with `@alpha`
-> (`@botmesh/core@alpha`, `create-botmesh@alpha`, ...); there is no `latest` yet.
+> ESM-only, Node >= 22 (scaffolded projects require Node >= 22.12). Until the
+> stable release (core 2.0.0), install with the prerelease dist-tag
+> (`@botmesh/core@alpha`, `npm create botmesh@alpha`; `@beta` once out): `latest`
+> may point to an older prerelease. A bot module default-exports
+> defineBot((provider) => new Bot({ provider })) so `npx botmesh dev bot.js` (terminal
+> simulator) and `node bot.js` (real provider inside if (isMainModule(import.meta))) share it.
 
 ## Docs
 - Docs site: https://andresayac.github.io/botmesh/ (English under /guide/, Spanish under /es/guide/; API reference under /api/). Sources: https://github.com/andresayac/botmesh/tree/main/docs
@@ -23,7 +26,7 @@
 - Migration v1→v2: https://andresayac.github.io/botmesh/MIGRATION-v1-to-v2
 
 ## Guide pages (English; Spanish mirrors live under https://andresayac.github.io/botmesh/es/guide/)
-- [Installation](https://andresayac.github.io/botmesh/guide/getting-started)
+- [Quick start: simulator, WhatsApp, Telegram, troubleshooting](https://andresayac.github.io/botmesh/guide/getting-started)
 - [Your first bot](https://andresayac.github.io/botmesh/guide/first-bot)
 - [Core concepts: pipeline, dispatcher, identity, dedupe](https://andresayac.github.io/botmesh/guide/concepts)
 - JSON flows (@botmesh/flow-schema, private): versioned code-free documents (v2; a v1 document is migrated on load by validate/compile/flowFromArtifact, its retries: N becoming maxAttempts: N so it keeps its budget; isFlowDocument accepts only v2) validated against a draft 2020-12 schema (GET /v1/flows/schema): say, ask, choose, condition, delay, goto, end, media, form, guard, subflow, http, handoff, ai (tools by id). Safe expressions only (no eval/Function/regex/index/prototype), {{ path }} templates, JSON-pointer validation issues, compileFlowDocument -> CompiledFlow (resolveSubflow, media by URL/stateKey, forms, http via @botmesh/http anti-SSRF with {{ path }} placeholders only in the URL path/query/fragment (percent-encoded), handoff, ai via ctx.tools.ai with tools: ['id']), exportFlowDocument reverse export (exact round-trip from a document; opaque do/guard -> FlowExportError), migrateFlowDocument (v0->v1->v2, chained), flowDigest/diffFlowDocuments/flowDocumentGate/publishFlow over @botmesh/deployments. Form field patterns are rejected when they can backtrack catastrophically (nested repetition, alternation in a repeated group, backreferences). The manager depends on it; subflows resolve against the bot's stored flows (createBot/updateBot/restore too) and removeFlow answers CONFLICT while another stored flow uses it as a subflow.
@@ -70,8 +73,7 @@
 - [FAQ](https://andresayac.github.io/botmesh/guide/faq)
 
 ## Package status (44 packages)
-Alpha = published on npm under the `alpha` dist-tag (install with `@alpha`; no
-`latest` yet). Experimental = real, tested
+Alpha = published on npm (prerelease dist-tag until the stable release). Experimental = real, tested
 implementation but private/unpublished, API may change. Prototype = private, minimal,
 in-memory sketch; not for production.
 

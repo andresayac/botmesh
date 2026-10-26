@@ -4,6 +4,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### Documentación de inicio: de cero a un bot en cinco minutos (2026-10)
+- La página de inicio, Instalación, Tu primer bot y Conceptos (EN/ES), el README raíz y el de `create-botmesh` se reescribieron para un usuario nuevo: el bot de ejemplo es una fábrica `defineBot` que funciona igual en `npx botmesh dev` y en el canal real, con pasos para vincular WhatsApp (QR o código de vinculación) y conectar Telegram, y una tabla de solución de problemas con los errores habituales.
+- Los comandos de instalación se escriben sin tag (`npm create botmesh`, `npm install @botmesh/core`) con una sola nota sobre el dist-tag de la prerelease, que sobra cuando salga la versión estable. Se corrige la afirmación de que sin tag no se resolvía nada: npm creó `latest` en la primera publicación y hoy apunta a la alpha.
+
 ### Línea estable: `@botmesh/core` 2.0.0 y 1.0.0 para el resto (2026-10)
 - Los otros nueve paquetes públicos (`ai`, `baileys`, `meta`, `telegram`, `sqlite-store`, `redis-store`, `http`, `graph-core` y `create-botmesh`) salen de la serie 0.x: su primera versión estable será la **1.0.0** (changeset `first-stable-1-0.md`), junto a `@botmesh/core` 2.0.0. Con bumps minor se habrían quedado en 0.2.0, que semver no trata como estable.
 - `@botmesh/baileys` sale estable sobre la versión exacta `@whiskeysockets/baileys` `7.0.0-rc14`, que es el tag `latest` del propio Baileys en npm (no hay Baileys 7.x estable y la línea `6.7.x` no tiene direccionamiento LID). La política de actualización está en su README.

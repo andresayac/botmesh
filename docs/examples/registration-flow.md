@@ -41,18 +41,12 @@ await bot.start()
 
 ## Save to a database
 
-Combine `.do()` (run an action without sending a message) with `bot.provide()`
-to persist the captured data:
+`.do()` runs code without sending a message. Use it to save what the flow
+captured; `c.state.name` and `c.state.email` are typed as `string`:
 
 ```ts
-import type { MessageContext } from '@botmesh/core'
-
-bot.provide('db', {
-  users: new Map<string, { name: string; email: string }>(),
-  async save(jid: string, data: { name: string; email: string }) {
-    this.users.set(jid, data)
-  },
-})
+// replace the Map with your database client
+const users = new Map<string, { name: string; email: string }>()
 
 const register = flow('register')
   .ask('Name?', 'name')
@@ -60,16 +54,17 @@ const register = flow('register')
     validate: (body) => (body.includes('@') ? true : '❌ Invalid email'),
   })
   .do(async (ctx, c) => {
-    // flow steps type ctx as RuntimeMessage; the bot passes its full MessageContext
-    const { db } = (ctx as MessageContext).tools as {
-      db: { save(jid: string, data: { name: string; email: string }): Promise<void> }
-    }
-    await db.save(ctx.from, { name: String(c.state.name), email: String(c.state.email) })
+    users.set(ctx.sender, { name: c.state.name, email: c.state.email })
   })
   .say('✅ Registered!')
 
 bot.use(register)
 ```
+
+`ctx.sender` is the user's stable id on every transport (in a group it is the
+participant, not the group). To share the database client with handlers in
+other files, register it once with [`bot.provide()`](/guide/di) and read it
+from `ctx.tools`.
 
 ## Validate with a schema
 

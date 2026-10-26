@@ -2,28 +2,29 @@
 
 Scaffold a new [@botmesh](https://github.com/andresayac/botmesh) bot project in seconds — no runtime dependencies (only `node:` builtins).
 
-Requires **Node >= 22.12**: generated projects use `node --env-file-if-exists` for `start` (a missing `.env` is fine), and that flag shipped in Node 22.9.
-
-> **Alpha — published under the `alpha` tag.** `create-botmesh` and the `@botmesh/*` packages it stamps into
-> generated projects live under the **`alpha` dist-tag** (`changeset publish` does not create `latest`), so the
-> commands below use `@alpha`. Drop the tag when a stable version ships. To run the CLI from a checkout of this
-> monorepo instead, target a directory **outside** the repo
-> (`pnpm --filter create-botmesh build && node packages/create-botmesh/lib/cli.js ../my-bot`); a target inside the
-> botmesh monorepo is refused (it would join the framework workspace) unless you pass `--force`.
+Requires **Node >= 22.12**: generated projects use `node --env-file-if-exists` for `start` (a missing `.env` is fine).
 
 ## Usage
 
 ```bash
-npm create botmesh@alpha my-bot
+npm create botmesh my-bot
 # or
-pnpm create botmesh@alpha my-bot
+pnpm create botmesh my-bot
 ```
 
 You'll be prompted for a template (in a TTY), or pass everything up front:
 
 ```bash
-npm create botmesh@alpha my-bot -- --template telegram --yes
+npm create botmesh my-bot -- --template telegram --yes
 ```
+
+> **Prerelease.** botmesh is not stable yet. Until `@botmesh/core` 2.0.0 ships, add the prerelease dist-tag:
+> `npm create botmesh@alpha my-bot` (`@beta` once the beta is out). Without a tag npm runs whatever `latest` points
+> to, which can be an older prerelease. The generated `package.json` pins the `@botmesh/*` versions that match the
+> CLI you ran, so `npm install` needs no tag.
+
+Step-by-step walkthrough, including linking WhatsApp and connecting Telegram:
+[Getting started](https://andresayac.github.io/botmesh/guide/getting-started).
 
 ## Templates
 
@@ -128,10 +129,14 @@ It refuses to write into a non-empty target directory unless `overwrite: true` i
 
 The main entry (`scaffold`, `sanitizeName`, `getTemplate`, `TEMPLATE_NAMES`) is covered by semver. The template
 table, the AGENTS.md renderer and the monorepo probe (`TEMPLATES`, `agentsMd`, `findBotMeshMonorepo`) live in
-`create-botmesh/internal`, which has no semver promise; the main entry still re-exports them as deprecated until
-stable. Use `getTemplate(name)` instead of `TEMPLATES[name]`.
+`create-botmesh/internal`, which has no semver promise; the main entry still re-exports them, marked
+`@deprecated`. Use `getTemplate(name)` instead of `TEMPLATES[name]`.
 
 ## Development
+
+To run the CLI from a checkout of the monorepo, target a directory **outside** the repo
+(`pnpm --filter create-botmesh build && node packages/create-botmesh/lib/cli.js ../my-bot`); a target inside the
+botmesh monorepo is refused (it would join the framework workspace) unless you pass `--force`.
 
 ```bash
 pnpm --filter create-botmesh build   # tsc → lib/ (keeps the bin shebang)

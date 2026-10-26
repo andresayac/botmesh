@@ -45,35 +45,30 @@ await bot.start()
 
 ## Guardar en una base de datos
 
-Combina `.do()` (ejecuta una acción sin enviar mensaje) con `bot.provide()`
-para persistir los datos capturados:
+`.do()` ejecuta código sin enviar mensaje. Úsalo para guardar lo que capturó
+el flujo; `c.state.name` y `c.state.email` están tipados como `string`:
 
 ```ts
-import type { MessageContext } from '@botmesh/core'
-
-bot.provide('db', {
-  users: new Map<string, { name: string; email: string }>(),
-  async save(jid: string, data: { name: string; email: string }) {
-    this.users.set(jid, data)
-  },
-})
+// sustituye el Map por el cliente de tu base de datos
+const users = new Map<string, { name: string; email: string }>()
 
 const register = flow('register')
-  .ask('Name?', 'name')
-  .ask('Email?', 'email', {
-    validate: (body) => (body.includes('@') ? true : '❌ Invalid email'),
+  .ask('¿Nombre?', 'name')
+  .ask('¿Email?', 'email', {
+    validate: (body) => (body.includes('@') ? true : '❌ Email no válido'),
   })
   .do(async (ctx, c) => {
-    // flow steps type ctx as RuntimeMessage; the bot passes its full MessageContext
-    const { db } = (ctx as MessageContext).tools as {
-      db: { save(jid: string, data: { name: string; email: string }): Promise<void> }
-    }
-    await db.save(ctx.from, { name: String(c.state.name), email: String(c.state.email) })
+    users.set(ctx.sender, { name: c.state.name, email: c.state.email })
   })
-  .say('✅ Registered!')
+  .say('✅ ¡Registrado!')
 
 bot.use(register)
 ```
+
+`ctx.sender` es el id estable del usuario en todos los transportes (en un grupo
+es el participante, no el grupo). Para compartir el cliente de la base de datos
+con handlers de otros archivos, regístralo una vez con
+[`bot.provide()`](/es/guide/di) y léelo desde `ctx.tools`.
 
 ## Validar con un schema
 

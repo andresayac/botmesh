@@ -42,7 +42,7 @@ const enSidebar = {
     {
       text: 'Getting started',
       items: [
-        { text: 'Installation', link: '/guide/getting-started' },
+        { text: 'Quick start', link: '/guide/getting-started' },
         { text: 'Your first bot', link: '/guide/first-bot' },
         { text: 'Core concepts', link: '/guide/concepts' },
         { text: 'Channels', link: '/guide/channels' },
@@ -129,7 +129,7 @@ const esSidebar = {
     {
       text: 'Primeros pasos',
       items: [
-        { text: 'Instalación', link: '/es/guide/inicio' },
+        { text: 'Inicio rápido', link: '/es/guide/inicio' },
         { text: 'Tu primer bot', link: '/es/guide/primer-bot' },
         { text: 'Conceptos básicos', link: '/es/guide/conceptos' },
         { text: 'Canales', link: '/es/guide/canales' },
