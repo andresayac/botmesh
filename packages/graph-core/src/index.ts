@@ -2,6 +2,7 @@
  * @botmesh/graph-core — shared Meta Graph helpers used by @botmesh/meta,
  * @botmesh/messenger and @botmesh/instagram.
  */
+export { DEFAULT_GRAPH_API_VERSION } from './version.js'
 export { verifyChallenge, verifySignature } from './webhook.js'
 export type { ChallengeQuery } from './webhook.js'
 export { toGraphError, readGraphResponse } from './errors.js'

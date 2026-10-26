@@ -76,7 +76,9 @@ export class MemoryPluginStore implements PluginStore {
 export function parseManifest(value: unknown): PluginManifest {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new TypeError('manifest is not an object')
   const manifest = value as Record<string, unknown>
-  if (typeof manifest.id !== 'string' || typeof manifest.version !== 'string' || typeof manifest.botwa !== 'string' || typeof manifest.entry !== 'string') {
+  // Manifests stored before the rename hold the range under `botwa`.
+  const range = manifest.botmesh ?? manifest.botwa
+  if (typeof manifest.id !== 'string' || typeof manifest.version !== 'string' || typeof range !== 'string' || typeof manifest.entry !== 'string') {
     throw new TypeError('bad manifest fields')
   }
   if (!Array.isArray(manifest.permissions) || !manifest.permissions.every((permission) => typeof permission === 'string')) {
@@ -85,7 +87,7 @@ export function parseManifest(value: unknown): PluginManifest {
   return {
     id: manifest.id,
     version: manifest.version,
-    botwa: manifest.botwa,
+    botmesh: range,
     entry: manifest.entry,
     permissions: [...manifest.permissions] as PluginManifest['permissions'],
     ...(typeof manifest.name === 'string' ? { name: manifest.name } : {}),

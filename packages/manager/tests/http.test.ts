@@ -97,7 +97,7 @@ describe('createManagerApi', () => {
     const metrics = await call(handler, 'GET', '/metrics')
     expect(metrics.status).toBe(200)
     expect(metrics.headers['content-type']).toContain('text/plain')
-    expect(metrics.raw).toContain('botwa_manager_bots_registered 2')
+    expect(metrics.raw).toContain('botmesh_manager_bots_registered 2')
   })
 
   it('GET /bots tolerates a trailing slash', async () => {

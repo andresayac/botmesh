@@ -22,11 +22,12 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { createClient } from 'redis'
 import { type FlowCheckpoint, type StoredMessage } from '@botmesh/core'
 import { legacyMessageKey } from '@botmesh/core/spi'
-import { RedisStore, type NativeRedisClient, type RedisLikeClient, type RedisStoreOptions } from '../src/index.js'
+import { RedisStore, type RedisLikeClient, type RedisStoreOptions } from '../src/index.js'
 import { PROBES, meets, outcome } from './redis-probes.js'
 import { runStoreConformance } from '../../../test-utils/store-conformance.js'
 import { runUserDataConformance } from '../../../test-utils/user-data-conformance.js'
 import { runStoreModelFuzz } from '../../../test-utils/store-model-fuzz.js'
+import type { NodeRedisClient } from './nodeRedis.js'
 
 const REDIS_URL = process.env.BOTWA_TEST_REDIS_URL
 const RUN = `botwa-it:${process.pid}-${randomUUID().slice(0, 8)}`
@@ -109,7 +110,7 @@ async function closedPort(): Promise<number> {
 
 describe.skipIf(!REDIS_URL)('RedisStore against a real Redis server', { timeout: 20_000 }, () => {
   const url = REDIS_URL as string
-  let admin: NativeRedisClient
+  let admin: NodeRedisClient
   /** Own-client stores opened by a test; stopped after each test even when it fails. */
   const opened: RedisStore[] = []
 

@@ -7,7 +7,10 @@
 import type { BotMetricsSnapshot, ConversationCounters } from './metrics.js'
 
 export interface PrometheusOptions {
-  /** Metric name prefix (default `'botwa_'`). Must match `[a-zA-Z_:][a-zA-Z0-9_:]*`. */
+  /**
+   * Metric name prefix (default `'botmesh_'`). Must match `[a-zA-Z_:][a-zA-Z0-9_:]*`.
+   * Pass `'botwa_'` to keep the names of the alpha releases (dashboards, alerts).
+   */
   prefix?: string
   /** Constant labels added to every sample, e.g. `{ bot: 'ventas' }`. */
   labels?: Record<string, string>
@@ -39,7 +42,7 @@ const OUTCOMES: Array<[keyof ConversationCounters, string]> = [
  * ```
  */
 export function toPrometheus(snapshot: BotMetricsSnapshot, options: PrometheusOptions = {}): string {
-  const prefix = options.prefix ?? 'botwa_'
+  const prefix = options.prefix ?? 'botmesh_'
   if (!/^[a-zA-Z_:][a-zA-Z0-9_:]*$/.test(prefix)) throw new TypeError(`Invalid Prometheus metric prefix: "${prefix}"`)
   const constLabels = Object.entries(options.labels ?? {})
   for (const [name] of constLabels) assertLabelName(name)

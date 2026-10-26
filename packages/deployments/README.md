@@ -2,7 +2,7 @@
 
 > Experimental · private (`"private": true`, not published to npm). The API may change without notice.
 >
-> Roadmap: track [D. BotWA Studio](../../ROADMAP.md#d-botwa-studio) ("Drafts, diff, publish and rollback") and [C. Control plane and API](../../ROADMAP.md#c-control-plane-y-api), phase [F3 — Studio MVP](../../ROADMAP.md#f3--studio-mvp) ("Publish and rollback").
+> Roadmap: track [D. BotMesh Studio](../../ROADMAP.md#d-botmesh-studio) ("Drafts, diff, publish and rollback") and [C. Control plane and API](../../ROADMAP.md#c-control-plane-y-api), phase [F3 — Studio MVP](../../ROADMAP.md#f3--studio-mvp) ("Publish and rollback").
 
 Immutable versions per tenant and bot, with a single active version, publish gates whose runs are recorded and rollback. Persists over any core `DurableKv` (SQLite, PostgreSQL, Redis, file) or in memory.
 

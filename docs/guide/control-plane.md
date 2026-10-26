@@ -84,8 +84,8 @@ Events (typed through `ManagerEventMap`):
 | `reconnectFailed` | `{ id, attempts, error? }` |
 
 Logging goes through pino at `debug`/`warn`: inject a logger
-(`new BotManager({ logger })`) or set `BOTWA_MANAGER_LOG_LEVEL=debug`
-(default `silent`).
+(`new BotManager({ logger })`) or set `BOTMESH_MANAGER_LOG_LEVEL=debug`
+(default `silent`; the pre-rename `BOTWA_MANAGER_LOG_LEVEL` is still read).
 
 ## Multi-tenant persistence
 

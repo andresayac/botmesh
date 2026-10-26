@@ -3,7 +3,7 @@
  *
  * {@link serveStream} is the testable half (any async iterable in, a `write` callback out);
  * {@link runStdio} wires `process.stdin`/`process.stdout`, keeps stdout reserved for protocol
- * messages and sends every diagnostic to stderr. `--docs <dir>` (or `BOTWA_DOCS_DIR`)
+ * messages and sends every diagnostic to stderr. `--docs <dir>` (or `BOTMESH_DOCS_DIR`; the deprecated `BOTWA_DOCS_DIR` is still read)
  * enables the documentation tools.
  */
 import { LineDecoder, RPC_ERROR, encodeMessage, errorResponse } from './protocol.js'
@@ -19,7 +19,7 @@ export interface ServeOptions {
 }
 
 export interface StdioOptions {
-  /** Docs tree for the documentation tools (default: `--docs` argument, then `BOTWA_DOCS_DIR`). */
+  /** Docs tree for the documentation tools (default: `--docs` argument, then `BOTMESH_DOCS_DIR`, then the deprecated `BOTWA_DOCS_DIR`). */
   docsDir?: string
   /** argv to parse when `docsDir` is absent (default: `process.argv.slice(2)`). */
   argv?: readonly string[]
@@ -78,9 +78,14 @@ export async function serveStream(input: AsyncIterable<string | Uint8Array>, opt
   for (const line of decoder.flush()) await handleLine(line)
 }
 
+/** The docs directory from the environment: `BOTMESH_DOCS_DIR`, then the deprecated `BOTWA_DOCS_DIR`. */
+export function docsDirFromEnv(env: Record<string, string | undefined>): string | undefined {
+  return env.BOTMESH_DOCS_DIR || env.BOTWA_DOCS_DIR || undefined
+}
+
 /** Run the server over the process streams (what `bin.ts` calls). */
 export async function runStdio(options: StdioOptions = {}): Promise<void> {
-  const docsDir = options.docsDir ?? docsDirFromArgv(options.argv ?? process.argv.slice(2)) ?? process.env.BOTWA_DOCS_DIR
+  const docsDir = options.docsDir ?? docsDirFromArgv(options.argv ?? process.argv.slice(2)) ?? docsDirFromEnv(process.env)
   const server = createMcpServer(docsDir !== undefined && docsDir !== '' ? { docsDir } : {})
   const tools: readonly McpToolInfo[] = server.tools
   process.stderr.write(`botmesh-mcp: ${tools.length} tool(s)${docsDir ? `, docs ${docsDir}` : ' (docs tools off: pass --docs <dir>)'}\n`)

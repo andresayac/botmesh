@@ -154,17 +154,17 @@ It is opt-in: it is enabled by the `BOTWA_TEST_MYSQL_URL` environment variable a
 
 ```bash
 # 1. A disposable MySQL (port 53306 so it does not clash with a local one)
-docker run -d --name botwa-it-mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=botwa -p 53306:3306 mysql:8.4
+docker run -d --name botmesh-it-mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=botwa -p 53306:3306 mysql:8.4
 
 # 2. Wait until it accepts TCP connections: repeat until you see "mysqld is alive"
 #    (the first boot initializes the data and takes about 20-30 s)
-docker exec botwa-it-mysql mysqladmin ping -h 127.0.0.1 -uroot -proot
+docker exec botmesh-it-mysql mysqladmin ping -h 127.0.0.1 -uroot -proot
 
 # 3. Run the suite against it
 BOTWA_TEST_MYSQL_URL=mysql://root:root@127.0.0.1:53306/botwa pnpm --filter @botmesh/mysql-store test
 
 # 4. Clean up
-docker rm -f botwa-it-mysql
+docker rm -f botmesh-it-mysql
 ```
 
 In PowerShell: `$env:BOTWA_TEST_MYSQL_URL = 'mysql://root:root@127.0.0.1:53306/botwa'; pnpm --filter @botmesh/mysql-store test`.

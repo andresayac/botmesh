@@ -97,7 +97,7 @@ describe('downloadMedia', () => {
     vi.stubGlobal('fetch', fetch)
     const p = new CloudAPIProvider(baseCfg)
     await p.downloadMedia({ kind: 'image', token: '../me?fields=id#x' }).catch(() => {})
-    expect(fetch.mock.calls[0]![0]).toBe('https://graph.facebook.com/v21.0/..%2Fme%3Ffields%3Did%23x')
+    expect(fetch.mock.calls[0]![0]).toBe('https://graph.facebook.com/v26.0/..%2Fme%3Ffields%3Did%23x')
   })
 })
 

@@ -33,10 +33,10 @@ Spans: `bot.inbound` → `bot.persist` / `bot.dispatch` → `bot.handler` → `b
 - `createOtelTracer(opts?)`: loads `@opentelemetry/api` and returns the tracer.
 - `otelTracer({ api, ... })`: same, synchronous, with the API injected.
 - `lazyOtelTracer(opts?)`: usable immediately (no-op spans until the API loads); a load failure surfaces through `ready`.
-- `spanMetrics` (`true` by default): histograms derived from spans (`botwa.inbound.duration`, `botwa.dispatch.duration`, `botwa.queue.wait`, `botwa.send.duration`, `gen_ai.client.operation.duration`, `gen_ai.client.token.usage`), low-cardinality attributes only.
+- `spanMetrics` (`true` by default): histograms derived from spans (`botmesh.inbound.duration`, `botmesh.dispatch.duration`, `botmesh.queue.wait`, `botmesh.send.duration`, `gen_ai.client.operation.duration`, `gen_ai.client.token.usage`), low-cardinality attributes only.
 
 ## Metrics
 
-`otelMetricsPlugin(opts?)` (or `registerOtelMetrics(bot, opts?)`) publishes `bot.metrics()` as counters and observable gauges: `botwa.messages.inbound`, `botwa.messages.outbound{result}`, `botwa.dropped{reason}`, `botwa.conversations.started|ended{outcome}|active`, `botwa.flow.conversations.*{flow}`, `botwa.triggered`, `botwa.errors`, `botwa.uptime`, and the `botwa.conversation.duration{flow,outcome}` histogram.
+`otelMetricsPlugin(opts?)` (or `registerOtelMetrics(bot, opts?)`) publishes `bot.metrics()` as counters and observable gauges: `botmesh.messages.inbound`, `botmesh.messages.outbound{result}`, `botmesh.dropped{reason}`, `botmesh.conversations.started|ended{outcome}|active`, `botmesh.flow.conversations.*{flow}`, `botmesh.triggered`, `botmesh.errors`, `botmesh.uptime`, and the `botmesh.conversation.duration{flow,outcome}` histogram.
 
 Full guide (Jaeger, Grafana Tempo, sampling, limits): `docs/es/guide/trazas.md` / `docs/guide/tracing.md`.

@@ -1,8 +1,9 @@
 /**
- * GeminiProvider — native Google Gemini via `@google/generative-ai` (optional
- * peer dependency, loaded lazily). Gemini is not OpenAI-compatible at the
- * message-shape level (it uses `parts` and the `model` role), so it gets its
- * own provider rather than a preset.
+ * GeminiProvider — native Google Gemini. The client is `@google/genai` (optional peer
+ * dependency, loaded lazily and adapted with {@link fromGoogleGenAI}); the deprecated
+ * `@google/generative-ai` SDK is still accepted as a fallback. Gemini is not
+ * OpenAI-compatible at the message-shape level (it uses `parts` and the `model` role),
+ * so it gets its own provider rather than a preset.
  */
 
 import type { AIProvider, GenerateInput, GenerateResult, AIConfig, AIChatMessage } from '../types.js'
@@ -49,7 +50,8 @@ export interface GeminiLike {
 
 type GeminiContent = { role: 'user' | 'model' | 'function'; parts: GeminiPart[] }
 
-const DEFAULT_MODEL = 'gemini-2.0-flash'
+/** Default model when neither the config nor the call names one (outside semver: it follows Google's current Flash model). */
+const DEFAULT_MODEL = 'gemini-3.8-flash'
 
 /**
  * Finish / block reasons meaning the answer was withheld by Gemini's safety
@@ -123,6 +125,8 @@ export class GeminiProvider implements AIProvider {
       if (!toolCalls.length && blocked(res.response)) refused = true
       else if (!toolCalls.length) throw err
     }
+    // @google/genai returns no text (instead of throwing) for a blocked answer.
+    if (!text && !toolCalls.length && blocked(res.response)) refused = true
     const finish = refused ? 'refusal' : res.response.candidates?.[0]?.finishReason
     return {
       text,
@@ -200,4 +204,87 @@ export function toGeminiSchema(schema: JSONSchema): JSONSchema {
     }
   }
   return out
+}
+
+/* =============================================================================
+ * @google/genai adapter
+ * ========================================================================== */
+
+/** A `GenerateContentResponse` of `@google/genai` (only the fields the provider reads). */
+export interface GoogleGenAIResponse {
+  candidates?: Array<{ content?: { parts?: GeminiPart[] }; finishReason?: string }>
+  usageMetadata?: GeminiUsage
+  promptFeedback?: { blockReason?: string }
+}
+
+/** The part of a `GoogleGenAI` client (`@google/genai`) the provider uses: `ai.models`. */
+export interface GoogleGenAILike {
+  models: {
+    generateContent(params: { model: string; contents: unknown; config?: Record<string, unknown> }): Promise<GoogleGenAIResponse>
+    generateContentStream(params: { model: string; contents: unknown; config?: Record<string, unknown> }): Promise<AsyncIterable<GoogleGenAIResponse>>
+  }
+}
+
+/** Visible text of a response: the text parts, without thought summaries. */
+function genaiText(r: GoogleGenAIResponse): string {
+  return (r.candidates?.[0]?.content?.parts ?? [])
+    .filter((p) => typeof p.text === 'string' && !p.thought)
+    .map((p) => p.text)
+    .join('')
+}
+
+function genaiResponse(r: GoogleGenAIResponse): GeminiResponse {
+  return {
+    text: () => genaiText(r),
+    functionCalls: () => {
+      const calls = (r.candidates?.[0]?.content?.parts ?? []).flatMap((p) => (p.functionCall ? [p.functionCall] : []))
+      return calls.length ? calls : undefined
+    },
+    ...(r.candidates ? { candidates: r.candidates } : {}),
+    ...(r.usageMetadata ? { usageMetadata: r.usageMetadata } : {}),
+    ...(r.promptFeedback ? { promptFeedback: r.promptFeedback } : {}),
+  }
+}
+
+/** The provider's request (the legacy SDK's `generateContent` arguments) in the `@google/genai` shape. */
+function genaiParams(model: string, args: Record<string, unknown>, opts?: GeminiRequestOptions): { model: string; contents: unknown; config: Record<string, unknown> } {
+  // Function results go back with the user role (the Gemini API only knows user/model).
+  const contents = (args.contents as GeminiContent[]).map((c) => (c.role === 'function' ? { ...c, role: 'user' as const } : c))
+  return {
+    model,
+    contents,
+    config: {
+      ...(args.generationConfig as Record<string, unknown> | undefined),
+      ...(args.systemInstruction ? { systemInstruction: args.systemInstruction } : {}),
+      ...(args.tools ? { tools: args.tools } : {}),
+      ...(opts?.signal ? { abortSignal: opts.signal } : {}),
+    },
+  }
+}
+
+/**
+ * Adapt a `GoogleGenAI` client from `@google/genai` (Gemini API or Vertex AI) to the
+ * {@link GeminiLike} interface {@link GeminiProvider} takes:
+ *
+ * ```ts
+ * import { GoogleGenAI } from '@google/genai'
+ * const gemini = new GeminiProvider(fromGoogleGenAI(new GoogleGenAI({ vertexai: true, project, location })), { model })
+ * ```
+ *
+ * `aiPlugin({ provider: 'gemini' })` does this by itself.
+ */
+export function fromGoogleGenAI(ai: GoogleGenAILike): GeminiLike {
+  return {
+    getGenerativeModel: ({ model }) => ({
+      generateContent: async (args, opts) => ({ response: genaiResponse(await ai.models.generateContent(genaiParams(model, args, opts))) }),
+      generateContentStream: async (args, opts) => {
+        const chunks = await ai.models.generateContentStream(genaiParams(model, args, opts))
+        return {
+          stream: (async function* () {
+            for await (const chunk of chunks) yield genaiResponse(chunk)
+          })(),
+        }
+      },
+    }),
+  }
 }

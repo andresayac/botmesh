@@ -137,12 +137,12 @@ export function createManagerApi(manager: BotManager, opts: ManagerApiOptions = 
       const bots = manager.list()
       const running = bots.filter((bot) => bot.running).length
       sendText(200, [
-        '# HELP botwa_manager_bots_registered Registered bots.',
-        '# TYPE botwa_manager_bots_registered gauge',
-        `botwa_manager_bots_registered ${bots.length}`,
-        '# HELP botwa_manager_bots_running Running bots.',
-        '# TYPE botwa_manager_bots_running gauge',
-        `botwa_manager_bots_running ${running}`,
+        '# HELP botmesh_manager_bots_registered Registered bots.',
+        '# TYPE botmesh_manager_bots_registered gauge',
+        `botmesh_manager_bots_registered ${bots.length}`,
+        '# HELP botmesh_manager_bots_running Running bots.',
+        '# TYPE botmesh_manager_bots_running gauge',
+        `botmesh_manager_bots_running ${running}`,
         '',
       ].join('\n'))
       return

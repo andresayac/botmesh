@@ -34,7 +34,7 @@ node packages/mcp/lib/bin.js --docs docs
 node packages/mcp/lib/bin.js
 ```
 
-`--docs <dir>` or the `BOTWA_DOCS_DIR` variable. **stdout is the protocol channel**: diagnostics go to stderr.
+`--docs <dir>` or the `BOTMESH_DOCS_DIR` variable (the pre-rename `BOTWA_DOCS_DIR` is still read). **stdout is the protocol channel**: diagnostics go to stderr.
 
 ### VS Code
 

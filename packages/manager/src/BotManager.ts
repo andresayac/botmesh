@@ -210,7 +210,8 @@ export class BotManager extends EventEmitter {
     super()
     this.logger =
       opts.logger ??
-      pino({ name: 'botmesh-manager', level: process.env.BOTWA_MANAGER_LOG_LEVEL ?? 'silent' })
+      // BOTWA_MANAGER_LOG_LEVEL is the deprecated pre-rename name, still read.
+      pino({ name: 'botmesh-manager', level: process.env.BOTMESH_MANAGER_LOG_LEVEL || process.env.BOTWA_MANAGER_LOG_LEVEL || 'silent' })
     this.factory = opts.factory
     this.configStore = opts.configStore ?? (opts.persistence ? new FileBotConfigStore({
       dir: opts.persistence.dir,

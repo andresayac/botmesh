@@ -52,7 +52,7 @@ The second package is the SDK of whichever provider you use:
 |---|---|
 | `anthropic` (default) | `@anthropic-ai/sdk` |
 | `openai` | `openai` |
-| `gemini` | `@google/generative-ai` |
+| `gemini` | `@google/genai` (the deprecated `@google/generative-ai` still works) |
 | `ollama` | none — talks plain HTTP (`fetch`) to a local/remote Ollama server |
 | `deepseek`, `qwen`, `glm`, `kimi`, `groq`, `openrouter`, `mistral`, `grok`, `together` | `openai` — they're OpenAI-compatible presets reached through the `openai` SDK with a custom `baseURL` |
 
@@ -152,8 +152,8 @@ is installed: without `bot.plug(aiPlugin(...))` (or after `unplug()`),
 bot.plug(aiPlugin({
   provider: 'anthropic',                     // optional, it's the default
   apiKey: process.env.ANTHROPIC_API_KEY,     // or let the SDK read ANTHROPIC_API_KEY from env
-  // model: 'claude-opus-4-8',               // default; consider 'claude-sonnet-5' or
-                                              // 'claude-haiku-4-5' for high-volume chat (cheaper)
+  // model: 'claude-opus-5-5',               // default; consider 'claude-sonnet-5-5' or
+                                              // 'claude-haiku-5-5' for high-volume chat (cheaper)
 }))
 ```
 
@@ -171,16 +171,28 @@ bot.plug(aiPlugin({
 
 ### Gemini
 
-Requires `@google/generative-ai` (optional peer, lazy-loaded). Note: Google has
-since published a newer SDK (`@google/genai`); this provider still targets
-`@google/generative-ai` — migration is tracked separately.
+Requires `@google/genai` (optional peer, lazy-loaded). The older
+`@google/generative-ai` SDK is deprecated by Google; it is still used when
+`@google/genai` is not installed, with a one-time `DeprecationWarning`. `baseUrl`
+becomes the SDK's `httpOptions.baseUrl`.
 
 ```ts
 bot.plug(aiPlugin({
   provider: 'gemini',
   apiKey: process.env.GEMINI_API_KEY,  // or GOOGLE_API_KEY in the environment
-  // model: 'gemini-2.0-flash',        // default if omitted
+  // model: 'gemini-3.8-flash',        // default if omitted
 }))
+```
+
+For Vertex AI, or any client option `aiPlugin` does not expose, build the provider
+yourself and adapt the client with `fromGoogleGenAI`:
+
+```ts
+import { GoogleGenAI } from '@google/genai'
+import { GeminiProvider, fromGoogleGenAI } from '@botmesh/ai'
+
+const ai = new GoogleGenAI({ vertexai: true, project: 'my-project', location: 'global' })
+bot.plug(aiPlugin({ instance: new GeminiProvider(fromGoogleGenAI(ai), { model: 'gemini-3.8-flash' }) }))
 ```
 
 ### Ollama (local, no API key)
@@ -207,12 +219,12 @@ bot.plug(aiPlugin({ provider: 'deepseek' }))  // reads DEEPSEEK_API_KEY, model d
 |---|---|---|
 | `deepseek` | `DEEPSEEK_API_KEY` | `deepseek-chat` |
 | `qwen` | `DASHSCOPE_API_KEY` | `qwen-plus` |
-| `glm` | `ZHIPUAI_API_KEY` | `glm-4-plus` |
+| `glm` | `ZHIPUAI_API_KEY` | `glm-5.3` |
 | `kimi` | `MOONSHOT_API_KEY` | `moonshot-v1-8k` |
 | `groq` | `GROQ_API_KEY` | `llama-3.3-70b-versatile` |
 | `openrouter` | `OPENROUTER_API_KEY` | `openrouter/auto` |
 | `mistral` | `MISTRAL_API_KEY` | `mistral-small-latest` |
-| `grok` | `XAI_API_KEY` | `grok-2-latest` |
+| `grok` | `XAI_API_KEY` | `grok-4.7` |
 | `together` | `TOGETHER_API_KEY` | `meta-llama/Llama-3.3-70B-Instruct-Turbo` |
 
 `apiKey` and `model` override the defaults:
@@ -228,9 +240,29 @@ bot.plug(aiPlugin({
 ::: warning `model` is required for openai and ollama
 Neither provider ships a sensible default (too many valid model ids, and
 they change often) — if you omit it, the provider throws an explicit error
-on the first `generate`/`stream` call. `anthropic` (`claude-opus-4-8`),
-`gemini` and the presets do have defaults.
+on the first `generate`/`stream` call. `anthropic` (`claude-opus-5-5`),
+`gemini` (`gemini-3.8-flash`) and the presets do have defaults.
 :::
+
+::: info Default models are not covered by semver
+Providers retire models on their own schedule, so the default models follow the
+current ones and can change in a minor release. Set `model` explicitly when the
+choice matters to you (cost, latency, output style).
+:::
+
+### Supported SDK versions
+
+The SDKs are optional peer dependencies; install the one your provider needs:
+
+| SDK | Accepted versions | Tested |
+|---|---|---|
+| `@anthropic-ai/sdk` | `^0.68.0 \|\| ^1.0.0` | 0.68.0 and 1.x |
+| `openai` | `^6.48.0 \|\| ^7.0.0` | 6.48.0 and 7.x |
+| `@google/genai` | `^2.0.0` | 2.0.0 and 2.x |
+| `@google/generative-ai` (deprecated) | `^0.21.0` to `^0.24.0` | 0.24 |
+
+The tests drive each SDK at both ends of its range against a local fake of the
+HTTP API: plain replies, tool calls with their results, and streaming.
 
 If the provider is misconfigured (SDK not installed, unknown provider, missing
 API key), `aiPlugin` **does not crash the process**: `install` is synchronous

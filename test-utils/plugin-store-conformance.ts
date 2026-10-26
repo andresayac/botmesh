@@ -18,7 +18,7 @@ export interface PluginStoreHarness {
 const manifest = (overrides: Partial<PluginManifest> = {}): PluginManifest => ({
   id: 'crm-sync',
   version: '1.0.0',
-  botwa: '^2.0.0',
+  botmesh: '^2.0.0',
   entry: 'dist/index.js',
   permissions: ['contacts:read', 'network:egress'],
   ...overrides,

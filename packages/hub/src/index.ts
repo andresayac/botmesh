@@ -3,7 +3,7 @@
  * and permission-gated enabling.
  *
  * - {@link validateManifest} — checks id, semver, entry path and that the runtime
- *   version satisfies the manifest's `botwa` semver range.
+ *   version satisfies the manifest's `botmesh` semver range (`botwa` is still read).
  * - {@link PluginRegistry} — installs validated manifests per tenant and only enables a
  *   plugin once every declared permission has been granted.
  * - {@link MemoryPluginStore} — the in-RAM reference store (default).

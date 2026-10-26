@@ -84,8 +84,8 @@ Eventos (tipados con `ManagerEventMap`):
 | `reconnectFailed` | `{ id, attempts, error? }` |
 
 Los logs pasan por pino en `debug`/`warn`: inyecta un logger
-(`new BotManager({ logger })`) o define `BOTWA_MANAGER_LOG_LEVEL=debug`
-(por defecto `silent`).
+(`new BotManager({ logger })`) o define `BOTMESH_MANAGER_LOG_LEVEL=debug`
+(por defecto `silent`; el nombre anterior, `BOTWA_MANAGER_LOG_LEVEL`, se sigue leyendo).
 
 ## Persistencia multi-tenant
 

@@ -4,11 +4,17 @@
  * notes, so a platform without them must still import the package and send
  * text; the media sends that need them fail with a typed, actionable error.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { UnsupportedContentError } from '@botmesh/core'
 
 vi.mock('sharp', () => { throw new Error('Could not load the "sharp" module using the linuxmusl-x64 runtime') })
-vi.mock('@ffmpeg-installer/ffmpeg', () => { throw new Error('Unsupported platform/architecture: linux-riscv64') })
+
+// No ffmpeg binary on this platform: FFMPEG_PATH points nowhere.
+const savedFfmpeg = process.env.FFMPEG_PATH
+beforeAll(() => { process.env.FFMPEG_PATH = join(tmpdir(), 'no-such-dir', 'ffmpeg') })
+afterAll(() => { if (savedFfmpeg === undefined) delete process.env.FFMPEG_PATH; else process.env.FFMPEG_PATH = savedFfmpeg })
 
 describe('native media tools load lazily', () => {
   it('imports the package and sends text without sharp or ffmpeg', async () => {
@@ -26,6 +32,6 @@ describe('native media tools load lazily', () => {
     expect((sticker as Error).message).toMatch(/sharp could not be loaded/)
     const voice = await toOutbound({ kind: 'voice', media: Buffer.from('ogg') }).then(() => null, (e: unknown) => e)
     expect(voice).toBeInstanceOf(UnsupportedContentError)
-    expect((voice as Error).message).toMatch(/ffmpeg could not be loaded/)
+    expect((voice as Error).message).toMatch(/ffmpeg could not be started.*FFMPEG_PATH/)
   })
 })

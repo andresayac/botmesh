@@ -28,7 +28,8 @@ export interface SerializedMediaRef {
 
 /**
  * The journaled marker that replaces `media.token` in a durable inbox record (internal shape,
- * documented for operators reading the journal).
+ * documented for operators reading the journal). The `$botwaMedia` key predates the botmesh
+ * name and is permanent: journals already written hold it, so it is never renamed.
  */
 export interface StoredMediaToken {
   $botwaMedia: 1
@@ -59,7 +60,7 @@ export class MediaUnavailableError extends ProviderError {
   }
 }
 
-const UNAVAILABLE = Symbol('botwa.mediaUnavailable')
+const UNAVAILABLE = Symbol('botmesh.mediaUnavailable')
 
 /** `token` is a journaled {@link StoredMediaToken} marker (shape check only). */
 export function isStoredMediaToken(token: unknown): token is StoredMediaToken {

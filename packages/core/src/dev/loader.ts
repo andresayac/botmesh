@@ -64,7 +64,7 @@ export interface EntryLoaderOptions {
 
 /**
  * Build a loader that (re-)imports `entryPath` with an increasing
- * `?botwa_v=<n>` query, so every call evaluates a fresh copy of the module
+ * `?botmesh_v=<n>` query, so every call evaluates a fresh copy of the module
  * (and, with {@link installReloadHooks}, of its relative imports).
  */
 export function createEntryLoader(entryPath: string, options: EntryLoaderOptions = {}): () => Promise<unknown> {

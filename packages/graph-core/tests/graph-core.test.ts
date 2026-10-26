@@ -282,3 +282,11 @@ describe('readGraphResponse', () => {
     expect((err as UnsupportedContentError).kind).toBe('sticker')
   })
 })
+
+describe('DEFAULT_GRAPH_API_VERSION', () => {
+  it('is the current Graph API version, shaped vNN.0', async () => {
+    const { DEFAULT_GRAPH_API_VERSION } = await import('../src/index.js')
+    expect(DEFAULT_GRAPH_API_VERSION).toBe('v26.0')
+    expect(DEFAULT_GRAPH_API_VERSION).toMatch(/^v\d+\.0$/)
+  })
+})

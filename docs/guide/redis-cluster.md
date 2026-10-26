@@ -224,12 +224,12 @@ otherwise the stale cluster-layout records win the next forward pass.
 ## Testing locally
 
 ```bash
-docker run -d --name botwa-it-redis-cluster -e IP=0.0.0.0 -e INITIAL_PORT=47100 \
+docker run -d --name botmesh-it-redis-cluster -e IP=0.0.0.0 -e INITIAL_PORT=47100 \
   -e MASTERS=3 -e SLAVES_PER_MASTER=1 -p 127.0.0.1:47100-47105:47100-47105 grokzen/redis-cluster:7.0.10
 BOTWA_TEST_REDIS_CLUSTER_URL=redis://127.0.0.1:47100 pnpm --filter @botmesh/redis-store test
 # optional: failover and slot migration under load
 BOTWA_TEST_REDIS_CLUSTER_CHAOS=1 BOTWA_TEST_REDIS_CLUSTER_URL=redis://127.0.0.1:47100 pnpm --filter @botmesh/redis-store test
-docker rm -f botwa-it-redis-cluster
+docker rm -f botmesh-it-redis-cluster
 ```
 
 See also [Running N replicas](./replicas.md) and [Durable message processing](./durability.md).

@@ -242,18 +242,18 @@ With `@botmesh/otel`, bot spans are also the active OpenTelemetry context, so `t
 
 | Metric | Type | Attributes |
 | --- | --- | --- |
-| `botwa.messages.inbound` | counter | |
-| `botwa.messages.outbound` | counter | `result` = `ok`/`failed` |
-| `botwa.dropped` | counter | `reason` = `duplicate`/`blocked`/`handoff` |
-| `botwa.conversations.started` / `.ended` | counter | `outcome` (ended) |
-| `botwa.flow.conversations.started` / `.ended` | counter | `flow`, `outcome` (`perFlow`) |
-| `botwa.triggered`, `botwa.errors` | counter | |
-| `botwa.conversations.active`, `botwa.uptime` (s) | gauge | |
-| `botwa.conversation.duration` (s) | histogram | `flow`, `outcome` |
+| `botmesh.messages.inbound` | counter | |
+| `botmesh.messages.outbound` | counter | `result` = `ok`/`failed` |
+| `botmesh.dropped` | counter | `reason` = `duplicate`/`blocked`/`handoff` |
+| `botmesh.conversations.started` / `.ended` | counter | `outcome` (ended) |
+| `botmesh.flow.conversations.started` / `.ended` | counter | `flow`, `outcome` (`perFlow`) |
+| `botmesh.triggered`, `botmesh.errors` | counter | |
+| `botmesh.conversations.active`, `botmesh.uptime` (s) | gauge | |
+| `botmesh.conversation.duration` (s) | histogram | `flow`, `outcome` |
 
 Every point carries `bot.id` plus your `attributes`. `bot.resetMetrics()` makes the cumulative counters drop, which OpenTelemetry and Prometheus treat as a counter reset.
 
-The tracer also derives histograms from finished spans (`spanMetrics`, on by default), recorded even for unsampled traces: `botwa.inbound.duration{bot.event.kind, bot.inbound.outcome, bot.provider.id}`, `botwa.dispatch.duration{bot.dispatch.stage}`, `botwa.queue.wait`, `botwa.send.duration{bot.provider.id, bot.send.outcome}`, `botwa.lifecycle.duration{bot.lifecycle.step, bot.lifecycle.phase}`, `gen_ai.client.operation.duration` and `gen_ai.client.token.usage{gen_ai.token.type}`. No metric ever carries a chat, user or message id.
+The tracer also derives histograms from finished spans (`spanMetrics`, on by default), recorded even for unsampled traces: `botmesh.inbound.duration{bot.event.kind, bot.inbound.outcome, bot.provider.id}`, `botmesh.dispatch.duration{bot.dispatch.stage}`, `botmesh.queue.wait`, `botmesh.send.duration{bot.provider.id, bot.send.outcome}`, `botmesh.lifecycle.duration{bot.lifecycle.step, bot.lifecycle.phase}`, `gen_ai.client.operation.duration` and `gen_ai.client.token.usage{gen_ai.token.type}`. No metric ever carries a chat, user or message id.
 
 ## Personal data
 
@@ -283,7 +283,7 @@ new Bot({
 | `tracerProvider` | global (`trace.getTracerProvider()`) | |
 | `tracerName` | `'@botmesh/otel'` | Instrumentation scope. |
 | `spanMetrics` | `true` | `false`, or `{ meterProvider, prefix }`. |
-| `otelMetricsPlugin({ meterProvider, prefix, attributes, perFlow, conversationDuration })` | global, `'botwa'`, `{}`, `true`, `true` | |
+| `otelMetricsPlugin({ meterProvider, prefix, attributes, perFlow, conversationDuration })` | global, `'botmesh'` (`'botwa'` keeps the alpha names), `{}`, `true`, `true` | |
 
 ### Sampling
 

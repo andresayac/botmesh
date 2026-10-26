@@ -38,7 +38,8 @@ export interface AnthropicLike {
   }
 }
 
-const DEFAULT_MODEL = 'claude-opus-4-8'
+/** Default model when neither the config nor the call names one (outside semver: it follows Anthropic's current Opus). */
+const DEFAULT_MODEL = 'claude-opus-5-5'
 // Adaptive thinking shares this budget with the visible reply; 1024 risks
 // truncated/empty replies once reasoning tokens are spent, so default higher.
 const DEFAULT_MAX_TOKENS = 4096

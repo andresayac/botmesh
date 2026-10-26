@@ -45,6 +45,7 @@ import { parseInbound, type IgWebhookBody } from './parseInbound.js'
 import {
   verifyChallenge, checkGraphSignature, tryParseGraphBody, META_MEDIA_HOSTS, serializeUrlMediaRef, rehydrateUrlMediaRef,
   type ChallengeQuery,
+  DEFAULT_GRAPH_API_VERSION,
 } from '@botmesh/graph-core'
 import { isAllowedHostUrl } from '@botmesh/http'
 
@@ -86,7 +87,7 @@ export class InstagramProvider implements IProvider<unknown> {
     if (config.requestTimeoutMs !== undefined && !(typeof config.requestTimeoutMs === 'number' && Number.isFinite(config.requestTimeoutMs) && config.requestTimeoutMs > 0)) {
       throw new TypeError('InstagramProvider: `requestTimeoutMs` must be a positive number of milliseconds')
     }
-    this.config = { apiVersion: 'v21.0', graphUrl: 'https://graph.facebook.com', ...config }
+    this.config = { apiVersion: DEFAULT_GRAPH_API_VERSION, graphUrl: 'https://graph.facebook.com', ...config }
     this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
     if (config.mediaRefHosts !== undefined &&
       (!Array.isArray(config.mediaRefHosts) || config.mediaRefHosts.some((h) => typeof h !== 'string' || h.trim() === ''))) {

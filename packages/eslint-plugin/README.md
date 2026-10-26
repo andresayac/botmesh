@@ -13,21 +13,21 @@ Requires ESLint 9 or later (flat config) and Node >= 22.
 
 ```js
 // eslint.config.js
-import botWa from 'eslint-plugin-botmesh'
+import botmesh from 'eslint-plugin-botmesh'
 
 export default [
-  botWa.configs.recommended,
+  botmesh.configs.recommended,
 ]
 ```
 
 Or rule by rule:
 
 ```js
-import botWa from 'eslint-plugin-botmesh'
+import botmesh from 'eslint-plugin-botmesh'
 
 export default [
   {
-    plugins: { 'botmesh': botWa },
+    plugins: { 'botmesh': botmesh },
     rules: {
       'botmesh/no-v1-api': 'error',
       'botmesh/require-timeout-on-ask': ['error', { methods: ['ask', 'choose'], allowFlowTimeout: true }],
@@ -106,10 +106,10 @@ Option: `{ contextNames: string[] }` (context parameter names; default `['ctx']`
 ## API
 
 ```ts
-import botWa, { rules, configs, PLUGIN_NAMESPACE } from 'eslint-plugin-botmesh'
-botWa.meta     // { name: 'eslint-plugin-botmesh', version, namespace: 'botmesh' }
-botWa.rules    // the six rules
-botWa.configs  // { recommended, strict } (flat config)
+import botmesh, { rules, configs, PLUGIN_NAMESPACE } from 'eslint-plugin-botmesh'
+botmesh.meta     // { name: 'eslint-plugin-botmesh', version, namespace: 'botmesh' }
+botmesh.rules    // the six rules
+botmesh.configs  // { recommended, strict } (flat config)
 ```
 
 ## Development

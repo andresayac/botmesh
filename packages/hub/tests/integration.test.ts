@@ -14,7 +14,7 @@ import { KvPluginStore, PluginRegistry } from '../src/index.js'
 import { runPluginStoreConformance } from '../../../test-utils/plugin-store-conformance.js'
 import { realKvBackends, type KvSession } from '../../../test-utils/real-kv-backends.js'
 
-const manifest = { id: 'crm-sync', version: '1.0.0', botwa: '^2.0.0', entry: 'dist/index.js', permissions: ['contacts:read'] as const }
+const manifest = { id: 'crm-sync', version: '1.0.0', botmesh: '^2.0.0', entry: 'dist/index.js', permissions: ['contacts:read'] as const }
 
 for (const backend of realKvBackends({ sqlite, postgres, redis, pg, redisClient })) {
   // Real servers under load (contended compare-and-set loops with jittered back-off) can exceed the default 5 s.

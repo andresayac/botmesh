@@ -64,7 +64,7 @@ export interface CliIO {
   stderr: NodeJS.WritableStream
   /** Working directory for relative paths. Default `process.cwd()`. */
   cwd?: string
-  /** Environment to read (`NO_COLOR`) and mark with `BOT_WA_DEV=1`. Default `process.env`. */
+  /** Environment to read (`NO_COLOR`) and mark with `BOTMESH_DEV=1` (and the deprecated `BOT_WA_DEV=1`). Default `process.env`. */
   env?: Record<string, string | undefined>
   /** Module importer for the entry. Default native `import()`. */
   importModule?: (url: string) => Promise<unknown>
@@ -248,7 +248,9 @@ async function runDev(options: DevCliOptions, entryArg: string, io: CliIO): Prom
   }
   loadEnvFiles(options.envFiles, false)
   loadEnvFiles(options.optionalEnvFiles ?? [], true)
-  // Lets bot code detect the simulator (e.g. to skip real side effects).
+  // Lets bot code detect the simulator (e.g. to skip real side effects). BOT_WA_DEV is the
+  // pre-rename name, still set so existing checks keep working.
+  env.BOTMESH_DEV = '1'
   env.BOT_WA_DEV = '1'
 
   const hooks: ReloadHooksMode = io.installHooks === false ? 'none' : installReloadHooks()

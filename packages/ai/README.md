@@ -47,7 +47,7 @@ right one:
 | `anthropic` (default) | `@anthropic-ai/sdk` |
 | `openai` | `openai` |
 | `ollama` | none (it speaks HTTP directly with `fetch` against an Ollama server) |
-| `gemini` | `@google/generative-ai` |
+| `gemini` | `@google/genai` (the deprecated `@google/generative-ai` still works) |
 | `deepseek` · `qwen` · `glm` · `kimi` · `groq` · `openrouter` · `mistral` · `grok` · `together` | `openai` (they are OpenAI-compatible; they use their own `baseURL`, **no extra SDK**) |
 
 Requires **Node >= 22** and `@botmesh/core` already installed in your project.
@@ -152,8 +152,8 @@ The type does not check that the plugin is installed: without
 bot.plug(aiPlugin({
   provider: 'anthropic',                     // optional, it is the default
   apiKey: process.env.ANTHROPIC_API_KEY,     // or let the SDK read ANTHROPIC_API_KEY from the environment
-  // model: 'claude-opus-4-8',               // default; consider 'claude-sonnet-5' or
-                                              // 'claude-haiku-4-5' for high-volume chats (cheaper)
+  // model: 'claude-opus-5-5',               // default; consider 'claude-sonnet-5-5' or
+                                              // 'claude-haiku-5-5' for high-volume chats (cheaper)
 }))
 ```
 
@@ -197,12 +197,12 @@ bot.plug(aiPlugin({ provider: 'openrouter' }))            // OPENROUTER_API_KEY,
 |---|---|---|
 | `deepseek` | `deepseek-chat` | `DEEPSEEK_API_KEY` |
 | `qwen` | `qwen-plus` | `DASHSCOPE_API_KEY` |
-| `glm` | `glm-4-plus` | `ZHIPUAI_API_KEY` |
+| `glm` | `glm-5.3` | `ZHIPUAI_API_KEY` |
 | `kimi` | `moonshot-v1-8k` | `MOONSHOT_API_KEY` |
 | `groq` | `llama-3.3-70b-versatile` | `GROQ_API_KEY` |
 | `openrouter` | `openrouter/auto` | `OPENROUTER_API_KEY` |
 | `mistral` | `mistral-small-latest` | `MISTRAL_API_KEY` |
-| `grok` | `grok-2-latest` | `XAI_API_KEY` |
+| `grok` | `grok-4.7` | `XAI_API_KEY` |
 | `together` | `meta-llama/Llama-3.3-70B-Instruct-Turbo` | `TOGETHER_API_KEY` |
 
 You can override `model` and `baseUrl` on any preset.
@@ -212,18 +212,25 @@ You can override `model` and `baseUrl` on any preset.
 ```ts
 bot.plug(aiPlugin({
   provider: 'gemini',
-  // model: 'gemini-2.0-flash',   // default
+  // model: 'gemini-3.8-flash',   // default
 }))
 ```
 
-Requires `@google/generative-ai`. The API key is read from `apiKey`, `GEMINI_API_KEY`
-or `GOOGLE_API_KEY`.
+Requires `@google/genai`. Without it, the deprecated `@google/generative-ai` is used
+(with a one-time `DeprecationWarning`). The API key is read from `apiKey`, `GEMINI_API_KEY`
+or `GOOGLE_API_KEY`. For Vertex AI, pass your own client:
+`aiPlugin({ instance: new GeminiProvider(fromGoogleGenAI(new GoogleGenAI({ vertexai: true, project, location })), { model }) })`.
 
 > **`model` is required for `openai` and `ollama`.** neither of them brings a
 > reasonable default (there are too many valid models and they change often); if you omit
 > it, the provider throws an explicit error on the first `generate`/`stream`.
-> `anthropic` (`claude-opus-4-8`), `gemini` (`gemini-2.0-flash`) and every
-> **preset** do bring a default.
+> `anthropic` (`claude-opus-5-5`), `gemini` (`gemini-3.8-flash`) and every
+> **preset** do bring a default. Default models follow each vendor's current models and
+> are **not covered by semver**: they can change in a minor release. Set `model` when it matters.
+
+Supported SDK versions (optional peer dependencies, each tested at both ends of its
+range): `@anthropic-ai/sdk` `^0.68.0 || ^1.0.0`, `openai` `^6.48.0 || ^7.0.0`,
+`@google/genai` `^2.0.0`, and the deprecated `@google/generative-ai` `^0.21.0` to `^0.24.0`.
 
 If the provider is misconfigured (SDK not installed, unknown provider, missing
 API key), `aiPlugin` **does not take the process down**: `install` is synchronous

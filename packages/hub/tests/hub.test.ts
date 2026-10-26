@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { MemoryKv } from '@botmesh/core/spi'
 
-import { KvPluginStore, MemoryPluginStore, PluginManifestError, PluginRegistry, validateManifest } from '../src/index.js'
+import { KvPluginStore, MemoryPluginStore, PluginManifestError, PluginRegistry, validateManifest, type PluginPermission } from '../src/index.js'
+import { parseManifest } from '../src/memory.js'
 
 const manifest = {
   id: 'crm-sync',
   version: '1.0.0',
-  botwa: '^2.0.0',
+  botmesh: '^2.0.0',
   entry: 'dist/index.js',
   permissions: ['contacts:read', 'network:egress'] as const,
 }
@@ -50,7 +51,7 @@ describe.each(stores)('plugin hub over %s', (_name, make) => {
 describe('manifest validation', () => {
   it('rejects unsafe manifests', () => {
     expect(() => validateManifest({ ...manifest, entry: '../escape.js' }, '2.0.0')).toThrow(PluginManifestError)
-    expect(() => validateManifest({ ...manifest, botwa: '^3.0.0' }, '2.0.0')).toThrow(/incompatible/)
+    expect(() => validateManifest({ ...manifest, botmesh: '^3.0.0' }, '2.0.0')).toThrow(/incompatible/)
   })
 
   it('rejects malformed ids, versions and entries', () => {
@@ -109,10 +110,10 @@ describe('entry path validation', () => {
   })
 })
 
-describe('botwa range compatibility', () => {
+describe('botmesh range compatibility', () => {
   const compatible = (range: string, runtime: string) => {
     try {
-      validateManifest({ ...manifest, botwa: range }, runtime)
+      validateManifest({ ...manifest, botmesh: range }, runtime)
       return true
     } catch (error) {
       if (error instanceof PluginManifestError && /incompatible/.test(error.message)) return false
@@ -164,7 +165,7 @@ describe('botwa range compatibility', () => {
     ['^2.0.0', '2.1.0+build.5', true],
   ] as const)('%s with runtime %s -> %s', (range, runtime, expected) => {
     if (expected === null) {
-      expect(() => compatible(range, runtime)).toThrow(/invalid botwa range/)
+      expect(() => compatible(range, runtime)).toThrow(/invalid botmesh range/)
     } else {
       expect(compatible(range, runtime)).toBe(expected)
     }
@@ -173,7 +174,7 @@ describe('botwa range compatibility', () => {
   it.each(['', '^', '>=2.0.0 ||', '^2.0.0 garbage', '~>2.0.0', '2.0.0.0', '^02.0.0'])(
     'rejects the malformed range %j',
     (range) => {
-      expect(() => validateManifest({ ...manifest, botwa: range }, '2.0.0')).toThrow(/invalid botwa range/)
+      expect(() => validateManifest({ ...manifest, botmesh: range }, '2.0.0')).toThrow(/invalid botmesh range/)
     },
   )
 
@@ -185,7 +186,7 @@ describe('botwa range compatibility', () => {
 })
 
 describe('manifest validation of untyped input (JSON from a marketplace or an upload)', () => {
-  const base = { id: 'crm-sync', version: '1.0.0', botwa: '*', entry: 'index.js', permissions: [] as string[] }
+  const base = { id: 'crm-sync', version: '1.0.0', botmesh: '*', entry: 'index.js', permissions: [] as string[] }
   const check = (overrides: Record<string, unknown>) => () => validateManifest({ ...base, ...overrides } as never, '2.0.0')
 
   it('rejects a missing or non-object manifest with PluginManifestError', () => {
@@ -211,7 +212,7 @@ describe('manifest validation of untyped input (JSON from a marketplace or an up
   it('rejects version numbers beyond the safe integer range and non-string ranges or labels', () => {
     expect(check({ version: '99999999999999999999.0.0' })).toThrow(/semver/)
     expect(() => validateManifest(base as never, '2.99999999999999999999.0')).toThrow(/runtime version/)
-    expect(check({ botwa: 2 })).toThrow(/botwa/)
+    expect(check({ botmesh: 2 })).toThrow(/botmesh/)
     expect(check({ name: 42 })).toThrow(/name/)
     expect(check({ description: { x: 1 } })).toThrow(/description/)
   })
@@ -242,5 +243,33 @@ describe.each(stores)('enable is atomic with respect to a re-install (%s)', (_na
     await expect(registry.enable('a', manifest.id, ['contacts:read'])).rejects.toThrow(/secrets:read/)
     store.get = original
     expect(await registry.get('a', manifest.id)).toMatchObject({ enabled: false })
+  })
+})
+
+describe('runtime range field: botmesh (botwa is a deprecated alias)', () => {
+  const base = { id: 'crm-sync', version: '1.0.0', entry: 'index.js', permissions: [] as PluginPermission[] }
+
+  it('accepts the pre-rename botwa field and returns the manifest with botmesh', () => {
+    const out = validateManifest({ ...base, botwa: '^2.0.0' }, '2.1.0')
+    expect(out.botmesh).toBe('^2.0.0')
+    expect(out).not.toHaveProperty('botwa')
+    expect(() => validateManifest({ ...base, botwa: '^3.0.0' }, '2.1.0')).toThrow(/incompatible/)
+  })
+
+  it('prefers botmesh when both are present', () => {
+    expect(validateManifest({ ...base, botmesh: '^2.0.0', botwa: '^9.0.0' }, '2.1.0').botmesh).toBe('^2.0.0')
+  })
+
+  it('rejects a manifest with neither field', () => {
+    expect(() => validateManifest(base as never, '2.1.0')).toThrow(/invalid botmesh range/)
+  })
+
+  it('reads stored manifests written with botwa', () => {
+    expect(parseManifest({ ...base, botwa: '^2.0.0' })).toMatchObject({ botmesh: '^2.0.0' })
+    expect(parseManifest({ ...base, botwa: '^2.0.0' })).not.toHaveProperty('botwa')
+  })
+
+  it('names the runtime botmesh in the incompatibility error', () => {
+    expect(() => validateManifest({ ...base, botmesh: '^3.0.0' }, '2.1.0')).toThrow(/incompatible with this botmesh runtime/)
   })
 })

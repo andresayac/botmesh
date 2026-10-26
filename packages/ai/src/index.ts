@@ -20,9 +20,10 @@ export type {
   OpenAIProviderOptions, OpenAILike, OpenAIRequestOptions, OpenAIChatCompletion, OpenAIChoice, OpenAIStreamChunk,
 } from './providers/openai.js'
 export { OllamaProvider } from './providers/ollama.js'
-export { GeminiProvider } from './providers/gemini.js'
+export { GeminiProvider, fromGoogleGenAI } from './providers/gemini.js'
 export type {
   GeminiLike, GeminiModelLike, GeminiRequestOptions, GeminiResponse, GeminiUsage, GeminiFunctionCall, GeminiPart,
+  GoogleGenAILike, GoogleGenAIResponse,
 } from './providers/gemini.js'
 export { LazyProvider } from './providers/LazyProvider.js'
 export { PRESETS, isPreset } from './providers/presets.js'

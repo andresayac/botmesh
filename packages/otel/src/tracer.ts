@@ -105,7 +105,7 @@ export function otelTracer(opts: OtelTracingOptions & { api: OtelApi }): BotTrac
   const sm = opts.spanMetrics ?? true
   const metrics = sm === false
     ? undefined
-    : new SpanMetrics((typeof sm === 'object' && sm.meterProvider) || api.metrics.getMeterProvider(), opts.tracerName ?? '@botmesh/otel', (typeof sm === 'object' && sm.prefix) || 'botwa')
+    : new SpanMetrics((typeof sm === 'object' && sm.meterProvider) || api.metrics.getMeterProvider(), opts.tracerName ?? '@botmesh/otel', (typeof sm === 'object' && sm.prefix) || 'botmesh')
 
   const kinds: Record<SpanKind, OtelApi['SpanKind'][keyof OtelApi['SpanKind']]> = {
     internal: api.SpanKind.INTERNAL, server: api.SpanKind.SERVER, client: api.SpanKind.CLIENT,

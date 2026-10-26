@@ -10,9 +10,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createClient } from 'redis'
 import { Bot, type ScheduledRun } from '@botmesh/core'
 import { MockProvider } from '@botmesh/core/testing'
-import { RedisStore, type NativeRedisClient } from '../src/index.js'
+import { RedisStore } from '../src/index.js'
 import { runScheduleStoreConformance } from '../../../test-utils/schedule-store-conformance.js'
 import { runLeaseConformance } from '../../../test-utils/lease-conformance.js'
+import type { NodeRedisClient } from './nodeRedis.js'
 
 const REDIS_URL = process.env.BOTWA_TEST_REDIS_URL
 const RUN = `botwa-it-sched:${process.pid}-${randomUUID().slice(0, 8)}`
@@ -22,7 +23,7 @@ const globLiteral = (s: string): string => s.replace(/[*?[\]\\]/g, '\\$&')
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
 describe.skipIf(!REDIS_URL)('durable scheduler stores against a real Redis server', { timeout: 20_000 }, () => {
-  let admin: NativeRedisClient
+  let admin: NodeRedisClient
 
   beforeAll(async () => {
     admin = createClient({ url: REDIS_URL })

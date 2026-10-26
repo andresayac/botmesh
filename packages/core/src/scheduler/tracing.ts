@@ -45,7 +45,7 @@ export interface TaskTraceHooks {
   run<T>(info: TaskRunInfo, fn: () => T): T
 }
 
-const UNTRACED = Symbol('botwa.untracedTask')
+const UNTRACED = Symbol('botmesh.untracedTask')
 
 /** Internal: mark a plain task handler (the bot's per-chat idle watchers) as never traced. */
 export function untracedTask<F extends () => void | Promise<void>>(fn: F): F {

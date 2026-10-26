@@ -242,18 +242,18 @@ Con `@botmesh/otel`, los spans del bot también son el contexto activo de OpenTe
 
 | Métrica | Tipo | Atributos |
 | --- | --- | --- |
-| `botwa.messages.inbound` | counter | |
-| `botwa.messages.outbound` | counter | `result` = `ok`/`failed` |
-| `botwa.dropped` | counter | `reason` = `duplicate`/`blocked`/`handoff` |
-| `botwa.conversations.started` / `.ended` | counter | `outcome` (ended) |
-| `botwa.flow.conversations.started` / `.ended` | counter | `flow`, `outcome` (`perFlow`) |
-| `botwa.triggered`, `botwa.errors` | counter | |
-| `botwa.conversations.active`, `botwa.uptime` (s) | gauge | |
-| `botwa.conversation.duration` (s) | histogram | `flow`, `outcome` |
+| `botmesh.messages.inbound` | counter | |
+| `botmesh.messages.outbound` | counter | `result` = `ok`/`failed` |
+| `botmesh.dropped` | counter | `reason` = `duplicate`/`blocked`/`handoff` |
+| `botmesh.conversations.started` / `.ended` | counter | `outcome` (ended) |
+| `botmesh.flow.conversations.started` / `.ended` | counter | `flow`, `outcome` (`perFlow`) |
+| `botmesh.triggered`, `botmesh.errors` | counter | |
+| `botmesh.conversations.active`, `botmesh.uptime` (s) | gauge | |
+| `botmesh.conversation.duration` (s) | histogram | `flow`, `outcome` |
 
 Cada punto lleva `bot.id` más tus `attributes`. `bot.resetMetrics()` hace caer los contadores acumulados, y OpenTelemetry y Prometheus lo tratan como un reinicio de contador.
 
-El tracer además deriva histogramas de los spans terminados (`spanMetrics`, activo por defecto), que se registran aunque la traza no se muestree: `botwa.inbound.duration{bot.event.kind, bot.inbound.outcome, bot.provider.id}`, `botwa.dispatch.duration{bot.dispatch.stage}`, `botwa.queue.wait`, `botwa.send.duration{bot.provider.id, bot.send.outcome}`, `botwa.lifecycle.duration{bot.lifecycle.step, bot.lifecycle.phase}`, `gen_ai.client.operation.duration` y `gen_ai.client.token.usage{gen_ai.token.type}`. Ninguna métrica lleva ids de chat, usuario o mensaje.
+El tracer además deriva histogramas de los spans terminados (`spanMetrics`, activo por defecto), que se registran aunque la traza no se muestree: `botmesh.inbound.duration{bot.event.kind, bot.inbound.outcome, bot.provider.id}`, `botmesh.dispatch.duration{bot.dispatch.stage}`, `botmesh.queue.wait`, `botmesh.send.duration{bot.provider.id, bot.send.outcome}`, `botmesh.lifecycle.duration{bot.lifecycle.step, bot.lifecycle.phase}`, `gen_ai.client.operation.duration` y `gen_ai.client.token.usage{gen_ai.token.type}`. Ninguna métrica lleva ids de chat, usuario o mensaje.
 
 ## Datos personales
 
@@ -283,7 +283,7 @@ new Bot({
 | `tracerProvider` | el global (`trace.getTracerProvider()`) | |
 | `tracerName` | `'@botmesh/otel'` | Scope de instrumentación. |
 | `spanMetrics` | `true` | `false`, o `{ meterProvider, prefix }`. |
-| `otelMetricsPlugin({ meterProvider, prefix, attributes, perFlow, conversationDuration })` | global, `'botwa'`, `{}`, `true`, `true` | |
+| `otelMetricsPlugin({ meterProvider, prefix, attributes, perFlow, conversationDuration })` | global, `'botmesh'` (`'botwa'` conserva los nombres de la alpha), `{}`, `true`, `true` | |
 
 ### Muestreo
 

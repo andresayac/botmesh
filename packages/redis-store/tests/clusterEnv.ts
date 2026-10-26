@@ -2,7 +2,7 @@
  * Real Redis Cluster helpers for the opt-in integration suites (no-ops without
  * BOTWA_TEST_REDIS_CLUSTER_URL). Start a local cluster (see CONTRIBUTING):
  *
- *   docker run -d --name botwa-it-redis-cluster -e IP=0.0.0.0 -e INITIAL_PORT=47100 \
+ *   docker run -d --name botmesh-it-redis-cluster -e IP=0.0.0.0 -e INITIAL_PORT=47100 \
  *     -e MASTERS=3 -e SLAVES_PER_MASTER=1 -p 127.0.0.1:47100-47105:47100-47105 grokzen/redis-cluster:7.0.10
  *   BOTWA_TEST_REDIS_CLUSTER_URL=redis://127.0.0.1:47100 pnpm --filter @botmesh/redis-store test
  *
@@ -13,11 +13,11 @@
 import { randomUUID } from 'node:crypto'
 import { createClient } from 'redis'
 import {
-  createOwnRedisClient, type NativeRedisClusterClient, type RedisClusterConnectOptions,
+  createOwnRedisClient, type RedisClusterConnectOptions,
 } from '../src/client.js'
 import { scanEverywhere } from '../src/migrate.js'
 import { escapeGlob } from '../src/glob.js'
-import type { NativeRedisClient } from '../src/RedisStore.js'
+import type { NodeRedisClient, NodeRedisCluster } from './nodeRedis.js'
 
 export const CLUSTER_URL = process.env.BOTWA_TEST_REDIS_CLUSTER_URL
 export const CHAOS = process.env.BOTWA_TEST_REDIS_CLUSTER_CHAOS === '1'
@@ -31,14 +31,14 @@ export function clusterOptions(url = CLUSTER_URL!): RedisClusterConnectOptions {
 }
 
 /** A connected cluster client (caller closes it). */
-export async function connectCluster(url = CLUSTER_URL!): Promise<NativeRedisClusterClient> {
-  const client = createOwnRedisClient({ cluster: clusterOptions(url), onError: () => {} }) as NativeRedisClusterClient
+export async function connectCluster(url = CLUSTER_URL!): Promise<NodeRedisCluster> {
+  const client = createOwnRedisClient({ cluster: clusterOptions(url), onError: () => {} }) as unknown as NodeRedisCluster
   await client.connect()
   return client
 }
 
 /** A plain connection to one node (the seed by default), for CLUSTER commands. */
-export async function connectNode(url = CLUSTER_URL!): Promise<NativeRedisClient> {
+export async function connectNode(url = CLUSTER_URL!): Promise<NodeRedisClient> {
   const node = createClient({ url })
   node.on('error', () => {})
   await node.connect()
@@ -46,7 +46,7 @@ export async function connectNode(url = CLUSTER_URL!): Promise<NativeRedisClient
 }
 
 /** Wait until the cluster reports `cluster_state:ok`. */
-export async function waitClusterOk(node: NativeRedisClient, timeoutMs = 30_000): Promise<void> {
+export async function waitClusterOk(node: NodeRedisClient, timeoutMs = 30_000): Promise<void> {
   const until = Date.now() + timeoutMs
   for (;;) {
     const info = String(await node.sendCommand(['CLUSTER', 'INFO']))
@@ -56,7 +56,7 @@ export async function waitClusterOk(node: NativeRedisClient, timeoutMs = 30_000)
   }
 }
 
-export async function keySlot(node: NativeRedisClient, key: string): Promise<number> {
+export async function keySlot(node: NodeRedisClient, key: string): Promise<number> {
   return Number(await node.sendCommand(['CLUSTER', 'KEYSLOT', key]))
 }
 
@@ -66,7 +66,7 @@ export function runPrefix(tag: string): string {
 }
 
 /** Delete every key of a prefix on every master, one key at a time. */
-export async function cleanupPrefix(cluster: NativeRedisClusterClient, prefix: string): Promise<void> {
+export async function cleanupPrefix(cluster: NodeRedisCluster, prefix: string): Promise<void> {
   const keys = await scanEverywhere(cluster, `${escapeGlob(prefix)}*`)
   for (const key of keys) await cluster.del(key)
 }

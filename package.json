@@ -28,12 +28,12 @@
   "devDependencies": {
     "@botmesh/core": "workspace:*",
     "@changesets/cli": "^3.0.3",
-    "mermaid": "^11.17.2",
+    "mermaid": "^12.2.0",
     "typedoc": "^0.28.20",
     "typedoc-plugin-missing-exports": "^4.1.4",
     "typescript": "5.9.3",
-    "vite": "^7.3.6",
+    "vite": "^7.3.7",
     "vitepress": "^1.6.4",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.12"
   }
 }

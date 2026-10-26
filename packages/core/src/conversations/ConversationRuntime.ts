@@ -297,7 +297,7 @@ interface ActiveConversation extends ConversationHandle {
 }
 
 /** Marks a conversation function that keeps its own checkpoint (no hand-over stub needed). */
-const CHECKPOINTS = Symbol('botwa.checkpoints')
+const CHECKPOINTS = Symbol('botmesh.checkpoints')
 type Marked = ConversationFn & { [CHECKPOINTS]?: true }
 const isMarked = (fn: ConversationFn): boolean => (fn as Marked)[CHECKPOINTS] === true
 function mark(fn: ConversationFn): ConversationFn { (fn as Marked)[CHECKPOINTS] = true; return fn }

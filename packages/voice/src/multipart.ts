@@ -30,7 +30,7 @@ function safeContentType(value: string): string {
   return /^[\w!#$&^.+-]+\/[\w!#$&^.+-]+(?:\s*;[^\x00-\x1f\x7f]*)?$/.test(line) ? line : 'application/octet-stream'
 }
 
-export function encodeMultipart(parts: MultipartPart[], boundary = `----botwa${randomBytes(12).toString('hex')}`): MultipartBody {
+export function encodeMultipart(parts: MultipartPart[], boundary = `----botmesh${randomBytes(12).toString('hex')}`): MultipartBody {
   const chunks: Buffer[] = []
   for (const part of parts) {
     let header = `--${boundary}\r\nContent-Disposition: form-data; name="${escapeQuoted(part.name)}"`

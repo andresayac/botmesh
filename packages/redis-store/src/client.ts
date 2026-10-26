@@ -7,8 +7,16 @@ import { createClient, createCluster } from 'redis'
 import type { NativeRedisClient, RedisLikeClient, RedisMulti, RedisZRangeOptions } from './RedisStore.js'
 import type { RedisKeyLayout } from './layout.js'
 
-/** The native node-redis cluster client type produced by `createCluster`. */
-export type NativeRedisClusterClient = ReturnType<typeof createCluster>
+/**
+ * A node-redis cluster client: what `createCluster()` returns in `redis` 4, 5 or 6. Only a
+ * minimal shape is declared (see {@link NativeRedisClient}); the components detect it with
+ * {@link isRedisClusterClient} and adapt it.
+ */
+export interface NativeRedisClusterClient {
+  connect(): Promise<unknown>
+  readonly masters: readonly unknown[]
+  nodeClient(node: never): unknown
+}
 
 /** Any client the Redis components accept: a node-redis client or cluster, or a structural {@link RedisLikeClient}. */
 export type AnyRedisClient = RedisLikeClient | NativeRedisClient | NativeRedisClusterClient
@@ -33,7 +41,7 @@ export interface RedisClusterConnectOptions {
 }
 
 /**
- * True for a node-redis cluster client (v4 and v5 expose `masters` and `nodeClient`).
+ * True for a node-redis cluster client (redis 4, 5 and 6 expose `masters` and `nodeClient`).
  * Such a client has no `KEYS`/`SCAN` over the whole keyspace and rejects multi-key
  * commands across hash slots, so it needs the `'cluster'` key layout.
  */
@@ -99,7 +107,11 @@ export function createOwnRedisClient(o: OwnClientOptions): NativeRedisClient | N
   }
   // node-redis re-throws an 'error' event nobody listens to (crashing the process).
   if (o.onError && typeof (client as { on?: unknown }).on === 'function') {
-    (client as unknown as { on(event: 'error', l: (err: unknown) => void): void }).on('error', o.onError)
+    const emitter = client as unknown as { on(event: string, l: (err: unknown) => void): void }
+    emitter.on('error', o.onError)
+    // node-redis 5 and 6 report a failed node connection of a cluster as 'node-error'
+    // (4 used 'error'): listen to both so a dropped connection is still logged.
+    if (o.cluster) emitter.on('node-error', o.onError)
   }
   return client
 }

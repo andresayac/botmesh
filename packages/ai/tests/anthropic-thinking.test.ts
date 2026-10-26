@@ -163,3 +163,20 @@ describe('AnthropicProvider thinking', () => {
     expect('thinking' in calls[1]!).toBe(false)
   })
 })
+
+describe('default model', () => {
+  it('is Claude Opus 5.5 with adaptive thinking, no thinking budget and no sampling parameters', async () => {
+    const args = await argsFor({})
+    expect(args.model).toBe('claude-opus-5-5')
+    expect(args.thinking).toEqual({ type: 'adaptive' })
+    // Opus 5.5 rejects budget_tokens, temperature/top_p and forced tool_choice with a 400.
+    expect(args).not.toHaveProperty('temperature')
+    expect(args).not.toHaveProperty('top_p')
+    expect(args).not.toHaveProperty('tool_choice')
+  })
+
+  it('thinking: "off" omits the parameter (Opus 5.5 rejects { type: "disabled" })', async () => {
+    const args = await argsFor({ thinking: 'off' })
+    expect(args).not.toHaveProperty('thinking')
+  })
+})

@@ -44,8 +44,8 @@ if (isMainModule(import.meta)) {
   `false` si un gestor de procesos importa tu archivo desde su propio
   wrapper (pm2 en modo ESM); en ese caso usa un archivo de arranque aparte
   que importe la factory.
-- `botmesh dev` define la variable de entorno `BOT_WA_DEV=1` por si tu
-  código necesita detectar el simulador.
+- `botmesh dev` define la variable de entorno `BOTMESH_DEV=1` por si tu
+  código necesita detectar el simulador (también define la obsoleta `BOT_WA_DEV=1`).
 
 ## 2. Uso
 

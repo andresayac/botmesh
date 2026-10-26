@@ -17,6 +17,12 @@ export interface ClusterProbe {
   run: (c: RedisLikeClient, ns: string) => Promise<unknown>
   /** Expected value, or `{ error }` matched against the rejection message. */
   expected: unknown
+  /**
+   * What a real cluster gives through a given node-redis major when the client itself
+   * changes the outcome (redis 6 splits or routes some commands client-side). Only the
+   * real-cluster suite reads it; the fake keeps `expected`.
+   */
+  byClientMajor?: Partial<Record<'v4' | 'v5' | 'v6', unknown>>
 }
 
 /** Two keys guaranteed to live in different slots. */
@@ -35,6 +41,8 @@ export const CLUSTER_PROBES: ClusterProbe[] = [
     name: 'a multi-key DEL across slots is rejected',
     run: async (c, ns) => c.del(twoSlots(ns)),
     expected: { error: /CROSSSLOT/ },
+    // redis 6.2+ splits a multi-key DEL per slot and sums the replies (no key exists: 0).
+    byClientMajor: { v6: 0 },
   },
   {
     name: 'an EVAL whose keys span slots is rejected',
@@ -48,6 +56,8 @@ export const CLUSTER_PROBES: ClusterProbe[] = [
       return c.multi().set(a, '1').set(b, '1').exec()
     },
     expected: { error: /CROSSSLOT|EXECABORT|MOVED/ },
+    // redis 6 keeps following the redirects of the cross-slot transaction, then gives up.
+    byClientMajor: { v6: { error: /CROSSSLOT|EXECABORT|MOVED|Too many Cluster redirections/ } },
   },
   {
     name: 'a MULTI inside one slot commits',

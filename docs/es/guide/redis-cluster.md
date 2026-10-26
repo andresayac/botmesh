@@ -234,12 +234,12 @@ viejos ganarán en la siguiente pasada de ida.
 ## Probar en local
 
 ```bash
-docker run -d --name botwa-it-redis-cluster -e IP=0.0.0.0 -e INITIAL_PORT=47100 \
+docker run -d --name botmesh-it-redis-cluster -e IP=0.0.0.0 -e INITIAL_PORT=47100 \
   -e MASTERS=3 -e SLAVES_PER_MASTER=1 -p 127.0.0.1:47100-47105:47100-47105 grokzen/redis-cluster:7.0.10
 BOTWA_TEST_REDIS_CLUSTER_URL=redis://127.0.0.1:47100 pnpm --filter @botmesh/redis-store test
 # opcional: failover y migración de slots bajo carga
 BOTWA_TEST_REDIS_CLUSTER_CHAOS=1 BOTWA_TEST_REDIS_CLUSTER_URL=redis://127.0.0.1:47100 pnpm --filter @botmesh/redis-store test
-docker rm -f botwa-it-redis-cluster
+docker rm -f botmesh-it-redis-cluster
 ```
 
 Ver también [Varias réplicas](./replicas.md) y [Procesamiento durable](./durabilidad.md).

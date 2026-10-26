@@ -19,7 +19,7 @@ export interface OtelMetricsOptions {
   meterProvider?: MeterProvider
   /** Instrumentation scope name. Default `'@botmesh/otel'`. */
   meterName?: string
-  /** Metric name prefix. Default `'botwa'`. */
+  /** Metric name prefix. Default `'botmesh'` (`'botwa'` keeps the names of the alpha releases). */
   prefix?: string
   /** Constant attributes added to every data point (besides `bot.id`). Keep them low-cardinality. */
   attributes?: Record<string, string>
@@ -43,7 +43,7 @@ const OUTCOMES = ['completed', 'ended', 'guarded', 'cancelled', 'timedOut', 'ret
 /** Register the bridge on a loaded API (synchronous). Returns the unregister function. */
 export function bridgeMetrics(api: OtelApi, bot: MetricsSource, opts: OtelMetricsOptions = {}): () => void {
   const meter = (opts.meterProvider ?? api.metrics.getMeterProvider()).getMeter(opts.meterName ?? '@botmesh/otel')
-  const p = opts.prefix ?? 'botwa'
+  const p = opts.prefix ?? 'botmesh'
   const base: Attributes = { 'bot.id': bot.getNamespace().botId, ...opts.attributes }
   const perFlow = opts.perFlow !== false
 

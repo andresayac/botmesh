@@ -245,7 +245,7 @@ describe('CloudAPIProvider + flow().form()', () => {
     const provider = new CloudAPIProvider({ ...baseCfg, wabaId: 'WABA1' })
     const res = await provider.publishForm(signup, { categories: ['SIGN_UP'] })
     expect(res).toEqual({ flowId: '5551234', validationErrors: [] })
-    expect(calls[0].url).toBe('https://graph.facebook.com/v21.0/WABA1/flows')
+    expect(calls[0].url).toBe('https://graph.facebook.com/v26.0/WABA1/flows')
     const body = JSON.parse(calls[0].init!.body as string)
     expect(body).toMatchObject({ name: 'Registro', categories: ['SIGN_UP'], publish: true })
     expect(JSON.parse(body.flow_json)).toEqual(toFlowJson(signup))

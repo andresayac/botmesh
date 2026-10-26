@@ -19,7 +19,7 @@ import {
 } from '../src/index.js'
 import { storeKeys, coordKeys } from '../src/layout.js'
 import { scanEverywhere } from '../src/migrate.js'
-import { asRedisLike, type NativeRedisClusterClient } from '../src/client.js'
+import { asRedisLike } from '../src/client.js'
 import {
   CHAOS, CLUSTER_URL, cleanupPrefix, clusterOptions, connectCluster, connectNode, keySlot, runPrefix, waitClusterOk,
 } from './clusterEnv.js'
@@ -31,6 +31,7 @@ import { runScheduleStoreConformance } from '../../../test-utils/schedule-store-
 import { runLeaseConformance } from '../../../test-utils/lease-conformance.js'
 import { runDurabilityConformance, runDurableKvConformance } from '../../../test-utils/durability-conformance.js'
 import { runCrashRecoveryMatrix, type CrashMatrixDeps } from '../../../test-utils/durability-crash.js'
+import { REDIS_CLIENT_MAJOR, type NodeRedisCluster } from './nodeRedis.js'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const texts = (p: MockProvider) => p.outbox.map((m) => (m.content.kind === 'text' ? m.content.text : `[${m.content.kind}]`))
@@ -41,7 +42,7 @@ const msg = (chatId: string, id: string, ts: number): StoredMessage => ({
 })
 
 /** One cluster client shared by the conformance suites (lazy, closed after the file). */
-let shared: Promise<NativeRedisClusterClient> | undefined
+let shared: Promise<NodeRedisCluster> | undefined
 const sharedClient = () => (shared ??= connectCluster())
 const prefixes: string[] = []
 function freshPrefix(tag: string): string {
@@ -170,7 +171,7 @@ function counting(inner: Coordinator) {
 }
 
 describe.skipIf(!CLUSTER_URL)('Redis Cluster (real)', () => {
-  let cluster: NativeRedisClusterClient
+  let cluster: NodeRedisCluster
   let node: Awaited<ReturnType<typeof connectNode>>
   const cleanups: Array<() => Promise<unknown>> = []
   const children: ChildProcess[] = []
@@ -206,7 +207,8 @@ describe.skipIf(!CLUSTER_URL)('Redis Cluster (real)', () => {
     it(`probe: ${probe.name}`, async () => {
       const ns = prefix('probe')
       const actual = await probeOutcome(probe, asRedisLike(cluster), ns)
-      expect(probeMeets(actual, probe.expected), JSON.stringify(actual)).toBe(true)
+      const expected = probe.byClientMajor?.[REDIS_CLIENT_MAJOR as 'v4' | 'v5' | 'v6'] ?? probe.expected
+      expect(probeMeets(actual, expected), JSON.stringify(actual)).toBe(true)
     })
   }
 

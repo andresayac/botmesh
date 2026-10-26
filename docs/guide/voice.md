@@ -177,7 +177,7 @@ bot.when(VOICE_NOTE, async (ctx) => {
 ```ts
 // STT
 { provider: 'openai', apiKey, model: 'whisper-1', language, prompt, temperature, baseUrl, organization }
-{ provider: 'deepgram', apiKey, model: 'nova-3', language, smartFormat: true, query: { keyterm: 'BotWA' }, baseUrl }
+{ provider: 'deepgram', apiKey, model: 'nova-3', language, smartFormat: true, query: { keyterm: 'BotMesh' }, baseUrl }
 
 // TTS
 { provider: 'openai', apiKey, model: 'gpt-4o-mini-tts', voice: 'alloy', format: 'opus', instructions, speed, baseUrl, organization }
@@ -217,8 +217,8 @@ bot.plug(voicePlugin({ stt: local }))
   reports no mimetype, it is sniffed from the first bytes (OGG, WAV, MP3,
   MP4/M4A, WebM, FLAC, AMR), else OGG is assumed.
 - **Output on WhatsApp**: a voice note must be OGG/Opus. `@botmesh/baileys`
-  transcodes `kind: 'voice'` to OGG/Opus itself (with the `ffmpeg` binary it
-  bundles through `@ffmpeg-installer/ffmpeg`), so any format works. For the Cloud API and Telegram, ask the TTS for OGG/Opus: it is
+  transcodes `kind: 'voice'` to OGG/Opus itself with an `ffmpeg` binary
+  (`FFMPEG_PATH`, the optional `ffmpeg-static` package, or `ffmpeg` on the PATH), so any format works. For the Cloud API and Telegram, ask the TTS for OGG/Opus: it is
   the OpenAI default (`format: 'opus'`); on ElevenLabs use
   `outputFormat: 'opus_48000_64'` if your plan offers it.
 - This package does no transcoding (it does not depend on `ffmpeg`).

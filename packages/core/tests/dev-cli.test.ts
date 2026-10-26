@@ -156,7 +156,8 @@ describe('runCli', () => {
     })
     const exit = runCli(['dev', 'bot.mjs', '--user', 'ana'], io)
     await out.until('terminal simulator')
-    expect(env.BOT_WA_DEV).toBe('1')
+    expect(env.BOTMESH_DEV).toBe('1')
+    expect(env.BOT_WA_DEV).toBe('1') // deprecated name, still set
 
     stdin.write('hola\n')
     await out.until('bot › hola v1')
@@ -173,8 +174,8 @@ describe('runCli', () => {
     expect(await exit).toBe(0)
     expect(fakeWatch.closed).toBe(true)
     expect(urls).toHaveLength(2)
-    expect(urls[0]).toMatch(/bot\.mjs\?botwa_v=1$/)
-    expect(urls[1]).toMatch(/bot\.mjs\?botwa_v=2$/)
+    expect(urls[0]).toMatch(/bot\.mjs\?botmesh_v=1$/)
+    expect(urls[1]).toMatch(/bot\.mjs\?botmesh_v=2$/)
   })
 
   it('finishes pending lines and exits 0 when stdin ends', async () => {

@@ -2,7 +2,7 @@
   "name": "@botmesh/ai",
   "version": "0.2.0-alpha.0",
   "type": "module",
-  "description": "Multi-provider AI autoresponder plugin (Anthropic / OpenAI / Ollama) for @botmesh/core, with per-chat conversation memory and a ctx.tools.ai client.",
+  "description": "Multi-provider AI autoresponder plugin for @botmesh/core (Anthropic, OpenAI, Google Gemini, Ollama and OpenAI-compatible presets), with per-chat conversation memory, tools and a ctx.tools.ai client.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "exports": {
@@ -23,6 +23,7 @@
     "anthropic",
     "claude",
     "openai",
+    "gemini",
     "ollama",
     "chatbot",
     "plugin"
@@ -52,11 +53,15 @@
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.68.0 || ^1.0.0",
+    "@google/genai": "^2.0.0",
     "@google/generative-ai": "^0.21.0 || ^0.22.0 || ^0.23.0 || ^0.24.0",
     "openai": "^6.48.0 || ^7.0.0"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@google/genai": {
       "optional": true
     },
     "@google/generative-ai": {
@@ -67,10 +72,15 @@
     }
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.68.0",
+    "@anthropic-ai/sdk": "^1.3.0",
     "@botmesh/telegram": "workspace:^",
+    "@google/genai": "^2.31.0",
+    "@google/generative-ai": "^0.24.1",
     "@types/node": "^26.1.1",
-    "openai": "^6.48.0",
+    "anthropic-sdk-v0": "npm:@anthropic-ai/sdk@0.68.0",
+    "google-genai-v2-0": "npm:@google/genai@2.0.0",
+    "openai": "^7.43.0",
+    "openai-v6": "npm:openai@6.48.0",
     "typescript": "^7.0.2"
   },
   "publishConfig": { "access": "public" }

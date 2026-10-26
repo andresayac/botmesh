@@ -32,7 +32,7 @@ describe('PluginRegistry model: KvPluginStore behaves like MemoryPluginStore', (
         const permissions = Array.from({ length: r.int(3) }, () => r.chance(0.95) ? r.pick(PLUGIN_PERMISSIONS) : 'root:all')
         let call: (registry: PluginRegistry) => Promise<unknown>
         if (op === 0) {
-          const manifest = { id, version: r.pick(['1.0.0', '2.3.4-beta.1', '01.0.0']), botwa: r.pick(RANGES), entry: r.pick(ENTRIES), permissions, ...(r.chance(0.2) ? { name: r.pick(['CRM', 7]) } : {}) }
+          const manifest = { id, version: r.pick(['1.0.0', '2.3.4-beta.1', '01.0.0']), botmesh: r.pick(RANGES), entry: r.pick(ENTRIES), permissions, ...(r.chance(0.2) ? { name: r.pick(['CRM', 7]) } : {}) }
           const runtime = r.pick(['2.0.0', '2.5.0', '3.0.0'])
           call = (registry) => registry.install(tenantId, manifest as never, runtime)
         } else if (op === 1) {

@@ -1,9 +1,9 @@
 /**
  * MediaProcessor — convert MediaSource inputs into Baileys' WAMediaUpload.
  *
- * Includes sticker conversion (sharp) and audio PTT transcode (fluent-ffmpeg).
- * Both native toolchains load lazily, on the first sticker or voice note: a
- * text-only bot keeps working on a platform where one of them cannot load.
+ * Includes sticker conversion (sharp) and audio PTT transcode (an ffmpeg binary,
+ * see ffmpeg.ts). Both load lazily, on the first sticker or voice note: a
+ * text-only bot keeps working on a platform where one of them is missing.
  */
 
 import { readFileSync, existsSync } from 'node:fs'
@@ -14,6 +14,7 @@ import { randomUUID } from 'node:crypto'
 
 import { PayloadTooLargeError, ProviderError, UnsupportedContentError, type MediaSource, type OutboundContent } from '@botmesh/core'
 import { fetchBuffer, SecureHttpError, type HostResolver } from '@botmesh/http'
+import { FfmpegNotFoundError, resolveFfmpegPath, runFfmpeg } from './ffmpeg.js'
 
 export type WAMediaUpload =
   | Buffer
@@ -279,47 +280,44 @@ function withStickerExif(webp: Buffer, width: number, height: number, json: Reco
  * AUDIO (PTT transcode)
  * ========================================================================== */
 
-type Ffmpeg = typeof import('fluent-ffmpeg')
-let ffmpegModule: Promise<Ffmpeg> | undefined
-
-/** `fluent-ffmpeg` pointed at the bundled binary, loaded on first use; a failed load is retried next time. */
-function loadFfmpeg(): Promise<Ffmpeg> {
-  ffmpegModule ??= (async () => {
-    const [ff, installer] = await Promise.all([import('fluent-ffmpeg'), import('@ffmpeg-installer/ffmpeg')])
-    const ffmpeg = ((ff as unknown as { default?: Ffmpeg }).default ?? ff) as Ffmpeg
-    const bin = ((installer as unknown as { default?: { path: string } }).default ?? installer) as { path: string }
-    ffmpeg.setFfmpegPath(bin.path)
-    return ffmpeg
-  })()
-  ffmpegModule.catch(() => { ffmpegModule = undefined })
-  return ffmpegModule
-}
-
 /** Longest a voice-note transcode may run before ffmpeg is killed. */
-const TRANSCODE_TIMEOUT_S = 120
+const TRANSCODE_TIMEOUT_MS = 120_000
 
+/** How to get the binary when it is missing (part of the UnsupportedContentError message). */
+const FFMPEG_HINT = 'install ffmpeg on the PATH, set FFMPEG_PATH to the binary, or add the optional ffmpeg-static package'
+
+/**
+ * Transcode any audio to a WhatsApp voice note (Ogg/Opus, mono, 48 kHz) with ffmpeg
+ * (see `ffmpeg.ts` for how the binary is found). A binary that cannot be started rejects
+ * with an `UnsupportedContentError` that says how to install it.
+ */
 export async function transcodeToOpus(source: MediaSource): Promise<Buffer> {
   const input = await toBuffer(source)
-  const ffmpeg = await nativeTool(loadFfmpeg, 'voice', 'ffmpeg')
+  const bin = await resolveFfmpegPath()
   const inPath = join(tmpdir(), `baileys-in-${randomUUID()}.bin`)
   const outPath = join(tmpdir(), `baileys-out-${randomUUID()}.ogg`)
   await writeFile(inPath, input)
 
   try {
-    await new Promise<void>((resolve, reject) => {
-      ffmpeg(inPath, { timeout: TRANSCODE_TIMEOUT_S })
-        .outputOptions([
-          '-c:a libopus',
-          '-ac 1',
-          '-avoid_negative_ts make_zero',
-          '-ar 48000',
-        ])
-        .output(outPath)
-        .on('end', () => resolve())
-        .on('error', (err: Error) => reject(err))
-        .run()
-    })
+    await runFfmpeg(bin, [
+      '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+      '-i', inPath,
+      '-vn',
+      '-c:a', 'libopus',
+      '-ac', '1',
+      '-ar', '48000',
+      '-avoid_negative_ts', 'make_zero',
+      '-f', 'ogg',
+      outPath,
+    ], TRANSCODE_TIMEOUT_MS)
     return await readFile(outPath)
+  } catch (error) {
+    if (error instanceof FfmpegNotFoundError) {
+      const wrapped = new UnsupportedContentError('voice', `${error.message}; ${FFMPEG_HINT}, or send the audio as a plain file`)
+      ;(wrapped as { cause?: unknown }).cause = error
+      throw wrapped
+    }
+    throw error
   } finally {
     // Always clean up both temp files — even when ffmpeg rejects — so a stream
     // of failed transcodes can't leak the OS temp dir.

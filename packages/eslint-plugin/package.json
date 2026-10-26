@@ -51,7 +51,7 @@
     "create-botmesh": "workspace:*",
     "eslint": "^10.13.0",
     "typescript": "^7.0.2",
-    "vite": "^7.3.6",
-    "vitest": "^4.1.10"
+    "vite": "^7.3.7",
+    "vitest": "^4.1.12"
   }
 }

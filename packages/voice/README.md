@@ -93,7 +93,7 @@ If synthesis fails or the channel does not support `voice` (`capabilities.conten
 ```ts
 // STT
 { provider: 'openai', apiKey, model: 'whisper-1' | 'gpt-4o-transcribe' | 'gpt-4o-mini-transcribe', language, prompt, temperature, baseUrl }
-{ provider: 'deepgram', apiKey, model: 'nova-3', language, smartFormat: true, query: { keyterm: 'BotWA' }, baseUrl }
+{ provider: 'deepgram', apiKey, model: 'nova-3', language, smartFormat: true, query: { keyterm: 'BotMesh' }, baseUrl }
 
 // TTS
 { provider: 'openai', apiKey, model: 'gpt-4o-mini-tts', voice: 'alloy', format: 'opus', instructions, speed, baseUrl }
@@ -119,7 +119,7 @@ bot.plug(voicePlugin({ stt: local }))
 ## Audio formats
 
 - **Input:** WhatsApp and Telegram voice notes arrive as OGG/Opus, which Whisper, `gpt-4o-*-transcribe` and Deepgram accept directly. If the channel does not report the mimetype, it is detected from the first bytes (OGG, WAV, MP3, MP4/M4A, WebM, FLAC, AMR) and, otherwise, OGG is assumed.
-- **Output for WhatsApp:** a voice note (PTT) must be **OGG/Opus**. `@botmesh/baileys` transcodes `kind: 'voice'` to OGG/Opus on its own (with the `ffmpeg` binary it bundles through `@ffmpeg-installer/ffmpeg`), so any format works. For Cloud API and Telegram ask the TTS for OGG/Opus: it is the OpenAI default (`format: 'opus'`); on ElevenLabs use `outputFormat: 'opus_48000_64'` if your plan offers it (the default is `mp3_44100_128`, which Telegram and Cloud API accept as audio but not always as a voice note).
+- **Output for WhatsApp:** a voice note (PTT) must be **OGG/Opus**. `@botmesh/baileys` transcodes `kind: 'voice'` to OGG/Opus on its own with an `ffmpeg` binary (`FFMPEG_PATH`, the optional `ffmpeg-static` package, or `ffmpeg` on the PATH), so any format works. For Cloud API and Telegram ask the TTS for OGG/Opus: it is the OpenAI default (`format: 'opus'`); on ElevenLabs use `outputFormat: 'opus_48000_64'` if your plan offers it (the default is `mp3_44100_128`, which Telegram and Cloud API accept as audio but not always as a voice note).
 - There is no transcoding inside this package (it does not depend on `ffmpeg`).
 
 ## Limits

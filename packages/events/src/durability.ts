@@ -4,7 +4,8 @@
  * gets durable message processing without another store.
  *
  * - **Inbox**: the bot's inbound records are stored as {@link EventRecord}s of the user's
- *   journal under an isolation channel (default `'botwa:durable'`), so the events tooling
+ *   journal under an isolation channel (default `'botwa:durable'`, a permanent name: journals
+ *   already written use it), so the events tooling
  *   (`list`, `replay`, DLQ inspection) sees them, while an {@link EventWorker} never claims
  *   them. Leases and fencing tokens are the journal's own.
  * - **Outbox**: the core outbox state machine over a key-value store kept as a *sidecar* of

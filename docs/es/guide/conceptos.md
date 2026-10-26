@@ -282,7 +282,7 @@ new Bot({ provider, echoFilter: { size: 5000, ttl: '10m' } }) // ajustar
 ```
 
 Los descartes cuentan en `metrics().dropped.echo` (Prometheus:
-`botwa_dropped_total{reason="echo"}`) y solo con la opción activa; sin ella el
+`botmesh_dropped_total{reason="echo"}`) y solo con la opción activa; sin ella el
 bot se comporta exactamente igual que antes. El anillo vive en memoria (por
 proceso) y cada ref recordado lo consume el primer eco que coincide; una
 re-entrega posterior es cosa del dedupe.

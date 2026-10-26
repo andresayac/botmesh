@@ -13,6 +13,7 @@ The **WhatsApp via [Baileys 7](https://github.com/WhiskeySockets/Baileys)** tran
 
 - **Node ≥ 22** (ESM-only).
 - **`@whiskeysockets/baileys` 7.0.0-rc14 or newer.** Since late July 2026 WhatsApp closes connections that use the previous handshake with `428 Connection Terminated`, even before showing the QR. rc14 brings the updated handshake (among other things, the WhatsApp Web version bundled in the package). If your lockfile resolves an older rc, upgrade it.
+- **Why a release candidate.** There is no stable Baileys 7 yet: as of October 2026 `7.0.0-rc14` is the newest release and the npm `latest` tag, and the only stable line is the `6.7.x` `legacy` tag, which lacks the LID addressing this provider is built on. The dependency is pinned to the exact rc (an rc may break between candidates) and moves to 7.0.0 when it ships. The public API of `@botmesh/baileys` does not depend on which candidate is installed.
 - Network egress to `wss://web.whatsapp.com` and, at startup, to `raw.githubusercontent.com`: the provider queries the latest WhatsApp Web version published by Baileys. Without access it uses the version bundled in the installed release, which is why that release must be ≥ rc14.
 
 ## Installation
@@ -33,7 +34,7 @@ The packages are published under the `alpha` dist-tag (there is no `latest` yet)
     protobufjs: false
   ```
 
-- `ffmpeg` is bundled (`@ffmpeg-installer/ffmpeg`) for voice notes, and `sharp` for stickers. Both load on the first voice note or sticker: on a platform where one of them cannot load, the package still imports and sends everything else, and that send fails with an `UnsupportedContentError` that names the missing tool.
+- **ffmpeg** converts voice notes to Ogg/Opus. No binary is bundled: the provider runs `FFMPEG_PATH` when it is set, else the binary of the optional `ffmpeg-static` package when it is installed (with pnpm, allow its build script so it can download the binary), else `ffmpeg` on the `PATH` (`apt install ffmpeg`, `brew install ffmpeg`, `choco install ffmpeg`). `sharp` converts stickers. Both are only needed for those sends: without them the package still imports and sends everything else, and a voice note or sticker fails with an `UnsupportedContentError` that says how to install the missing tool.
 - **TypeScript:** the public types reference Baileys' own (`WAMessage`), and Baileys' `.d.ts` files do not compile with `skipLibCheck: false` (missing `@types/ws`, extensionless imports). Keep `"skipLibCheck": true`, the default of most templates.
 
 ## Quickstart
