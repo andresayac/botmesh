@@ -73,12 +73,43 @@ export interface GenerateInput {
   /** Tools the model may call this turn (native function/tool calling). */
   tools?: AIToolDefinition[]
   /**
-   * Streaming only: called once when the provider stream ends normally, with the
-   * provider's stop reason when it reports one (e.g. `'refusal'`, `'end_turn'`) and the
-   * token usage when the provider streams it (Anthropic, Gemini).
+   * Streaming only (`stream()`; `generate()` ignores it): told how the stream ended.
+   *
+   * - Called **exactly once** per `stream()` call, after the last chunk was yielded and
+   *   before the iteration completes, so the value is there as soon as `for await` exits.
+   * - Called only when the provider stream **ends normally**: never when it fails, is
+   *   aborted (`signal`, timeout) or the consumer stops iterating early (`break`/`return`).
+   *   The built-in providers and `MockAIProvider` enforce the abort rule even when the client
+   *   ignores `signal`: an aborted stream skips the callback and rejects with the abort reason.
+   *   A custom provider should do the same (check `signal.aborted` before calling it).
+   *   A Gemini answer withheld by the safety filters ends normally with `'refusal'`.
+   * - An exception thrown by the callback fails the consumer's iteration.
+   *
+   * See {@link AIStreamEndInfo} for what it receives. `AIClient` uses it to read the stop
+   * reason of a streamed reply (refusals, truncation) and to trace usage.
    */
-  onStreamEnd?: (info: { stopReason?: string; usage?: { input: number; output: number } }) => void
+  onStreamEnd?: (info: AIStreamEndInfo) => void
 }
+
+/** What {@link GenerateInput.onStreamEnd} receives when a provider stream ends normally. */
+export interface AIStreamEndInfo {
+  /**
+   * The provider's stop reason when it reports one, as the provider names it
+   * (`'end_turn'`, `'stop'`, `'STOP'`, `'max_tokens'`, `'length'`…), or `'refusal'`
+   * when the model declined (all providers normalize a refusal to `'refusal'`).
+   */
+  stopReason?: string
+  /** Token usage when the provider streams it (Anthropic, Gemini); absent otherwise. */
+  usage?: { input: number; output: number }
+}
+
+/**
+ * The part of {@link AIConfig} a provider constructor reads (`new AnthropicProvider(client, cfg)`
+ * and the others). A variable typed `AIConfig` is still accepted (an object literal with plugin
+ * fields fails the excess-property check); plugin options (`persona`, `tools`,
+ * `memory`…) are never read by a provider.
+ */
+export type AIProviderConfig = Pick<AIConfig, 'model' | 'maxTokens' | 'effort' | 'thinking' | 'baseUrl'>
 export interface GenerateResult {
   text: string
   model: string
@@ -103,8 +134,10 @@ export interface AIConfig {
    * OpenAI-compatible providers (`'openai'` and the presets): the request field that
    * carries the output-token cap. Current OpenAI models need `'max_completion_tokens'`;
    * most compatible servers (vLLM, LM Studio, gateways, the presets) want `'max_tokens'`.
-   * Default: `'max_completion_tokens'` for OpenAI itself (no `baseUrl`, `api.openai.com`
-   * or `*.openai.azure.com`), `'max_tokens'` for any other `baseUrl` and the presets.
+   * Default: `'max_completion_tokens'` for OpenAI itself and Azure OpenAI (no `baseUrl`,
+   * `api.openai.com`, `*.openai.azure.com`, `*.cognitiveservices.azure.com`, or
+   * `*.services.ai.azure.com` under `/openai`), `'max_tokens'` for any other `baseUrl`
+   * (including the Azure AI Foundry `/models` inference API) and the presets.
    */
   maxTokensField?: 'max_tokens' | 'max_completion_tokens'
   persona?: string
@@ -157,9 +190,9 @@ export interface AIConfig {
   /** Confirmation dialog for `confirm: true` tools (autoreply). */
   toolConfirm?: {
     /** Answers accepted as "yes" (normalized, case/accents-insensitive). Default `DEFAULT_YES`: si (also "sí"), s, yes, y, ok, okay, confirmo, confirmar, dale, claro, de acuerdo, acepto, 1. */
-    yes?: string[]
+    yes?: readonly string[]
     /** Answers taken as "no" (same normalization). Default `DEFAULT_NO`: no, n, nop, nope, cancelar, cancela, cancelo, cancel, negativo, mejor no, no gracias, ... */
-    no?: string[]
+    no?: readonly string[]
     /** How long to wait for the answer. Default '2m'. */
     timeout?: number | string
     /**

@@ -22,7 +22,7 @@
  *     TypeScript, and check: every exports subpath imports at runtime; a
  *     consumer .ts typechecks with moduleResolution nodenext AND bundler
  *     (including the `ctx.tools.ai` DefaultTools augmentation); a small runtime
- *     scenario (createTestBot, aiPlugin + MockAIProvider, SQLiteStore); optional
+ *     scenario (createTestBot, aiPlugin + MockAIProvider from @botmesh/ai/testing, SQLiteStore); optional
  *     AI SDK peers absent → import works, a clear lazy error only on use; the
  *     `botmesh` and `create-botmesh` bins run.
  *  4. Scaffold every create-botmesh template, check its @botmesh ranges resolve
@@ -55,7 +55,9 @@ import { createTestBot, MockProvider } from '@botmesh/core/testing'
 import { runCli } from '@botmesh/core/dev'
 import { createPacer } from '@botmesh/core/internal'
 import { KvDurability, MemoryKv, messageKey, type DurableKvEntry } from '@botmesh/core/spi'
-import { aiPlugin, MockAIProvider, type AIClient } from '@botmesh/ai'
+import { aiPlugin, type AIClient, type AnthropicLike, type AIStreamEndInfo } from '@botmesh/ai'
+import { MockAIProvider, validateArgs } from '@botmesh/ai/testing'
+import { toolDefinitions, type AnthropicMessage } from '@botmesh/ai/internal'
 import { TelegramProvider } from '@botmesh/telegram'
 import { CloudAPIProvider } from '@botmesh/meta'
 import { BaileysProvider } from '@botmesh/baileys'
@@ -72,7 +74,11 @@ export const providers: IProvider[] = [
   new BaileysProvider({ session: 'demo', logger: console }),
 ]
 export const store = new SQLiteStore({ file: ':memory:' })
-export const refs = [RedisStore, secureFetch, verifySignature, scaffold, runCli, createPacer, messageKey]
+export const refs = [RedisStore, secureFetch, verifySignature, scaffold, runCli, createPacer, messageKey, validateArgs, toolDefinitions]
+// A fake Anthropic client typed by the client contract on the main entry; wire names come from /internal.
+export const anthropicReply: AnthropicMessage = { content: [{ type: 'text', text: 'hi' }], model: 'm' }
+export const fakeAnthropic: AnthropicLike = { messages: { create: async () => anthropicReply } }
+export const streamEnd: AIStreamEndInfo = { stopReason: 'end_turn' }
 // The backend SPI (@botmesh/core/spi): a durability backend over the reference KV.
 export const durable = new KvDurability(new MemoryKv())
 export const kvRow: DurableKvEntry | undefined = undefined
@@ -104,8 +110,13 @@ export const ctxType: MessageContext | undefined = undefined
 
 const RUNTIME_MJS = `import assert from 'node:assert/strict'
 import { createTestBot } from '@botmesh/core/testing'
-import { aiPlugin, MockAIProvider } from '@botmesh/ai'
+import { aiPlugin, PRESETS, MockAIProvider as DeprecatedMock } from '@botmesh/ai'
+import { MockAIProvider } from '@botmesh/ai/testing'
 import { SQLiteStore } from '@botmesh/sqlite-store'
+
+// The deprecated main-entry alias is the same class; exported data is frozen.
+assert.equal(DeprecatedMock, MockAIProvider)
+assert.ok(Object.isFrozen(PRESETS) && Object.isFrozen(PRESETS.kimi))
 
 const t = await createTestBot()
 t.bot.when('hola', (ctx) => ctx.reply('hi there'))

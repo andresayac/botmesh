@@ -7,9 +7,10 @@ import { describe, it, expect } from 'vitest'
 import { MemoryStore } from '@botmesh/core'
 import { createTestBot } from '@botmesh/core/testing'
 import {
-  AIClient, ContextManager, MemoryManager, MockAIProvider, aiPlugin, chatKeyOf, confirmWith, defineTool,
+  AIClient, ContextManager, MemoryManager, aiPlugin, chatKeyOf, confirmWith, defineTool,
   runToolLoop, type AIMessage, type AIToolEvent, type AIToolSet, type ConvStore, type GenerateInput,
 } from '../src/index.js'
+import { MockAIProvider } from '../src/testing.js'
 
 const tick = (ms = 30) => new Promise((r) => setTimeout(r, ms))
 

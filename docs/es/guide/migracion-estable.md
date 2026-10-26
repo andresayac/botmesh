@@ -152,6 +152,65 @@ El mapeador de errores de bajo nivel de cada provider se llama ahora
 en Telegram, ediciones en Discord, versionado del esquema de SQLite) están en
 [Notas de actualización: canales y plugins](./actualizar-canales-plugins).
 
+## Entradas de `@botmesh/ai`
+
+`@botmesh/ai` se divide igual que el core: 135 nombres en la entrada principal antes, 97 después.
+
+| Importar de | Qué contiene |
+| --- | --- |
+| `@botmesh/ai` | `aiPlugin`, `AIClient`, los proveedores y los contratos de cliente que reciben (`AnthropicLike`, `OpenAILike`, `GeminiLike`, `GeminiModelLike`, `GoogleGenAILike`), herramientas, confirmaciones, memoria, tipos de RAG, `formatMarkdown`. |
+| `@botmesh/ai/testing` | **Nuevo.** `MockAIProvider` (con `MockOptions`, `MockTurn`) y `validateArgs` (con `ArgsValidation`), para probar el esquema de una herramienta. Cubierto por semver. |
+| `@botmesh/ai/internal` | **Nuevo.** Los helpers del plugin y los nombres de las formas de petición/respuesta de los SDK. Sin garantía semver. |
+
+`@botmesh/ai` sigue reexportando `MockAIProvider`, `MockOptions` y `MockTurn`, pero
+obsoletos: impórtalos de `@botmesh/ai/testing`.
+
+**Ruptura:** `@botmesh/ai` ya no exporta estos nombres. Cambia la ruta del import; los valores
+son los mismos.
+
+| Nombres | Importar de |
+| --- | --- |
+| `validateArgs`, `ArgsValidation` | `@botmesh/ai/testing` |
+| `aiText`, `defaultConfirmPrompt`, `DEFAULT_MAX_STEPS`, `DEFAULT_TOOL_TIMEOUT_MS`, `toolDefinitions`, `parametersOf`, `isAffirmative`, `humanizeName`, `toolTitle`, `ToolLedger`, `stableKey`, `DEFAULT_DEDUPE_WINDOW_MS`, `DEFAULT_LEDGER_RETENTION_MS` | `@botmesh/ai/internal` |
+| `toGeminiSchema`, `DEFAULT_MEMORY_NAMESPACE`, `factsSchema`, `parseFacts`, `DEFAULT_RAG_INSTRUCTIONS`, `ragContextBlock`, `citedChunks`, `citedPassages`, `formatSources` | `@botmesh/ai/internal` |
+| `AnthropicMessage`, `AnthropicContentBlock`, `AnthropicUsage`, `AnthropicStreamEvent`, `AnthropicRequestOptions`, `OpenAIChatCompletion`, `OpenAIChoice`, `OpenAIStreamChunk`, `OpenAIToolCall`, `OpenAIRequestOptions`, `GeminiResponse`, `GeminiUsage`, `GeminiPart`, `GeminiFunctionCall`, `GeminiRequestOptions`, `GoogleGenAIResponse` | `@botmesh/ai/internal` (tipos) |
+
+Los contratos de cliente no cambian de forma: sus tipos de petición y respuesta ahora van
+escritos en línea, así que un cliente falso tipado `AnthropicLike` (u `OpenAILike`,
+`GeminiLike`…) compila igual. Para nombrar una respuesta, derívala del contrato o impórtala de
+`/internal`:
+
+```ts
+import type { AnthropicLike } from '@botmesh/ai'
+type Reply = Awaited<ReturnType<AnthropicLike['messages']['create']>>
+```
+
+**Ruptura (datos congelados):** `PRESETS`, `DEFAULT_YES`, `DEFAULT_NO`, `AI_MESSAGES` y
+`AI_LOCALES` están congelados en profundidad y tipados `readonly`. Antes, modificarlos cambiaba
+los valores por defecto de todos los bots del proceso; ahora lanza un `TypeError` en modo
+estricto. Extiende una copia:
+
+```ts
+aiPlugin({ toolConfirm: { yes: [...DEFAULT_YES, 'arre'] } })
+```
+
+Pasarlos tal cual sigue compilando (`toolConfirm.yes`/`.no` aceptan un `readonly string[]`).
+
+Los constructores de proveedores reciben ahora un `AIProviderConfig` (`model`, `maxTokens`,
+`effort`, `thinking`, `baseUrl`), la parte de `AIConfig` que lee un proveedor. Pasar un
+`AIConfig` entero guardado en una variable sigue compilando, pero un **objeto literal** con
+campos del plugin falla ahora la comprobación de propiedades sobrantes de TypeScript
+(`TS2353`), porque los proveedores nunca los leen:
+
+```ts
+new AnthropicProvider(client, { model, persona })   // antes compilaba; ahora: TS2353
+new AnthropicProvider(client, { model })            // quita los campos del plugin
+new AnthropicProvider(client, cfg)                  // o pasa una variable de tipo AIConfig
+```
+ `GenerateInput.onStreamEnd` recibe un `AIStreamEndInfo` con
+nombre; su contrato (una vez, tras el último fragmento, solo si termina con normalidad) está en
+[Notas de actualización: canales y plugins](./actualizar-canales-plugins#botmesh-ai).
+
 ## Token de la API del sandbox
 
 `@botmesh/sandbox` es privado, pero los scripts que usan su API web cambian:

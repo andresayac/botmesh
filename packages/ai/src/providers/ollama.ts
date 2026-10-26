@@ -1,5 +1,6 @@
-import type { AIProvider, GenerateInput, GenerateResult, AIConfig, AIChatMessage } from '../types.js'
+import type { AIProvider, GenerateInput, GenerateResult, AIProviderConfig, AIChatMessage } from '../types.js'
 import type { AIToolCall } from '../tools/types.js'
+import { endStream } from './streamEnd.js'
 
 type OllamaChatMessage = Record<string, unknown>
 interface OllamaToolCall {
@@ -19,7 +20,7 @@ export class OllamaProvider implements AIProvider {
   private base: string
   private callSeq = 0
   constructor(
-    private cfg: AIConfig,
+    private cfg: AIProviderConfig,
     private fetchImpl: typeof fetch = fetch,
   ) {
     this.base = (cfg.baseUrl ?? 'http://localhost:11434').replace(/\/$/, '')
@@ -115,7 +116,7 @@ export class OllamaProvider implements AIProvider {
       // Stopped early (or failed): release the connection.
       reader.cancel().catch(() => undefined)
     }
-    input.onStreamEnd?.({ stopReason })
+    endStream(input, { stopReason })
   }
 }
 

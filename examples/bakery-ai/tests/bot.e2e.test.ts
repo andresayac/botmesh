@@ -5,7 +5,8 @@
  */
 import { afterEach, describe, it, expect } from 'vitest'
 import { MockProvider, type MockOutgoing } from '@botmesh/core/testing'
-import { MockAIProvider, type GenerateInput, type MockTurn } from '@botmesh/ai'
+import type { GenerateInput } from '@botmesh/ai'
+import { MockAIProvider, type MockTurn } from '@botmesh/ai/testing'
 import type { Bot } from '@botmesh/core'
 import { createBakeryBot, GREETING } from '../src/bot.js'
 import { InMemoryOrderStore } from '../src/shop.js'

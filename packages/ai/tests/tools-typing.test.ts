@@ -9,7 +9,8 @@ import { describe, it, expect, expectTypeOf } from 'vitest'
 import type { DefaultTools, MessageContext, PluginContext } from '@botmesh/core'
 import { createTestBot } from '@botmesh/core/testing'
 // The public entry is what carries the augmentation.
-import { AIClient, MockAIProvider, aiPlugin } from '../src/index.js'
+import { AIClient, aiPlugin } from '../src/index.js'
+import { MockAIProvider } from '../src/testing.js'
 
 describe('ctx.tools.ai typing (DefaultTools augmentation)', () => {
   it('DefaultTools declares ai as a required AIClient', () => {

@@ -1,15 +1,19 @@
 import type { ConversationControls, MessageContext } from '@botmesh/core'
 import { askWithButtons, rendersButtons } from './autoreplyConfirm.js'
 import type { ToolConfirmation, ToolConfirmer } from './types.js'
+import { deepFreeze } from '../freeze.js'
 
-/** Answers accepted as "yes" by default (compared normalized: lowercase, no accents/punctuation). */
-export const DEFAULT_YES = [
+/**
+ * Answers accepted as "yes" by default (compared normalized: lowercase, no accents/punctuation).
+ * Frozen: extend a copy, e.g. `{ yes: [...DEFAULT_YES, 'arre'] }`.
+ */
+export const DEFAULT_YES: readonly string[] = deepFreeze([
   'si', 's', 'yes', 'y', 'ok', 'okay', 'confirmo', 'confirmar', 'dale', 'claro', 'de acuerdo', 'acepto', '1',
   'vale', 'listo', 'perfecto', 'adelante', 'hazlo', 'correcto', 'esta bien', 'sure', 'yeah', 'yep',
-]
+])
 
-/** Answers taken as "no" by default (same normalization as {@link DEFAULT_YES}). */
-export const DEFAULT_NO = ['no', 'n', 'nop', 'nope', 'nel', 'cancelar', 'cancela', 'cancelo', 'cancel', 'negativo', 'mejor no', 'para nada', 'tampoco', 'no gracias', '2', '0']
+/** Answers taken as "no" by default (same normalization as {@link DEFAULT_YES}). Frozen: extend a copy. */
+export const DEFAULT_NO: readonly string[] = deepFreeze(['no', 'n', 'nop', 'nope', 'nel', 'cancelar', 'cancela', 'cancelo', 'cancel', 'negativo', 'mejor no', 'para nada', 'tampoco', 'no gracias', '2', '0'])
 
 /**
  * Courtesy words that may surround a yes/no without changing it

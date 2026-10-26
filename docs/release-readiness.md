@@ -28,7 +28,7 @@ Per package:
 | Package | Stable verdict | Blocking before `pre exit` |
 | --- | --- | --- |
 | `@botmesh/core` | GO after one beta | None. Every core item of the previous report is closed (see [core](#core)). |
-| `@botmesh/ai` | Conditional | Move internal helpers and wire types to `/internal`, `MockAIProvider` to `/testing`; freeze the mutable exports; settle `onStreamEnd`. |
+| `@botmesh/ai` | Conditional | Done: helpers and wire type names in `/internal`, `MockAIProvider` in `/testing` (deprecated main alias), exported data frozen, `onStreamEnd` contract fixed (main entry 135 → 97). Left: confirm the Kimi default model. |
 | `@botmesh/baileys` | Conditional | Upstream is still `7.0.0-rc14` (no stable 7.x exists). Type native values as opaque, trim the JID helpers and mappers to `/internal`, rename `pairingCode`, deprecate `debug`. |
 | `@botmesh/meta` | Conditional (small) | Done: `GraphClient`, `toProviderError`, the verify re-exports and `debug` are `@deprecated`; `phoneNumberId` is `string \| number`; `lang` for Flow labels. Left: decide whether the session-window plumbing (`SessionWindowManager`, `MemorySessionWindowStore`…) stays public or becomes `@internal`. |
 | `@botmesh/telegram` | GO after one beta | None. `pollTimeoutMs` (alias `pollTimeout`), `toTelegramError`, `@experimental` wire helpers, `debug` deprecated, poll votes parsed. |
@@ -317,10 +317,12 @@ Still open (all LOW):
 
 ### Other public packages
 
-- **ai**: internal helpers, wire types and `MockAIProvider` on the main entry; mutable
-  `DEFAULT_YES`/`DEFAULT_NO`/`PRESETS`/`AI_LOCALES`; `onStreamEnd` callback; provider
-  constructors take the whole `AIConfig`; the Azure host heuristic for `max_tokens`
-  covers only `*.openai.azure.com`; the Kimi default model is unconfirmed.
+- **ai**: the Kimi default model (`moonshot-v1-8k`) is unconfirmed (outside semver).
+  Closed: helpers and wire type names moved to `/internal`, `MockAIProvider` and
+  `validateArgs` to `/testing`; `PRESETS`/`DEFAULT_YES`/`DEFAULT_NO`/`AI_MESSAGES`/`AI_LOCALES`
+  deep-frozen; `onStreamEnd` contract documented and tested; provider constructors take
+  `AIProviderConfig`; the Azure heuristic covers `*.cognitiveservices.azure.com` and
+  Foundry `/openai` endpoints.
 - **baileys**: upstream `7.0.0-rc14` (no stable 7.x); native types leak (`WAMessage`,
   `socket`, `auth`); `debug` not deprecated yet; a `read` and a `played` receipt can both
   arrive for one voice note; when `ffmpeg-static` is installed without its binary the

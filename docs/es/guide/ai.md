@@ -170,8 +170,9 @@ bot.plug(aiPlugin({
 ```
 
 `baseUrl` es opcional (endpoints compatibles con la API de OpenAI). El tope de
-tokens de salida va en `max_completion_tokens` para OpenAI (sin `baseUrl`,
-`api.openai.com` o `*.openai.azure.com`) y en `max_tokens` para cualquier otro
+tokens de salida va en `max_completion_tokens` para OpenAI y Azure OpenAI (sin `baseUrl`,
+`api.openai.com`, `*.openai.azure.com`, `*.cognitiveservices.azure.com` o
+`*.services.ai.azure.com` bajo `/openai`) y en `max_tokens` para cualquier otro
 `baseUrl` (vLLM, LM Studio, gateways), que es lo que esos servidores esperan.
 `maxTokensField` lo fuerza.
 
@@ -458,7 +459,8 @@ y cero red — úsalo para testear tu propia lógica alrededor de `AIClient` sin
 llamar a un proveedor real:
 
 ```ts
-import { AIClient, ContextManager, MockAIProvider, type ConvStore, type AIMessage } from '@botmesh/ai'
+import { AIClient, ContextManager, type ConvStore, type AIMessage } from '@botmesh/ai'
+import { MockAIProvider } from '@botmesh/ai/testing'
 
 const memory = new Map<string, AIMessage[]>()
 const store: ConvStore = {
@@ -477,6 +479,19 @@ const respuesta = await client.ask('¿qué hora es?')
 `{ toolCalls }` para simular llamadas a herramientas (ver
 [Testing en la guía de herramientas](/es/guide/ai-herramientas#testing)), y
 `mock.calls` registra cada petición que envió el cliente.
+
+`MockAIProvider` y `validateArgs` (comprueba los argumentos de una herramienta contra su
+esquema, como el bucle de herramientas) vienen de `@botmesh/ai/testing`; importar
+`MockAIProvider` de `@botmesh/ai` sigue funcionando pero está obsoleto. El paquete tiene tres
+entradas: `@botmesh/ai` (API de aplicación), `@botmesh/ai/testing` (dobles de test; ambas con
+semver) y `@botmesh/ai/internal` (helpers del plugin y nombres de los tipos de los SDK, sin
+semver).
+
+Un `AIProvider` propio que haga streaming debe respetar `GenerateInput.onStreamEnd`: llamarlo
+una vez, tras el último fragmento, solo si el stream termina con normalidad (no ante un error,
+un aborto o un `break` temprano), con un `AIStreamEndInfo` (`stopReason`, `usage` si se conoce).
+Comprueba `signal.aborted` antes de llamarlo: si no, un cliente que ignora la señal terminaría
+"con normalidad" tras un aborto.
 
 ## Roadmap
 

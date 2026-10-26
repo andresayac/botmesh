@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { validateArgs, type AITool, type AIToolContext } from '@botmesh/ai'
+import type { AITool, AIToolContext } from '@botmesh/ai'
+import { validateArgs } from '@botmesh/ai/testing'
 import type { MessageContext } from '@botmesh/core'
 import { TOOL, createBakeryTools } from '../src/tools.js'
 import { InMemoryOrderStore, type Order } from '../src/shop.js'

@@ -117,8 +117,8 @@ describe('AGENTS.md in every generated project', () => {
 const coreLib = fileURLToPath(new URL('../../core/lib/', import.meta.url))
 const devEntry = join(coreLib, 'dev', 'index.js')
 const testingEntry = join(coreLib, 'testing', 'index.js')
-// The real @botmesh/ai (built), to render the template tools' confirmation prompts.
-const aiEntry = fileURLToPath(new URL('../../ai/lib/index.js', import.meta.url))
+// The real @botmesh/ai (built, its /internal entry), to render the template tools' confirmation prompts.
+const aiEntry = fileURLToPath(new URL('../../ai/lib/internal.js', import.meta.url))
 
 interface DevSessionLike {
   start(): Promise<boolean>
