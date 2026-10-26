@@ -12,10 +12,10 @@ Ambos están en el `Bot` (y en `pluginCtx.bot` dentro de los plugins).
 ## Handoff humano
 
 ```ts
-const bot = new Bot({ provider, store, handoff: { allowCommands: ['/bot'] } })
+const bot = new Bot({ provider, store, lang: 'es', handoff: { allowCommands: ['/bot'] } })
 
 bot.when('hablar con humano', async (ctx) => {
-  await ctx.handoff({ reason: 'user request', meta: { queue: 'ventas' } })
+  await ctx.handoff({ reason: 'lo pidió el usuario', meta: { queue: 'ventas' } })
   await ctx.reply('Te conecto con un agente…')  // el handler que hace el handoff aún puede responder
 })
 bot.command('bot', async (ctx) => { await bot.resume(ctx.from); await ctx.reply('🤖 De vuelta') })

@@ -112,7 +112,7 @@ import { definePlugin } from '@botmesh/core'
 const loggingPlugin = definePlugin({
   name: 'logging',
   version: '1.0.0',
-  description: 'Log every message',
+  description: 'Log the type of every message',
   install(ctx) {
     // ctx.bot        → Bot instance
     // ctx.logger     → the bot's logger
@@ -121,7 +121,7 @@ const loggingPlugin = definePlugin({
     // ctx.onDispose  → register teardown logic
 
     ctx.bot.before('message', async (c, next) => {
-      ctx.logger.info(`📥 ${c.from}: ${c.body}`)
+      ctx.logger.info({ type: c.type }, '📥 message received') // no ids or bodies in logs
       await next()
     })
   },

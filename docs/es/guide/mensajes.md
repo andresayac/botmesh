@@ -8,9 +8,9 @@ Todos estos apuntan a `ctx.from` y devuelven `Promise<SentMessage>`.
 `ctx.reply` es la respuesta de texto (`say`, `answer` y `text` son alias obsoletos):
 
 ```ts
-await ctx.reply('👋 Hello!')
-await ctx.quote('replying to your message')     // cita el mensaje entrante
-await ctx.reply('typing this out...', { typing: true }) // muestra "escribiendo…" antes de enviar
+await ctx.reply('👋 ¡Hola!')
+await ctx.quote('respondiendo a tu mensaje')     // cita el mensaje entrante
+await ctx.reply('escribiendo esto...', { typing: true }) // muestra "escribiendo…" antes de enviar
 ```
 
 Cada envío (estos helpers, `bot.send`, las difusiones, `ctx.edit`) se revisa
@@ -25,8 +25,9 @@ todas las formas de `MediaSource`, incluida `{ native }` (una referencia propia
 del provider, como un `file_id` de Telegram).
 
 Una respuesta de `ctx` que recibe un `RateLimitedError` con una espera de hasta
-5 s se reintenta en el sitio (máximo dos veces), para que un paso de flujo no
-termine por un límite de envío pasajero. Las esperas más largas y el resto de
+5 s se reintenta una vez en el sitio, para que un paso de flujo no termine por un
+límite de envío pasajero (se ajusta con `BotConfig.rateLimitRetry: { retries,
+maxWaitMs }` o se desactiva con `false`). Las esperas más largas y el resto de
 errores rechazan como antes; `bot.send()` no se reintenta (las difusiones tienen
 su propio back-off).
 
@@ -67,17 +68,17 @@ largo con `PayloadTooLargeError`). Para dividir texto tú mismo, usa
 ## Enviar foto
 
 ```ts
-await ctx.photo('https://picsum.photos/400/300', '📸 caption')
-await ctx.photo('./photo.jpg', 'caption')  // archivo local
-await ctx.photo(buffer, 'caption')          // Buffer
+await ctx.photo('https://picsum.photos/400/300', '📸 pie de foto')
+await ctx.photo('./foto.jpg', 'pie de foto')  // archivo local
+await ctx.photo(buffer, 'pie de foto')        // Buffer
 ```
 
 ## Enviar video
 
 ```ts
-await ctx.video(url, 'caption')
-await ctx.video(url, 'caption', { gifPlayback: true })  // GIF
-await ctx.video(url, 'caption', { ptv: true })           // video circular
+await ctx.video(url, 'pie de video')
+await ctx.video(url, 'pie de video', { gifPlayback: true })  // GIF
+await ctx.video(url, 'pie de video', { ptv: true })           // video circular
 ```
 
 ## Enviar audio y nota de voz
@@ -90,13 +91,13 @@ await ctx.voice(url)   // nota de voz (PTT)
 ## Enviar archivo
 
 ```ts
-await ctx.file(url, 'document.pdf', 'caption')
+await ctx.file(url, 'documento.pdf', 'Tu documento')
 ```
 
 ## Enviar sticker
 
 ```ts
-await ctx.sticker(url, { pack: 'My Pack', author: 'me' })
+await ctx.sticker(url, { pack: 'Mi pack', author: 'yo' })
 ```
 
 ## Enviar ubicación
@@ -108,7 +109,7 @@ await ctx.location(4.7110, -74.0721, 'Bogotá, Colombia 🇨🇴')
 ## Enviar contacto
 
 ```ts
-await ctx.contact('573001234567', 'Support Bot')
+await ctx.contact('573001234567', 'Bot de soporte')
 ```
 
 ## Botones: normalizados, degradados por transporte
@@ -125,17 +126,17 @@ aterriza depende del provider:
 - **`@botmesh/telegram`** — teclados inline nativos.
 
 ```ts
-await ctx.buttons('Choose one', [
-  { id: 'a', title: 'Option A' },
-  { id: 'b', title: 'Option B' },
+await ctx.buttons('Elige una', [
+  { id: 'a', title: 'Opción A' },
+  { id: 'b', title: 'Opción B' },
 ])
 
 // Las encuestas son nativas en Baileys y Telegram. La Cloud API no tiene
 // encuestas: ahí ctx.poll() rechaza con UnsupportedContentError — usa botones.
-await ctx.poll('What do you prefer?', ['Option A', 'Option B'])
+await ctx.poll('¿Qué prefieres?', ['Opción A', 'Opción B'])
 
 // Selección múltiple
-await ctx.poll('What do you like?', ['🍕 Pizza', '🍔 Burger'], true)
+await ctx.poll('¿Qué te gusta?', ['🍕 Pizza', '🍔 Hamburguesa'], true)
 ```
 
 Si un provider no puede honrar un tipo de contenido, `send` rechaza con un
@@ -144,13 +145,13 @@ Si un provider no puede honrar un tipo de contenido, `send` rechaza con un
 ## Indicador de escritura y pausas
 
 `BotConfig.typing` muestra "escribiendo…" antes de cada respuesta de texto
-enviada por `ctx` (`reply`/`say`/`answer`/`text`/`quote` y `.say` de los flujos).
+enviada por `ctx` (`reply` y sus alias obsoletos, `quote` y `.say` de los flujos).
 Dura `longitud del texto / charsPerSecond`, acotado a `[minMs, maxMs]`. Viene
 desactivado por defecto.
 
 ```ts
-const bot = new Bot({ provider, typing: true }) // por defecto: { minMs: 800, maxMs: 3000, charsPerSecond: 20 }
-const ajustado = new Bot({ provider, typing: { enabled: true, minMs: 500, maxMs: 2000 } })
+const bot = new Bot({ provider, lang: 'es', typing: true }) // por defecto: { minMs: 800, maxMs: 3000, charsPerSecond: 20 }
+const ajustado = new Bot({ provider, lang: 'es', typing: { enabled: true, minMs: 500, maxMs: 2000 } })
 
 // Por respuesta: cambia el indicador y/o espera antes
 await ctx.reply('Un momento…', { typing: false })
@@ -236,21 +237,22 @@ handler sigue, así que un indicador fallido nunca cuesta la respuesta siguiente
 ## Recibir media
 
 ```ts
-bot.onType('image', async (ctx) => { await ctx.reply('📸 Got your image!') })
-bot.onType('audio', async (ctx) => { await ctx.reply('🎵 Got your audio') })
-bot.onType('video', async (ctx) => { await ctx.reply('🎬 Got your video') })
-bot.onType('sticker', async (ctx) => { await ctx.reply('🎨 Got your sticker!') })
-bot.onType('document', async (ctx) => { await ctx.reply('📄 Got your file') })
-bot.onType('location', async (ctx) => { await ctx.reply('📍 Got your location') })
-bot.onType('contact', async (ctx) => { await ctx.reply('👤 Got your contact') })
-bot.onType('poll', async (ctx) => { await ctx.reply('📊 Got your poll') })
+bot.onType('image', async (ctx) => { await ctx.reply('📸 ¡Recibí tu imagen!') })
+bot.onType('audio', async (ctx) => { await ctx.reply('🎵 Recibí tu audio') })
+bot.onType('video', async (ctx) => { await ctx.reply('🎬 Recibí tu video') })
+bot.onType('sticker', async (ctx) => { await ctx.reply('🎨 ¡Recibí tu sticker!') })
+bot.onType('document', async (ctx) => { await ctx.reply('📄 Recibí tu archivo') })
+bot.onType('location', async (ctx) => { await ctx.reply('📍 Recibí tu ubicación') })
+bot.onType('contact', async (ctx) => { await ctx.reply('👤 Recibí tu contacto') })
+bot.onType('poll', async (ctx) => { await ctx.reply('📊 Recibí tu encuesta') })
 ```
 
-`onImage`/`onAudio`/etc. son matchers de baja especificidad: un
+Los handlers de `bot.onType(...)` son matchers de baja especificidad (los
+antiguos `onImage`/`onAudio`/… son alias obsoletos): un
 `bot.when(...)` más específico que también coincida gana primero, a menos
-que llame a `ctx.pass()`. El mismo nivel está disponible como constantes de
-trigger (`IMAGE`, `VOICE_NOTE`, `MEDIA`, `LOCATION`, `CALL`...): ver
-[Triggers especiales](./triggers).
+que llame a `ctx.pass()`. Los mismos matchers están disponibles como constantes de
+trigger (`IMAGE`, `VOICE_NOTE`, `LOCATION`, `CALL`...; los de varios tipos, como
+`MEDIA`, quedan justo por debajo): ver [Triggers especiales](./triggers).
 
 ## Recibir una ubicación
 
@@ -409,11 +411,11 @@ una [tarea programada](./scheduler) — usa la instancia del bot directamente.
 El contenido es la unión etiquetada neutral de transporte (`{ kind, ... }`):
 
 ```ts
-await bot.send('573001234567@s.whatsapp.net', '🌅 Good morning!')
+await bot.send('573001234567@s.whatsapp.net', '🌅 ¡Buenos días!')
 await bot.send('573001234567@s.whatsapp.net', {
   kind: 'image',
   media: { url },
-  caption: 'hi',
+  caption: 'hola',
 })
 await bot.send(chatId, 'Hola, soy Ana de soporte')  // mismo camino; un string se envía como texto
 ```

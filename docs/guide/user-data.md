@@ -42,8 +42,8 @@ flow('idioma')
   .do(async (ctx, c) => { await userOf(ctx).set('lang', c.state.lang) })
 ```
 
-`userOf(ctx)` rejects with `UserDataError('UNAVAILABLE')` when the context
-was not built by a bot. In `bot.conversation(name, async (c, ctx) => ...)`
+`userOf(ctx)` throws `UserDataError('UNAVAILABLE')` synchronously when the
+context was not built by a bot. In `bot.conversation(name, async (c, ctx) => ...)`
 the `ctx` is a full `MessageContext`, so `ctx.user` works directly.
 
 ## API

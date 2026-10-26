@@ -18,7 +18,7 @@ flowchart LR
 
 ```ts
 bot.before('message', async (ctx, next) => {
-  console.log('📥', ctx.from, ':', ctx.body)
+  console.log('📥', ctx.type)
   await next()  // ← importante: llama next() para continuar
 })
 ```
@@ -44,7 +44,7 @@ devuelve la misma promesa) y el mal uso se informa en el evento `'error'`.
 
 ```ts
 bot.after('message', async (ctx) => {
-  console.log('📤 processed:', ctx.type)
+  console.log('📤 procesado:', ctx.type)
 })
 ```
 
@@ -53,7 +53,7 @@ bot.after('message', async (ctx) => {
 ```ts
 bot.onError('message', async (ctx, error) => {
   console.error('💥 error:', error)
-  if (ctx) await ctx.reply('😅 An error occurred. Try again.')
+  if (ctx) await ctx.reply('😅 Ocurrió un error. Inténtalo de nuevo.')
 })
 ```
 
@@ -101,7 +101,7 @@ bot.before('message', async (ctx, next) => {
 
   entry.count++
   if (entry.count > 10) {
-    await ctx.reply('⏳ Too many messages. Wait a minute.')
+    await ctx.reply('⏳ Demasiados mensajes. Espera un minuto.')
     ctx.abort()
     return
   }
@@ -151,7 +151,7 @@ saltarte el envío por completo:
 
 ```ts
 bot.before('send', async (payload, next) => {
-  console.log('📤 sending to', payload.chatId, payload.content)
+  console.log('📤 enviando', payload.content.kind)
   await next()
 })
 ```
@@ -179,7 +179,7 @@ let sentCount = 0
 bot.before('send', async (payload, next) => {
   // Oculta números de tarjeta en todo, vistas previas incluidas
   if (payload.content.kind === 'text') {
-    payload.content.text = payload.content.text.replace(/\b\d{13,16}\b/g, '[card]')
+    payload.content.text = payload.content.text.replace(/\b\d{13,16}\b/g, '[tarjeta]')
   }
   // Cuenta solo mensajes nuevos: las vistas previas repiten el mismo texto muchas veces
   if (payload.stream !== 'draft' && payload.stream !== 'edit' && !payload.edit) sentCount++
