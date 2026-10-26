@@ -4,7 +4,7 @@
  * Every store gets its own random table prefix; all of them are dropped afterwards.
  */
 import { randomBytes } from 'node:crypto'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import { createPool, type Pool, type PoolOptions } from 'mysql2/promise'
 import { Bot, type ScheduledRun } from '@botmesh/core'
 import { MockProvider } from '@botmesh/core/testing'
@@ -13,6 +13,10 @@ import { MysqlStore } from '../src/MysqlStore.js'
 import { runScheduleStoreConformance } from '../../../test-utils/schedule-store-conformance.js'
 
 const URL = process.env.BOTWA_TEST_MYSQL_URL?.trim() ?? ''
+
+// MySQL DDL is slow on some hosts (Docker on Windows: ~1 s per table) and slower while other
+// suites run in parallel; the default 10 s budget is too tight there (as in integration.test.ts).
+if (URL) vi.setConfig({ testTimeout: 60_000, hookTimeout: 120_000 })
 
 describe.skipIf(!URL)('MysqlScheduleStore — real MySQL', () => {
   const run = `its${randomBytes(4).toString('hex')}_`
