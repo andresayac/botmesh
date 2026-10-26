@@ -45,7 +45,7 @@ if (issues.length === 0) bot.registerFlow(compileFlowDocument(document))
 | `condition` | `if` expression with `then` / `else` nested steps. |
 | `delay` | Pauses (at most 5 minutes); ends with the conversation. |
 | `goto` / `end` | Jumps to another flow / ends with an optional farewell. |
-| `media` | Image, video, audio, voice, document, sticker (http(s) URL, or an http(s) URL in state: anything else, such as a local path, fails the step) or location. |
+| `media` | Image, video, audio, voice, document, sticker (http(s) URL, or an https URL with a public host in state: anything else, such as a local path or `http://169.254.169.254/`, fails the step) or location. |
 | `form` | Native form, or question by question where the channel has no forms. |
 | `guard` | `if` expression; when false it sends `message` and ends or redirects. |
 | `subflow` | Inlines another document, resolved with `resolveSubflow`. |
@@ -76,6 +76,7 @@ Expressions (`condition.if`, `guard.if`, `ask.validate.expr`) are a small safe l
 | `resolveSubflow` | none | `(id) => FlowDocument \| undefined` for `subflow` steps. A missing document or a cycle is a compile error. |
 | `fetch` | `secureFetch` | Custom fetch for `http` steps (tests, an egress proxy). |
 | `http` | 10 s, 64 KiB | Bounds of `http` steps: `{ timeoutMs, maxBytes, allowHttp }`. |
+| `media` | https, public hosts | Policy for `media` URLs read from state: `{ allowHttp, allowPrivateHosts, resolver }`. |
 | `formTimeoutMs` | the form's own option | Timeout of the waits of a nested `form` step. |
 
 ## Troubleshooting
@@ -86,6 +87,7 @@ Expressions (`condition.if`, `guard.if`, `ask.validate.expr`) are a small safe l
 - **`{{ first-name }}` renders literally:** state keys you read back must use letters, digits, `_` and `.` (a dotted key such as `user.name` works).
 - **`"name" is not available here` on `ask.validate.expr`:** the answer is validated before it is stored, so only `$answer` and the message fields exist there.
 - **`http` step refused:** placeholders are allowed only in the URL path, query or fragment, never in the host; plain `http:` needs `http: { allowHttp: true }`, and private or loopback hosts are always refused by `@botmesh/http`.
+- **`media` step from state refused:** a URL read from `c.state` must be `https:` (or `http:` with `media: { allowHttp: true }`) and its host must resolve to public addresses (`media: { allowPrivateHosts: true }` lifts that for internal media servers).
 
 ## Links
 

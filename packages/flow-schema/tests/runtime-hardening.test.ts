@@ -53,10 +53,13 @@ describe('media from c.state', () => {
     expect(mediaSent(provider.outbox)).toEqual([])
   })
 
-  it('still sends an http(s) URL stored in state', async () => {
+  // A public answer for every name, so no test touches the real DNS.
+  const publicDns = { resolver: async () => ['93.184.216.34'] }
+
+  it('still sends an https URL stored in state', async () => {
     for (const nested of [false, true]) {
       const media = { kind: 'media' as const, type: 'image' as const, source: { stateKey: 'pic' }, ...(nested ? { caption: 'hi {{ pic }}' } : {}) }
-      const { chat, provider } = await botWith(doc([{ kind: 'ask', text: 'Photo URL?', stateKey: 'pic' }, media]))
+      const { chat, provider } = await botWith(doc([{ kind: 'ask', text: 'Photo URL?', stateKey: 'pic' }, media]), { media: publicDns })
       await chat.send('go')
       await chat.expectReply('Photo URL?')
       await chat.send('https://cdn.example.com/a.png')
@@ -65,6 +68,58 @@ describe('media from c.state', () => {
       expect(sent).toHaveLength(1)
       expect(JSON.stringify(sent[0]!.media)).toContain('https://cdn.example.com/a.png')
     }
+  })
+
+  const askMedia = (nested: boolean) => doc([
+    { kind: 'ask', text: 'Photo URL?', stateKey: 'pic' },
+    { kind: 'media', type: 'image', source: { stateKey: 'pic' }, ...(nested ? { caption: 'for {{ $from }}' } : {}) },
+  ])
+
+  async function sentFor(answer: string, nested: boolean, options?: CompileFlowOptions) {
+    const { chat, provider, errors } = await botWith(askMedia(nested), options)
+    await chat.send('go')
+    await chat.expectReply('Photo URL?')
+    await chat.send(answer)
+    await settle()
+    return { sent: mediaSent(provider.outbox), errors }
+  }
+
+  for (const nested of [false, true]) {
+    it(`refuses private, loopback and metadata hosts (${nested ? 'interpreted' : 'top-level'} step)`, async () => {
+      const answers = [
+        'https://127.0.0.1/x', 'HTTPS://127.0.0.1:8080/admin', 'https://169.254.169.254/latest/meta-data/iam/',
+        'https://10.0.0.5/a.png', 'https://[::1]/a.png', 'https://localhost/a.png', 'https://intranet.localhost/a',
+      ]
+      for (const answer of answers) {
+        const { sent, errors } = await sentFor(answer, nested, { media: publicDns })
+        expect(sent, answer).toEqual([])
+        // The refusal never echoes the user's value (host or path).
+        expect(String((errors[0] as { error?: unknown })?.error ?? errors[0]), answer).not.toMatch(/127\.0|169\.254|10\.0|::1|localhost|meta-data/)
+      }
+    })
+
+    it(`refuses a public name that resolves to a private address (${nested ? 'interpreted' : 'top-level'} step)`, async () => {
+      const { sent } = await sentFor('https://rebind.example.com/a.png', nested, { media: { resolver: async () => ['127.0.0.1'] } })
+      expect(sent).toEqual([])
+    })
+
+    it(`refuses plain http unless media.allowHttp is set (${nested ? 'interpreted' : 'top-level'} step)`, async () => {
+      expect((await sentFor('http://cdn.example.com/a.png', nested, { media: publicDns })).sent).toEqual([])
+      const allowed = await sentFor('http://cdn.example.com/a.png', nested, { media: { ...publicDns, allowHttp: true } })
+      expect(allowed.sent).toHaveLength(1)
+    })
+  }
+
+  it('media.allowPrivateHosts lets an operator send from an internal host on purpose', async () => {
+    const { sent } = await sentFor('https://10.0.0.5/a.png', false, { media: { ...publicDns, allowPrivateHosts: true } })
+    expect(sent).toHaveLength(1)
+  })
+
+  it('refuses invalid media options at compile time', () => {
+    const d = askMedia(false)
+    expect(() => compileFlowDocument(d, { media: { resolver: 'x' as never } })).toThrow(/media.resolver/)
+    expect(() => compileFlowDocument(d, { media: { allowHttp: 'yes' as never } })).toThrow(/media.allowHttp/)
+    expect(() => compileFlowDocument(d, { media: { allowPrivateHosts: 1 as never } })).toThrow(/media.allowPrivateHosts/)
   })
 
   it('refuses a state value that is not a URL (an object without url, a number)', async () => {

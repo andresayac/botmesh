@@ -32,7 +32,7 @@ import {
 } from '@botmesh/core'
 import { upgradeLoadedDocument } from './migrate.js'
 import { pauseControls, runFormStep } from '@botmesh/core/spi'
-import { secureFetch, type SecureFetchOptions, type SecureFetchResponse } from '@botmesh/http'
+import { assertSafeTarget, secureFetch, type HostResolver, type SecureFetchOptions, type SecureFetchResponse } from '@botmesh/http'
 import { evaluateCondition, hasTemplate, parseExpression, renderTemplate, resolvePath, soleTemplatePath, type ExpressionNode } from './expression.js'
 import { compileFormPattern } from './pattern.js'
 import {
@@ -63,8 +63,27 @@ export interface CompileFlowOptions {
   fetch?: (url: string, options: SecureFetchOptions) => Promise<SecureFetchResponse>
   /** Bounds of `http` steps: default 10 s and 64 KiB of response. */
   http?: { timeoutMs?: number; maxBytes?: number; allowHttp?: boolean }
+  /** Target policy of `media` steps whose source is `{ stateKey }` (see {@link FlowMediaPolicy}). */
+  media?: FlowMediaPolicy
   /** Flow timeout passed to a nested form's waits (default: the form's own option). */
   formTimeoutMs?: number
+}
+
+/**
+ * Target policy of a `media` step that reads its URL from `c.state` (an end user's answer
+ * or an `http` response). The provider (or a self-hosted gateway such as Evolution or
+ * WPPConnect) downloads that URL from inside your network, so by default only `https:`
+ * URLs whose host resolves to public addresses are sent, like `@botmesh/http`'s
+ * `assertSafeTarget`. URLs written in the document itself are the author's and are not
+ * checked.
+ */
+export interface FlowMediaPolicy {
+  /** Also accept plain `http:` URLs (default: `https:` only). */
+  allowHttp?: boolean
+  /** Accept hosts that are or resolve to private, loopback or link-local addresses (default false). */
+  allowPrivateHosts?: boolean
+  /** DNS resolver used for the check (default `resolveHost` from `@botmesh/http`). */
+  resolver?: HostResolver
 }
 
 /** The original JSON step a compiled step came from, when it was produced by the compiler. */
@@ -108,6 +127,14 @@ function checkCompileOptions(options: CompileFlowOptions): void {
   }
   if (options.resolveSubflow !== undefined && typeof options.resolveSubflow !== 'function') throw new TypeError('compileFlowDocument: resolveSubflow must be a function')
   if (options.fetch !== undefined && typeof options.fetch !== 'function') throw new TypeError('compileFlowDocument: fetch must be a function')
+  const media = options.media
+  if (media !== undefined) {
+    if (typeof media !== 'object' || media === null) throw new TypeError('compileFlowDocument: media must be an object')
+    for (const flag of ['allowHttp', 'allowPrivateHosts'] as const) {
+      if (media[flag] !== undefined && typeof media[flag] !== 'boolean') throw new TypeError(`compileFlowDocument: media.${flag} must be a boolean`)
+    }
+    if (media.resolver !== undefined && typeof media.resolver !== 'function') throw new TypeError('compileFlowDocument: media.resolver must be a function')
+  }
 }
 
 /** Subflows already resolved and validated during one compilation. */
@@ -223,7 +250,7 @@ function compileTopStep(step: FlowStepDocument, options: CompileFlowOptions, sta
       return withSource({
         kind: 'media',
         type: step.type as FlowMediaKind,
-        source: mediaSourceOf(step.source, step.type),
+        source: mediaSourceOf(step.source, step.type, options.media),
         ...(step.caption !== undefined ? { caption: step.caption } : {}),
         ...(step.filename !== undefined ? { opts: { filename: step.filename } } : {}),
       }, step)
@@ -378,7 +405,7 @@ async function run(program: readonly Prepared[], ctx: RuntimeMessage, c: Convers
         await run(evaluateCondition(step.test, scopeOf(ctx, c)) ? step.then : step.else, ctx, c, options)
         break
       case 'media':
-        await sendMedia(ctx, step, scopeOf(ctx, c))
+        await sendMedia(ctx, step, scopeOf(ctx, c), options.media)
         break
       case 'form':
         await runFormStep(step.form, ctx, c, step.opts, options.formTimeoutMs)
@@ -444,7 +471,7 @@ function waitOptions(timeout: FlowDuration | undefined): WaitOptions | undefined
   return timeout === undefined ? undefined : { timeout: toMs(timeout) }
 }
 
-function mediaSourceOf(source: FlowMediaDocumentSource, type: string): FlowMediaSource {
+function mediaSourceOf(source: FlowMediaDocumentSource, type: string, policy: FlowMediaPolicy | undefined): FlowMediaSource {
   if (type === 'location') {
     const loc = source as Extract<FlowMediaDocumentSource, { latitude: number }>
     return { lat: loc.latitude, lng: loc.longitude, ...(loc.name !== undefined ? { name: loc.name } : {}) } satisfies FlowLocation
@@ -452,7 +479,7 @@ function mediaSourceOf(source: FlowMediaDocumentSource, type: string): FlowMedia
   if ('url' in source) return (source as { url: string }).url
   if (!isStateSource(source)) throw new TypeError('media step: source must be a url, a stateKey or coordinates')
   const key = source.stateKey
-  return ((_ctx: RuntimeMessage, c: ConversationControls) => ({ url: stateMediaUrl(c.state[key], key) })) as unknown as FlowMediaSource
+  return (async (_ctx: RuntimeMessage, c: ConversationControls) => ({ url: await stateMediaUrl(c.state[key], key, policy) })) as unknown as FlowMediaSource
 }
 
 /** The MessageContext members an action needs beyond the narrow `RuntimeMessage`. */
@@ -468,9 +495,9 @@ interface RichContext extends RuntimeMessage {
   tools?: unknown
 }
 
-async function sendMedia(ctx: RuntimeMessage, step: Extract<Prepared, { kind: 'media' }>, scope: Record<string, unknown>): Promise<void> {
+async function sendMedia(ctx: RuntimeMessage, step: Extract<Prepared, { kind: 'media' }>, scope: Record<string, unknown>, policy: FlowMediaPolicy | undefined): Promise<void> {
   const rich = ctx as RichContext
-  const raw = 'stateKey' in step.source ? resolveMediaSource(step.source, scope) : step.source
+  const raw = 'stateKey' in step.source ? await resolveMediaSource(step.source, scope, policy) : step.source
   if (step.type === 'location') {
     const loc = raw as Extract<FlowMediaDocumentSource, { latitude: number }>
     if (typeof rich.location !== 'function') throw new Error('media step: this context cannot send a location')
@@ -508,24 +535,35 @@ function isStateSource(source: FlowMediaDocumentSource | { stateKey: string }): 
   return typeof source === 'object' && source !== null && 'stateKey' in source
 }
 
-function resolveMediaSource(source: FlowMediaDocumentSource | { stateKey: string }, scope: Record<string, unknown>): FlowMediaDocumentSource {
+async function resolveMediaSource(source: FlowMediaDocumentSource | { stateKey: string }, scope: Record<string, unknown>, policy: FlowMediaPolicy | undefined): Promise<FlowMediaDocumentSource> {
   if (!isStateSource(source)) return source
-  return { url: stateMediaUrl(scope[source.stateKey], source.stateKey) }
+  return { url: await stateMediaUrl(scope[source.stateKey], source.stateKey, policy) }
 }
 
 /**
  * The media URL stored in `c.state[key]` (a string or `{ url }`), only when it is an
- * absolute http(s) URL. State values can come from an end user's answer or an `http`
- * response, and providers read a plain string that is not a URL as a LOCAL FILE PATH
- * (Baileys even streams a non-http `{ url }` from disk): anything else is refused. The
- * value itself never goes into the error (it may be personal data).
+ * absolute https URL (http with `allowHttp`) whose host is public (see {@link FlowMediaPolicy}).
+ * State values can come from an end user's answer or an `http` response; providers read a
+ * plain string that is not a URL as a LOCAL FILE PATH (Baileys even streams a non-http
+ * `{ url }` from disk), and gateways download the URL from inside the operator's network:
+ * anything else is refused. The value (host included) never goes into the error (it may be
+ * personal data).
  */
-function stateMediaUrl(value: unknown, key: string): string {
+async function stateMediaUrl(value: unknown, key: string, policy: FlowMediaPolicy = {}): Promise<string> {
   const raw = typeof value === 'string' ? value : typeof value === 'object' && value !== null && typeof (value as { url?: unknown }).url === 'string' ? (value as { url: string }).url : undefined
   if (raw === undefined) throw new Error(`media step: c.state.${key} must be an http(s) URL string or { url } (got ${value === null ? 'null' : typeof value})`)
   let url: URL
   try { url = new URL(raw.trim()) } catch { throw new Error(`media step: c.state.${key} is not an absolute http(s) URL`) }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error(`media step: c.state.${key} must use http or https (got ${url.protocol})`)
+  if (url.protocol === 'http:' && policy.allowHttp !== true) throw new Error(`media step: c.state.${key} must use https (set media.allowHttp to accept http)`)
+  if (url.username || url.password) throw new Error(`media step: c.state.${key} must not carry credentials`)
+  // With private hosts allowed there is nothing to judge: skip the DNS lookup.
+  if (policy.allowPrivateHosts === true) return url.href
+  try {
+    await assertSafeTarget(url, { allowHttp: policy.allowHttp === true, ...(policy.resolver ? { resolver: policy.resolver } : {}) })
+  } catch {
+    throw new Error(`media step: c.state.${key} points to a host that is not allowed (private, loopback or unresolvable)`)
+  }
   return url.href
 }
 
