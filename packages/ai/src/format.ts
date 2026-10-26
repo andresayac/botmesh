@@ -34,20 +34,33 @@ function escapeHtml(s: string): string {
 /** An (already text-escaped) URL inside a double-quoted `href`: a `"` must not close the attribute. */
 const hrefOf = (url: string): string => url.replace(/"/g, '&quot;')
 
+/**
+ * Only web, mail and phone links become `<a href>`: a model (or a prompt injection) must
+ * never produce a `javascript:` / `data:` link in an HTML channel. Others stay as text.
+ */
+const SAFE_HREF = /^(?:https?:\/\/|mailto:|tel:)/i
+
 /** Inline Markdown of one line fragment (no code spans inside). */
 function inlineText(text: string, format: Exclude<TextFormat, 'markdown'>, opts: { noBold?: boolean } = {}): string {
   const saved: string[] = []
   const keep = (s: string): string => `\u0000${saved.push(s) - 1}\u0000`
   let s = format === 'html' ? escapeHtml(text) : text
   // Images and links first, then bare URLs: their characters (_ * ~) are never emphasis.
-  s = s.replace(/!\[([^\]\n]*)\]\(([^)\s]+)\)/g, (_m, alt: string, url: string) =>
-    keep(format === 'html' ? `<a href="${hrefOf(url)}">${alt || url}</a>` : url))
-  s = s.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (_m, label: string, url: string) => {
-    if (format === 'html') return keep(`<a href="${hrefOf(url)}">${inlineText(label, 'plain')}</a>`)
+  // `\u0000` (a placeholder's delimiter) is never part of a URL: a URL right before a
+  // link must not swallow the link's placeholder, which would then leak into the output.
+  s = s.replace(/!\[([^\]\n]*)\]\(([^)\s\u0000]+)\)/g, (_m, alt: string, url: string) => {
+    if (format !== 'html') return keep(url)
+    return keep(SAFE_HREF.test(url) ? `<a href="${hrefOf(url)}">${alt || url}</a>` : (alt ? `${alt} (${url})` : url))
+  })
+  s = s.replace(/\[([^\]\n]+)\]\(([^)\s\u0000]+)\)/g, (_m, label: string, url: string) => {
+    if (format === 'html') {
+      const shown = inlineText(label, 'plain')
+      return keep(SAFE_HREF.test(url) ? `<a href="${hrefOf(url)}">${shown}</a>` : `${shown} (${url})`)
+    }
     const shown = inlineText(label, format)
     return keep(shown === url ? url : `${shown} (${url})`)
   })
-  s = s.replace(/\bhttps?:\/\/[^\s<>()"]+/g, (url) => keep(url))
+  s = s.replace(/\bhttps?:\/\/[^\s<>()"\u0000]+/g, (url) => keep(url))
   const wrap = (kind: Emphasis) => (_m: string, pre: string, body: string): string => {
     if (kind === 'bold' && opts.noBold) return pre + body
     if (format === 'html') return `${pre}<${HTML_TAG[kind]}>${body}</${HTML_TAG[kind]}>`

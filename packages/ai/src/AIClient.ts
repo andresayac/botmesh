@@ -102,7 +102,6 @@ const NO_MEMORY = 'AI memory is not available: build the AIClient with `memory` 
 
 const DEFAULT_TIMEOUT_MS = 60_000
 const DEFAULT_RAG_TIMEOUT_MS = 10_000
-const DEFAULT_REFUSAL = 'No puedo ayudar con eso.'
 /** Soft output cap of a memory-extraction call when `autoExtract.maxTokens` is not set (room for reasoning models). */
 const DEFAULT_EXTRACT_MAX_TOKENS = 1024
 
@@ -271,13 +270,18 @@ export class AIClient {
     const messages: AIChatMessage[] = [{ role: 'user', content: prompt }]
     if (this.usesTools(opts)) {
       const r = await this.runTools({ messages }, opts)
-      return r.stopReason === 'refusal' ? (this.opts.refusalMessage ?? DEFAULT_REFUSAL) : r.text
+      return r.stopReason === 'refusal' ? this.refusalText(opts?.ctx) : r.text
     }
     const r = await this.callModel('ask', this.base(messages), () => this.withTimeout(
       (signal) => this.provider.generate({ ...this.base(messages), signal }),
       opts?.signal,
     ))
-    return r.stopReason === 'refusal' ? (this.opts.refusalMessage ?? DEFAULT_REFUSAL) : r.text
+    return r.stopReason === 'refusal' ? this.refusalText(opts?.ctx) : r.text
+  }
+
+  /** `refusalMessage`, else the localized `ai.refusal` text of the turn's chat (Spanish without one). */
+  private refusalText(ctx: MessageContext | undefined): string {
+    return this.opts.refusalMessage ?? aiText(ctx, AI_MESSAGES.refusal)
   }
 
   async generate(input: Partial<GenerateInput> & { messages: AIChatMessage[] }): Promise<GenerateResult> {
@@ -396,7 +400,7 @@ export class AIClient {
       if (streamSpan) setResponseAttributes(streamSpan, { stopReason, usage })
       if (completed && stopReason === 'refusal') {
         refused = true
-        yield (text ? '\n\n' : '') + (this.opts.refusalMessage ?? DEFAULT_REFUSAL)
+        yield (text ? '\n\n' : '') + this.refusalText(opts?.ctx)
       } else if (completed) {
         // RAG `appendSources`: the sources go out as a last piece (not stored in the history).
         const shown = this.withSources(text, citations, opts?.ctx)
@@ -425,7 +429,7 @@ export class AIClient {
         const userId = opts?.userId
         if (completed && userId && epoch !== undefined && this.opts.memory?.extraction) {
           // Background: never block the chat's FIFO queue on the extraction call.
-          this.track(this.extractMemory(userId, userText, text, { epoch }).catch((err) => this.report(err, 'memory-extract')))
+          this.background((signal) => this.extractMemory(userId, userText, text, { epoch, signal }))
         }
       }
     }
@@ -527,7 +531,7 @@ export class AIClient {
     // never write the stale turn back nor answer it.
     opts?.signal?.throwIfAborted()
     if (r.stopReason === 'refusal') {
-      const text = this.opts.refusalMessage ?? DEFAULT_REFUSAL
+      const text = this.refusalText(opts?.ctx)
       return { text, answer: text, citations: [], facts }
     }
     // An empty answer (e.g. the token budget spent on reasoning) is not a turn: storing
@@ -543,7 +547,7 @@ export class AIClient {
     await this.ctx.appendMany(chatKey, turn)
     if (userId && epoch !== undefined && this.opts.memory?.extraction) {
       // Background: never block the chat's FIFO queue on the extraction call.
-      this.track(this.extractMemory(userId, userText, r.text, { epoch }).catch((err) => this.report(err, 'memory-extract')))
+      this.background((signal) => this.extractMemory(userId, userText, r.text, { epoch, signal }))
     }
     return { text: this.withSources(r.text, citations, opts?.ctx), answer: r.text, citations, facts }
   }
@@ -726,6 +730,27 @@ export class AIClient {
   private track(p: Promise<unknown>): void {
     this.pending.add(p)
     void p.finally(() => this.pending.delete(p))
+  }
+
+  /** Aborts the background work started since the last {@link abortBackground}. */
+  private backgroundCtrl = new AbortController()
+
+  /** Run background work (memory extraction) under the client's background signal; errors are reported. */
+  private background(op: (signal: AbortSignal) => Promise<unknown>): void {
+    const signal = this.backgroundCtrl.signal
+    this.track(op(signal).catch((err) => { if (!signal.aborted) this.report(err, 'memory-extract') }))
+  }
+
+  /**
+   * Abort the background work in flight (memory extraction): its model calls are
+   * cancelled and their facts dropped. Later turns start new background work as usual.
+   * `aiPlugin` calls it when the bot stops.
+   * @internal
+   */
+  abortBackground(): void {
+    const ctrl = this.backgroundCtrl
+    this.backgroundCtrl = new AbortController()
+    ctrl.abort()
   }
 
   /** Resolves when background work (memory extraction) has settled — for tests and graceful shutdown. */

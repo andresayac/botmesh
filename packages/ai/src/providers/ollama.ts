@@ -27,7 +27,7 @@ export class OllamaProvider implements AIProvider {
 
   private model(input: GenerateInput): string {
     const m = input.model ?? this.cfg.model
-    if (!m) throw new Error('OllamaProvider requiere `model` en la config (sin default).')
+    if (!m) throw new Error("ollama: the provider needs a `model` (it has no default): set aiPlugin({ model: 'llama3.1' }) or pass one per call")
     return m
   }
   private messagesFor(input: GenerateInput): OllamaChatMessage[] {
@@ -61,7 +61,7 @@ export class OllamaProvider implements AIProvider {
       body: JSON.stringify(this.body(input, stream)),
       signal: input.signal,
     })
-    if (!res.ok) throw new Error(`Ollama respondió ${res.status}${await errorDetail(res)}`)
+    if (!res.ok) throw new Error(`Ollama answered HTTP ${res.status}${await errorDetail(res)}`)
     return res
   }
 
@@ -83,7 +83,7 @@ export class OllamaProvider implements AIProvider {
 
   async *stream(input: GenerateInput): AsyncIterable<string> {
     const res = await this.post(input, true)
-    if (!res.body) throw new Error('Ollama respondió sin cuerpo')
+    if (!res.body) throw new Error('Ollama answered without a body')
     const reader = res.body.getReader()
     const decoder = new TextDecoder()
     let buf = ''

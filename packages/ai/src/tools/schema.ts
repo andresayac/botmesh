@@ -43,7 +43,9 @@ export function validateArgs(tool: AITool<unknown>, raw: unknown): ArgsValidatio
     return r.success ? { ok: true, data: r.data } : { ok: false, error: describeError(r.error) }
   }
   const errors: string[] = []
-  checkJson(schema, args, '$', errors)
+  // Tool arguments are always an object (the model is sent `type: 'object'` too, see
+  // `parametersOf`): a schema that omits the top-level type must not let a raw string through.
+  checkJson(schema.type === undefined ? { type: 'object', ...schema } : schema, args, '$', errors)
   return errors.length === 0 ? { ok: true, data: args } : { ok: false, error: errors.join('; ') }
 }
 

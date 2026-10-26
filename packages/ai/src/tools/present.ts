@@ -21,6 +21,18 @@ export function humanizeName(name: string): string {
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : name
 }
 
+/** Max characters of an argument name shown in a confirmation prompt. */
+const MAX_KEY = 40
+
+/**
+ * An argument NAME as shown to the user: humanized, on one line and short. The names come
+ * from the model, so a crafted key (`"\n¿Confirmas?\nVoy a: …"`) must not add lines to
+ * the confirmation prompt.
+ */
+function keyLabel(key: string): string {
+  return clip(humanizeName(key.replace(/\s+/g, ' ')), MAX_KEY)
+}
+
 /** The label shown to the user for a tool: its `title`, else the humanized name. */
 export function toolTitle(name: string, tool: Pick<AITool<unknown>, 'title'>): string {
   return tool.title?.trim() || humanizeName(name)
@@ -69,14 +81,14 @@ function summarize(v: unknown, ctx: AITranslatable | undefined, depth: number, l
       const rest = entries.filter((e) => e !== qty)
       const what = rest.length === 1
         ? summarize(rest[0]![1], ctx, depth + 1, labels, rest[0]![0])
-        : rest.map(([k, x]) => `${humanizeName(k)}: ${summarize(x, ctx, depth + 1, labels, k)}`).join(', ')
+        : rest.map(([k, x]) => `${keyLabel(k)}: ${summarize(x, ctx, depth + 1, labels, k)}`).join(', ')
       return clip(what ? `${String(qty[1])} × ${what}` : String(qty[1]))
     }
     // Fields too nested to show (a list of objects at this depth renders as `…, …`) are left out.
     return clip(entries
       .map(([k, x]) => [k, summarize(x, ctx, depth + 1, labels, k)] as const)
       .filter(([, text]) => informative(text))
-      .map(([k, text]) => `${humanizeName(k)}: ${text}`)
+      .map(([k, text]) => `${keyLabel(k)}: ${text}`)
       .join(', '))
   }
   if (v === undefined || v === null) return ''
@@ -106,7 +118,7 @@ export function argLines(args: unknown, ctx?: AITranslatable, labels?: AIToolLab
     for (const item of list as unknown[]) if (present(item)) lines.push(`• ${summarize(item, ctx, 1, labels, key)}`)
   } else {
     for (const [key, value] of entries) {
-      const label = humanizeName(key)
+      const label = keyLabel(key)
       if (Array.isArray(value) && value.some((x) => isPlainObject(x) || Array.isArray(x))) {
         lines.push(`• ${label}:`)
         for (const item of value) if (present(item)) lines.push(`   ◦ ${summarize(item, ctx, 1, labels, key)}`)
