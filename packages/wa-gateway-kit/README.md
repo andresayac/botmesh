@@ -52,16 +52,16 @@ ids.lookup('123456789@lid')                                  // → '57300111223
 
 | Export | What it does |
 | --- | --- |
-| `restCall(url, init, http)` | JSON request through `secureFetch` with `maxRedirects: 0`. Resolves to `{ status, ok, body, retryAfterMs }` for any HTTP answer; a network failure rejects with a `ProviderError` that names the cause (`ECONNREFUSED`, `TIMEOUT`...) and shows `init.label` (or the URL path) instead of the full URL. |
-| `resolveHttpPolicy(baseUrl, http?)` | Fills the `RestHttpOptions` defaults: `allowHttp` when `baseUrl` is `http://`, `allowPrivateHosts: true` (the gateway is usually local), `timeoutMs` 30 s, `maxBytes` 64 MiB. |
-| `gatewayBaseUrl(owner, baseUrl)` | Validates and trims the base URL; throws a `TypeError` naming `owner` when it is not an absolute http(s) URL. |
-| `parseRetryAfter(value)` | `Retry-After` (seconds or HTTP date) in milliseconds. |
+| `restCall(url, init, http)` | JSON request through `secureFetch` with `maxRedirects: 0`. Resolves to `{ status, ok, body, retryAfterMs }` for any non-redirect HTTP answer. A network failure, a 3xx answer, an invalid URL or a body `JSON.stringify` cannot serialize rejects with a `ProviderError` that names the cause (`ECONNREFUSED`, `TIMEOUT`...) and shows `init.label` (or the URL path, never the query string) instead of the full URL. |
+| `resolveHttpPolicy(baseUrl, http?)` | Fills the `RestHttpOptions` defaults: `allowHttp` when `baseUrl` is `http://`, `allowPrivateHosts: true` (the gateway is usually local), `timeoutMs` 30 s, `maxBytes` 64 MiB. Throws a `TypeError` when `timeoutMs` is not a positive number or `maxBytes` is not a non-negative integer. |
+| `gatewayBaseUrl(owner, baseUrl)` | Validates and trims the base URL; throws a `TypeError` naming `owner` when it is not an absolute http(s) URL, or when it has credentials (`user:pass@`), a query string or a fragment. The message masks credentials. |
+| `parseRetryAfter(value)` | `Retry-After` (delay-seconds or HTTP date) in milliseconds; `undefined` for anything else (hex, exponents, negative numbers). |
 | `describeErrorBody(body)` | One readable line from a gateway error body (at most 300 characters). |
 | `isRecord(value)` | Plain-object type guard. |
-| `resolveMedia(kind, source, opts?)` | Outbound media: an `http(s)` URL (or `{ native: string }`) passes through, anything else (Buffer, path, stream) becomes base64 with a MIME type. An unreadable path rejects with `UnsupportedContentError`. Returns a `ResolvedMedia`. |
+| `resolveMedia(kind, source, opts?)` | Outbound media: only an `http(s)` URL (as a string or `{ url }`) is handed to the gateway to download, and `{ native: string }` passes through untouched. A base64 `data:` URI, a Buffer, a stream, a path or a `file:` URL (also inside `{ url }`) is read here and sent inline as base64 with a MIME type, so the gateway is never asked to open a path on its own host. A malformed source, an unreadable path or a stream that does not yield bytes rejects with `UnsupportedContentError`. Returns a `ResolvedMedia`. |
 | `toDataUri(media)`, `guessMimetype(kind, filename?, explicit?)` | Data URI (or the plain URL) and best-effort MIME type. |
-| `WaIdentityStore(maxEntries?, persistence?)` | Bounded LRU that links the phone-number JID and the LID of the same person to one canonical id (`resolve`, `lookup`, `has`, `size`). With an `IdentityPersistence`, the map survives restarts. |
-| `normalizeJid(jid)`, `isLidJid(jid)`, `isGroupJid(jid)` | JID helpers: strip the device suffix, detect `@lid` and `@g.us`. |
+| `WaIdentityStore(maxEntries?, persistence?)` | Bounded LRU that links the phone-number JID and the LID of the same person to one canonical id (`resolve`, `lookup`, `has`, `size`). `maxEntries` is a positive integer (default 10 000) or `Infinity`; anything else throws a `TypeError`. With an `IdentityPersistence`, the map survives restarts. |
+| `normalizeJid(jid)`, `isLidJid(jid)`, `isGroupJid(jid)` | JID helpers: strip whitespace and the device suffix (idempotent), detect `@lid` and `@g.us`. |
 
 Types: `RestHttpOptions`, `RestResponse`, `ResolvedMedia`, `IdentityPersistence`.
 
@@ -79,6 +79,8 @@ id of a contact first seen with the LID only can change after a restart.
 | Symptom | Cause and fix |
 | --- | --- |
 | `TypeError` "`baseUrl` must be an absolute http(s) URL" | Include the scheme: `http://localhost:8080`, not `localhost:8080`. |
+| `TypeError` "`baseUrl` must not contain credentials / have a query string" | Request paths are appended to `baseUrl`, so it can only be scheme, host, port and an optional path prefix. Pass the gateway key in its own option. |
+| `ProviderError` "the gateway answered a redirect (HTTP 3xx)" | Gateway calls never follow redirects. The gateway (or a proxy in front of it) redirects `baseUrl`: usually `http://` where it wants `https://`, or a missing path prefix. Use the final URL. |
 | A gateway on `https://` inside your network is refused | `allowPrivateHosts` defaults to `true`; if you set it to `false`, private and loopback addresses are blocked by the SSRF guard. |
 | A large media download fails | Raise `maxBytes` (64 MiB by default): gateways return media inline as base64. |
 | `restCall` resolved but the call failed | `restCall` does not throw on HTTP errors: check `res.ok` and map `res.status` to a typed error (see `toEvolutionError` / `toWppError`). |

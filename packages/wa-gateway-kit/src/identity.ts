@@ -27,14 +27,14 @@ export interface IdentityPersistence {
   set(alias: string, canonical: string): void
 }
 
-/** Strip the multi-device suffix (`5730:12@s.whatsapp.net` → `5730@s.whatsapp.net`) and whitespace. */
+/** Strip the multi-device suffix (`5730:12@s.whatsapp.net` → `5730@s.whatsapp.net`) and whitespace. Idempotent. */
 export function normalizeJid(jid: unknown): string | undefined {
   if (typeof jid !== 'string') return undefined
   const trimmed = jid.trim()
   if (!trimmed) return undefined
   const at = trimmed.indexOf('@')
   if (at < 0) return trimmed
-  const user = trimmed.slice(0, at).replace(/:\d+$/, '')
+  const user = trimmed.slice(0, at).replace(/(?::\d+)+$/, '')
   return `${user}${trimmed.slice(at)}`
 }
 
@@ -45,15 +45,23 @@ export const isGroupJid = (jid: string): boolean => jid.endsWith('@g.us')
 
 /**
  * LID/PN reconciliation map: links every alias of one person to a single canonical id
- * (see the module comment for the rules). `maxEntries` bounds the in-memory LRU (default 10 000).
+ * (see the module comment for the rules). `maxEntries` bounds the in-memory LRU (default 10 000;
+ * a positive integer, or `Infinity` for no bound).
  */
 export class WaIdentityStore {
   private readonly canonicalOf = new Map<string, string>()
 
+  /**
+   * @throws {TypeError} when `maxEntries` is not a positive integer (or `Infinity` for an unbounded map).
+   */
   constructor(
     private readonly maxEntries = 10_000,
     private readonly persistence?: IdentityPersistence,
-  ) {}
+  ) {
+    if (typeof maxEntries !== 'number' || !(maxEntries === Number.POSITIVE_INFINITY || (Number.isSafeInteger(maxEntries) && maxEntries > 0))) {
+      throw new TypeError(`WaIdentityStore: \`maxEntries\` (identityCacheSize) must be a positive integer (got ${JSON.stringify(maxEntries) ?? String(maxEntries)})`)
+    }
+  }
 
   /**
    * Resolve one person seen under `primary` (plus any twin aliases the payload

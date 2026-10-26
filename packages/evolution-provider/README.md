@@ -87,7 +87,7 @@ the signature, expiry and the `app: 'evolution'` / `action: 'webhook'` claims.
 | `allowUnsignedWebhooks` | `false` | Isolated local development only. Without a secret or JWT, the constructor fails. |
 | `selfId` | — | Own JID; when missing, it is read from `/instance/fetchInstances` or from `connection.update`. |
 | `http` | — | `allowHttp` (by default yes when `baseUrl` is `http://`), `allowPrivateHosts` (default `true`: the gateway is usually local), `timeoutMs` (30 s), `maxBytes` (64 MiB), `resolver`, `fetch`. |
-| `identityCacheSize` | `10000` | Maximum size of the LID↔PN map (LRU). |
+| `identityCacheSize` | `10000` | Maximum size of the LID↔PN map (LRU): a positive integer, or `Infinity` for no bound. |
 | `identityPersistence` | — | Durable LID↔PN map (synchronous `get`/`set`). Without it, the canonical id of a contact first seen with the LID only may change after a restart. |
 | `convertAudioToMp4` | `false` | Ask Evolution for audio as MP4 when downloading. |
 | `logger` | pino at `error` | Any `LoggerLike` (pino, `console`, ...). |

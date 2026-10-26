@@ -4,6 +4,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### `@botmesh/wa-gateway-kit`: endurecimiento de la revisión de beta (2026-10)
+- `gatewayBaseUrl()` rechaza con `TypeError` una URL con credenciales (`user:pass@`), query string o fragmento (se concatenaban rutas detrás y salían URLs rotas; con credenciales cada petición fallaba en `secureFetch`). El mensaje enmascara las credenciales, también cuando la URL no es válida.
+- `resolveHttpPolicy()` valida `timeoutMs` y `maxBytes` al construir (antes fallaba la primera petición) y `new WaIdentityStore(maxEntries)` exige un entero positivo o `Infinity`: con `0`, `-1`, `NaN` o un string el mapa olvidaba cada enlace o crecía sin límite (`identityCacheSize` de `@botmesh/evolution` y `@botmesh/wppconnect`).
+- `resolveMedia()`: solo una URL `http(s)` llega al gateway. Un `{ url }` con una ruta local o una URL `file:` se lee en el bot y va en base64 (antes el gateway intentaba abrir esa ruta en su propio host; WPPConnect la pasa como `path`), un `data:` URI en base64 va inline y una fuente con forma inválida (`null`, número) o un stream que no da bytes rechaza con `UnsupportedContentError` en lugar de un `TypeError` crudo.
+- `restCall()`: una respuesta 3xx rechaza con un `ProviderError` que explica que no se siguen redirecciones y apunta a `baseUrl` (antes decía "too many redirects"); una URL inválida o un body que `JSON.stringify` no puede serializar también dan `ProviderError` con la etiqueta de la llamada.
+- `parseRetryAfter()` solo acepta delay-seconds y fechas HTTP (RFC 9110): ignora hex, exponentes, negativos y valores en blanco. `describeErrorBody()` corta también un `message` largo a 300 caracteres, y `normalizeJid()` es idempotente (quita sufijos de dispositivo encadenados).
+- Tests de propiedades con semilla (`tests/fuzz.test.ts`) para `normalizeJid`, `WaIdentityStore` (identidad estable con reordenaciones, desalojo del LRU y reinicios con persistencia), `parseRetryAfter` y `describeErrorBody`.
+
 ### Integración de los 26 paquetes promovidos en `main` (2026-10)
 - Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
 - Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).

@@ -6,6 +6,7 @@
 
 import { readFile } from 'node:fs/promises'
 import { basename, extname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { UnsupportedContentError, type MediaSource, type OutboundContent } from '@botmesh/core'
 
 export type ResolvedMedia =
@@ -37,10 +38,30 @@ export function guessMimetype(kind: OutboundContent['kind'], filename?: string, 
   return EXT_MIME[ext] ?? KIND_MIME[kind] ?? 'application/octet-stream'
 }
 
-async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
+async function streamToBuffer(kind: OutboundContent['kind'], stream: NodeJS.ReadableStream): Promise<Buffer> {
   const chunks: Buffer[] = []
-  for await (const c of stream as AsyncIterable<Buffer | string>) chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c))
+  for await (const c of stream as AsyncIterable<unknown>) {
+    if (Buffer.isBuffer(c)) chunks.push(c)
+    else if (c instanceof Uint8Array) chunks.push(Buffer.from(c.buffer, c.byteOffset, c.byteLength))
+    else if (typeof c === 'string') chunks.push(Buffer.from(c))
+    else throw new UnsupportedContentError(kind, `${kind}: the media stream yielded a ${typeof c} chunk; it must yield Buffer, Uint8Array or string chunks (not an object-mode stream).`)
+  }
   return Buffer.concat(chunks)
+}
+
+/** `data:<mime>;base64,<payload>` (the payload is re-encoded, so stray characters cannot reach the gateway). */
+const DATA_URI = /^data:([\w.+-]+\/[\w.+-]+)(?:;[\w-]+=[\w.-]+)*;base64,([\s\S]*)$/i
+
+const isHttpUrl = (value: string): boolean => /^https?:\/\//i.test(value)
+
+/** A `file:` URL as a local path; anything else unchanged (read as a path). */
+function localPathOf(value: string): string {
+  if (!/^file:/i.test(value)) return value
+  try {
+    return fileURLToPath(value)
+  } catch {
+    return value
+  }
 }
 
 /**
@@ -62,8 +83,14 @@ export async function readLocalMedia(kind: OutboundContent['kind'], path: string
 }
 
 /**
- * Resolve a {@link MediaSource}. `{ native: string }` is passed through as a
- * URL-or-base64 value the gateway understands natively.
+ * Resolve a {@link MediaSource}. Only `http(s)` URLs are handed to the gateway to download; a
+ * base64 `data:` URI is sent inline, and any other string or `{ url }` (a local path or a `file:`
+ * URL) is read here and sent inline, so the gateway is never asked to open a path on its own host. `{ native: string }` is passed
+ * through untouched as a URL-or-base64 value the gateway understands natively (escape hatch:
+ * never put untrusted input there).
+ *
+ * @throws {UnsupportedContentError} for a source of the wrong shape, an unreadable path or a
+ * stream that does not yield bytes.
  */
 export async function resolveMedia(
   kind: OutboundContent['kind'],
@@ -75,16 +102,24 @@ export async function resolveMedia(
     filename,
     mimetype: guessMimetype(kind, filename, opts.mimetype),
   })
-  if (typeof source === 'string') {
-    if (/^https?:\/\//i.test(source)) return { url: source, filename: opts.filename, mimetype: opts.mimetype }
-    const filename = opts.filename ?? basename(source)
-    return inline(await readLocalMedia(kind, source), filename)
+  const urlOrPath = async (value: string): Promise<ResolvedMedia> => {
+    if (isHttpUrl(value)) return { url: value, filename: opts.filename, mimetype: opts.mimetype }
+    const data = DATA_URI.exec(value)
+    if (data) {
+      return { base64: Buffer.from(data[2]!, 'base64').toString('base64'), filename: opts.filename, mimetype: opts.mimetype ?? data[1]! }
+    }
+    const path = localPathOf(value)
+    return inline(await readLocalMedia(kind, path), opts.filename ?? basename(path))
   }
+  if (typeof source === 'string') return urlOrPath(source)
   if (Buffer.isBuffer(source)) return inline(source, opts.filename)
-  if ('url' in source) return { url: source.url, filename: opts.filename, mimetype: opts.mimetype }
+  if (typeof source !== 'object' || source === null) {
+    throw new UnsupportedContentError(kind, `${kind}: unsupported media source (${source === null ? 'null' : typeof source}); expected a URL, Buffer, path, stream or { native: string }`)
+  }
+  if ('url' in source && typeof source.url === 'string') return urlOrPath(source.url)
   if ('buffer' in source) return inline(source.buffer, opts.filename)
   if ('path' in source) return inline(await readLocalMedia(kind, source.path), opts.filename ?? basename(source.path))
-  if ('stream' in source) return inline(await streamToBuffer(source.stream), opts.filename)
+  if ('stream' in source) return inline(await streamToBuffer(kind, source.stream), opts.filename)
   if ('native' in source && typeof source.native === 'string') {
     return { url: source.native, filename: opts.filename, mimetype: opts.mimetype }
   }
