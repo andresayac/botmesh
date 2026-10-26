@@ -7,18 +7,25 @@
  *    "Exactly one active version" and "a version is published once" are properties of
  *    this single document, so every publish, rollback and reservation is one atomic
  *    compare-and-set.
- *  - `product/deployments/version/<tenant>/<bot>`        id = version: immutable artifact, createdAt, gate.
+ *  - `product/deployments/version/<tenant>/<bot>/<version>` id = random commit id: immutable artifact, createdAt, gate.
+ *    The bot document maps each published version to the commit id it accepted (`docs`).
  *  - `product/deployments/gate/<tenant>/<bot>/<version>` id = `<finishedAt>-<seq>-<random>`: gate runs, pass or fail.
  *
- * A version document whose bot document never listed it (a crash between the two
- * writes of a commit) is overwritten by the next commit of that version.
+ * A commit writes its version document under a fresh id first and then claims the version
+ * in the bot document with one compare-and-set; the claim is the only thing that decides
+ * which commit won, so a slow or late commit can never overwrite the winner's artifact.
+ * A version document the bot document never pointed to (a lost race, or a crash between
+ * the two writes) is never read; a refused commit deletes its own.
+ *
+ * Versions committed before `docs` existed keep their document in the previous table,
+ * `product/deployments/version/<tenant>/<bot>` with id = version, and are still read from there.
  */
 
 import { randomUUID } from 'node:crypto'
 import type { DurableKv, JsonValue } from '@botmesh/core'
 import { TenantDocs } from '@botmesh/tenant-kv'
 import { assertDeploymentIds, assertListLimit } from './memory.js'
-import type { CommitInput, DeploymentStore } from './store.js'
+import { heldByOther, type CommitInput, type DeploymentStore } from './store.js'
 import { DeploymentExistsError, DeploymentNotFoundError, gateRunId, type Deployment, type GateRecord, type GateRun } from './types.js'
 
 interface BotDoc {
@@ -27,6 +34,8 @@ interface BotDoc {
   versions: string[]
   /** Live reservations: version → expiry (epoch ms). */
   pending: Record<string, number>
+  /** Version → id of its version document (absent for versions of the previous layout). */
+  docs?: Record<string, string>
   updatedAt: number
 }
 
@@ -57,7 +66,11 @@ function parseBot(value: unknown): BotDoc {
   if (!Array.isArray(versions) || !versions.every(isString)) throw new TypeError('bad versions')
   if (!isRecord(pending) || !Object.values(pending).every(isNumber)) throw new TypeError('bad pending')
   if (!isNumber(updatedAt)) throw new TypeError('bad updatedAt')
-  return { activeVersion, versions: [...versions], pending: { ...pending } as Record<string, number>, updatedAt }
+  const { docs } = value
+  if (docs !== undefined && (!isRecord(docs) || !Object.values(docs).every(isString))) throw new TypeError('bad docs')
+  const bot: BotDoc = { activeVersion, versions: [...versions], pending: { ...pending } as Record<string, number>, updatedAt }
+  if (docs !== undefined) bot.docs = { ...docs } as Record<string, string>
+  return bot
 }
 
 function parseGateRecord(value: unknown): GateRecord {
@@ -111,7 +124,10 @@ export class KvDeploymentStore implements DeploymentStore {
   }
 
   private async deployment(tenantId: string, botId: string, version: string, bot: BotDoc): Promise<Deployment | undefined> {
-    const record = (await this.versions.in(tenantId, botId).get(version))?.doc
+    const docId = bot.docs?.[version]
+    const record = docId !== undefined
+      ? (await this.versions.in(tenantId, botId, version).get(docId))?.doc
+      : (await this.versions.in(tenantId, botId).get(version))?.doc // previous layout
     if (!record) return undefined
     return {
       tenantId,
@@ -155,26 +171,40 @@ export class KvDeploymentStore implements DeploymentStore {
   async commit(input: CommitInput): Promise<Deployment> {
     const { tenantId, botId, version } = input
     assertDeploymentIds(tenantId, botId, version)
-    const before = await this.bot(tenantId, botId)
-    if (before?.versions.includes(version)) throw new DeploymentExistsError()
-    if (before && !input.reserved && this.isLive(before, version)) throw new DeploymentExistsError()
-    // The version document first (overwriting an orphan of a crashed commit), then the
-    // bot document, which is the single place that says the version exists and is active.
+    const refused = (bot: BotDoc | undefined) =>
+      bot !== undefined && (bot.versions.includes(version) || heldByOther(input, bot.pending[version], this.clock()))
+    if (refused(await this.bot(tenantId, botId))) throw new DeploymentExistsError()
+    // The version document goes under a fresh id, so concurrent or late commits of one
+    // version never overwrite each other's; the compare-and-set on the bot document below
+    // decides which one is the version. Nothing is claimed before it, so a failed commit
+    // leaves no reservation behind and can be retried at once.
+    const docId = randomUUID()
+    const table = this.versions.in(tenantId, botId, version)
     const record: VersionDoc = { artifact: input.artifact, createdAt: this.clock(), ...(input.gate ? { gate: { ...input.gate } } : {}) }
-    await this.versions.in(tenantId, botId).update(version, () => record)
+    if (!(await table.insert(docId, record))) throw new Error('version document id collision')
     let exists = false
     const written = await this.bots.in(tenantId).update(botId, (cur) => {
       exists = false
-      const bot = cur ?? { activeVersion: null, versions: [], pending: {}, updatedAt: 0 }
-      if (bot.versions.includes(version) || (!input.reserved && this.isLive(bot, version))) {
+      if (refused(cur)) {
         exists = true
         return undefined
       }
+      const bot = cur ?? { activeVersion: null, versions: [], pending: {}, updatedAt: 0 }
       const pending = { ...bot.pending }
       delete pending[version]
-      return { activeVersion: version, versions: [...bot.versions, version], pending, updatedAt: this.clock() }
+      return {
+        activeVersion: version,
+        versions: [...bot.versions, version],
+        pending,
+        docs: { ...bot.docs, [version]: docId },
+        updatedAt: this.clock(),
+      }
     })
-    if (exists || !written) throw new DeploymentExistsError()
+    if (exists || !written) {
+      // Lost: drop the document nobody points to (best effort; an unreferenced one is never read).
+      await table.delete(docId).catch(() => undefined)
+      throw new DeploymentExistsError()
+    }
     return (await this.deployment(tenantId, botId, version, written.doc))!
   }
 

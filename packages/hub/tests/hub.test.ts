@@ -183,3 +183,64 @@ describe('botwa range compatibility', () => {
     expect(validateManifest({ ...manifest, version: '1.0.0-beta.1+sha.1' }, '2.0.0').version).toBe('1.0.0-beta.1+sha.1')
   })
 })
+
+describe('manifest validation of untyped input (JSON from a marketplace or an upload)', () => {
+  const base = { id: 'crm-sync', version: '1.0.0', botwa: '*', entry: 'index.js', permissions: [] as string[] }
+  const check = (overrides: Record<string, unknown>) => () => validateManifest({ ...base, ...overrides } as never, '2.0.0')
+
+  it('rejects a missing or non-object manifest with PluginManifestError', () => {
+    for (const value of [null, undefined, 'crm-sync', 42, []]) {
+      expect(() => validateManifest(value as never, '2.0.0')).toThrow(PluginManifestError)
+    }
+  })
+
+  it('rejects ids that are not strings, even when they stringify to a valid id', () => {
+    expect(check({ id: undefined })).toThrow(/plugin id/)
+    expect(check({ id: ['ab'] })).toThrow(/plugin id/)
+    expect(check({ id: 12345678 })).toThrow(/plugin id/)
+  })
+
+  it('requires permissions to be an array of known permissions', () => {
+    expect(check({ permissions: 'messages:read' })).toThrow(/permissions/)
+    expect(check({ permissions: undefined })).toThrow(/permissions/)
+    expect(check({ permissions: ['root:all'] })).toThrow(/unknown permission/)
+    expect(check({ permissions: [1] })).toThrow(/permissions/)
+    expect(validateManifest({ ...base, permissions: ['secrets:read', 'secrets:read'] } as never, '2.0.0').permissions).toEqual(['secrets:read'])
+  })
+
+  it('rejects version numbers beyond the safe integer range and non-string ranges or labels', () => {
+    expect(check({ version: '99999999999999999999.0.0' })).toThrow(/semver/)
+    expect(() => validateManifest(base as never, '2.99999999999999999999.0')).toThrow(/runtime version/)
+    expect(check({ botwa: 2 })).toThrow(/botwa/)
+    expect(check({ name: 42 })).toThrow(/name/)
+    expect(check({ description: { x: 1 } })).toThrow(/description/)
+  })
+
+  it('keeps only the known fields, so every store returns the same manifest', () => {
+    const valid = validateManifest({ ...base, name: 'CRM', extra: 'x', __proto__: { polluted: true } } as never, '2.0.0')
+    expect(valid).toEqual({ ...base, name: 'CRM' })
+    expect(Object.keys(valid)).not.toContain('extra')
+  })
+})
+
+describe.each(stores)('enable is atomic with respect to a re-install (%s)', (_name, make) => {
+  it('never enables a re-installed manifest whose new permissions were not granted', async () => {
+    const registry = make()
+    await registry.install('a', { ...manifest, permissions: ['contacts:read'] }, '2.0.0')
+    // A re-install with more permissions lands between enable()'s permission check and its write.
+    const store = registry.store
+    const original = store.get.bind(store)
+    let raced = false
+    store.get = async (tenantId, id) => {
+      const record = await original(tenantId, id)
+      if (!raced) {
+        raced = true
+        await registry.install('a', { ...manifest, permissions: ['contacts:read', 'secrets:read'] }, '2.0.0')
+      }
+      return record
+    }
+    await expect(registry.enable('a', manifest.id, ['contacts:read'])).rejects.toThrow(/secrets:read/)
+    store.get = original
+    expect(await registry.get('a', manifest.id)).toMatchObject({ enabled: false })
+  })
+})

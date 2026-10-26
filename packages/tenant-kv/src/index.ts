@@ -9,6 +9,6 @@
  * Private infrastructure package: not published to npm.
  */
 
-export { TenantDocs, DocTable, CorruptDocumentError, KvContentionError, PRODUCT_TABLE_PREFIX } from './docs.js'
+export { TenantDocs, DocTable, CorruptDocumentError, InvalidDocumentError, KvContentionError, PRODUCT_TABLE_PREFIX } from './docs.js'
 export type { TenantDocsOptions, Versioned, DocListOptions } from './docs.js'
-export { encodeSegment, assertTenantId, isTenantId } from './encode.js'
+export { encodeSegment, assertTenantId, assertDocId, isTenantId } from './encode.js'

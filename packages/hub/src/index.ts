@@ -17,7 +17,9 @@
  *
  * @example
  * ```ts
- * const registry = new PluginRegistry(new KvPluginStore(new PostgresDurableKv({ pool })))
+ * const kv = new PostgresDurableKv({ pool })
+ * await kv.start() // creates the table; whoever creates the kv also stops it
+ * const registry = new PluginRegistry(new KvPluginStore(kv))
  * await registry.install('acme', manifest, '2.0.0')
  * await registry.enable('acme', manifest.id, manifest.permissions)
  * ```
@@ -25,7 +27,7 @@
 
 export { PluginRegistry } from './registry.js'
 export type { PluginRegistryOptions } from './registry.js'
-export { validateManifest, isRelativeEntry } from './manifest.js'
+export { validateManifest, isRelativeEntry, PLUGIN_PERMISSIONS } from './manifest.js'
 export { MemoryPluginStore } from './memory.js'
 export { KvPluginStore } from './kv.js'
 export type { KvPluginStoreOptions } from './kv.js'

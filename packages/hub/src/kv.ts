@@ -86,13 +86,14 @@ export class KvPluginStore implements PluginStore {
     return (await this.plugins.in(tenantId).list({ limit })).map(clonePlugin)
   }
 
-  async setEnabled(tenantId: string, id: string, enabled: boolean): Promise<InstalledPlugin> {
+  async setEnabled(tenantId: string, id: string, enabled: boolean, check?: (record: InstalledPlugin) => void): Promise<InstalledPlugin> {
     assertPluginIds(tenantId, id)
     const table = this.plugins.in(tenantId)
     for (let attempt = 0; attempt < this.attempts; attempt++) {
       await backoff(attempt)
       const current = await table.get(id)
       if (!current) throw new PluginManifestError('plugin not installed')
+      check?.(clonePlugin(current.doc))
       const next: InstalledPlugin = { ...current.doc, enabled: enabled === true }
       const written = await table.replace(id, current.version, next)
       if (written) return clonePlugin(written.doc)

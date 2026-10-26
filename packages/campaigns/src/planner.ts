@@ -48,6 +48,9 @@ export class CampaignPlanner {
     if (!Number.isSafeInteger(cap) || cap < 0) {
       throw new RangeError('maxPerRecipient must be a non-negative integer')
     }
+    // Validate the whole batch first: a bad entry halfway would otherwise leave the slots of
+    // the recipients before it reserved (until their TTL) with no delivery id to release them.
+    assertPlanInput(campaign, recipients)
     const seen = new Set<string>()
     const now = this.clock()
     const deliveries: Delivery[] = []
@@ -118,4 +121,21 @@ export class CampaignPlanner {
 
 function skipped(campaign: Campaign, recipient: CampaignRecipient, reason: NonNullable<Delivery['reason']>): Delivery {
   return { campaignId: campaign.id, tenantId: campaign.tenantId, recipientId: recipient.id, state: 'skipped', reason }
+}
+
+const nonEmpty = (value: unknown): value is string => typeof value === 'string' && value !== ''
+
+/** @throws {TypeError} for a campaign without ids, a non-array list or a recipient without id/tenant. */
+function assertPlanInput(campaign: Campaign, recipients: readonly CampaignRecipient[]): void {
+  if (typeof campaign !== 'object' || campaign === null) throw new TypeError('campaign must be an object')
+  if (!nonEmpty(campaign.tenantId)) throw new TypeError('campaign tenantId must be a non-empty string')
+  if (!nonEmpty(campaign.id)) throw new TypeError('campaign id must be a non-empty string')
+  if (!Array.isArray(recipients)) throw new TypeError('recipients must be an array')
+  recipients.forEach((recipient: unknown, index) => {
+    const r = recipient as Partial<CampaignRecipient> | null
+    if (typeof r !== 'object' || r === null || !nonEmpty(r.id) || !nonEmpty(r.tenantId)) {
+      throw new TypeError(`recipient #${index} must have a non-empty id and tenantId`)
+    }
+    if (r.chatId !== undefined && !nonEmpty(r.chatId)) throw new TypeError(`recipient #${index}: chatId must be a non-empty string when given`)
+  })
 }

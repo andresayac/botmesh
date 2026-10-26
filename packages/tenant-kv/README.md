@@ -26,8 +26,9 @@ Product packages depend on no driver (`pg`, `redis`, `better-sqlite3`…) and st
 
 - **Table name** `product/<family…>/<tenant>[/<sub>…]`, with each segment percent-encoded (`encodeSegment`, same alphabet as `@botmesh/redis-store`). The tenant is part of the backend primary key (`(tbl, id)` in Postgres/SQLite, hash tag `{durable:<table>}` in Redis), so no query can cross tenants and a hostile `tenantId` (`a/b`, `}{`, `*`) stays encoded. The `product/` prefix never collides with the core journal tables (`inbox`, `outbox`, `inbox:<scope>`…), so the same kv can back `BotConfig.durability`.
 - **Compare-and-set**: the backend's opaque version is what CAS uses; `update(id, fn)` retries up to `attempts` times (32 by default, with a random pause) and then throws `KvContentionError`. There is never a silent overwrite.
+- **Validation on write**: `insert`/`replace`/`update` run the family's own `parse` over the JSON a read would decode and throw `InvalidDocumentError` (a `TypeError`, contents never in the message) instead of writing a document every later read would reject. Document ids must be non-empty strings without NUL (PostgreSQL `TEXT` cannot store NUL).
 - **Validation**: every document read goes through `parse`; if it is not valid JSON or does not match the expected shape, `CorruptDocumentError(table, id)` (the message never includes the content).
-- **Bounded listings**: `list({ index: 'all' | 'active', limit, max })` reads at most `limit` ids from the index (ascending by score, ties by id) and re-reads each document. `DurableKv.range` only answers "the N smallest ≤ max", so there is no cursor pagination: products document their bounds (`limit`/`scan`).
+- **Bounded listings**: `list({ index: 'all' | 'active', limit, max })` reads at most `limit` ids from the index (ascending by score, ties by id) and re-reads each document. `DurableKv.range` only answers "the N smallest ≤ max", so there is no cursor pagination: products document their bounds (`limit`/`scan`). `limit: Infinity` is passed to the backend as `Number.MAX_SAFE_INTEGER` (SQL `LIMIT` and Redis `ZRANGE … LIMIT` only take integers).
 
 ## Limits
 

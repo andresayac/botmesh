@@ -11,6 +11,7 @@ import type { InboxStore } from './store.js'
 import {
   InboxConflictError,
   InboxNotFoundError,
+  type ConversationStatus,
   type InboxConversation,
   type InboxListOptions,
   type InboxNote,
@@ -27,8 +28,10 @@ export const DEFAULT_LIST_LIMIT = 100
 export const DEFAULT_SCAN = 1000
 export const DEFAULT_NOTES_LIMIT = 100
 
-/** Explicit direction, else derived from `fromMe`; throws when neither is set. */
+/** Explicit direction, else derived from `fromMe`; throws when neither is set or the message has no chat (or an empty tenant). */
 export function messageDirection(message: StoredMessage): 'inbound' | 'outbound' {
+  assertTenantId(message.chatId, 'chatId')
+  if (message.tenantId !== undefined) assertTenantId(message.tenantId)
   if (message.direction === 'inbound' || message.direction === 'outbound') return message.direction
   if (message.fromMe === true) return 'outbound'
   if (message.fromMe === false) return 'inbound'
@@ -50,13 +53,38 @@ export function assertUnread(value: number | undefined): void {
   if (value !== undefined && !(Number.isInteger(value) && value >= 0)) throw new RangeError('unread must be a non-negative integer')
 }
 
-export function assertNoteBody(body: string): void {
+/** @throws {TypeError} for an empty `authorId`; `Error` for a blank `body`. */
+export function assertNoteBody(body: string, authorId: string): void {
+  assertTenantId(authorId, 'authorId')
   if (typeof body !== 'string' || !body.trim()) throw new Error('note body is required')
+}
+
+const STATUSES: ReadonlySet<unknown> = new Set<ConversationStatus>(['open', 'pending', 'resolved'])
+
+/** @throws {TypeError} for a status outside `open | pending | resolved`. */
+export function assertStatus(value: unknown): void {
+  if (!STATUSES.has(value)) throw new TypeError('status must be "open", "pending" or "resolved"')
+}
+
+function assertHandoff(value: unknown): void {
+  if (typeof value !== 'boolean') throw new TypeError('handoff must be a boolean')
+}
+
+function assertAssignee(value: unknown): void {
+  if (typeof value !== 'string' || value === '') throw new TypeError('assigneeId must be a non-empty string')
+}
+
+function assertSlaDueAt(value: unknown): void {
+  if (typeof value !== 'number' || !Number.isFinite(value)) throw new TypeError('slaDueAt must be a finite number (epoch ms)')
 }
 
 /** Apply an agent patch (without touching `version`/`updatedAt`). */
 export function applyPatch(conversation: InboxConversation, patch: InboxPatch): InboxConversation {
   assertUnread(patch.unread)
+  if (patch.status !== undefined) assertStatus(patch.status)
+  if (patch.handoff !== undefined) assertHandoff(patch.handoff)
+  if (patch.assigneeId !== undefined && patch.assigneeId !== null) assertAssignee(patch.assigneeId)
+  if (patch.slaDueAt !== undefined && patch.slaDueAt !== null) assertSlaDueAt(patch.slaDueAt)
   const next: InboxConversation = { ...conversation }
   if (patch.status !== undefined) next.status = patch.status
   if (patch.handoff !== undefined) next.handoff = patch.handoff
@@ -71,15 +99,25 @@ export function applyPatch(conversation: InboxConversation, patch: InboxPatch): 
 /** The merged conversation of an upsert over `old` (or a new one), `version` bumped. */
 export function mergeUpsert(old: InboxConversation | undefined, input: InboxUpsert, now: number): InboxConversation {
   assertUnread(input.unread)
+  assertStatus(input.status)
+  assertHandoff(input.handoff)
+  // An omitted optional field keeps its stored value; an explicit `undefined` clears it.
+  const assigneeId = 'assigneeId' in input ? input.assigneeId : old?.assigneeId
+  const slaDueAt = 'slaDueAt' in input ? input.slaDueAt : old?.slaDueAt
+  if (assigneeId !== undefined) assertAssignee(assigneeId)
+  if (slaDueAt !== undefined) assertSlaDueAt(slaDueAt)
+  // Only known fields are stored, so every store keeps exactly the same shape.
   const next: InboxConversation = {
-    ...old,
-    ...input,
+    tenantId: input.tenantId,
+    id: input.id,
+    status: input.status,
+    handoff: input.handoff,
     unread: input.unread ?? old?.unread ?? 0,
     version: (old?.version ?? 0) + 1,
     updatedAt: now,
   }
-  if (next.assigneeId === undefined) delete next.assigneeId
-  if (next.slaDueAt === undefined) delete next.slaDueAt
+  if (assigneeId !== undefined) next.assigneeId = assigneeId
+  if (slaDueAt !== undefined) next.slaDueAt = slaDueAt
   return next
 }
 
@@ -125,6 +163,7 @@ export class MemoryInboxStore implements InboxStore {
 
   async get(tenantId: string, id: string): Promise<InboxConversation | undefined> {
     assertTenantId(tenantId)
+    assertTenantId(id, 'id')
     const value = this.conversations.get(key(tenantId, id))
     return value && { ...value }
   }
@@ -145,6 +184,7 @@ export class MemoryInboxStore implements InboxStore {
 
   async update(tenantId: string, id: string, expectedVersion: number, patch: InboxPatch): Promise<InboxConversation> {
     assertTenantId(tenantId)
+    assertTenantId(id, 'id')
     const old = this.conversations.get(key(tenantId, id))
     if (!old) throw new InboxNotFoundError()
     if (old.version !== expectedVersion) throw new InboxConflictError()
@@ -167,8 +207,9 @@ export class MemoryInboxStore implements InboxStore {
 
   async addNote(tenantId: string, conversationId: string, authorId: string, body: string): Promise<InboxNote> {
     assertTenantId(tenantId)
+    assertTenantId(conversationId, 'conversationId')
     if (!this.conversations.has(key(tenantId, conversationId))) throw new InboxNotFoundError()
-    assertNoteBody(body)
+    assertNoteBody(body, authorId)
     const createdAt = this.clock()
     const note: InboxNote = { id: noteId(createdAt), tenantId, conversationId, authorId, body, createdAt }
     const k = key(tenantId, conversationId)
@@ -178,6 +219,7 @@ export class MemoryInboxStore implements InboxStore {
 
   async listNotes(tenantId: string, conversationId: string, options: { limit?: number } = {}): Promise<InboxNote[]> {
     assertTenantId(tenantId)
+    assertTenantId(conversationId, 'conversationId')
     const limit = assertLimit(options.limit, DEFAULT_NOTES_LIMIT, 'limit')
     return (this.notes.get(key(tenantId, conversationId)) ?? []).slice(0, limit).map((note) => ({ ...note }))
   }

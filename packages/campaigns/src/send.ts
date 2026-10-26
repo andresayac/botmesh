@@ -28,11 +28,13 @@ export interface CampaignRun {
 
 /**
  * Plan `campaign` over `recipients` and send `content` to the queued ones with
- * `bot.broadcast()`. A queued delivery is settled as `sent` when its chat appears in the
- * accepted sends, and as `failed` when it failed, was skipped by a `before('send')` hook
+ * `bot.broadcast()`. A queued delivery is settled as `sent` when the provider accepted the
+ * send to its chat (matched by the target chat id, whatever id the provider puts in the
+ * message ref), and as `failed` when it failed, was skipped by a `before('send')` hook
  * or was left pending by an abort (with a reason in `error`). Two recipients that share
  * a `chatId` (defaults to the recipient id) are sent once; the repeats fail with
- * `'duplicate chatId'`.
+ * `'duplicate chatId'`. When `bot.broadcast()` itself rejects (invalid options), every
+ * queued delivery is released as `failed` (`'broadcast rejected'`) before the error is rethrown.
  *
  * `options` is passed to `bot.broadcast()` (`batchSize`, `delayBetween`, `concurrency`,
  * `maxRetries`, `sendOptions`, `onProgress`, `onFail`, `signal`).
@@ -46,7 +48,9 @@ export async function sendCampaign(
   options: BroadcastOptions = {},
 ): Promise<CampaignRun> {
   const deliveries = await planner.plan(campaign, recipients)
-  const byId = new Map(recipients.map((recipient) => [recipient.id, recipient]))
+  // The first occurrence of a repeated recipient is the one plan() queued.
+  const byId = new Map<string, CampaignRecipient>()
+  for (const recipient of recipients) if (!byId.has(recipient.id)) byId.set(recipient.id, recipient)
   const chatOf = (delivery: Delivery): string => byId.get(delivery.recipientId)?.chatId ?? delivery.recipientId
   const settleErrors: CampaignSettleError[] = []
 
@@ -67,15 +71,37 @@ export async function sendCampaign(
     queued.push(delivery)
   }
 
-  const broadcast = await bot.broadcast(targets, content, options)
-  const accepted = new Set(broadcast.messages.map((message) => message.ref.chatId))
+  // Outcomes are keyed by the target chat id as passed to broadcast(). The accepted
+  // messages' `ref.chatId` is the provider's (it may be canonicalized, e.g. a phone number
+  // turned into a JID), so it cannot tell which target was sent: onProgress can, because
+  // its `last.sent` counter only moves for an accepted (not hook-skipped) send.
+  const outcomes = new Map<string, 'sent' | 'skipped'>()
+  let sentSoFar = 0
+  const userProgress = options.onProgress
+  const onProgress: BroadcastOptions['onProgress'] = (done, total, last) => {
+    if (last.ok) outcomes.set(last.chatId, last.sent > sentSoFar ? 'sent' : 'skipped')
+    sentSoFar = last.sent
+    userProgress?.(done, total, last)
+  }
+
+  let broadcast: BroadcastResult
+  try {
+    broadcast = await bot.broadcast(targets, content, { ...options, onProgress })
+  } catch (error) {
+    // Nothing was sent (broadcast only rejects for invalid options): release every slot.
+    for (const delivery of queued) {
+      const settled = await settle(delivery, settleErrors, () => planner.markFailed(delivery.deliveryId!, 'broadcast rejected'))
+      if (settled) applySettled(delivery, settled)
+    }
+    throw error
+  }
   const failed = new Map(broadcast.errors.map((failure) => [failure.chatId, failure.error]))
   const pending = new Set(broadcast.pending)
 
   for (const delivery of queued) {
     const chatId = chatOf(delivery)
     const settleAs = (): Promise<Delivery> => {
-      if (accepted.has(chatId)) return planner.markSent(delivery.deliveryId!)
+      if (outcomes.get(chatId) === 'sent') return planner.markSent(delivery.deliveryId!)
       if (failed.has(chatId)) return planner.markFailed(delivery.deliveryId!, failed.get(chatId)!.message)
       if (pending.has(chatId)) return planner.markFailed(delivery.deliveryId!, 'cancelled')
       return planner.markFailed(delivery.deliveryId!, 'skipped')

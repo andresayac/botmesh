@@ -5,7 +5,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { assertTenantId } from '@botmesh/tenant-kv'
-import type { CommitInput, DeploymentStore } from './store.js'
+import { heldByOther, type CommitInput, type DeploymentStore } from './store.js'
 import { DeploymentExistsError, DeploymentNotFoundError, gateRunId, type Deployment, type GateRun } from './types.js'
 
 /** Per-bot state: the active version, the publish order and the live reservations. */
@@ -98,7 +98,7 @@ export class MemoryDeploymentStore implements DeploymentStore {
     const state = this.state(tenantId, botId)
     if (state.versions.includes(version)) throw new DeploymentExistsError()
     const live = state.pending[version]
-    if (!input.reserved && live !== undefined && live > this.clock()) throw new DeploymentExistsError()
+    if (heldByOther(input, live, this.clock())) throw new DeploymentExistsError()
     this.versions.set(versionKey(tenantId, botId, version), {
       artifact: input.artifact,
       createdAt: this.clock(),

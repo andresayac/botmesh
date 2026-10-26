@@ -19,6 +19,8 @@ await registry.enable('acme', manifest.id, manifest.permissions)
 - `botwa`: semver range the runtime version must satisfy. Supports exact versions, `=`, `>`, `>=`, `<`, `<=`, `^`, `~`, x-ranges (`2`, `2.x`, `2.1.*`, `*`), space-separated intersections and `||` unions. It does not support hyphen ranges (`1.0.0 - 2.0.0`) or the `v` prefix. Prereleases are ordered by precedence: `^2.0.0` accepts neither `2.0.0-alpha.1` (use `^2.0.0-alpha.1` or `>=2.0.0-0`) nor `3.0.0-alpha.1`.
 - `entry`: POSIX-relative path inside the package. Absolute paths, drive letters (`C:/x.js`), UNC paths and backslashes, URLs (`file:///x.js`), `..` or empty segments and control characters are rejected; names such as `a..b.js` are valid.
 
+The manifest is treated as untrusted input (e.g. parsed JSON): every field is type-checked, `permissions` must be an array of the known permissions (`PLUGIN_PERMISSIONS`; anything else is rejected), version numbers must be safe integers, and the returned manifest keeps only the known fields. `enable()` re-checks the grants inside the store's compare-and-set (`PluginStore.setEnabled(…, check)`), so a concurrent re-install that adds permissions is never enabled without them.
+
 The registry neither executes code nor downloads packages; signing, sandboxing and the remote marketplace are the responsibility of the next infrastructure layer.
 
 ## Storage

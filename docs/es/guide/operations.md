@@ -120,19 +120,19 @@ El mismo journal puede servir además como backend de durabilidad de un bot (`ev
 
 ### Inbox y CRM
 
-`@botmesh/inbox` incorpora asignación con concurrencia optimista (compare-and-set sobre `version`), handoff, notas y unread. Proyecta los `StoredMessage` del ledger con `inbox.projectMessage(message)` para reconstruir conversaciones entre canales; `attachInbox(bot, inbox)` lo hace para un bot en marcha. Persiste con `new Inbox(new KvInboxStore(kv))`.
+`@botmesh/inbox` incorpora asignación con concurrencia optimista (compare-and-set sobre `version`), handoff, notas y unread. Proyecta los `StoredMessage` del ledger con `inbox.projectMessage(message)` para reconstruir conversaciones entre canales; `attachInbox(bot, inbox)` lo hace para un bot en marcha, tanto con los mensajes entrantes como con los envíos aceptados, sin retrasar ninguno; un fallo de la proyección va al evento `'error'` del bot (`{ error }`) o, si nadie lo escucha, al logger del bot. Persiste con `new Inbox(new KvInboxStore(kv))`.
 
 `@botmesh/crm` guarda canales de contacto, tags, atributos y consentimiento de marketing, con segmentos por reglas (`tagsAll`, atributos comparados de forma estricta, consentimiento). `ContactDirectory` es async sobre `MemoryContactStore` o `KvContactStore`; `setConsent` reintenta a los escritores concurrentes en vez de pisarlos. Segmenta siempre las campañas con datos aislados por tenant y con consentimiento.
 
 ### Campañas, plugins y despliegues
 
-`@botmesh/campaigns` descarta opt-outs, segmentos que no coinciden y destinatarios duplicados. El store reserva un hueco de envío por `(tenant, campaña, destinatario)` con TTL; `markSent` cuenta el envío y `markFailed` libera el hueco. `sendCampaign(bot, planner, …)` envía con `bot.broadcast()` y asienta cada delivery con el resultado real (aceptado, fallido, descartado por un hook o cancelado).
+`@botmesh/campaigns` descarta opt-outs, segmentos que no coinciden y destinatarios duplicados. El store reserva un hueco de envío por `(tenant, campaña, destinatario)` con TTL; `markSent` cuenta el envío y `markFailed` libera el hueco. `sendCampaign(bot, planner, …)` envía con `bot.broadcast()` y asienta cada delivery con el resultado real (aceptado, fallido, descartado por un hook o cancelado), emparejado por el chat de destino aunque el proveedor responda con un id canónico; si el propio broadcast rechaza, se liberan todos los huecos reservados.
 
-`@botmesh/hub` valida manifiestos de plugins, compatibilidad con el runtime y permisos concedidos antes de habilitar un plugin. Las instalaciones y el enable/disable se persisten por tenant; por sí solo no ejecuta ni aísla código no confiable.
+`@botmesh/hub` valida manifiestos de plugins, compatibilidad con el runtime y permisos concedidos antes de habilitar un plugin. Los manifiestos se tratan como JSON no confiable (se comprueba el tipo de cada campo y se rechazan los permisos desconocidos) y el enable vuelve a comprobar los permisos de forma atómica, así que una reinstalación concurrente con más permisos nunca queda habilitada sin ellos. Las instalaciones y el enable/disable se persisten por tenant; por sí solo no ejecuta ni aísla código no confiable.
 
 `@botmesh/deployments` registra versiones inmutables y un despliegue activo por tenant/bot, con reservas para gates en ejecución y auditoría de gate runs. Conéctalo a tu sistema de despliegue para hacer rollouts graduales y rollback físico.
 
-Los cinco comparten el mismo modelo de almacenamiento: `Memory…Store` (referencia), `Kv…Store` sobre cualquier `DurableKv`, una suite de conformidad en `test-utils/` y aislamiento de tenant impuesto por el nombre de la tabla en el backend (`@botmesh/tenant-kv`).
+Los cinco comparten el mismo modelo de almacenamiento: `Memory…Store` (referencia), `Kv…Store` sobre cualquier `DurableKv`, una suite de conformidad en `test-utils/` y aislamiento de tenant impuesto por el nombre de la tabla en el backend (`@botmesh/tenant-kv`). Toda escritura se valida antes de llegar al backend (un campo mal formado falla con un `TypeError` que lo nombra), así que una escritura mala nunca deja ilegibles los listados de un tenant.
 
 ## Trazas (OpenTelemetry)
 

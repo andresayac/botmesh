@@ -95,10 +95,13 @@ export class KvCampaignStore implements CampaignStore {
       await backoff(attempt)
       const current = await table.get(input.recipientId)
       const state = current?.doc ?? emptyState(input.tenantId, input.campaignId, input.recipientId)
-      const outcome = applyReserve(state, input)
-      if (outcome !== 'reserved') return outcome ?? 'duplicate'
+      const reservations = Object.keys(state.inflight).length
+      const outcome = applyReserve(state, input) ?? 'duplicate'
+      // A refused reservation is still written when it expired stale ones (as the memory
+      // store does): an expired delivery can then no longer be settled and over-count.
+      if (outcome !== 'reserved' && (!current || Object.keys(state.inflight).length === reservations)) return outcome
       const written = current ? await table.replace(input.recipientId, current.version, state) : await table.insert(input.recipientId, state)
-      if (written) return 'reserved'
+      if (written) return outcome
     }
     throw new Error(`too much contention reserving ${JSON.stringify(input.recipientId)} after ${this.attempts} attempts`)
   }

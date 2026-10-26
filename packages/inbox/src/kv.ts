@@ -101,6 +101,7 @@ export class KvInboxStore implements InboxStore {
 
   async get(tenantId: string, id: string): Promise<InboxConversation | undefined> {
     assertTenantId(tenantId)
+    assertTenantId(id, 'id')
     return (await this.conversations.in(tenantId).get(id))?.doc
   }
 
@@ -115,6 +116,7 @@ export class KvInboxStore implements InboxStore {
 
   async update(tenantId: string, id: string, expectedVersion: number, patch: InboxPatch): Promise<InboxConversation> {
     assertTenantId(tenantId)
+    assertTenantId(id, 'id')
     const table = this.conversations.in(tenantId)
     const current = await table.get(id)
     if (!current) throw new InboxNotFoundError()
@@ -139,8 +141,9 @@ export class KvInboxStore implements InboxStore {
 
   async addNote(tenantId: string, conversationId: string, authorId: string, body: string): Promise<InboxNote> {
     assertTenantId(tenantId)
+    assertTenantId(conversationId, 'conversationId')
     if (!(await this.conversations.in(tenantId).get(conversationId))) throw new InboxNotFoundError()
-    assertNoteBody(body)
+    assertNoteBody(body, authorId)
     const createdAt = this.clock()
     const note: InboxNote = { id: noteId(createdAt), tenantId, conversationId, authorId, body, createdAt }
     if (!(await this.notes.in(tenantId, conversationId).insert(note.id, note))) throw new Error('note id collision')
@@ -149,6 +152,7 @@ export class KvInboxStore implements InboxStore {
 
   async listNotes(tenantId: string, conversationId: string, options: { limit?: number } = {}): Promise<InboxNote[]> {
     assertTenantId(tenantId)
+    assertTenantId(conversationId, 'conversationId')
     const limit = assertLimit(options.limit, DEFAULT_NOTES_LIMIT, 'limit')
     return this.notes.in(tenantId, conversationId).list({ limit })
   }

@@ -8,7 +8,9 @@ Lightweight per-tenant CRM: contacts, channels, tags, attributes, marketing cons
 import { ContactDirectory, KvContactStore } from '@botmesh/crm'
 import { PostgresDurableKv } from '@botmesh/postgres-store'
 
-const contacts = new ContactDirectory(new KvContactStore(new PostgresDurableKv({ pool })))
+const kv = new PostgresDurableKv({ pool })
+await kv.start() // creates the table; whoever creates the kv also stops it
+const contacts = new ContactDirectory(new KvContactStore(kv))
 await contacts.upsert({
   tenantId: 'acme',
   id: 'person-1',
@@ -20,7 +22,9 @@ await contacts.upsert({
 const recipients = await contacts.segment('acme', { tagsAll: ['vip'], marketingConsent: true })
 ```
 
-`upsert()` replaces the whole contact (no merge) and stores tags deduplicated and sorted. `segment()` applies every criterion with AND and compares attributes by strict equality (`30` does not match `'30'`). `setConsent()` is a compare-and-set: two concurrent writers retry, never overwrite each other.
+`upsert()` replaces the whole contact (no merge) and stores tags deduplicated and sorted. `segment()` applies every criterion with AND and compares attributes by strict equality (`30` does not match `'30'`). `upsert()` and `setConsent()` are compare-and-set loops: concurrent writers retry instead of failing, and the last `upsert` wins whole.
+
+Every write is validated (a `TypeError` names the field): `channels` must map names to strings, `tags` must be an array of strings, `attributes` values must be strings, **finite** numbers or booleans (no `NaN`, `null` or nested objects) and `marketingConsent` must be a boolean. A malformed contact is never stored, so it cannot break `segment()` for the tenant.
 
 ## Storage
 

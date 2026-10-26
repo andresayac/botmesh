@@ -17,7 +17,8 @@ import { realKvBackends, type KvSession } from '../../../test-utils/real-kv-back
 const manifest = { id: 'crm-sync', version: '1.0.0', botwa: '^2.0.0', entry: 'dist/index.js', permissions: ['contacts:read'] as const }
 
 for (const backend of realKvBackends({ sqlite, postgres, redis, pg, redisClient })) {
-  describe.skipIf(!backend.enabled)(`KvPluginStore — ${backend.name}`, () => {
+  // Real servers under load (contended compare-and-set loops with jittered back-off) can exceed the default 5 s.
+  describe.skipIf(!backend.enabled)(`KvPluginStore — ${backend.name}`, { timeout: 30_000 }, () => {
     let session: KvSession
     beforeAll(async () => { session = await backend.open() })
     afterAll(async () => { await session.close() })

@@ -60,11 +60,12 @@ export class MemoryPluginStore implements PluginStore {
       .map(clonePlugin)
   }
 
-  async setEnabled(tenantId: string, id: string, enabled: boolean): Promise<InstalledPlugin> {
+  async setEnabled(tenantId: string, id: string, enabled: boolean, check?: (record: InstalledPlugin) => void): Promise<InstalledPlugin> {
     assertPluginIds(tenantId, id)
     const key = pluginKey(tenantId, id)
     const record = this.plugins.get(key)
     if (!record) throw new PluginManifestError('plugin not installed')
+    check?.(clonePlugin(record))
     const next: InstalledPlugin = { ...record, enabled: enabled === true }
     this.plugins.set(key, next)
     return clonePlugin(next)

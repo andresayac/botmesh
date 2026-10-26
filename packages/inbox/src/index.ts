@@ -13,7 +13,9 @@
  *
  * @example
  * ```ts
- * const inbox = new Inbox(new KvInboxStore(new PostgresDurableKv({ pool })))
+ * const kv = new PostgresDurableKv({ pool })
+ * await kv.start() // creates the table; whoever creates the kv also stops it
+ * const inbox = new Inbox(new KvInboxStore(kv))
  * const conversation = await inbox.projectMessage(storedMessage)
  * const assigned = await inbox.assign('acme', conversation.id, 'agent-7', conversation.version)
  * await inbox.handoff('acme', assigned.id, true, assigned.version)

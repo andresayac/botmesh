@@ -38,16 +38,26 @@ const VERSION = new RegExp(`^(${NUM})\\.(${NUM})\\.(${NUM})${PRE}${BUILD}$`)
 const XR = `${NUM}|[xX*]`
 const COMPARATOR = new RegExp(`^(\\^|~|>=|<=|>|<|=)?(${XR})(?:\\.(${XR})(?:\\.(${XR})${PRE}${BUILD})?)?$`)
 
-/** Parse a full `MAJOR.MINOR.PATCH[-pre][+build]` version, or `undefined` when invalid. */
+/**
+ * Parse a full `MAJOR.MINOR.PATCH[-pre][+build]` version, or `undefined` when invalid
+ * (including numbers beyond `Number.MAX_SAFE_INTEGER`, which would compare imprecisely;
+ * npm's `semver` rejects them too).
+ */
 export function parseVersion(input: string): SemVer | undefined {
-  const match = VERSION.exec(input)
+  const match = typeof input === 'string' ? VERSION.exec(input) : null
   if (!match) return undefined
-  return {
+  const version = {
     major: Number(match[1]),
     minor: Number(match[2]),
     patch: Number(match[3]),
     prerelease: parsePrerelease(match[4]),
   }
+  return isSafe(version) ? version : undefined
+}
+
+/** `true` when every numeric part (prerelease identifiers included) is a safe integer. */
+function isSafe({ major, minor, patch, prerelease }: SemVer): boolean {
+  return [major, minor, patch, ...prerelease.filter((id) => typeof id === 'number')].every((n) => Number.isSafeInteger(n))
 }
 
 /**
@@ -150,7 +160,8 @@ function parseComparator(token: string): Comparator[] | undefined {
   if (M === undefined) return op === '<' || op === '>' ? NOTHING : []
 
   const lower = v(M, m ?? 0, p ?? 0, prerelease)
-  const ge = (version: SemVer): Comparator => ({ op: '>=', version })
+  if (!isSafe(lower)) return undefined
+  const ge =(version: SemVer): Comparator => ({ op: '>=', version })
   const lt = (version: SemVer): Comparator => ({ op: '<', version })
 
   switch (op) {

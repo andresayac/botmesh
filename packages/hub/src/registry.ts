@@ -37,13 +37,18 @@ export class PluginRegistry {
    * declared permissions missing from `granted`.
    */
   async enable(tenantId: string, id: string, granted: readonly PluginPermission[]): Promise<InstalledPlugin> {
+    const assertGranted = (record: InstalledPlugin): void => {
+      const missing = record.manifest.permissions.filter((permission) => !granted.includes(permission))
+      if (missing.length) {
+        throw new PluginManifestError(`missing granted permissions: ${missing.join(', ')}`)
+      }
+    }
     const record = await this.store.get(tenantId, id)
     if (!record) throw new PluginManifestError('plugin not installed')
-    const missing = record.manifest.permissions.filter((permission) => !granted.includes(permission))
-    if (missing.length) {
-      throw new PluginManifestError(`missing granted permissions: ${missing.join(', ')}`)
-    }
-    return this.store.setEnabled(tenantId, id, true)
+    assertGranted(record)
+    // Checked again on the record actually written: a re-install between the read and the
+    // write (with more permissions) is refused instead of enabled.
+    return this.store.setEnabled(tenantId, id, true, assertGranted)
   }
 
   /** Disable an installed plugin. */

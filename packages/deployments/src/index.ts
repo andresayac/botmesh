@@ -15,7 +15,9 @@
  *
  * @example
  * ```ts
- * const registry = new DeploymentRegistry(new KvDeploymentStore(new PostgresDurableKv({ pool })))
+ * const kv = new PostgresDurableKv({ pool })
+ * await kv.start() // creates the table; whoever creates the kv also stops it
+ * const registry = new DeploymentRegistry(new KvDeploymentStore(kv))
  * await registry.publish('acme', 'support', '1.2.0', 'sha256:...')
  * await registry.rollback('acme', 'support', '1.1.0')
  *

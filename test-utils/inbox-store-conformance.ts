@@ -156,6 +156,33 @@ export function runInboxStoreConformance(name: string, harness: InboxStoreHarnes
       await expect(store.upsert(open('', 'c'))).rejects.toThrow(TypeError)
       await expect(store.upsert(open('a', ''))).rejects.toThrow(TypeError)
       await expect(store.list('')).rejects.toThrow(TypeError)
+      await expect(store.get('a', '')).rejects.toThrow(TypeError)
+      await expect(store.update('a', '', 1, {})).rejects.toThrow(TypeError)
+      await expect(store.listNotes('a', '')).rejects.toThrow(TypeError)
+    })
+
+    it('rejects malformed fields before writing, so one bad write never breaks the tenant listing', async () => {
+      const bad = (extra: Record<string, unknown>) => ({ ...open('a', 'c'), ...extra }) as never
+      await expect(store.upsert(bad({ status: 'bogus' }))).rejects.toThrow(/status/)
+      await expect(store.upsert(bad({ handoff: 'yes' }))).rejects.toThrow(/handoff/)
+      await expect(store.upsert(bad({ slaDueAt: Number.NaN }))).rejects.toThrow(/slaDueAt/)
+      await expect(store.upsert(bad({ assigneeId: 7 }))).rejects.toThrow(/assigneeId/)
+      expect(await store.get('a', 'c')).toBeUndefined()
+      const created = await store.upsert(open('a', 'c'))
+      await expect(store.update('a', 'c', created.version, { status: 'closed' } as never)).rejects.toThrow(/status/)
+      await expect(store.update('a', 'c', created.version, { handoff: 1 } as never)).rejects.toThrow(/handoff/)
+      await expect(store.update('a', 'c', created.version, { slaDueAt: Number.POSITIVE_INFINITY })).rejects.toThrow(/slaDueAt/)
+      await expect(store.update('a', 'c', created.version, { assigneeId: '' })).rejects.toThrow(/assigneeId/)
+      expect(await store.list('a')).toEqual([created])
+      await expect(store.applyMessage(message({ chatId: '' }))).rejects.toThrow(TypeError)
+      await expect(store.addNote('a', 'c', '', 'x')).rejects.toThrow(/authorId/)
+    })
+
+    it('stores unicode ids and bodies as they are', async () => {
+      const created = await store.upsert(open('tenant-ñ', '🦜 chat/1:{x}'))
+      expect(await store.get('tenant-ñ', '🦜 chat/1:{x}')).toEqual(created)
+      await store.addNote('tenant-ñ', '🦜 chat/1:{x}', 'agent-é', 'hola 👋 \u0000 end')
+      expect((await store.listNotes('tenant-ñ', '🦜 chat/1:{x}'))[0]?.body).toBe('hola 👋 \u0000 end')
     })
   })
 }

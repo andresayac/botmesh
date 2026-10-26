@@ -115,5 +115,39 @@ export function runContactStoreConformance(name: string, harness: ContactStoreHa
       await expect(store.segment('', {})).rejects.toThrow(TypeError)
       await expect(store.get('', 'u')).rejects.toThrow(TypeError)
     })
+
+    it('rejects malformed contacts before writing, so one bad write never breaks the tenant segments', async () => {
+      const bad = (overrides: Record<string, unknown>) => store.upsert(input(overrides) as never)
+      await expect(bad({ tags: 'vip' })).rejects.toThrow(/tags/)
+      await expect(bad({ tags: ['vip', 7] })).rejects.toThrow(/tags/)
+      await expect(bad({ channels: { wa: 57300 } })).rejects.toThrow(/channels/)
+      await expect(bad({ channels: null })).rejects.toThrow(/channels/)
+      await expect(bad({ attributes: { score: Number.NaN } })).rejects.toThrow(/attributes/)
+      await expect(bad({ attributes: { score: Number.POSITIVE_INFINITY } })).rejects.toThrow(/attributes/)
+      await expect(bad({ attributes: { nested: { a: 1 } } })).rejects.toThrow(/attributes/)
+      await expect(bad({ attributes: { gone: null } })).rejects.toThrow(/attributes/)
+      await expect(bad({ marketingConsent: 'yes' })).rejects.toThrow(/marketingConsent/)
+      expect(await store.get('a', 'u')).toBeUndefined()
+      await store.upsert(input())
+      expect(await store.segment('a', {})).toHaveLength(1)
+      await expect(store.setConsent('a', 'u', 'no' as never)).rejects.toThrow(/marketingConsent/)
+      expect((await store.get('a', 'u'))?.marketingConsent).toBe(true)
+    })
+
+    it('concurrent upserts of the same contact never fail: the last write wins whole', async () => {
+      const results = await Promise.all(
+        Array.from({ length: 12 }, (_, i) => store.upsert(input({ tags: [`t${i}`], attributes: { n: i } }))),
+      )
+      expect(results).toHaveLength(12)
+      const stored = await store.get('a', 'u')
+      const i = stored!.attributes.n as number
+      expect(stored!.tags).toEqual([`t${i}`])
+    })
+
+    it('stores unicode ids, tags and attributes as they are', async () => {
+      const created = await store.upsert(input({ tenantId: 'tenant-ñ', id: '🦜/1:{x}', tags: ['café', 'é', '🦜'], attributes: { ciudad: 'Bogotá 🇨🇴' } }))
+      expect(await store.get('tenant-ñ', '🦜/1:{x}')).toEqual(created)
+      expect(await store.segment('tenant-ñ', { tagsAll: ['🦜'], attributes: { ciudad: 'Bogotá 🇨🇴' } })).toEqual([created])
+    })
   })
 }
