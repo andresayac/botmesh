@@ -264,7 +264,9 @@ describe.skipIf(!existsSync(devEntry))('use-case bots run in the botmesh dev sim
     const entry = await prepare('ai-full')
     const mod = (await import(pathToFileURL(entry).href)) as { default: (provider: unknown) => Promise<unknown> }
     const testing = (await import(pathToFileURL(testingEntry).href)) as { MockProvider: new () => unknown }
-    const ai = (await import(pathToFileURL(aiEntry).href)) as { defaultConfirmPrompt: (name: string, tool: unknown, args: unknown) => string }
+    const ai = (await import(pathToFileURL(aiEntry).href)) as { defaultConfirmPrompt: (name: string, tool: unknown, args: unknown, ctx?: { lang: string }) => string }
+    // The template pins its built-in texts to Spanish; outside a chat the AI texts default to English.
+    const ES = { lang: 'es' }
     await mod.default(new testing.MockProvider())
     type Tool = { schema?: Record<string, any>; confirm?: boolean; dedupe?: unknown; title?: string; labels?: Record<string, Record<string, string>>; handler: (args: any, tctx: any) => any }
     const tools = (globalThis as { __botwaAiConfig?: { tools: Record<string, Tool> } }).__botwaAiConfig!.tools
@@ -296,7 +298,7 @@ describe.skipIf(!existsSync(devEntry))('use-case bots run in the botmesh dev sim
       total: 94000,
     })
     // The confirmations show human names and the code-computed total, never raw keys.
-    const createPrompt = ai.defaultConfirmPrompt('crear_pedido', tools.crear_pedido, { items })
+    const createPrompt = ai.defaultConfirmPrompt('crear_pedido', tools.crear_pedido, { items }, ES)
     expect(createPrompt).toBe([
       'Voy a: Crear pedido',
       '• 2 × Torta de chocolate: $90.000',
@@ -304,9 +306,9 @@ describe.skipIf(!existsSync(devEntry))('use-case bots run in the botmesh dev sim
       'Total: $94.000',
       '¿Confirmas? (sí/no)',
     ].join('\n'))
-    const updatePrompt = ai.defaultConfirmPrompt('actualizar_pedido', tools.actualizar_pedido, { id: 'P-1', items: [{ producto: 'pan_queso', cantidad: 3 }] })
+    const updatePrompt = ai.defaultConfirmPrompt('actualizar_pedido', tools.actualizar_pedido, { id: 'P-1', items: [{ producto: 'pan_queso', cantidad: 3 }] }, ES)
     expect(updatePrompt).toBe('Voy a: Cambiar pedido\n• Pedido: P-1\n• 3 × Pan de queso: $10.500\nTotal nuevo: $10.500\n¿Confirmas? (sí/no)')
-    expect(ai.defaultConfirmPrompt('cancelar_pedido', tools.cancelar_pedido, { id: 'P-1' })).toBe('Voy a: Cancelar pedido\n• Pedido: P-1\n¿Confirmas? (sí/no)')
+    expect(ai.defaultConfirmPrompt('cancelar_pedido', tools.cancelar_pedido, { id: 'P-1' }, ES)).toBe('Voy a: Cancelar pedido\n• Pedido: P-1\n¿Confirmas? (sí/no)')
     for (const prompt of [createPrompt, updatePrompt]) expect(prompt).not.toMatch(/torta_chocolate|pan_queso/)
 
     const order = await tools.crear_pedido!.handler({ items: [{ producto: 'torta_chocolate', cantidad: 2 }] }, tctx)

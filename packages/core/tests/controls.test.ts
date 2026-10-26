@@ -45,7 +45,7 @@ describe('controls', () => {
     const rt = makeRt({ retriesMessage: 'agotado' })
     const start = makeMsg('start')
     const entry = rt.enter(async (c: any) => {
-      await c.ask('¿Email?', { validate: () => 'mal', retries: 2 })
+      await c.ask('¿Email?', { validate: () => 'mal', maxAttempts: 2 })
     }, start)
     await Promise.resolve()
     rt.deliver(makeMsg('x'))

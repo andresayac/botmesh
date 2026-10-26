@@ -880,7 +880,7 @@ export interface MessageContext<TTools extends object = DefaultTools, TRaw = unk
    */
   lang: string
   /**
-   * The bot's default locale (`i18n.defaultLocale`, `'es'` unless configured), whatever
+   * The bot's default locale (`lang` / `i18n.defaultLocale`, `'en'` unless configured), whatever
    * {@link lang} resolved to. Plugins that ship their own built-in texts for a few
    * languages use it as the fallback for a `lang` they do not cover.
    */
@@ -1334,6 +1334,14 @@ export type StoreKind = 'memory' | 'sqlite' | 'redis' | 'postgres' | 'mongo' | '
  * `BaileysProviderConfig`, consumed when you construct the provider you inject
  * here. The provider is now the transport boundary — you build it, then pass it.
  */
+/** Options of `BotConfig.rateLimitRetry`. */
+export interface RateLimitRetryOptions {
+  /** Retries after the first attempt. Default `1`. */
+  retries?: number
+  /** Longest `retryAfterMs` waited on (ms or `'5s'`). Default `5000`. */
+  maxWaitMs?: number | string
+}
+
 export interface BotConfig {
   session?: string
   /** Storage and control-plane namespace. Defaults to `local`. */
@@ -1388,6 +1396,14 @@ export interface BotConfig {
     cancelledMessage?: string
   }
   groupMode?: 'all' | 'mentions' | 'commands'
+  /**
+   * Language of the built-in texts (conversation timeouts and retries, wait and form
+   * prompts, slash-command replies) and of `ctx.lang`. Default `'en'`; `'es'` (also
+   * bundled) restores the Spanish texts of the 2.0 alphas. Unlike `i18n.defaultLocale`
+   * it does NOT turn on per-user language resolution (no `ctx.user` read, no provider
+   * language): a single-language bot sets this and nothing else.
+   */
+  lang?: string
   /** Native i18n options (default locale, detector, …). See `bot.locale()`. */
   i18n?: I18nConfig
   /** Human handoff behaviour (escape commands, persistence). See `bot.handoff()`. */
@@ -1401,8 +1417,25 @@ export interface BotConfig {
   typing?: boolean | TypingConfig
   /** Pluggable pacing policy; a transport may also own its own limiter. */
   rateLimit?: unknown
+  /**
+   * In-place retry of a `ctx` send (`reply`/`say`/media in handlers, flows and conversations)
+   * that the transport rejects with a `RateLimitedError` asking for a short wait: the send
+   * waits `retryAfterMs` and is tried again (same payload, hooks not re-run), so a
+   * conversation step does not end on a transient 429. Default `{ retries: 1, maxWaitMs: 5000 }`:
+   * one retry, only when the wait is at most 5 s. A longer wait, other errors and `bot.send()`
+   * fail as before (broadcasts and the durable outbox have their own back-off). `false`
+   * disables it. `retries` counts attempts AFTER the first, like every `retries` option.
+   */
+  rateLimitRetry?: false | RateLimitRetryOptions
   /** Built-in logger at `debug` level. Without it (and without `logger`) the default level is `warn`. */
   debug?: boolean
+  /**
+   * How chat and sender ids appear in the bot's own log lines (a phone number or an email
+   * is personal data): `'hash'` (default, HMAC-SHA256 truncated to 16 chars, stable within
+   * the process — the same hashes as the trace spans when `telemetry` is on), `'raw'` (as is,
+   * for local debugging) or `'omit'`. Uses `telemetry.idKey` as the HMAC key when set.
+   */
+  logIds?: 'hash' | 'raw' | 'omit'
   logger?: LoggerLike
   // --- multi-replica coordination -------------------------------------------
   /**

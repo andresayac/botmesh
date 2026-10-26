@@ -6,6 +6,7 @@
  */
 
 import type { BotConfig } from '../core/types.js'
+import { parseTimerDuration } from './timers.js'
 
 export class ConfigValidationError extends Error {
   constructor(
@@ -49,6 +50,14 @@ export function validateConfig<T extends Partial<BotConfig>>(config: T): T {
     if (typeof config.echoFilter !== 'object' || config.echoFilter === null) {
       throw new ConfigValidationError('echoFilter', 'true | { size?, ttl? }', config.echoFilter)
     }
+  }
+
+  if (config.lang !== undefined && (typeof config.lang !== 'string' || config.lang.trim() === '')) {
+    throw new ConfigValidationError('lang', "a non-empty locale code (e.g. 'en', 'es')", config.lang)
+  }
+  if (config.lang !== undefined && config.i18n?.defaultLocale !== undefined
+    && config.lang.trim().toLowerCase().replace(/_/g, '-') !== String(config.i18n.defaultLocale).trim().toLowerCase().replace(/_/g, '-')) {
+    throw new ConfigValidationError('lang', `the same locale as i18n.defaultLocale (${String(config.i18n.defaultLocale)})`, config.lang)
   }
 
   if (config.commandPrefix === '') {
@@ -101,6 +110,28 @@ export function validateConfig<T extends Partial<BotConfig>>(config: T): T {
       assertStringOrNumber('coordination.handover.ttl', h.ttl)
       if (h.maxAnswerBytes !== undefined && (typeof h.maxAnswerBytes !== 'number' || !(h.maxAnswerBytes >= 0))) {
         throw new ConfigValidationError('coordination.handover.maxAnswerBytes', 'number >= 0', h.maxAnswerBytes)
+      }
+    }
+  }
+
+  if (config.logIds !== undefined && !['hash', 'raw', 'omit'].includes(config.logIds as string)) {
+    throw new ConfigValidationError('logIds', "'hash' | 'raw' | 'omit'", config.logIds)
+  }
+
+  if (config.rateLimitRetry !== undefined && config.rateLimitRetry !== false) {
+    const r = config.rateLimitRetry as unknown
+    if (typeof r !== 'object' || r === null || Array.isArray(r)) {
+      throw new ConfigValidationError('rateLimitRetry', 'false | { retries?, maxWaitMs? }', r)
+    }
+    const { retries, maxWaitMs } = r as { retries?: unknown; maxWaitMs?: unknown }
+    if (retries !== undefined && !(typeof retries === 'number' && Number.isInteger(retries) && retries >= 0)) {
+      throw new ConfigValidationError('rateLimitRetry.retries', 'an integer >= 0', retries)
+    }
+    if (maxWaitMs !== undefined) {
+      try {
+        parseTimerDuration(maxWaitMs as string | number, 'rateLimitRetry.maxWaitMs')
+      } catch {
+        throw new ConfigValidationError('rateLimitRetry.maxWaitMs', "a duration (ms or '5s')", maxWaitMs)
       }
     }
   }

@@ -34,7 +34,7 @@ describe('rag helpers', () => {
     expect(citedChunks('Tardan 3 días [1].', PASSAGES)).toEqual([PASSAGES[0]])
     expect(citedChunks('Ver [2] y [1] y [9]', PASSAGES)).toEqual(PASSAGES)
     expect(citedChunks('sin citas', PASSAGES)).toEqual(PASSAGES)
-    expect(formatSources([PASSAGES[0]!, PASSAGES[0]!, { text: 'x', source: 'y.txt' }])).toBe('Fuentes: faq.md › Envíos, y.txt')
+    expect(formatSources([PASSAGES[0]!, PASSAGES[0]!, { text: 'x', source: 'y.txt' }])).toBe('Sources: faq.md › Envíos, y.txt')
   })
 
   it('citedPassages keeps the original [n] of each cited passage', () => {
@@ -44,18 +44,18 @@ describe('rag helpers', () => {
   })
 
   it('formatSources numbers cited passages with their original [n], grouping repeated labels', () => {
-    expect(formatSources([{ n: 2, chunk: PASSAGES[1]! }])).toBe('Fuentes: [2] faq.md › Pagos')
+    expect(formatSources([{ n: 2, chunk: PASSAGES[1]! }])).toBe('Sources: [2] faq.md › Pagos')
     const same = { text: 'otro', source: 'faq.md', citation: 'faq.md › Envíos' }
     expect(formatSources([{ n: 1, chunk: PASSAGES[0]! }, { n: 2, chunk: PASSAGES[1]! }, { n: 3, chunk: same }]))
-      .toBe('Fuentes: [1][3] faq.md › Envíos, [2] faq.md › Pagos')
+      .toBe('Sources: [1][3] faq.md › Envíos, [2] faq.md › Pagos')
   })
 
   it('formatSources does not repeat the number of a cited passage that has no label', () => {
     const bare = { text: 'sin etiqueta' }
-    expect(formatSources([{ n: 2, chunk: bare }])).toBe('Fuentes: [2]')
-    expect(formatSources([{ n: 1, chunk: PASSAGES[0]! }, { n: 3, chunk: bare }])).toBe('Fuentes: [1] faq.md › Envíos, [3]')
+    expect(formatSources([{ n: 2, chunk: bare }])).toBe('Sources: [2]')
+    expect(formatSources([{ n: 1, chunk: PASSAGES[0]! }, { n: 3, chunk: bare }])).toBe('Sources: [1] faq.md › Envíos, [3]')
     // Uncited chunks have no [n] of their own, so their positional fallback stays.
-    expect(formatSources([PASSAGES[0]!, bare])).toBe('Fuentes: faq.md › Envíos, #2')
+    expect(formatSources([PASSAGES[0]!, bare])).toBe('Sources: faq.md › Envíos, #2')
   })
 
   it('toRagConfig accepts a retriever or { retriever }, rejects garbage', () => {
@@ -87,7 +87,7 @@ describe('AIClient + RAG', () => {
     const mock = new MockAIProvider({ reply: 'Tardan 3 días [1].' })
     const store = new MemoryStore()
     const ai = new AIClient(mock, new ContextManager(store), { rag: { retriever: fakeRetriever(), appendSources: true } })
-    expect(await ai.replyInChat('c', 'envío')).toBe('Tardan 3 días [1].\n\nFuentes: [1] faq.md › Envíos')
+    expect(await ai.replyInChat('c', 'envío')).toBe('Tardan 3 días [1].\n\nSources: [1] faq.md › Envíos')
     expect((await store.getConversation('c'))!.at(-1)!.content).toBe('Tardan 3 días [1].')
     const custom = new AIClient(mock, new ContextManager(store), {
       rag: { retriever: fakeRetriever(), appendSources: (cs) => `📚 ${cs.length}` },
@@ -98,14 +98,14 @@ describe('AIClient + RAG', () => {
   it('appendSources keeps the [n] the reply used (only [2] cited gives "[2] ..."), and passes them to a custom renderer', async () => {
     const mock = new MockAIProvider({ reply: 'Aceptamos PSE [2].' })
     const ai = new AIClient(mock, new ContextManager(new MemoryStore()), { rag: { retriever: fakeRetriever(), appendSources: true } })
-    expect(await ai.replyInChat('c', 'pagos')).toBe('Aceptamos PSE [2].\n\nFuentes: [2] faq.md › Pagos')
+    expect(await ai.replyInChat('c', 'pagos')).toBe('Aceptamos PSE [2].\n\nSources: [2] faq.md › Pagos')
     const custom = new AIClient(mock, new ContextManager(new MemoryStore()), {
       rag: { retriever: fakeRetriever(), appendSources: (cs, cited) => cited.map((p) => `${p.n}=${p.chunk.citation}`).join(';') + ` (${cs.length})` },
     })
     expect(await custom.replyInChat('d', 'pagos')).toBe('Aceptamos PSE [2].\n\n2=faq.md › Pagos (1)')
     // No citation in the reply: every retrieved source, unnumbered.
     const none = new AIClient(new MockAIProvider({ reply: 'Sí.' }), new ContextManager(new MemoryStore()), { rag: { retriever: fakeRetriever(), appendSources: true } })
-    expect(await none.replyInChat('e', 'x')).toBe('Sí.\n\nFuentes: faq.md › Envíos, faq.md › Pagos')
+    expect(await none.replyInChat('e', 'x')).toBe('Sí.\n\nSources: faq.md › Envíos, faq.md › Pagos')
   })
 
   it('custom instructions replace the default ones', async () => {
@@ -158,7 +158,7 @@ describe('aiPlugin({ rag })', () => {
   it('the autoreply answers with retrieved context; the retriever is warmed up at install', async () => {
     const mock = new MockAIProvider({ reply: (i) => (i.system?.includes('3 días') ? 'Tardan 3 días [1].' : 'no sé') })
     const retriever = fakeRetriever()
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(aiPlugin({ __provider: mock, rag: { retriever, appendSources: true } }))
     await new Promise((r) => setTimeout(r, 0))
     expect(retriever.warmed()).toBe(1)
@@ -168,7 +168,7 @@ describe('aiPlugin({ rag })', () => {
 
   it('a failing warmup is logged, not thrown', async () => {
     const retriever: AIRetriever = { retrieve: async () => [], warmup: async () => { throw new Error('bad index') } }
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(aiPlugin({ __provider: new MockAIProvider({ reply: 'ok' }), rag: retriever }))
     await chat.send('hola')
     await chat.expectReply('ok')

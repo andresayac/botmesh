@@ -8,7 +8,7 @@
 import type { RuntimeMessage } from '../conversations/ConversationRuntime.js'
 import type { ConversationControls } from '../conversations/controls.js'
 import { RetriesExceeded } from '../conversations/errors.js'
-import { DEFAULT_RETRIES } from '../conversations/retry.js'
+import { attemptBudget } from '../conversations/retry.js'
 import { UnsupportedContentError, type ProviderCapabilities } from '../core/provider.js'
 import { CORE_MESSAGES as M } from '../i18n/builtins.js'
 import type { Translate } from '../i18n/types.js'
@@ -78,10 +78,10 @@ async function runNative(
   if (typeof fc.form !== 'function') {
     throw new UnsupportedContentError('form', `form "${def.id}": native mode needs a Bot context whose provider renders forms`)
   }
-  const retries = opts.retries ?? DEFAULT_RETRIES
+  const maxAttempts = attemptBudget(opts, `form "${def.id}"`)
   const timeoutMs = timeout === undefined ? undefined : parseTimerDuration(timeout, 'form timeout')
   let invalid = 0
-  const strike = (): void => { if (++invalid >= retries) throw new RetriesExceeded() }
+  const strike = (): void => { if (++invalid >= maxAttempts) throw new RetriesExceeded() }
 
   for (;;) {
     const token = newFormToken(def.id)
@@ -150,7 +150,7 @@ async function runDegraded(
     let parsed: FormValue | undefined
     await c.ask(questionFor(field, skipWord, c.t), {
       timeout,
-      retries: opts.retries,
+      maxAttempts: attemptBudget(opts, `form "${def.id}"`),
       validate: (body) => {
         const r = parseFieldAnswer(field, body, skipWord, c.t)
         if (!r.ok) return r.message

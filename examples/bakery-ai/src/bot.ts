@@ -80,8 +80,8 @@ export function createBakeryBot(provider: IProvider, options: BakeryBotOptions =
     groupMode: options.groupMode ?? 'commands',
     // English built-in texts (slash commands, AI confirmation prompts, Yes/No buttons...),
     // pinned so they always match the English persona: a client that reports another
-    // language (e.g. Telegram's language_code "es") still gets English. To make the bot
-    // bilingual, see README → Localization.
+    // language (e.g. Telegram's language_code "es") still gets English. For a Spanish-only
+    // bot use `lang: 'es'` instead; to make it bilingual, see README → Localization.
     i18n: { defaultLocale: 'en', locales: ['en'] },
     ...(log ? { logger: log } : {}),
   })

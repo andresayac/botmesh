@@ -167,7 +167,7 @@ describe('c.idle() / c.idleClear() — conversation inactivity', () => {
     let answer = ''
     const entry = enter(rt, async (c) => {
       c.idle(1000, () => c.retry('¿Sigues ahí? Elige 1 o 2'))
-      answer = await c.choose('Elige:', { a: 'A', b: 'B' }, { timeout: 0, retries: 3 })
+      answer = await c.choose('Elige:', { a: 'A', b: 'B' }, { timeout: 0, maxAttempts: 3 })
     }, start)
     await settle()
     await vi.advanceTimersByTimeAsync(1000)
@@ -183,7 +183,7 @@ describe('c.idle() / c.idleClear() — conversation inactivity', () => {
     const start = makeMsg('start')
     const entry = enter(rt, async (c) => {
       c.idle(1000, () => c.retry())
-      await c.ask('¿Nombre?', { timeout: 0, retries: 2 })
+      await c.ask('¿Nombre?', { timeout: 0, maxAttempts: 2 })
     }, start)
     await settle()
     await vi.advanceTimersByTimeAsync(1000)                   // attempt 1: re-prompt
@@ -195,7 +195,7 @@ describe('c.idle() / c.idleClear() — conversation inactivity', () => {
     const start2 = makeMsg('start')
     const entry2 = enter(rt, async (c) => {
       c.idle(1000, () => c.retry())
-      await c.ask('¿Nombre?', { timeout: 0, retries: 2 })
+      await c.ask('¿Nombre?', { timeout: 0, maxAttempts: 2 })
     }, start2)
     await settle()
     await vi.advanceTimersByTimeAsync(1000)                   // attempt 1
@@ -394,7 +394,7 @@ describe('c.idle() / c.idleClear() — conversation inactivity', () => {
     const entry = enter(rt, async (c) => {
       c.idle(1000, async () => { await c.retry() })
       try {
-        await c.ask('Q1', { timeout: 1500, retries: 5 })
+        await c.ask('Q1', { timeout: 1500, maxAttempts: 5 })
       } catch (e) {
         if (!(e instanceof ConversationTimeout)) throw e      // handled: carry on with Q2
       }

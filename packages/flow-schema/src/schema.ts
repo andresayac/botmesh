@@ -92,14 +92,14 @@ export interface FlowFormDocument {
 /** One step of a flow document. */
 export type FlowStepDocument =
   | { kind: 'say'; text: string }
-  | { kind: 'ask'; text: string; stateKey: string; timeout?: FlowDuration; retries?: number; validate?: { expr: string; message?: string } }
+  | { kind: 'ask'; text: string; stateKey: string; timeout?: FlowDuration; maxAttempts?: number; retries?: number; validate?: { expr: string; message?: string } }
   | { kind: 'choose'; text: string; options: Array<{ key: string; label: string; steps?: FlowStepDocument[] }>; stateKey?: string; timeout?: FlowDuration }
   | { kind: 'delay'; duration: FlowDuration }
   | { kind: 'goto'; target: string }
   | { kind: 'end'; text?: string }
   | { kind: 'condition'; if: string; then: FlowStepDocument[]; else?: FlowStepDocument[] }
   | { kind: 'media'; type: FlowMediaDocumentKind; source: FlowMediaDocumentSource; caption?: string; filename?: string }
-  | { kind: 'form'; form: FlowFormDocument; stateKey?: string; flatten?: boolean; mode?: 'auto' | 'native' | 'degraded'; nativeId?: string; timeout?: FlowDuration; retries?: number }
+  | { kind: 'form'; form: FlowFormDocument; stateKey?: string; flatten?: boolean; mode?: 'auto' | 'native' | 'degraded'; nativeId?: string; timeout?: FlowDuration; maxAttempts?: number; retries?: number }
   | { kind: 'guard'; if: string; message?: string; redirect?: string }
   | { kind: 'subflow'; flowId: string }
   | { kind: 'http'; method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; url: string; headers?: Record<string, string>; body?: unknown; stateKey?: string; timeout?: FlowDuration }
@@ -208,6 +208,7 @@ export const FLOW_DOCUMENT_SCHEMA = Object.freeze({
         text,
         stateKey: identifier,
         timeout: duration,
+        maxAttempts: { type: 'integer', minimum: 1, maximum: 21 },
         retries: { type: 'integer', minimum: 0, maximum: 20 },
         validate: {
           type: 'object',
@@ -287,6 +288,7 @@ export const FLOW_DOCUMENT_SCHEMA = Object.freeze({
         mode: { enum: ['auto', 'native', 'degraded'] },
         nativeId: { type: 'string', minLength: 1, maxLength: 200 },
         timeout: duration,
+        maxAttempts: { type: 'integer', minimum: 1, maximum: 21 },
         retries: { type: 'integer', minimum: 0, maximum: 20 },
       },
     },
@@ -378,14 +380,14 @@ const MEDIA_KINDS = new Set(['image', 'video', 'audio', 'voice', 'document', 'st
 const FIELD_TYPES = new Set(['text', 'number', 'email', 'date', 'select', 'multiselect', 'optin'])
 const STEP_KEYS: Record<FlowStepDocument['kind'], readonly string[]> = {
   say: ['kind', 'text'],
-  ask: ['kind', 'text', 'stateKey', 'timeout', 'retries', 'validate'],
+  ask: ['kind', 'text', 'stateKey', 'timeout', 'maxAttempts', 'retries', 'validate'],
   choose: ['kind', 'text', 'options', 'stateKey', 'timeout'],
   delay: ['kind', 'duration'],
   goto: ['kind', 'target'],
   end: ['kind', 'text'],
   condition: ['kind', 'if', 'then', 'else'],
   media: ['kind', 'type', 'source', 'caption', 'filename'],
-  form: ['kind', 'form', 'stateKey', 'flatten', 'mode', 'nativeId', 'timeout', 'retries'],
+  form: ['kind', 'form', 'stateKey', 'flatten', 'mode', 'nativeId', 'timeout', 'maxAttempts', 'retries'],
   guard: ['kind', 'if', 'message', 'redirect'],
   subflow: ['kind', 'flowId'],
   http: ['kind', 'method', 'url', 'headers', 'body', 'stateKey', 'timeout'],
@@ -456,7 +458,7 @@ function checkStep(step: unknown, path: string, depth: number, counter: { steps:
       checkText(step.text, `${path}/text`, add)
       checkId(step.stateKey, `${path}/stateKey`, add)
       if (step.timeout !== undefined) checkTimeout(step.timeout, `${path}/timeout`, add)
-      if (step.retries !== undefined && !(Number.isInteger(step.retries) && (step.retries as number) >= 0 && (step.retries as number) <= 20)) add(`${path}/retries`, 'must be an integer between 0 and 20')
+      checkAttempts(step, path, add)
       if (step.validate !== undefined) {
         if (!isObject(step.validate)) add(`${path}/validate`, 'must be an object')
         else {
@@ -646,7 +648,19 @@ function checkForm(step: Record<string, unknown>, path: string, add: Add): void 
   if (step.mode !== undefined && !['auto', 'native', 'degraded'].includes(step.mode as string)) add(`${path}/mode`, 'must be auto, native or degraded')
   if (step.nativeId !== undefined && (typeof step.nativeId !== 'string' || step.nativeId.length === 0 || step.nativeId.length > 200)) add(`${path}/nativeId`, 'must be a string of 1-200 characters')
   if (step.timeout !== undefined) checkTimeout(step.timeout, `${path}/timeout`, add)
-  if (step.retries !== undefined && (!Number.isInteger(step.retries) || (step.retries as number) < 0 || (step.retries as number) > 20)) add(`${path}/retries`, 'must be an integer between 0 and 20')
+  checkAttempts(step, path, add)
+}
+
+/**
+ * `maxAttempts` (total answers, 1-21) and `retries` (answers after the first, 0-20) of an
+ * `ask` / `form` step: same meaning as the core `WaitOptions`; both together must agree.
+ */
+function checkAttempts(step: Record<string, unknown>, path: string, add: Add): void {
+  const max = step.maxAttempts
+  const retries = step.retries
+  if (max !== undefined && !(Number.isInteger(max) && (max as number) >= 1 && (max as number) <= 21)) add(`${path}/maxAttempts`, 'must be an integer between 1 and 21')
+  if (retries !== undefined && !(Number.isInteger(retries) && (retries as number) >= 0 && (retries as number) <= 20)) add(`${path}/retries`, 'must be an integer between 0 and 20')
+  if (typeof max === 'number' && typeof retries === 'number' && max !== retries + 1) add(`${path}/maxAttempts`, 'must equal retries + 1 when both are given (pass one of them)')
 }
 
 function checkHttp(step: Record<string, unknown>, path: string, add: Add): void {

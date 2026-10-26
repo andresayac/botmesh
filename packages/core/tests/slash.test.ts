@@ -5,7 +5,7 @@ import { flow } from '../src/flows/FlowBuilder.js'
 
 describe('slashCommandsPlugin', () => {
   it('replies to /help and /ping, NOT to plain text', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(slashCommandsPlugin, { greeting: 'soy el bot' })
     await chat.send('/help')
     await chat.expectReply('soy el bot')
@@ -17,14 +17,14 @@ describe('slashCommandsPlugin', () => {
   })
 
   it('unknown /command answers help hint', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(slashCommandsPlugin)
     await chat.send('/nadaqueverseñor')
     await chat.expectReply('Comando desconocido')
   })
 
   it('/reset aborts an active flow', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(slashCommandsPlugin)
     bot.use(flow('registrar').ask('¿nombre?', 'n').say('fin'))
     await chat.send('registrar')
@@ -36,7 +36,7 @@ describe('slashCommandsPlugin', () => {
   })
 
   it('unplug removes everything the plugin registered', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const unplug = bot.plug(slashCommandsPlugin)
     unplug()
     await chat.send('/ping')
@@ -45,7 +45,7 @@ describe('slashCommandsPlugin', () => {
   })
 
   it('/reset aborts an active flow in a GROUP chat (participant-scoped)', async () => {
-    const { bot, provider } = await createTestBot()
+    const { bot, provider } = await createTestBot({ lang: 'es' })
     bot.plug(slashCommandsPlugin)
     bot.use(flow('registrar').ask('¿nombre?', 'n').say('fin'))
 
@@ -72,7 +72,7 @@ describe('slashCommandsPlugin', () => {
 
 describe('slashCommandsPlugin built-in help (onboarding)', () => {
   it('lists every command it installs and /cancel has its own reply (es)', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(slashCommandsPlugin)
     await chat.send('/help')
     const help = chat.lastReply()?.content

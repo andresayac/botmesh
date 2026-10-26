@@ -11,7 +11,9 @@
  */
 
 import pino, { type Logger } from 'pino'
-import type { LoggerLike } from '../provider.js'
+import type { BotConfig, LoggerLike } from '../provider.js'
+import { createIdPolicy } from '../../telemetry/ids.js'
+import type { TracingImpl } from '../../telemetry/tracing.js'
 
 /** `true` when `logger` already has pino's shape (`child()`, `trace()`, a string `level`). */
 export function isPinoLike(logger: LoggerLike): logger is LoggerLike & Logger {
@@ -45,4 +47,18 @@ function wrap(logger: LoggerLike, level = 'warn'): LoggerLike & { level: string;
     warn: (...args: unknown[]) => logger.warn(...args),
     error: (...args: unknown[]) => logger.error(...args),
   } as LoggerLike & { level: string; trace(): void; fatal(): void }
+}
+
+/**
+ * How a chat/sender id appears in the bot's log lines (`BotConfig.logIds`): hashed by
+ * default. Without an explicit policy and with tracing on, the span policy is reused, so a
+ * log line and a span of the same chat carry the same hash.
+ */
+export function logIdPolicy(
+  config: Pick<BotConfig, 'logIds' | 'telemetry'>,
+  tracing: Pick<TracingImpl, 'idAttribute'> | null,
+): (id: string | undefined) => string | undefined {
+  if (config.logIds === undefined && tracing) return (id) => (id === undefined ? undefined : tracing.idAttribute(id))
+  const policy = createIdPolicy({ ids: config.logIds ?? 'hash', idKey: config.telemetry?.idKey })
+  return (id) => (id === undefined ? undefined : policy(id))
 }

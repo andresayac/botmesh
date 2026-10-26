@@ -18,6 +18,8 @@ export type { DurabilityControl } from './engine.js'
 /** The Bot internals the engine is wired to. */
 export interface DurabilityHost {
   logger: { debug(o: unknown, m?: string): void; warn(o: unknown, m?: string): void; error(o: unknown, m?: string): void }
+  /** How a chat id appears in log lines (the bot's `logIds` policy). */
+  logId?: (id: string) => string | undefined
   namespace: StoreNamespace
   hooks: HookSystem
   messageLog: MessageLog
@@ -38,6 +40,7 @@ export function createDurability(config: DurabilityConfig | undefined, host: Dur
   const mediaRefs = typeof config === 'object' && config !== null ? config.inbox?.mediaRefs !== false : true
   return new DurableEngine(config, {
     logger: host.logger,
+    ...(host.logId ? { logId: host.logId } : {}),
     namespace: host.namespace,
     media: providerMediaCodec(host.provider, mediaRefs),
     replay: async (event) => {

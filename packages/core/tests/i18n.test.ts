@@ -51,9 +51,10 @@ async function until(cond: () => boolean, ms = 1000): Promise<void> {
   }
 }
 
+/** Spanish default locale (`lang: 'es'`): these tests were written against it. */
 async function makeBot(config: Partial<ConstructorParameters<typeof Bot>[0]> = {}) {
   const provider = new MockProvider()
-  const bot = new Bot({ ...config, provider })
+  const bot = new Bot({ lang: config.i18n?.defaultLocale ?? 'es', ...config, provider })
   await bot.start()
   return { bot, provider }
 }
@@ -161,7 +162,7 @@ describe('I18n registry', () => {
 /* ------------------------------------------------------------------------- */
 
 describe('buildMessageContext without a bot', () => {
-  it('exposes ctx.t / ctx.lang with the Spanish built-ins', () => {
+  it('exposes ctx.t / ctx.lang with the English built-ins', () => {
     const inbound: InboundMessage = {
       ref: { id: '1', chatId: 'c' },
       chat: { id: 'c', kind: 'dm', isGroup: false, isBroadcast: false },
@@ -171,9 +172,9 @@ describe('buildMessageContext without a bot', () => {
       type: 'text', body: 'hi', timestamp: 0, mentions: [], raw: {},
     }
     const ctx = buildMessageContext({ inbound, tools: {}, send: async () => ({ ref: { id: 'x', chatId: 'c' } }) })
-    expect(ctx.lang).toBe('es')
-    expect(ctx.defaultLang).toBe('es')
-    expect(ctx.t(CORE_MESSAGES.timeout)).toBe('⏰ La conversación expiró por inactividad.')
+    expect(ctx.lang).toBe('en')
+    expect(ctx.defaultLang).toBe('en')
+    expect(ctx.t(CORE_MESSAGES.timeout)).toBe('⏰ The conversation expired due to inactivity.')
     expect(ctx.t('unknown.key')).toBe('unknown.key')
   })
 })
@@ -454,7 +455,7 @@ describe('conversations and built-in messages', () => {
   it('localizes validation and retries messages, and user locales can override them', async () => {
     const { bot, provider } = await makeBot()
     bot.locale('en', { ...EN, core: { wait: { invalid: 'Nope, again.' } } })
-    bot.conversation('q', async (c) => { await c.ask('Age?', { validate: (b) => /^\d+$/.test(b) as true, retries: 2 }) })
+    bot.conversation('q', async (c) => { await c.ask('Age?', { validate: (b) => /^\d+$/.test(b) as true, maxAttempts: 2 }) })
     await deliver(bot, provider, 'q', { language: 'en' })
     await until(() => texts(provider).length === 1)
     await deliver(bot, provider, 'abc', { language: 'en' })

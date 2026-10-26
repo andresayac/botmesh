@@ -28,7 +28,7 @@ async function setup(opts: { provider?: MockProviderOptions; cfg?: Partial<AIPlu
     borrar: { description: 'Borra el pedido', title: 'Borrar pedido', confirm: true, handler: () => { runs.push(Date.now()); return 'borrado' } },
   }
   const { bot, chat, provider } = await createTestBot(
-    opts.lang ? { i18n: { defaultLocale: opts.lang } } : {},
+    opts.lang ? { i18n: { defaultLocale: opts.lang } } : { lang: 'es' },
     { provider: opts.provider ?? {} },
   )
   bot.plug(aiPlugin({ __provider: scripted('borrar'), tools, ...opts.cfg }))
@@ -196,7 +196,7 @@ describe('tool confirmations with native buttons', () => {
   })
 
   it('a bot.locale() override of ai.tools.confirm is used when confirmButtons is not translated', async () => {
-    const { bot, chat, provider } = await createTestBot()
+    const { bot, chat, provider } = await createTestBot({ lang: 'es' })
     bot.locale('es', { ai: { tools: { confirm: '¿Ejecuto {tool}?' } } })
     bot.plug(aiPlugin({ __provider: scripted('borrar'), tools: { borrar: { description: 'x', title: 'Borrar', confirm: true, handler: () => 'ok' } } }))
     await chat.send('borra')

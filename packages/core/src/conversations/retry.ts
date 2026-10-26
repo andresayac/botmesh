@@ -18,7 +18,7 @@
  *   conversation still receives the answer. If no wait is pending (the conversation is busy
  *   between waits, or has not waited yet) it does nothing. It never starts a wait or rewinds.
  *
- * Manual retries share the wait's `retries` budget with `validate` failures.
+ * Manual retries share the wait's attempt budget (`maxAttempts`, or `retries` + 1) with `validate` failures.
  *
  * A conversation has a single pending-wait slot, so its waits must run one at a time: a wait
  * (or in-place retry) started while another one of the same conversation is still in progress —
@@ -31,8 +31,38 @@ import type { CompiledFlow } from '../flows/FlowBuilder.js'
 import { ConcurrentWaitError, ConversationError, RetriesExceeded } from './errors.js'
 import { sleep } from '../utils/timers.js'
 
-/** Default invalid-answer budget of a wait (`WaitOptions.retries`). */
-export const DEFAULT_RETRIES = 3
+/** Default total attempts of a wait (`WaitOptions.maxAttempts`): the first answer plus 2 retries. */
+export const DEFAULT_MAX_ATTEMPTS = 3
+
+/** The attempt options of a wait (`WaitOptions`, form steps). */
+export interface AttemptOptions {
+  /** Total answers accepted, the first one included. */
+  maxAttempts?: number
+  /** Retries AFTER the first answer (`retries: N` = `maxAttempts: N + 1`). */
+  retries?: number
+}
+
+/**
+ * The total attempt budget of a wait: `maxAttempts`, else `retries + 1`, else
+ * {@link DEFAULT_MAX_ATTEMPTS}. `Infinity` means unlimited.
+ * @throws {TypeError} on an invalid value, or `maxAttempts` and `retries` that disagree.
+ */
+export function attemptBudget(opts: AttemptOptions | undefined, where = 'wait'): number {
+  const max = opts?.maxAttempts
+  const retries = opts?.retries
+  if (max !== undefined && !(max === Infinity || (Number.isInteger(max) && max >= 1))) {
+    throw new TypeError(`${where}: maxAttempts must be an integer >= 1 or Infinity, got ${String(max)}`)
+  }
+  if (retries !== undefined && !(retries === Infinity || (Number.isInteger(retries) && retries >= 0))) {
+    throw new TypeError(`${where}: retries must be an integer >= 0 or Infinity, got ${String(retries)}`)
+  }
+  if (max !== undefined && retries !== undefined && max !== retries + 1) {
+    throw new TypeError(`${where}: pass maxAttempts (total attempts) or retries (attempts after the first), not both (maxAttempts ${max} != retries ${retries} + 1)`)
+  }
+  if (max !== undefined) return max
+  if (retries !== undefined) return retries + 1
+  return DEFAULT_MAX_ATTEMPTS
+}
 
 /** Tracker whose out-of-band callback (`c.idle()`) owns the current async context, if any. */
 const outOfBand = new AsyncLocalStorage<WaitTracker>()
@@ -83,7 +113,8 @@ interface StepRef { readonly flow: CompiledFlow; readonly index: number; readonl
 
 /** Book-keeping for one wait so `c.retry()` can re-run it. */
 interface WaitRecord {
-  readonly retries: number
+  /** Total attempt budget (see {@link attemptBudget}). */
+  readonly maxAttempts: number
   /** Invalid attempts so far: rejected answers + manual retries. */
   attempts: number
   readonly step?: StepRef
@@ -174,24 +205,24 @@ export class WaitTracker {
 
   /**
    * Run one tracked wait: send its prompt (or a carried rewind's message instead), then loop
-   * `next()` until a message is accepted. Rejections count against `retries`; each rejection
+   * `next()` until a message is accepted. Rejections count against `maxAttempts`; each rejection
    * message is sent before waiting again. Refused with {@link ConcurrentWaitError} while
    * another wait of the conversation is in progress, or from an out-of-band callback.
    */
-  wait<T>(retries: number, promptFor: (message?: string) => string | undefined, next: () => Promise<WaitVerdict<T>>): Promise<T> {
+  wait<T>(maxAttempts: number, promptFor: (message?: string) => string | undefined, next: () => Promise<WaitVerdict<T>>): Promise<T> {
     if (this.inOutOfBand) return Promise.reject(new ConcurrentWaitError(OUT_OF_BAND_MESSAGE))
     if (this.busy) return Promise.reject(new ConcurrentWaitError(BUSY_MESSAGE))
-    return this.track(this.startWait(retries, promptFor, next))
+    return this.track(this.startWait(maxAttempts, promptFor, next))
   }
 
-  private async startWait<T>(retries: number, promptFor: (message?: string) => string | undefined, next: () => Promise<WaitVerdict<T>>): Promise<T> {
+  private async startWait<T>(maxAttempts: number, promptFor: (message?: string) => string | undefined, next: () => Promise<WaitVerdict<T>>): Promise<T> {
     this.deps.assertAlive()
     const rewind = this.takeRewind()
     const text = promptFor(rewind?.prompt)
     const skip = this.deps.skipPrompt?.() === true && rewind === undefined
     if (text && !skip) await this.deps.reply(text)
     const rec: WaitRecord = {
-      retries,
+      maxAttempts,
       attempts: rewind?.attempts ?? 0,
       step: this.current,
       promptFor,
@@ -200,7 +231,7 @@ export class WaitTracker {
           const r = await next()
           if (r.ok) return r.value
           rec.attempts++
-          if (rec.attempts >= rec.retries) throw new RetriesExceeded()
+          if (rec.attempts >= rec.maxAttempts) throw new RetriesExceeded()
           await this.deps.reply(r.message)
         }
       },
@@ -221,7 +252,7 @@ export class WaitTracker {
         if (!rec) throw new RetryUnavailableError()
         this.deps.assertAlive()
         rec.attempts++
-        if (rec.attempts >= rec.retries) throw new RetriesExceeded()
+        if (rec.attempts >= rec.maxAttempts) throw new RetriesExceeded()
         const text = rec.promptFor(message)
         if (text) await this.deps.reply(text)
         return this.run(rec)
@@ -245,7 +276,7 @@ export class WaitTracker {
       if (!rec || !pending) return undefined
       this.deps.assertAlive()
       rec.attempts++
-      if (rec.attempts >= rec.retries) throw new RetriesExceeded()
+      if (rec.attempts >= rec.maxAttempts) throw new RetriesExceeded()
       const text = rec.promptFor(message)
       if (text) await this.deps.reply(text)
       return pending.then((value) => value, () => undefined)
@@ -290,7 +321,7 @@ export class WaitTracker {
     const rec = this.last
     if (rec?.step && this.frames.includes(rec.step.flow)) {
       const attempts = rec.attempts + 1
-      if (attempts >= rec.retries) return new RetriesExceeded()
+      if (attempts >= rec.maxAttempts) return new RetriesExceeded()
       return new ConversationRetry(message, rec.step.flow, rec.step.index, attempts)
     }
     // No usable record (e.g. a persistent flow resumed after a restart, or the wait lived in a
@@ -304,12 +335,11 @@ export class WaitTracker {
         // The record of a returned sub-flow keeps its budget; otherwise start a fresh one.
         const carried = rec?.step && !this.frames.includes(rec.step.flow) ? rec : undefined
         const attempts = (carried?.attempts ?? 0) + 1
-        if (attempts >= (carried?.retries ?? DEFAULT_RETRIES)) return new RetriesExceeded()
+        if (attempts >= (carried?.maxAttempts ?? DEFAULT_MAX_ATTEMPTS)) return new RetriesExceeded()
         return new ConversationRetry(message, cur.flow, i, attempts)
       }
       if (step.kind !== 'ask' && step.kind !== 'choose' && step.kind !== 'form') continue
-      const retries = step.opts?.retries ?? DEFAULT_RETRIES
-      if (1 >= retries) return new RetriesExceeded()
+      if (1 >= attemptBudget(step.opts)) return new RetriesExceeded()
       return new ConversationRetry(message, cur.flow, i, 1)
     }
     return new RetryUnavailableError()

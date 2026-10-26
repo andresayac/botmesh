@@ -269,7 +269,7 @@ describe('aiPlugin({ memory })', () => {
     const mock = dualProvider((input) =>
       input.messages[0]!.content.includes('español') ? '{"facts":["Prefiere atención en español"]}' : '{"facts":[]}',
     )
-    const { bot, chat, provider } = await createTestBot()
+    const { bot, chat, provider } = await createTestBot({ lang: 'es' })
     bot.plug(aiPlugin({ __provider: mock, memory: { autoExtract: true, maxFacts: 10 } }))
     bot.when('memoria', async (ctx) => {
       const facts = await ctx.tools.ai.memory(ctx.sender)
@@ -293,7 +293,7 @@ describe('aiPlugin({ memory })', () => {
 
   it('injectInGroups:true injects the facts in group replies too', async () => {
     const mock = new MockAIProvider({ reply: 'ok' })
-    const { bot, chat, provider } = await createTestBot()
+    const { bot, chat, provider } = await createTestBot({ lang: 'es' })
     bot.plug(aiPlugin({ __provider: mock, memory: { injectInGroups: true } }))
     await bot.injectTools.ai.remember(chat.jid, 'Es VIP')
     provider.incoming('hola grupo', { from: 'group@g.us', sender: chat.jid, isGroup: true } as never)
@@ -316,7 +316,7 @@ describe('aiPlugin({ memory })', () => {
       },
       async *stream() { yield '' },
     }
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(aiPlugin({ __provider: provider, memory: { autoExtract: true } }))
     await chat.send('vivo en calle 5')
     await chat.expectReply('ok')
@@ -330,7 +330,7 @@ describe('aiPlugin({ memory })', () => {
 
   it('without memory config: API works, but nothing is injected or extracted', async () => {
     const mock = new MockAIProvider({ reply: 'ok' })
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(aiPlugin({ __provider: mock }))
     await bot.injectTools.ai.remember(chat.jid, 'Es VIP')
     await chat.send('hola')
@@ -342,7 +342,7 @@ describe('aiPlugin({ memory })', () => {
   })
 
   it('bot.deleteSubject(userId) erases the memory (GDPR erasure)', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(aiPlugin({ __provider: new MockAIProvider(), memory: true }))
     await bot.injectTools.ai.remember(chat.jid, ['Es de Bogotá'])
     expect((await bot.exportSubject(chat.jid)).userData.some((e) => e.namespace === 'ai.memory')).toBe(true)
@@ -352,7 +352,7 @@ describe('aiPlugin({ memory })', () => {
   })
 
   it('/reset clears the chat context but keeps long-term memory', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(aiPlugin({ __provider: new MockAIProvider(), memory: true }))
     await bot.injectTools.ai.remember(chat.jid, 'Es de Bogotá')
     await chat.send('/reset')

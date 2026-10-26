@@ -163,6 +163,8 @@ export interface HandoffDeps {
   /** Route a non-fatal error (store read/write, throwing listener) to the bot's error channel. */
   reportError(error: unknown): void
   logger?: { debug?: (...a: unknown[]) => void }
+  /** How a chat id appears in log lines (the bot's `logIds` policy). Default: as is. */
+  logId?: (id: string) => string | undefined
 }
 
 function assertChatId(chatId: unknown, method: string): asserts chatId is ChatId {
@@ -303,7 +305,7 @@ export class HandoffRegistry {
     if (!this.states.has(ctx.from)) return true
     const command = this.escapeCommand(ctx.body)
     if (command !== undefined && this.deps.hasCommand(command)) return true
-    this.deps.logger?.debug?.({ chatId: ctx.from }, 'routing skipped: chat handed off')
+    this.deps.logger?.debug?.({ chatId: this.deps.logId ? this.deps.logId(ctx.from) : ctx.from }, 'routing skipped: chat handed off')
     return false
   }
 

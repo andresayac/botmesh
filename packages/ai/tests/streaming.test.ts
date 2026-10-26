@@ -116,7 +116,7 @@ describe('AIClient.streamReplyInChat', () => {
 
 describe('aiPlugin with stream', () => {
   async function botWith(cfg: AIPluginConfig, provider: AIProvider, streaming: 'draft' | 'edit' | 'none' = 'edit') {
-    const tb = await createTestBot({}, { provider: { streaming } })
+    const tb = await createTestBot({ lang: 'es' }, { provider: { streaming } })
     tb.bot.plug(aiPlugin({ __provider: provider, ...cfg }))
     return tb
   }
@@ -216,7 +216,7 @@ describe('streaming + memory / RAG / tools', () => {
     await client.remember('u1', 'Vive en Bogotá')
     const out: string[] = []
     for await (const t of client.streamReplyInChat('k', '¿cuánto tarda?', { userId: 'u1' })) out.push(t)
-    expect(out.join('')).toBe('Tarda 3 días [1]\n\nFuentes: [1] faq.md')
+    expect(out.join('')).toBe('Tarda 3 días [1]\n\nSources: [1] faq.md')
     const system = ai.inputs[0]!.system!
     expect(system.startsWith('ACME')).toBe(true)
     expect(system).toContain('- Vive en Bogotá')
@@ -230,7 +230,7 @@ describe('streaming + memory / RAG / tools', () => {
       reply: (input) => input.messages.at(-1)?.role === 'tool' ? 'son las 12' : { toolCalls: [{ name: 'hora', args: {} }] },
     })
     const streamSpy = vi.spyOn(mock, 'stream')
-    const tb = await createTestBot({}, { provider: { streaming: 'edit' } })
+    const tb = await createTestBot({ lang: 'es' }, { provider: { streaming: 'edit' } })
     tb.bot.plug(aiPlugin({ __provider: mock, stream: true, tools: { hora: { description: 'Hora', handler: () => '12:00' } } }))
     await tb.chat.send('hora?')
     await tb.chat.expectReply('son las 12')

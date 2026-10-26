@@ -6,6 +6,11 @@
  * exclusive holders, leadership terms. Without a hub each coordinator gets its own, which
  * is a single-replica cluster. {@link MemoryCoordinator.crash} simulates a replica dying:
  * its tickets are skipped, its turns and leaderships freed, its signals aborted.
+ *
+ * Idle chats (no ticket, no holder) are evicted beyond `maxIdleKeys`, least recently used
+ * first, so a long-lived hub does not keep every chat it ever saw. A re-created chat keeps
+ * its fences monotonic (it continues from the highest sequence ever evicted) and reports
+ * `previousHolder: null` ("unknown"), so its next holder refreshes its state.
  */
 import { randomUUID } from 'node:crypto'
 import {
@@ -38,6 +43,12 @@ interface LeadState {
 /** Internal state of a {@link MemoryCoordinationHub}, kept off the public class. */
 class HubState {
   readonly keys = new Map<string, KeyState>()
+  /** Idle keys (no ticket, no owner), least recently used first. */
+  private readonly idle = new Set<string>()
+  /** Highest sequence of any evicted key: a re-created key starts above it (monotonic fences). */
+  private floor = 0
+
+  constructor(readonly maxIdleKeys: number) {}
   readonly leads = new Map<string, LeadState>()
   readonly alive = new Set<string>()
   private waiters = new Set<() => void>()
@@ -61,10 +72,30 @@ class HubState {
   state(key: string): KeyState {
     let s = this.keys.get(key)
     if (!s) {
-      s = { seq: 0, serving: 1, tickets: new Map(), last: null }
+      s = { seq: this.floor, serving: this.floor + 1, tickets: new Map(), last: null }
       this.keys.set(key, s)
+      this.touch(key)
     }
     return s
+  }
+
+  /**
+   * Record that `key` was used: an idle key moves to the most-recent end of the eviction
+   * order, a busy one leaves it; then the oldest idle keys beyond `maxIdleKeys` are evicted.
+   */
+  touch(key: string): void {
+    const s = this.keys.get(key)
+    this.idle.delete(key)
+    if (!s || s.tickets.size > 0 || s.owner) return
+    this.idle.add(key)
+    while (this.idle.size > this.maxIdleKeys) {
+      const oldest = this.idle.values().next().value as string
+      this.idle.delete(oldest)
+      const victim = this.keys.get(oldest)
+      if (!victim || victim.tickets.size > 0 || victim.owner) continue
+      this.floor = Math.max(this.floor, victim.seq)
+      this.keys.delete(oldest)
+    }
   }
 }
 
@@ -75,8 +106,27 @@ const hubStates = new WeakMap<MemoryCoordinationHub, HubState>()
  * {@link MemoryCoordinator} that should coordinate with the others.
  */
 export class MemoryCoordinationHub {
-  constructor() { hubStates.set(this, new HubState()) }
+  /**
+   * @param opts.maxIdleKeys Idle chats kept (least recently used evicted first). Default `10_000`;
+   *   `Infinity` keeps them all (the old behaviour).
+   */
+  constructor(opts: { maxIdleKeys?: number } = {}) {
+    const max = opts.maxIdleKeys ?? DEFAULT_MAX_IDLE_KEYS
+    if (!(max === Infinity || (Number.isInteger(max) && max >= 0))) {
+      throw new RangeError(`MemoryCoordinationHub: maxIdleKeys must be an integer >= 0 or Infinity, got ${String(max)}`)
+    }
+    hubStates.set(this, new HubState(max))
+  }
+
+  /** Idle chats kept before the least recently used are evicted. */
+  get maxIdleKeys(): number { return hubStates.get(this)!.maxIdleKeys }
+
+  /** Chats the hub currently tracks (busy and idle). */
+  get size(): number { return hubStates.get(this)!.keys.size }
 }
+
+/** Default {@link MemoryCoordinationHub} bound on idle chats. */
+const DEFAULT_MAX_IDLE_KEYS = 10_000
 
 export interface MemoryCoordinatorOptions {
   /** Share state with other replicas of this process. Default: a private hub. */
@@ -110,8 +160,9 @@ export class MemoryCoordinator implements Coordinator {
     this.running = false
     for (const t of [...this.turns]) this.releaseTurn(t.key, t.seq)
     for (const l of [...this.leaderships]) this.releaseLead(l.name, l.term, 'stopped')
-    for (const s of this.hub.keys.values()) {
+    for (const [key, s] of [...this.hub.keys]) {
       for (const [seq, rid] of s.tickets) if (rid === this.replicaId && seq !== s.owner?.seq) s.tickets.delete(seq)
+      this.hub.touch(key)
     }
     this.hub.alive.delete(this.replicaId)
     this.hub.notify()
@@ -144,6 +195,7 @@ export class MemoryCoordinator implements Coordinator {
     const s = this.hub.state(key)
     const seq = ++s.seq
     s.tickets.set(seq, this.replicaId)
+    this.hub.touch(key)
     return {
       key,
       seq,
@@ -160,6 +212,7 @@ export class MemoryCoordinator implements Coordinator {
       const s = this.hub.state(ticket.key)
       this.skipDead(s)
       if (s.serving > ticket.seq || s.tickets.get(ticket.seq) !== this.replicaId) {
+        this.hub.touch(ticket.key)
         throw new LeaseLostError(ticket.key, ticket.seq, 'superseded')
       }
       if (s.serving === ticket.seq && !s.owner) {
@@ -249,6 +302,7 @@ export class MemoryCoordinator implements Coordinator {
     if (!s || s.tickets.get(seq) !== this.replicaId) return
     if (s.owner?.seq === seq) return // a granted turn is released, not cancelled
     s.tickets.delete(seq)
+    this.hub.touch(key)
     this.hub.notify()
   }
 
@@ -260,6 +314,7 @@ export class MemoryCoordinator implements Coordinator {
     s.tickets.delete(seq)
     s.last = this.replicaId
     if (s.serving === seq) s.serving++
+    this.hub.touch(key)
     this.hub.notify()
   }
 

@@ -48,7 +48,7 @@ describe('README / guide: Testing', () => {
   })
 
   it('ai-memory-rag guide: memory + RAG with appendSources', async () => {
-    const { bot } = await createTestBot()
+    const { bot } = await createTestBot({ lang: 'es' })
     const mock = new MockAIProvider({ reply: 'It takes 3 days [1].' })
     const ai = new AIClient(mock, new ContextManager(bot.getStore()), {
       memory: new MemoryManager((id) => bot.user(id)),
@@ -56,7 +56,7 @@ describe('README / guide: Testing', () => {
     })
     await ai.remember('user-1', 'Prefers Spanish')
     const r = await ai.replyInChatDetailed('chat-1', 'shipping?', { userId: 'user-1' })
-    expect(r.text).toBe('It takes 3 days [1].\n\nFuentes: [1] faq')
+    expect(r.text).toBe('It takes 3 days [1].\n\nSources: [1] faq')
     expect(r.facts).toEqual(['Prefers Spanish'])
     expect(mock.calls[0]?.system).toContain('Prefers Spanish')
     expect(mock.calls[0]?.system).toContain('[1] (faq)\nShipping takes 3 days.')
@@ -66,7 +66,7 @@ describe('README / guide: Testing', () => {
 
 describe('README / guide: plugin usage', () => {
   it('ctx.tools.ai.ask inside a conversation (complaint example)', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(aiPlugin({ instance: new MockAIProvider({ reply: 'Line 1\nLine 2\nLine 3' }), autoReply: false }))
     bot.conversation('complaint', async (c, ctx) => {
       await ctx.reply('📝 Tell us what went wrong with your order:')
@@ -82,7 +82,7 @@ describe('README / guide: plugin usage', () => {
   })
 
   it('confirmWith(c) inside your own conversation (typed yes)', async () => {
-    const { bot, chat } = await createTestBot({}, { provider: { buttons: false } })
+    const { bot, chat } = await createTestBot({ lang: 'es' }, { provider: { buttons: false } })
     const ran: string[] = []
     bot.plug(aiPlugin({
       autoReply: false,
@@ -107,7 +107,7 @@ describe('README / guide: plugin usage', () => {
   })
 
   it('streamReplyInChat feeds ctx.stream() in your own handler', async () => {
-    const t = await createTestBot({}, { provider: { streaming: 'edit' } })
+    const t = await createTestBot({ lang: 'es' }, { provider: { streaming: 'edit' } })
     t.bot.plug(aiPlugin({ instance: new MockAIProvider({ reply: 'streamed answer' }), autoReply: false }))
     t.bot.when('stream', async (ctx) => {
       await ctx.stream(ctx.tools.ai.streamReplyInChat(chatKeyOf(ctx), ctx.body, { userId: ctx.sender, isGroup: ctx.isGroup }))
@@ -124,7 +124,7 @@ describe('README / guide: plugin usage', () => {
       reply: (i) => i.messages.at(-1)?.role === 'tool' ? 'There is.' : { toolCalls: [{ name: 'stock', args: {} }] },
     })
     const tools: AIToolSet = { stock: { description: 'Stock', handler: () => 3 } }
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(aiPlugin({ instance: mock, tools, autoReply: false }))
     bot.when('stock?', async (ctx) => {
       const r = await ctx.tools.ai.runTools({ messages: [{ role: 'user', content: ctx.body }] }, { ctx })
@@ -147,7 +147,7 @@ describe('README / guide: plugin usage', () => {
   })
 
   it("bot.on('ai.tool') audit events and the memory API (remember / forget / deleteSubject)", async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const seen: AIToolEvent[] = []
     bot.on('ai.tool', (e: AIToolEvent) => { seen.push(e) })
     bot.plug(aiPlugin({
@@ -210,7 +210,7 @@ describe('ai-tools guide: best practices (bakery)', () => {
       },
     })
     const orders: unknown[] = []
-    const { bot, chat } = await createTestBot({}, { provider: { buttons: false } })
+    const { bot, chat } = await createTestBot({ lang: 'es' }, { provider: { buttons: false } })
     bot.plug(aiPlugin({
       instance: mock,
       tools: {

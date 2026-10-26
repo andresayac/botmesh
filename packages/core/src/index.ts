@@ -47,6 +47,7 @@ import type { BotConfig as BotConfigForAlias } from './core/types.js'
 export type Config = BotConfigForAlias
 export type {
   BotConfig,
+  RateLimitRetryOptions,
   IProvider,
   ProviderCapabilities,
   ConnectionState,
@@ -152,7 +153,7 @@ export {
 
 // Hooks & plugins
 export { HookSystem } from './hooks/HookSystem.js'
-export type { RegisteredHook, HookLogger } from './hooks/HookSystem.js'
+export type { RegisteredHook, HookLogger, HookSystemOptions } from './hooks/HookSystem.js'
 export { definePlugin, isPlugin } from './plugins/definePlugin.js'
 export { slashCommandsPlugin } from './plugins/slashCommands.js'
 export type { SlashCommandsConfig } from './plugins/slashCommands.js'
@@ -168,6 +169,7 @@ export type { StoreNamespace } from './store/NamespacedStore.js'
 
 // Config validation
 export { validateConfig, ConfigValidationError } from './utils/validateConfig.js'
+export { BotNotRunningError, InvalidProviderEventError } from './core/errors.js'
 
 // Utils (advanced)
 export { sleep, parseDuration, humanTypingDelay, withTimeout, TimeoutError, randomId } from './utils/timers.js'

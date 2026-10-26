@@ -99,6 +99,24 @@ describe('bot.broadcast', () => {
     await bot.stop()
   })
 
+  it('retries: N makes N retries after the first attempt (N + 1 sends)', async () => {
+    let calls = 0
+    const { bot } = await setup(() => async () => { calls++; throw new RateLimitedError(1) })
+    const res = await bot.broadcast(['a'], 'x', { retries: 2 })
+    expect(res.failed).toBe(1)
+    expect(calls).toBe(3)
+    await bot.stop()
+  })
+
+  it('maxRetries is a deprecated alias of retries; both together must agree', async () => {
+    let calls = 0
+    const { bot } = await setup(() => async () => { calls++; throw new RateLimitedError(1) })
+    await bot.broadcast(['a'], 'x', { maxRetries: 1 })
+    expect(calls).toBe(2)
+    await expect(bot.broadcast(['a'], 'x', { retries: 1, maxRetries: 2 })).rejects.toThrow(/retries/)
+    await bot.stop()
+  })
+
   it('gives up after maxRetries rate limits', async () => {
     const { bot } = await setup(() => async () => { throw new RateLimitedError(1) })
     const res = await bot.broadcast(['a'], 'x', { maxRetries: 2 })

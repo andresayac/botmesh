@@ -87,7 +87,7 @@ export interface BotModuleParts {
   prelude?: string[]
   /** Factory parameter list (default `provider`). */
   params?: string
-  /** `new Bot(...)` config literal (default `{ provider }`). */
+  /** `new Bot(...)` config literal (default `{ provider, lang: 'es' }`: the templates are Spanish). */
   config?: string
   /** Lines before the handlers inside the factory (plugins, config). */
   setup?: string[]
@@ -117,7 +117,10 @@ export function botModule(parts: BotModuleParts): string {
     '// `npm start` passes the real provider (bottom of this file); `npm run dev` passes the',
     '// botmesh dev terminal simulator, so you can try flows with no phone and no ban risk.',
     'const createBot = defineBot((' + (parts.params ?? 'provider') + ') => {',
-    '  const bot = new Bot(' + (parts.config ?? '{ provider }') + ')',
+    ...(parts.config === undefined || parts.config.includes("lang: 'es'")
+      ? ["  // lang: 'es' — built-in texts (slash commands, retries, timeouts) in Spanish, like this", '  // template. Without it they are in English.']
+      : []),
+    '  const bot = new Bot(' + (parts.config ?? "{ provider, lang: 'es' }") + ')',
     '',
     ...indent([...(parts.setup ?? []), ...(parts.handlers ?? HANDLERS)]),
     '',

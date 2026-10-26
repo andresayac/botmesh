@@ -186,7 +186,7 @@ describe('core under transient send failures', () => {
     provider.incoming('Ana', { from: 'u1' }) // the "¿ciudad?" send (attempt 2) fails
     await vi.waitFor(() => expect(errors).toHaveLength(1))
     expect(errors[0]).toBeInstanceOf(RateLimitedError)
-    await vi.waitFor(() => expect(textsTo(provider, 'u1').at(-1)).toMatch(/error/i))
+    await vi.waitFor(() => expect(textsTo(provider, 'u1').at(-1)).toMatch(/went wrong/i))
     provider.incoming('hola', { from: 'u1' }) // not swallowed by a dead conversation
     await vi.waitFor(() => expect(textsTo(provider, 'u1').at(-1)).toBe('👋'))
     await chaos.settle()

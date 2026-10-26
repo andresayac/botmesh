@@ -5,7 +5,7 @@ import { flow } from '../src/flows/FlowBuilder.js'
 
 /** Reproduce la sesión real del 2026-07-18 que evidenció los bugs de v2-alpha. */
 async function setupDemoBot() {
-  const { bot, chat, provider } = await createTestBot()
+  const { bot, chat, provider } = await createTestBot({ lang: 'es' })
   bot.plug(slashCommandsPlugin, { greeting: '🤖 Demo Bot' })
   bot.when('hola', async (ctx) => { await ctx.reply('👋 ¡Hola! ¿Cómo te llamas?') })
   bot.use(flow('registrar')

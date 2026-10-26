@@ -61,6 +61,8 @@ especially if you move the bot to the official Cloud API (`@botmesh/meta`). See 
 [current terms](https://www.whatsapp.com/legal/business-solution-terms) and the
 [AI plugin guide](https://github.com/andresayac/botmesh/blob/main/docs/guide/ai.md).
 
+The templates are in Spanish, so every generated bot sets `lang: 'es'` in `new Bot(...)`: the built-in
+texts of `@botmesh/core` (slash commands, retries, timeouts) default to English otherwise.
 Both AI templates (`ai`, `ai-full`) answer in Spanish and pin the built-in texts to it
 (`i18n: { defaultLocale: 'es', locales: ['es'] }` in `new Bot(...)`), so the slash commands and the AI's
 confirmation prompts (`¿Confirmas?`, `Sí`/`No`) always match the persona, even for a client that reports

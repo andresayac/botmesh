@@ -9,7 +9,7 @@ import { ConversationEnded, ConversationGoto } from './errors.js'
 import { parseTimerDuration } from '../utils/timers.js'
 import { normalizeText } from '../core/matching.js'
 import type { WaitOptions } from '../core/types.js'
-import { DEFAULT_RETRIES, WaitTracker, bindTracker, type WaitVerdict } from './retry.js'
+import { DEFAULT_MAX_ATTEMPTS, WaitTracker, attemptBudget, bindTracker, type WaitVerdict } from './retry.js'
 import { createIdleControls, type IdleCallback } from './idle.js'
 import { parseWithSchema, type SchemaLike } from '../flows/schema.js'
 import { defaultI18n, translateFor } from '../i18n/I18n.js'
@@ -40,7 +40,7 @@ export interface ConversationControls extends ConversationControlsBase {
   /**
    * Wait for a shared location (`type: 'location'` with a normalized `sharedLocation`) and
    * resolve with it. Anything else re-prompts with `otherwise` (default: the localized
-   * `core.wait.location`) and counts against `retries`; `validate(body, message)` can reject a
+   * `core.wait.location`) and counts against `maxAttempts`; `validate(body, message)` can reject a
    * location (`message.sharedLocation`), e.g. a live one. A location message whose provider
    * could not read valid coordinates is treated as "anything else".
    */
@@ -49,7 +49,7 @@ export interface ConversationControls extends ConversationControlsBase {
   goto(name: string, args?: unknown): never
   /**
    * Re-run the most recent wait (`ask` / `waitText` / `waitMedia` / `choose` / `waitAny`) with
-   * its original options (`validate`, `filter`, `timeout`, `otherwise`, `retries`).
+   * its original options (`validate`, `filter`, `timeout`, `otherwise`, `maxAttempts`/`retries`).
    *
    * Before waiting again it re-sends the wait's prompt — the `ask` question or the `choose`
    * menu — or `message` instead (for `choose`, `message` replaces only the menu header; the
@@ -68,9 +68,10 @@ export interface ConversationControls extends ConversationControlsBase {
    * synchronously, so code after `c.retry()` in the step does not run (like `c.end()`).
    *
    * **Budget:** each retry counts as one invalid attempt of that wait, shared with `validate`
-   * rejections; reaching the wait's `retries` (default 3) throws `RetriesExceeded` (the
-   * conversation ends with `retriesMessage`). A new wait starts a fresh budget. Use
-   * `retries: Infinity` on the wait for unlimited retries.
+   * rejections; reaching the wait's `maxAttempts` (default 3: the first answer plus 2 retries;
+   * `retries: N` is `maxAttempts: N + 1`) throws `RetriesExceeded` (the conversation ends with
+   * `retriesMessage`). A new wait starts a fresh budget. Use `maxAttempts: Infinity` on the
+   * wait for unlimited retries.
    *
    * **From a `c.idle()` callback** (outside the conversation's flow) it only re-prompts the
    * wait the conversation is parked on — the conversation still receives the answer — and
@@ -141,7 +142,9 @@ export function createControls(rt: ConversationRuntime, handle: ConversationHand
     accept: (m: RuntimeMessage) => Promise<WaitVerdict<T>>,
     promptFor: (message?: string) => string | undefined = (message) => message,
   ): Promise<T> {
-    return tracker.wait<T>(opts?.retries ?? DEFAULT_RETRIES, promptFor, async () => accept(await rawWait(opts, accepts)))
+    let budget: number
+    try { budget = attemptBudget(opts) } catch (error) { return Promise.reject(error) }
+    return tracker.wait<T>(budget, promptFor, async () => accept(await rawWait(opts, accepts)))
   }
 
   const acceptText = (opts?: WaitOptions & { schema?: SchemaLike<unknown> }) => async (m: RuntimeMessage): Promise<WaitVerdict<unknown>> => {
@@ -165,7 +168,7 @@ export function createControls(rt: ConversationRuntime, handle: ConversationHand
     state: rt.getState(handle),
     end: (farewell) => { throw new ConversationEnded(farewell) },
     goto: (name, args) => { throw new ConversationGoto(name, args) },
-    waitAny: (o) => tracker.wait<RuntimeMessage>(DEFAULT_RETRIES, (message) => message,
+    waitAny: (o) => tracker.wait<RuntimeMessage>(DEFAULT_MAX_ATTEMPTS, (message) => message,
       async () => ({ ok: true, value: await rt.wait(handle, { accepts: 'any', ...o }) })),
 
     waitText: ((opts?: WaitOptions) => loopWait<unknown>(opts, 'text', acceptText(opts))) as ConversationControls['waitText'],

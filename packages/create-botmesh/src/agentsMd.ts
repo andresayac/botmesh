@@ -38,7 +38,7 @@ export function agentsMd(info: AgentsMdInfo): string {
     '',
     '## Project layout',
     '',
-    '- `src/bot.js` — `export default defineBot((provider) => { const bot = new Bot({ provider }); …; return bot })`.',
+    "- `src/bot.js` — `export default defineBot((provider) => { const bot = new Bot({ provider, lang: 'es' }); …; return bot })`. `lang: 'es'` keeps the built-in texts (slash commands, retries, timeouts) in Spanish; the core default is English.",
     '  Register handlers/flows **inside the factory**. The `if (isMainModule(import.meta)) { … }` block at the bottom',
     '  builds the real provider and calls `bot.start()`; the factory itself must never call `bot.start()`.',
     '- `.env` — secrets (copy from `.env.example`). Never commit `.env`, `sessions/` or `*.db` files, and never print tokens.',

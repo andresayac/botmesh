@@ -342,7 +342,10 @@ describe('lintFlows — persistence, choices and id collisions', () => {
   })
 
   it('flags an empty choose() (error)', () => {
-    expect(lint([flow('a').choose('p', {})])).toEqual([expect.objectContaining({ code: 'empty-choice', severity: 'error' })])
+    // The DSL refuses an empty choose() at definition; a compiled flow built another way can still carry one.
+    const compiled = flow('a').choose('p', { x: 'X' }).compile()
+    ;(compiled.steps[0] as { options: Record<string, unknown> }).options = {}
+    expect(lint([compiled])).toEqual([expect.objectContaining({ code: 'empty-choice', severity: 'error' })])
   })
 
   it('flags two different flows registered under the same id', () => {

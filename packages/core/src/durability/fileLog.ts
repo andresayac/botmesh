@@ -5,13 +5,17 @@
  * the sequence it was taken at (`logSeq`); opening replays every complete entry beyond
  * it, so a crash between "snapshot written" and "log truncated" is harmless (those
  * entries are skipped by their sequence) and a torn last line (a crash mid-append) is
- * ignored and cut off. It knows nothing about what an entry means.
+ * ignored and cut off. A bad line FOLLOWED by more entries is not a torn tail but
+ * corruption: replaying past it would silently drop the later entries, so the replay
+ * refuses with an {@link appendLogCorrupt} error and leaves the file untouched. It knows
+ * nothing about what an entry means.
  *
  * `@botmesh/events` keeps a sibling copy (`packages/events/src/fileLog.ts`): the core must
  * not grow a public helper just for a private package. Keep the on-disk format in sync.
  */
 
 import { appendFile, open, readFile, rm, stat, truncate } from 'node:fs/promises'
+import { dirname } from 'node:path'
 
 /** One replayed log entry: its sequence number and the payload the writer appended. */
 export interface AppendLogEntry<T = unknown> {
@@ -39,6 +43,49 @@ export interface AppendLogOptions {
   compactBytes?: number
   /** `fsync` every append (default `false`, like the snapshot writes). */
   fsync?: boolean
+}
+
+/**
+ * The error a replay throws for a corrupt line in the middle of the log (`code:
+ * 'APPEND_LOG_CORRUPT'`): names the file, the 1-based line and its byte offset.
+ */
+export function appendLogCorrupt(path: string, line: number, byteOffset: number): Error & { code: string } {
+  const error = new Error(
+    `append log ${path} is corrupt at line ${line} (byte ${byteOffset}): it is followed by more entries, so it is not a torn tail and replaying past it would silently lose the later entries. Restore the journal from a backup, or cut the log at that line to keep only the entries before it.`,
+  ) as Error & { code: string }
+  error.code = 'APPEND_LOG_CORRUPT'
+  return error
+}
+
+/**
+ * Write `text` to `path` (a temporary file the caller then renames over the snapshot). With
+ * `fsync`, the data is flushed to disk before it returns, so a power loss after the rename
+ * cannot leave an empty or partial snapshot.
+ */
+export async function writeSnapshotFile(path: string, text: string, fsync: boolean): Promise<void> {
+  const handle = await open(path, 'w')
+  try {
+    await handle.writeFile(text, 'utf8')
+    if (fsync) await handle.sync()
+  } finally {
+    await handle.close()
+  }
+}
+
+/**
+ * Best-effort `fsync` of the directory holding `filePath`, so a rename into it is durable.
+ * Ignored where directories cannot be opened for sync (Windows).
+ */
+export async function syncDirectory(filePath: string): Promise<void> {
+  let handle: Awaited<ReturnType<typeof open>> | undefined
+  try {
+    handle = await open(dirname(filePath), 'r')
+    await handle.sync()
+  } catch {
+    // Not supported on this platform/filesystem: the rename is still atomic.
+  } finally {
+    await handle?.close().catch(() => {})
+  }
 }
 
 export const DEFAULT_COMPACT_EVERY = 1000
@@ -79,42 +126,26 @@ export class AppendLog {
    * Read `<file>.log` and return every complete entry with `s > afterSeq`. A torn tail is
    * cut off the file (the writer serialises appends, so nothing else is writing it). A
    * missing log is an empty one.
+   * @throws {Error} `code: 'APPEND_LOG_CORRUPT'` when a bad line is followed by more entries.
    */
   static async replay<T = unknown>(filePath: string, afterSeq: number): Promise<AppendLogReplay<T>> {
     const path = AppendLog.pathOf(filePath)
-    let text: string
-    try {
-      text = await readFile(path, 'utf8')
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { entries: [], lastSeq: afterSeq, bytes: 0, torn: false }
-      throw error
-    }
-    const entries: Array<AppendLogEntry<T>> = []
-    let lastSeq = afterSeq
-    let complete = 0 // bytes of the lines kept
-    let torn = false
-    let offset = 0
-    while (offset < text.length) {
-      const nl = text.indexOf('\n', offset)
-      if (nl < 0) { torn = true; break }
-      const line = text.slice(offset, nl)
-      let parsed: { s?: unknown; e?: unknown }
-      try {
-        parsed = JSON.parse(line) as { s?: unknown; e?: unknown }
-      } catch {
-        torn = true
-        break
-      }
-      if (typeof parsed?.s !== 'number' || !('e' in parsed)) { torn = true; break }
-      offset = nl + 1
-      // Running total (the line plus its newline): measuring the whole prefix again for
-      // every line made a long log quadratic to read.
-      complete += Buffer.byteLength(line, 'utf8') + 1
-      if (parsed.s > lastSeq) lastSeq = parsed.s
-      if (parsed.s > afterSeq) entries.push({ s: parsed.s, entry: parsed.e as T })
-    }
-    if (torn) await truncate(path, complete)
-    return { entries, lastSeq, bytes: complete, torn }
+    const text = await readLog(path)
+    if (text === undefined) return { entries: [], lastSeq: afterSeq, bytes: 0, torn: false }
+    const result = scanLog<T>(text, path, afterSeq)
+    if (result.torn) await truncate(path, result.bytes)
+    return result
+  }
+
+  /**
+   * Check `<file>.log` without changing it: throws the {@link appendLogCorrupt} error for a
+   * bad line in the middle (a torn last line is fine: the next replay cuts it). For opening
+   * a journal that other processes may be appending to.
+   */
+  static async verify(filePath: string): Promise<void> {
+    const path = AppendLog.pathOf(filePath)
+    const text = await readLog(path)
+    if (text !== undefined) scanLog(text, path, Number.POSITIVE_INFINITY)
   }
 
   /** Adopt what {@link replay} found (so compaction thresholds count the existing tail). */
@@ -160,4 +191,53 @@ export class AppendLog {
   static async exists(filePath: string): Promise<boolean> {
     return (await stat(AppendLog.pathOf(filePath)).catch(() => undefined)) !== undefined
   }
+}
+
+/** Read a log file; `undefined` when it does not exist. */
+async function readLog(path: string): Promise<string | undefined> {
+  try {
+    return await readFile(path, 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+    throw error
+  }
+}
+
+/**
+ * Parse a log's text: every complete entry with `s > afterSeq`, the highest sequence, the
+ * bytes of the complete lines and whether a torn last line follows them.
+ * @throws {Error} `code: 'APPEND_LOG_CORRUPT'` for a bad line followed by more entries.
+ */
+function scanLog<T>(text: string, path: string, afterSeq: number): AppendLogReplay<T> {
+  const entries: Array<AppendLogEntry<T>> = []
+  let lastSeq = afterSeq
+  let complete = 0 // bytes of the lines kept
+  let torn = false
+  let offset = 0
+  let lineNo = 0
+  while (offset < text.length) {
+    lineNo++
+    const nl = text.indexOf('\n', offset)
+    if (nl < 0) { torn = true; break }
+    const line = text.slice(offset, nl)
+    let parsed: { s?: unknown; e?: unknown } | undefined
+    try {
+      parsed = JSON.parse(line) as { s?: unknown; e?: unknown }
+    } catch {
+      parsed = undefined
+    }
+    if (typeof parsed !== 'object' || parsed === null || typeof parsed.s !== 'number' || !('e' in parsed)) {
+      // Only the last line can be torn (a crash mid-append); anything after it means corruption.
+      if (text.slice(nl + 1).trim() !== '') throw appendLogCorrupt(path, lineNo, complete)
+      torn = true
+      break
+    }
+    offset = nl + 1
+    // Running total (the line plus its newline): measuring the whole prefix again for
+    // every line made a long log quadratic to read.
+    complete += Buffer.byteLength(line, 'utf8') + 1
+    if (parsed.s > lastSeq) lastSeq = parsed.s
+    if (parsed.s > afterSeq) entries.push({ s: parsed.s, entry: parsed.e as T })
+  }
+  return { entries, lastSeq, bytes: complete, torn }
 }

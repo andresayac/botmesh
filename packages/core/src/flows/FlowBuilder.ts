@@ -23,6 +23,7 @@ import {
 } from './media.js'
 import type { FormDefinition, FormStepOptions } from '../forms/types.js'
 import { assertFormDefinition } from '../forms/validate.js'
+import { attemptBudget } from '../conversations/retry.js'
 
 /* ============================================================================
  * TYPED FLOW STATE
@@ -80,7 +81,21 @@ export interface AskStepOptions<T = string> extends WaitOptions {
  */
 function assertStateKey(key: unknown, step: 'ask' | 'choose'): void {
   if (typeof key !== 'string') throw new TypeError(`flow .${step}(): the state key must be a string, got ${typeof key}`)
+  if (key.trim() === '') throw new TypeError(`flow .${step}(): the state key must not be empty (the answer would be stored under "")`)
   if (key === '__proto__') throw new TypeError(`flow .${step}(): "__proto__" cannot be a state key; pick another name`)
+}
+
+/** `.choose()` options: a plain object with at least one option, each with a label. */
+function assertChooseOptions(options: unknown): void {
+  if (typeof options !== 'object' || options === null || Array.isArray(options)) {
+    throw new TypeError('flow .choose(): options must be an object of { key: label | { label, then?, goto? } }')
+  }
+  const entries = Object.entries(options)
+  if (entries.length === 0) throw new TypeError('flow .choose(): needs at least one option (every answer would be rejected until the attempts run out)')
+  for (const [key, value] of entries) {
+    const label = typeof value === 'string' ? value : (value as { label?: unknown } | null)?.label
+    if (typeof label !== 'string' || label.trim() === '') throw new TypeError(`flow .choose(): option "${key}" needs a non-empty label`)
+  }
 }
 
 /** Options of `.choose(prompt, options, stateKey, opts)`. */
@@ -206,6 +221,7 @@ export class FlowBuilder<S extends object = EmptyFlowState> {
    */
   ask<K extends string, T = string>(text: string | DynamicText<S>, stateKey: K, opts?: AskStepOptions<T>): FlowBuilder<FlowStateWith<S, K, T>> {
     assertStateKey(stateKey, 'ask')
+    attemptBudget(opts, 'flow .ask()')
     const delayMs = delayOf(opts?.delay)
     const rest = withoutDelay(opts)
     this.push({
@@ -262,6 +278,8 @@ export class FlowBuilder<S extends object = EmptyFlowState> {
     opts?: ChooseStepOptions,
   ): FlowBuilder<FlowStateWith<S, K, Extract<keyof O, string>>> {
     if (stateKey !== undefined) assertStateKey(stateKey, 'choose')
+    assertChooseOptions(options)
+    attemptBudget(opts, 'flow .choose()')
     const compiled: Record<string, CompiledChooseOption> = {}
     for (const [key, value] of Object.entries(options as Record<string, ChooseOption<S>>)) {
       if (typeof value === 'string') { compiled[key] = { label: value }; continue }
@@ -335,6 +353,7 @@ export class FlowBuilder<S extends object = EmptyFlowState> {
    */
   form(definition: FormDefinition, opts?: FormStepOptions): FlowBuilder<S> {
     assertFormDefinition(definition)
+    attemptBudget(opts, 'flow .form()')
     this.push({ kind: 'form', form: definition, opts })
     return this
   }

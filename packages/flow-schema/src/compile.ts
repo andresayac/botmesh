@@ -406,6 +406,7 @@ function textOf(text: string): string | DynamicText {
 
 function askOptions(step: Extract<FlowStepDocument, { kind: 'ask' }>): WaitOptions | undefined {
   const opts: WaitOptions = { ...waitOptions(step.timeout) }
+  if (step.maxAttempts !== undefined) opts.maxAttempts = step.maxAttempts
   if (step.retries !== undefined) opts.retries = step.retries
   if (step.validate) {
     const test = parseExpression(step.validate.expr)
@@ -569,6 +570,7 @@ function formOptionsOf(step: Extract<FlowStepDocument, { kind: 'form' }>): FormS
     ...(step.mode !== undefined ? { mode: step.mode } : {}),
     ...(step.nativeId !== undefined ? { nativeId: step.nativeId } : {}),
     ...(step.timeout !== undefined ? { timeout: toMs(step.timeout) } : {}),
+    ...(step.maxAttempts !== undefined ? { maxAttempts: step.maxAttempts } : {}),
     ...(step.retries !== undefined ? { retries: step.retries } : {}),
   }
   return Object.keys(opts).length ? opts : undefined

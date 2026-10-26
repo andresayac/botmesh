@@ -28,19 +28,21 @@ function scripted(tool: string, trigger: string) {
 const confirmTool = { borrar: { description: 'Deletes an order by id (model-facing)', title: 'Delete order', confirm: true, handler: () => 'deleted' } }
 
 describe('ai i18n — built-in defaults', () => {
-  it('keeps the Spanish text unchanged without a context or without i18n', () => {
+  it('uses the English text without a context (the core default locale), Spanish with lang es', () => {
     expect(defaultConfirmPrompt('borrar_pedido', { description: 'Borra un pedido (texto para el modelo)', handler: () => 'x' }, {}))
-      .toBe('Voy a: Borrar pedido\n¿Confirmas? (sí/no)')
-    expect(formatSources([{ text: 'x', source: 'a.md' }])).toBe('Fuentes: a.md')
-    expect(aiText(undefined, AI_MESSAGES.maxSteps)).toBe('No pude completar la solicitud. Intenta de nuevo con más detalle.')
+      .toBe('About to: Borrar pedido\nDo you confirm? (yes/no)')
+    expect(formatSources([{ text: 'x', source: 'a.md' }])).toBe('Sources: a.md')
+    expect(aiText(undefined, AI_MESSAGES.maxSteps)).toBe("I couldn't complete the request. Please try again with more detail.")
+    expect(aiText({ lang: 'es' }, AI_MESSAGES.maxSteps)).toBe('No pude completar la solicitud. Intenta de nuevo con más detalle.')
   })
 
   it('the buttons variant of the prompt drops the typed-answer hint; button labels are localized', () => {
     const tool = { description: 'x', title: 'Borrar pedido', handler: () => 'x' }
-    expect(defaultConfirmPrompt('b', tool, {}, undefined, undefined, Date.now(), { buttons: true })).toBe('Voy a: Borrar pedido\n¿Confirmas?')
+    expect(defaultConfirmPrompt('b', tool, {}, { lang: 'es' }, undefined, Date.now(), { buttons: true })).toBe('Voy a: Borrar pedido\n¿Confirmas?')
     expect(defaultConfirmPrompt('b', tool, {}, { lang: 'en' }, undefined, Date.now(), { buttons: true })).toBe('About to: Borrar pedido\nDo you confirm?')
     expect(defaultConfirmPrompt('b', { ...tool, confirmMessage: 'custom' }, {}, undefined, undefined, Date.now(), { buttons: true })).toBe('custom')
-    expect([aiText(undefined, AI_MESSAGES.buttonYes), aiText(undefined, AI_MESSAGES.buttonNo)]).toEqual(['Sí', 'No'])
+    expect([aiText({ lang: 'es' }, AI_MESSAGES.buttonYes), aiText({ lang: 'es' }, AI_MESSAGES.buttonNo)]).toEqual(['Sí', 'No'])
+    expect([aiText(undefined, AI_MESSAGES.buttonYes), aiText(undefined, AI_MESSAGES.buttonNo)]).toEqual(['Yes', 'No'])
     expect([aiText({ lang: 'en' }, AI_MESSAGES.buttonYes), aiText({ lang: 'en' }, AI_MESSAGES.buttonNo)]).toEqual(['Yes', 'No'])
   })
 
@@ -82,7 +84,7 @@ describe('ai i18n — follows ctx.lang through the plugin', () => {
   })
 
   it('a bot.locale() override wins over the built-in text', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.locale('es', { ai: { tools: { confirm: '¿Ejecuto {tool}?' } } })
     bot.plug(aiPlugin({ __provider: scripted('borrar', 'borra'), tools: confirmTool }))
     await chat.send('borra')
@@ -103,16 +105,21 @@ describe('ai i18n — follows ctx.lang through the plugin', () => {
 })
 
 describe('ai i18n — error and refusal replies', () => {
-  it('keep their Spanish defaults without i18n (unchanged)', async () => {
+  it('are English by default and Spanish with lang: es', async () => {
     const mock = new MockAIProvider()
     mock.generate = async () => { throw new Error('boom') }
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(aiPlugin({ instance: mock }))
     await chat.send('hola')
     await chat.expectReply('⚠️ Ahora no puedo responder, intenta luego.')
     await bot.stop()
+    const english = await createTestBot()
+    english.bot.plug(aiPlugin({ instance: mock }))
+    await english.chat.send('hello')
+    await english.chat.expectReply("⚠️ I can't answer right now, please try again later.")
+    await english.bot.stop()
     const refusal = new AIClient(new MockAIProvider({ stopReason: 'refusal' }), new ContextManager(new MemoryStore()))
-    expect(await refusal.ask('x')).toBe('No puedo ayudar con eso.')
+    expect(await refusal.ask('x')).toBe("I can't help with that.")
   })
 
   it('follow ctx.lang when the bot speaks English (and an explicit message still wins)', async () => {

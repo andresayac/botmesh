@@ -59,7 +59,7 @@ export type LangSource = 'user' | 'provider' | 'detector' | 'default'
 
 /** i18n options — `BotConfig.i18n` or `bot.locale({ ... })`. */
 export interface I18nConfig {
-  /** Language used when nothing else resolves, and the fallback for missing keys. Default `'es'`. */
+  /** Language used when nothing else resolves, and the fallback for missing keys. Default `'en'` (or `BotConfig.lang`). */
   defaultLocale?: string
   /** Custom detector (see {@link LanguageDetector}). */
   detect?: LanguageDetector

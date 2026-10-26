@@ -14,7 +14,7 @@ describe('@botmesh/rag + aiPlugin', () => {
     const rag = createRag({ documents: [{ id: 'faq', source: 'faq.md', text: FAQ, format: 'markdown' }], topK: 1 })
     const retriever: AIRetriever = rag // structural compatibility (compile-time)
     const mock = new MockAIProvider({ reply: (i) => (i.system?.includes('3 días hábiles') ? 'Tardan 3 días hábiles [1].' : 'no sé') })
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(aiPlugin({ instance: mock, rag: { retriever, appendSources: true } }))
     await chat.send('¿Cuánto tardan los envíos?')
     await chat.expectReply('Tardan 3 días hábiles [1].\n\nFuentes: [1] faq.md › Tienda › Envíos')

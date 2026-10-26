@@ -79,7 +79,7 @@ function orderTool(ran: unknown[], extra: Partial<AITool<unknown>> = {}): AITool
 
 async function bakeryBot(tools: AIToolSet, mock = bakeryModel(), cfg: Partial<AIPluginConfig> = {}) {
   // A channel without native buttons (WhatsApp via Baileys): the typed yes/no question.
-  const { bot, chat } = await createTestBot({}, { provider: { buttons: false } })
+  const { bot, chat } = await createTestBot({ lang: 'es' }, { provider: { buttons: false } })
   bot.plug(aiPlugin({ __provider: mock, tools, ...cfg }))
   return { bot, chat, mock }
 }
@@ -96,7 +96,7 @@ describe('human-readable confirmation prompt', () => {
     const prompt = defaultConfirmPrompt('crear_pedido', tool, {
       items: [{ producto: 'torta_chocolate', cantidad: 5 }, { producto: 'cafe', cantidad: 2 }],
     })
-    expect(prompt).toBe('Voy a: Crear pedido\n• 5 × torta_chocolate\n• 2 × cafe\n¿Confirmas? (sí/no)')
+    expect(prompt).toBe('About to: Crear pedido\n• 5 × torta_chocolate\n• 2 × cafe\nDo you confirm? (yes/no)')
     expect(prompt).not.toContain('Registra')
     expect(prompt).not.toContain('{')
   })
@@ -107,12 +107,12 @@ describe('human-readable confirmation prompt', () => {
       direccion: { calle: 'Calle 1', ciudad: 'Bogotá' },
     })
     expect(prompt).toBe([
-      'Voy a: Agendar cita',
+      'About to: Agendar cita',
       '• Fecha hora: 2026-10-20 10:00',
       '• Para otro: no',
       '• Extras: agua, toalla',
       '• Direccion: Calle: Calle 1, Ciudad: Bogotá',
-      '¿Confirmas? (sí/no)',
+      'Do you confirm? (yes/no)',
     ].join('\n'))
   })
 
@@ -120,7 +120,7 @@ describe('human-readable confirmation prompt', () => {
     expect(argLines({ cliente: 'Ana', items: [{ sku: 'a', qty: 1 }] })).toEqual(['• Cliente: Ana', '• Items:', '   ◦ 1 × a'])
     const many = argLines({ items: Array.from({ length: 20 }, (_v, i) => ({ producto: `p${i}`, cantidad: 1 })) })
     expect(many).toHaveLength(12)
-    expect(many.at(-1)).toBe('… y 9 más')
+    expect(many.at(-1)).toBe('… and 9 more')
     expect(argLines({ items: [] })).toEqual([])
   })
 
@@ -145,7 +145,7 @@ describe('human-readable confirmation prompt', () => {
     }
     expect(defaultConfirmPrompt('crear_pedido', tool, {
       items: [{ producto: 'torta_chocolate', cantidad: 2 }, { producto: 'cafe', cantidad: 1 }],
-    })).toBe('Voy a: Crear pedido\n• 2 × Torta de chocolate\n• 1 × cafe\n¿Confirmas? (sí/no)')
+    })).toBe('About to: Crear pedido\n• 2 × Torta de chocolate\n• 1 × cafe\nDo you confirm? (yes/no)')
     expect(argLines({ cliente: 'Ana', entrega: 'domicilio', extras: ['velas', 'globos'], items: [{ producto: 'pan_queso', cantidad: 3 }] }, undefined, tool.labels))
       .toEqual(['• Cliente: Ana', '• Entrega: A domicilio', '• Extras: Velas, globos', '• Items:', '   ◦ 3 × Pan de queso'])
     // Labels only apply under their own key.
@@ -165,7 +165,7 @@ describe('human-readable confirmation prompt', () => {
     // confirmMessage still wins over everything.
     expect(defaultConfirmPrompt('x', { ...tool, confirmMessage: 'custom' } as AITool<unknown>, { items: [] })).toBe('custom')
     // An empty list renders the bare prompt.
-    expect(defaultConfirmPrompt('x', { description: 'd', confirmLines: () => [], handler: () => 0 }, {})).toBe('Voy a: X\n¿Confirmas? (sí/no)')
+    expect(defaultConfirmPrompt('x', { description: 'd', confirmLines: () => [], handler: () => 0 }, {})).toBe('About to: X\nDo you confirm? (yes/no)')
   })
 
   it('the plugin asks with labels applied', async () => {
@@ -333,11 +333,11 @@ describe('repeated side effects', () => {
     await ai.replyInChat('k', 'pide 2', { confirm })
     expect(ran).toHaveLength(2)
     expect(requests[1]?.previous).toBeUndefined()
-    expect(requests[1]?.prompt).not.toMatch(/Ojo|otra vez/)
+    expect(requests[1]?.prompt).not.toMatch(/Heads-up|again/)
     // The same arguments again: warned, with the previous run.
     await ai.replyInChat('k', 'pide 3', { confirm })
     expect(requests[2]?.previous?.args).toEqual({ items: [{ producto: 'torta_chocolate', cantidad: 3 }] })
-    expect(requests[2]?.prompt).toMatch(/^Ojo: ya hice «Crear pedido» hace un momento \(resultado: .*\)\. Si confirmas, se hará otra vez\./)
+    expect(requests[2]?.prompt).toMatch(/^Heads-up: I already did «Crear pedido» a moment ago \(result: .*\)\. Confirming will do it again\./)
   })
 
   it('the confirmer receives `previous`; /reset forgets it', async () => {
@@ -388,7 +388,7 @@ describe('repeated side effects', () => {
     await ai.replyInChat('k', 'pide 4', { confirm })
     expect(ran).toHaveLength(2)
     expect(requests[1]?.previous).toBeUndefined()
-    expect(requests[1]?.prompt).toBe('Voy a: Crear pedido\n• 4 × torta_chocolate\n¿Confirmas? (sí/no)')
+    expect(requests[1]?.prompt).toBe('About to: Crear pedido\n• 4 × torta_chocolate\nDo you confirm? (yes/no)')
     // Another chat is independent.
     await ai.replyInChat('other', 'pide 1', { confirm })
     expect(ran).toHaveLength(3)

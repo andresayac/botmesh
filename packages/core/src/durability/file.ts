@@ -10,12 +10,12 @@
  * is ever killed.
  */
 
-import { mkdir, open, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, open, readFile, realpath, rename, rm, stat } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { KvDurability } from './journal.js'
 import { MemoryKv, assertKvMutation, type KvMutation, type MemoryKvSnapshot } from './kv.js'
-import { AppendLog, appendLogOptions } from './fileLog.js'
+import { AppendLog, appendLogOptions, syncDirectory, writeSnapshotFile } from './fileLog.js'
 
 /** Options of {@link FileDurability.open}. */
 export interface FileDurabilityOptions {
@@ -34,6 +34,13 @@ export interface FileDurabilityOptions {
    * (and folded into a snapshot) on open, even with this off.
    */
   appendLog?: boolean | { compactEvery?: number; compactBytes?: number; fsync?: boolean }
+  /**
+   * `fsync` every snapshot before it replaces the previous one (and the directory after the
+   * rename, where the platform allows it), so a power loss cannot leave an empty or partial
+   * journal. Also the default of `appendLog.fsync`. Default `false`: the write is atomic
+   * (temp file + rename) but may still sit in the OS cache when the machine loses power.
+   */
+  fsync?: boolean
 }
 
 class FileKv extends MemoryKv {
@@ -42,7 +49,7 @@ class FileKv extends MemoryKv {
   /** Append-only log; `undefined` = rewrite the whole snapshot on every write. */
   private log: AppendLog | undefined
   private seq = 0
-  constructor(private readonly filePath: string) { super() }
+  constructor(private readonly filePath: string, private readonly fsync = false) { super() }
 
   /** Use (or stop using) the append-only log and the sequence it must continue from. */
   useLog(log: AppendLog | undefined, seq: number): void {
@@ -77,8 +84,9 @@ class FileKv extends MemoryKv {
     const snapshot = JSON.stringify(this.snapshot())
     const temporary = `${this.filePath}.${randomUUID()}.tmp`
     try {
-      await writeFile(temporary, snapshot, 'utf8')
+      await writeSnapshotFile(temporary, snapshot, this.fsync)
       await rename(temporary, this.filePath)
+      if (this.fsync) await syncDirectory(this.filePath)
     } catch (error) {
       await rm(temporary, { force: true }).catch(() => {})
       throw error
@@ -218,7 +226,14 @@ export class FileDurability extends KvDurability {
     const waitMs = options.lockWaitMs ?? 2_000
     if (!Number.isFinite(waitMs) || waitMs < 0) throw new TypeError('FileDurability.open(): lockWaitMs must be a non-negative number')
     // Validated before the lock is taken: an invalid option never leaves a stale lock.
-    const logOptions = appendLogOptions(options.appendLog, 'FileDurability.open()')
+    if (options.fsync !== undefined && typeof options.fsync !== 'boolean') throw new TypeError('FileDurability.open(): fsync must be a boolean')
+    const fsync = options.fsync === true
+    const logOptions = appendLogOptions(
+      fsync && typeof options.appendLog === 'object' && options.appendLog !== null && options.appendLog.fsync === undefined
+        ? { ...options.appendLog, fsync: true }
+        : fsync && options.appendLog === true ? { fsync: true } : options.appendLog,
+      'FileDurability.open()',
+    )
     await mkdir(dirname(filePath), { recursive: true })
     const lockPath = options.lock === false ? undefined : `${filePath}.lock`
     let key: string | undefined
@@ -234,7 +249,7 @@ export class FileDurability extends KvDurability {
         throw error
       }
     }
-    const kv = new FileKv(filePath)
+    const kv = new FileKv(filePath, fsync)
     let snapshot: MemoryKvSnapshot | undefined
     try {
       const text = await readFile(filePath, 'utf8')

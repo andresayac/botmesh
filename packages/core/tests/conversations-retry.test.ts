@@ -79,7 +79,7 @@ describe('c.retry() — async conversations (in place)', () => {
     const start = makeMsg('start')
     let email = ''
     const entry = enter(rt, async (c) => {
-      email = await c.ask('¿Email?', { validate: (b) => b.includes('@') || 'no es email', retries: 10 })
+      email = await c.ask('¿Email?', { validate: (b) => b.includes('@') || 'no es email', maxAttempts: 10 })
       if (email.endsWith('.test')) email = await c.retry('ese dominio no vale')
     }, start)
     await vi.waitFor(() => expect(texts(start.reply)).toContain('¿Email?'))
@@ -139,7 +139,7 @@ describe('c.retry() — async conversations (in place)', () => {
     rt.deliver(makeMsg('borrosa', 'image'))
     await vi.waitFor(() => expect(texts(start.reply)).toContain('Está borrosa, envía otra'))
     rt.deliver(makeMsg('texto', 'text'))                     // still rejected by the image filter
-    await vi.waitFor(() => expect(texts(start.reply)).toContain('📎 Envía un archivo válido.'))
+    await vi.waitFor(() => expect(texts(start.reply)).toContain('📎 Please send a valid file.'))
     rt.deliver(makeMsg('nítida', 'image'))
     await entry
     expect(got?.body).toBe('nítida')
@@ -188,7 +188,7 @@ describe('c.retry() — async conversations (in place)', () => {
     const rt = makeRt({ retriesMessage: 'agotado' })
     const start = makeMsg('start')
     const entry = enter(rt, async (c) => {
-      await c.waitText({ validate: (b) => b !== 'mal' || 'inválido', retries: 2 })
+      await c.waitText({ validate: (b) => b !== 'mal' || 'inválido', maxAttempts: 2 })
       await c.retry('otra')                                    // 1 validate failure + 1 retry = 2 → exceeded
     }, start)
     rt.deliver(makeMsg('mal'))
@@ -221,9 +221,9 @@ describe('c.retry() — async conversations (in place)', () => {
     const start = makeMsg('start')
     const got: string[] = []
     const entry = enter(rt, async (c) => {
-      await c.waitText({ retries: 2 })
+      await c.waitText({ maxAttempts: 2 })
       got.push(await c.retry())                               // attempts 1/2
-      await c.waitText({ retries: 2 })                        // new wait → budget resets
+      await c.waitText({ maxAttempts: 2 })                        // new wait → budget resets
       got.push(await c.retry())                               // attempts 1/2 again
     }, start)
     for (const b of ['a', 'b', 'c', 'd']) rt.deliver(makeMsg(b))
@@ -262,7 +262,7 @@ describe('c.retry() — async conversations (in place)', () => {
   })
 
   it('works over a real Bot conversation (async)', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.conversation('ahorcado', async (c, ctx) => {
       let letra = await c.ask('Escribe una letra')
       while (letra.length !== 1) letra = await c.retry('❌ Solo una letra')
@@ -361,7 +361,7 @@ describe('c.retry() — concurrent waits (un-awaited retry)', () => {
 
 describe('c.retry() — flow steps (rewind)', () => {
   it('.do() calling c.retry() re-asks the previous .ask() and re-runs the .do() on the new answer', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const seen: string[] = []
     bot.use(flow('juego')
       .ask('Escribe una letra', 'letra')
@@ -381,7 +381,7 @@ describe('c.retry() — flow steps (rewind)', () => {
   })
 
   it('without a message the original question is re-sent', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.use(flow('edad')
       .ask('¿Edad?', 'edad')
       .do(async (_ctx, c) => { if (!/^\d+$/.test(String(c.state.edad))) return c.retry() })
@@ -395,7 +395,7 @@ describe('c.retry() — flow steps (rewind)', () => {
   })
 
   it('steps between the ask and the do are replayed in order', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.use(flow('replay')
       .ask('¿Color?', 'color')
       .say('anotado')
@@ -412,7 +412,7 @@ describe('c.retry() — flow steps (rewind)', () => {
   })
 
   it('code after c.retry() in the step does not run', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const after = vi.fn()
     bot.use(flow('stop')
       .ask('¿Sí?', 'r')
@@ -428,7 +428,7 @@ describe('c.retry() — flow steps (rewind)', () => {
   })
 
   it('a choose `then` action calling c.retry() re-prompts the menu', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     let stock = 0
     bot.use(flow('tienda')
       .choose('¿Qué quieres?', {
@@ -445,7 +445,7 @@ describe('c.retry() — flow steps (rewind)', () => {
   })
 
   it('in a .do() that made its own wait, retry() re-runs that wait in place', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.use(flow('inline')
       .say('hola')
       .do(async (ctx, c) => {
@@ -463,9 +463,9 @@ describe('c.retry() — flow steps (rewind)', () => {
   })
 
   it('rewinds count against the ask\'s retries budget (shared with validate)', async () => {
-    const { bot, chat } = await createTestBot({ conversation: { retriesMessage: 'demasiados' } })
+    const { bot, chat } = await createTestBot({ lang: 'es', conversation: { retriesMessage: 'demasiados' } })
     bot.use(flow('budget')
-      .ask('¿Clave?', 'k', { retries: 2 })
+      .ask('¿Clave?', 'k', { maxAttempts: 2 })
       .do(async (_ctx, c) => { if (c.state.k !== 'ok') c.retry('mal') })
       .say('dentro'))
     await chat.send('budget')
@@ -479,7 +479,7 @@ describe('c.retry() — flow steps (rewind)', () => {
   })
 
   it('retry inside a sub-flow rewinds within the sub-flow, then returns to the parent', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const direccion = flow('direccion-sub')
       .ask('¿Ciudad?', 'ciudad')
       .do(async (_ctx, c) => { if (String(c.state.ciudad).length < 3) c.retry('ciudad muy corta') })
@@ -497,7 +497,7 @@ describe('c.retry() — flow steps (rewind)', () => {
   })
 
   it('a .do() step without any earlier prompt step fails clearly (RetryUnavailableError → error event)', async () => {
-    const { bot, chat } = await createTestBot({ conversation: { errorMessage: 'falló' } })
+    const { bot, chat } = await createTestBot({ lang: 'es', conversation: { errorMessage: 'falló' } })
     const errors: unknown[] = []
     bot.on('error', ({ error }) => errors.push(error))
     bot.use(flow('nada').do(async (_ctx, c) => { c.retry() }))
@@ -537,7 +537,7 @@ describe('c.retry() — flow steps (rewind)', () => {
   })
 
   it('the rewind signal is a ConversationError so user try/catch can rethrow it', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const caught: unknown[] = []
     bot.use(flow('trycatch')
       .ask('¿Valor?', 'v')
@@ -560,7 +560,7 @@ describe('c.retry() — flow steps (rewind)', () => {
 
 describe('c.end(farewell) (FEATURES #15)', () => {
   it('async conversation: sends the farewell and ends', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.conversation('juego', async (c, ctx) => {
       await ctx.reply('¿Jugamos?')
       const r = await c.waitText()
@@ -576,7 +576,7 @@ describe('c.end(farewell) (FEATURES #15)', () => {
   })
 
   it('flow .do(): c.end(farewell) after a retry loop', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.use(flow('cancelar')
       .ask('¿Seguro? (si/no)', 'confirm')
       .do(async (_ctx, c) => {

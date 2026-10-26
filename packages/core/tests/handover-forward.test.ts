@@ -30,7 +30,7 @@ function replica(s: Shared, id: string, handover?: ConversationHandoverConfig, e
   const provider = new MockProvider()
   const coordinator = new MemoryCoordinator({ hub: s.hub, replicaId: id })
   const bot = new Bot({
-    provider, store: s.store, logger: silent(),
+    provider, store: s.store, logger: silent(), lang: 'es',
     coordination: { coordinator, ...(handover ? { handover } : {}) },
     ...extra,
   })

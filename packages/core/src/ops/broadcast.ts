@@ -29,7 +29,12 @@ export interface BroadcastOptions {
   delayBetween?: string | number
   /** Parallel sends inside a batch (default 1 — strictly sequential). */
   concurrency?: number
-  /** Retries per chat after a {@link RateLimitedError} (default 3). Other errors are not retried. */
+  /**
+   * Retries per chat AFTER the first attempt, on a {@link RateLimitedError} (default 3, so up
+   * to 4 sends). Other errors are not retried. Same meaning as every `retries` option.
+   */
+  retries?: number
+  /** @deprecated Use {@link retries} (same meaning). */
   maxRetries?: number
   /** Options forwarded to every send (`quoted`, `mentions`, …). */
   sendOptions?: SendOptions
@@ -81,7 +86,10 @@ export async function runBroadcast(
 ): Promise<BroadcastResult> {
   const batchSize = positiveInt(opts.batchSize ?? 10, 'batchSize')
   const concurrency = positiveInt(opts.concurrency ?? 1, 'concurrency')
-  const maxRetries = nonNegativeInt(opts.maxRetries ?? 3, 'maxRetries')
+  if (opts.retries !== undefined && opts.maxRetries !== undefined && opts.retries !== opts.maxRetries) {
+    throw new TypeError('broadcast: pass retries (maxRetries is its deprecated alias), not both with different values')
+  }
+  const maxRetries = nonNegativeInt(opts.retries ?? opts.maxRetries ?? 3, opts.retries !== undefined ? 'retries' : 'maxRetries')
   const delayMs = opts.delayBetween === undefined ? 0 : parseDuration(opts.delayBetween)
   const fallbackRetryMs = deps.defaultRetryAfterMs ?? 1000
   const { signal } = opts

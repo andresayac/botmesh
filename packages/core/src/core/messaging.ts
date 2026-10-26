@@ -214,6 +214,8 @@ export interface PacerOptions {
   provider: Pick<IProvider, 'capabilities' | 'typing'>
   typing: ResolvedTypingConfig
   logger?: PacerLogger
+  /** How a chat id appears in log lines (the bot's `logIds` policy). Default: as is. */
+  logId?: (id: string) => string | undefined
   /** Injected for tests. */
   sleep?: (ms: number) => Promise<void>
   /**
@@ -244,7 +246,7 @@ export function createPacer(options: PacerOptions): Pacer {
     void Promise.resolve()
       .then(() => provider.typing?.(chatId, state))
       .catch((error: unknown) => {
-        logger?.debug({ chatId, state, err: error instanceof Error ? error.message : String(error) }, 'typing indicator failed (ignored)')
+        logger?.debug({ chatId: options.logId ? options.logId(chatId) : chatId, state, err: error instanceof Error ? error.message : String(error) }, 'typing indicator failed (ignored)')
       })
   }
 

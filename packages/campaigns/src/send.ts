@@ -37,7 +37,7 @@ export interface CampaignRun {
  * queued delivery is released as `failed` (`'broadcast rejected'`) before the error is rethrown.
  *
  * `options` is passed to `bot.broadcast()` (`batchSize`, `delayBetween`, `concurrency`,
- * `maxRetries`, `sendOptions`, `onProgress`, `onFail`, `signal`).
+ * `retries`, `sendOptions`, `onProgress`, `onFail`, `signal`).
  */
 export async function sendCampaign(
   bot: Bot,
