@@ -236,6 +236,19 @@ describe('MongoStore — lifecycle', () => {
     await store.stop()
   })
 
+  it('an own client used after stop() fails with a store error, and start() again works', async () => {
+    const store = new MongoStore({ url: 'mongodb://fake:27017', dbName: 'stopped' })
+    const schedules = store.schedules()
+    await store.start()
+    await store.upsertChat({ id: 'c', name: 'Ana' })
+    await store.stop()
+    await expect(store.getChat('c')).rejects.toThrow('MongoStore is stopped — call start() before using it')
+    await expect(schedules.get('t')).rejects.toThrow(/MongoStore is stopped/)
+    await store.start()
+    expect(await store.getChat('c')).toEqual({ id: 'c', name: 'Ana' })
+    await store.stop()
+  })
+
   it('never connects or closes an injected client', async () => {
     const fake = new FakeMongoClient() // note: connected === false
     const store = new MongoStore({ client: fake })
@@ -263,6 +276,33 @@ describe('MongoStore — options validation', () => {
       expect(() => new MongoStore({ client: new FakeMongoClient(), collectionPrefix: bad })).toThrow(/collectionPrefix/)
     }
     expect(() => new MongoStore({ client: new FakeMongoClient(), collectionPrefix: 'bot.v2_' })).not.toThrow()
+  })
+})
+
+describe('MongoStore — keys named after Object.prototype members', () => {
+  // js-bson reads an array field named `constructor`, `toString`, … with its documents as raw
+  // BSON Buffers unless the read passes a null-prototype `fieldsAsRaw`.
+  const tricky = { constructor: [{ x: 1 }], toString: [{ y: [{ z: 1 }] }], hasOwnProperty: [{ w: 1 }] }
+
+  it('checkpoints, messages, chats, contacts and conversations keep arrays of documents under such keys', async () => {
+    const store = new MongoStore({ client: new FakeMongoClient() })
+    await store.start()
+    const cp = { flowId: 'f', stepIndex: 0, state: { nested: tricky }, updatedAt: 1 } as unknown as FlowCheckpoint
+    await store.setCheckpoint('k', cp)
+    expect((await store.getCheckpoint('k'))?.state).toEqual({ nested: tricky })
+    expect((await store.listCheckpoints())[0]![1].state).toEqual({ nested: tricky })
+    await store.saveMessage({ ...msg('c', 'm1', 'hi', 1), raw: tricky })
+    expect((await store.getMessage({ id: 'm1', chatId: 'c' }))?.raw).toEqual(tricky)
+    expect((await store.getMessagesByChat('c'))[0]?.raw).toEqual(tricky)
+    await store.upsertChat({ id: 'c', raw: tricky } as never)
+    expect(await store.getChat('c')).toEqual({ id: 'c', raw: tricky })
+    expect(await store.listChats()).toEqual([{ id: 'c', raw: tricky }])
+    await store.upsertContact({ id: 'u', raw: tricky } as never)
+    expect(await store.getContact('u')).toEqual({ id: 'u', raw: tricky })
+    expect(await store.listContacts()).toEqual([{ id: 'u', raw: tricky }])
+    await store.setConversation('ai', [{ role: 'assistant', content: 'x', toolCalls: [{ id: 't', name: 'n', args: tricky }] } as never])
+    expect(await store.getConversation('ai')).toEqual([{ role: 'assistant', content: 'x', toolCalls: [{ id: 't', name: 'n', args: tricky }] }])
+    await store.stop()
   })
 })
 

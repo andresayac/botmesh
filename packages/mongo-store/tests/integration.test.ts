@@ -329,6 +329,25 @@ describe.skipIf(!MONGO_URL)('MongoStore — real MongoDB integration', () => {
   describe('value fidelity (unicode, large JSON, BSON types)', () => {
     // BSON cannot encode a key with U+0000 ("key ... must not contain null bytes"): such keys
     // are stored with U+FFFD, as PostgresStore does, so a flow keyed by user text still checkpoints.
+    // js-bson reads an array field named after an Object.prototype member with its documents as
+    // raw BSON Buffers unless fieldsAsRaw has no prototype (found by a seeded differential fuzz).
+    it('arrays of documents under keys such as constructor/toString read back intact', async () => {
+      const { store } = await makeStore()
+      const tricky = { constructor: [{ x: 1 }], deep: { toString: [{ y: [{ z: 1 }] }] }, valueOf: [{ w: 1 }] }
+      await store.setCheckpoint('proto', { flowId: 'f', stepIndex: 0, state: tricky, updatedAt: 1 } as unknown as FlowCheckpoint)
+      expect((await store.getCheckpoint('proto'))?.state).toEqual(tricky)
+      expect((await store.listCheckpoints()).find(([k]) => k === 'proto')?.[1].state).toEqual(tricky)
+      await store.saveMessage(msg('proto@x', 'p1', 'x', 1, { raw: tricky }))
+      expect((await store.getMessage({ id: 'p1', chatId: 'proto@x' }))?.raw).toEqual(tricky)
+      expect((await store.getMessagesByChat('proto@x'))[0]?.raw).toEqual(tricky)
+      await store.upsertChat({ id: 'proto@x', raw: tricky } as never)
+      expect((await store.getChat('proto@x'))?.raw).toEqual(tricky)
+      await store.upsertContact({ id: 'proto@x', raw: tricky } as never)
+      expect((await store.listContacts()).find((c) => c.id === 'proto@x')?.raw).toEqual(tricky)
+      await store.setConversation('proto', [{ role: 'user', content: 'x', meta: tricky } as never])
+      expect(await store.getConversation('proto')).toEqual([{ role: 'user', content: 'x', meta: tricky }])
+    })
+
     it('object keys holding U+0000 are stored as U+FFFD in checkpoints (plain and CAS), messages, conversations and chats', async () => {
       const { store } = await makeStore()
       const state = { 'k\u0000': 1, nested: { 'k\u0000': ['v\u0000'] }, $x: 2, 'a.b': 3 }

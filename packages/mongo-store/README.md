@@ -36,7 +36,7 @@ const bot = new Bot({ provider: new BaileysProvider({ session: 'my-bot' }), stor
 await bot.start() // starts the store too: builds and connects the client, creates the indexes
 ```
 
-Using the store before it is started fails with an error that tells you to call `start()`. `stop()` closes the client only when the store created it.
+Using the store before it is started, or after `stop()`, fails with an error that tells you to call `start()`. `stop()` closes the client only when the store created it; a later `start()` opens it again.
 
 ### Bring your own client
 
@@ -100,6 +100,8 @@ Every name gets the `collectionPrefix`. Databases created by an early version al
 | --- | --- |
 | `needs the MongoDB driver "mongodb", which is not installed` | Install the peer dependency (`pnpm add mongodb`), or pass your own `client`. |
 | `MongoStore is not started — call start() before using it` | The bot starts the store; if you use it on its own, `await store.start()` first. |
+| `MongoStore is stopped — call start() before using it` | The store (or the bot) was stopped and closed its own client. Call `start()` again, or stop the store only after the last call. |
+| Every call hangs for up to a minute while the server is unreachable | The driver's default timeouts. Add a client-side timeout to the URL, for example `mongodb://host:27017/?timeoutMS=5000` (or `socketTimeoutMS` / `serverSelectionTimeoutMS`), so a call fails fast and the chat's queue moves on. |
 | `TypeError` naming an id | An id that enters a filter (chat, message, contact, key, `ctx.user` user/namespace/key, schedule id) is not a string. Never pass request bodies through unchecked. |
 | `invalid dbName` / `invalid collectionPrefix` | Use a valid MongoDB name (see [Options](#options)). |
 | Server selection timeout on Windows with Docker | Use `127.0.0.1` instead of `localhost`: `localhost` resolves to `::1` first and the driver times out. For a single-node replica set reached through a port forward, add `directConnection=true` to the URL. |
@@ -109,7 +111,7 @@ Every name gets the `collectionPrefix`. Databases created by an early version al
 - `deleteChat(chatId)` removes the chat **and** its message log. On a replica set or `mongos` both deletes run in one transaction; a standalone server cannot run transactions, so there the store deletes the messages first and then the chat (a retry finishes an interrupted delete). Both driver majors' way of reporting a standalone server are recognised.
 - `upsertChat` / `upsertContact` shallow-merge in one `updateOne`: fields you pass replace the stored ones, omitted fields are kept and a field passed explicitly as `undefined` is removed.
 - `getMessagesByChat(chatId, limit)` returns the newest `limit` messages, oldest first, sorted by `timestamp` then `_id`, so messages with the same timestamp always give the same window and the `maxMessagesPerChat` trim keeps exactly those.
-- BSON: `undefined` is never stored as `null` (nested `undefined` values are dropped), binary data in `raw` or checkpoint state reads back as a Node `Buffer`, and an object key holding U+0000 is stored with U+FFFD. Every document is limited to MongoDB's 16 MB.
+- BSON: `undefined` is never stored as `null` (nested `undefined` values are dropped), binary data in `raw` or checkpoint state reads back as a Node `Buffer`, and an object key holding U+0000 is stored with U+FFFD. Keys such as `constructor` or `toString` round-trip like any other key (the store works around a js-bson quirk that returned their arrays of objects as raw bytes). Every document is limited to MongoDB's 16 MB.
 - Message documents are keyed by `messageKey(ref)` (`{chatId}:{id}`, with `:` and `%` escaped), so ids containing `:` (such as Twilio's `whatsapp:+1…`) never collide. Documents written by older releases under the unescaped key are still found and moved on the next save.
 
 ## Development

@@ -53,27 +53,35 @@ async function createMongoClient(url: string): Promise<MongoLikeClient> {
 /**
  * The client of a store that owns it. `connect()` (called by `MongoStore.start()`) loads the
  * driver and builds the real client; before that, a collection call fails with a "not
- * started" error. Collections handed out earlier (the store's own, `store.schedules()`)
- * resolve to the real ones on their first call.
+ * started" error, and after `close()` (`MongoStore.stop()`) with a "stopped" one. Collections
+ * handed out earlier (the store's own, `store.schedules()`) resolve to the real ones on their
+ * first call and work again after the next `connect()`.
  */
 export class LazyMongoClient implements MongoLikeClient {
   private real?: MongoLikeClient
   private opening?: Promise<MongoLikeClient>
+  private closed = false
 
   constructor(private readonly url: string) {}
 
+  /** The real client, or a store error when the store is not (or no longer) started. */
   private live(): MongoLikeClient {
     if (!this.real) throw new Error('MongoStore is not started — call start() before using it')
+    if (this.closed) throw new Error('MongoStore is stopped — call start() before using it')
     return this.real
   }
 
   async connect(): Promise<unknown> {
     this.real ??= await (this.opening ??= createMongoClient(this.url).finally(() => { this.opening = undefined }))
-    return this.real.connect()
+    const connected = await this.real.connect()
+    this.closed = false
+    return connected
   }
 
   async close(force?: boolean): Promise<void> {
-    if (this.real) await this.real.close(force)
+    if (!this.real) return
+    this.closed = true
+    await this.real.close(force)
   }
 
   startSession(): MongoLikeSession {
@@ -83,7 +91,10 @@ export class LazyMongoClient implements MongoLikeClient {
   }
 
   db(name?: string): MongoLikeDb {
-    return { collection: <T extends { _id: string }>(n: string) => lazyCollection(() => this.live().db(name).collection<T>(n)) }
+    return {
+      collection: <T extends { _id: string }>(n: string) =>
+        lazyCollection(() => this.live().db(name).collection<T>(n), () => { this.live() }),
+    }
   }
 }
 
@@ -91,14 +102,16 @@ export class LazyMongoClient implements MongoLikeClient {
  * A collection whose methods forward to `resolve()`'s result. Every property is a method
  * that resolves the real collection on call (then cached: a driver `Collection` stays bound
  * to its client across close/connect), so handing it out and checking its shape (what
- * `MongoScheduleStore` does) never needs the client. Not thenable.
+ * `MongoScheduleStore` does) never needs the client. `check()` runs before every call, so a
+ * stopped store fails with its own error. Not thenable.
  */
-function lazyCollection<T extends { _id: string }>(resolve: () => MongoLikeCollection<T>): MongoLikeCollection<T> {
+function lazyCollection<T extends { _id: string }>(resolve: () => MongoLikeCollection<T>, check: () => void): MongoLikeCollection<T> {
   let target: Record<PropertyKey, (...a: unknown[]) => unknown> | undefined
   return new Proxy({} as MongoLikeCollection<T>, {
     get(_obj, prop) {
       if (prop === 'then' || typeof prop === 'symbol') return undefined
       return (...args: unknown[]) => {
+        check()
         target ??= resolve() as unknown as Record<PropertyKey, (...a: unknown[]) => unknown>
         return target[prop]!(...args)
       }
