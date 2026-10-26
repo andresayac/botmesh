@@ -33,16 +33,27 @@ export type WaitMediaType = 'image' | 'video' | 'audio' | 'document' | 'sticker'
 /** Types `c.waitMedia()` takes by default (voice notes only when asked for: `waitMedia(['voice'])`). */
 const MEDIA_TYPES: readonly WaitMediaType[] = ['image', 'video', 'audio', 'document', 'sticker']
 
+/**
+ * A text answer for `ask`/`waitText`: a text message, or a native button/list tap that
+ * carries text (its `body`: the button id or the selected title, as `choose()` reads it).
+ */
+function isTextAnswer(m: RuntimeMessage): boolean {
+  if (m.type === 'text') return true
+  return (m.type === 'buttons' || m.type === 'list') && typeof m.body === 'string' && m.body.trim() !== ''
+}
+
 /** @category Conversations */
 export interface ConversationControls extends ConversationControlsBase {
   /**
    * Send `text` and wait for a text answer. With `{ schema }` (any zod-compatible `safeParse`)
    * the answer is parsed and the PARSED value is returned (`z.coerce.number()` → `number`); a
    * rejected answer re-prompts with `otherwise`, else the schema's first issue message.
+   * A native button or list tap that carries text (`type: 'buttons' | 'list'` with a non-empty
+   * `body`, the button id or selected title) counts as a typed answer, as in {@link choose}.
    */
   ask<T>(text: string, opts: SchemaWaitOptions<T>): Promise<T>
   ask(text: string, opts?: WaitOptions): Promise<string>
-  /** Wait for a text message (no prompt). Accepts `{ schema }` like {@link ask}. */
+  /** Wait for a text message or a button/list tap with text (no prompt). Accepts `{ schema }` like {@link ask}. */
   waitText<T>(opts: SchemaWaitOptions<T>): Promise<T>
   waitText(opts?: WaitOptions): Promise<string>
   waitMedia(types?: WaitMediaType[], opts?: WaitOptions): Promise<RuntimeMessage>
@@ -159,7 +170,7 @@ export function createControls(rt: ConversationRuntime, handle: ConversationHand
   }
 
   const acceptText = (opts?: WaitOptions & { schema?: SchemaLike<unknown> }) => async (m: RuntimeMessage): Promise<WaitVerdict<unknown>> => {
-    if (m.type !== 'text') return { ok: false, message: opts?.otherwise ?? translateFor(m, CORE_MESSAGES.waitText) }
+    if (!isTextAnswer(m)) return { ok: false, message: opts?.otherwise ?? translateFor(m, CORE_MESSAGES.waitText) }
     const v = opts?.validate ? await opts.validate(m.body, m) : true
     if (v !== true) return { ok: false, message: typeof v === 'string' ? v : translateFor(m, CORE_MESSAGES.waitInvalid) }
     const schema = opts?.schema

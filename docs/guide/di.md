@@ -69,6 +69,18 @@ bot.before('message', async (ctx, next) => {
 A plugin's `install(ctx)` also receives `ctx.tools`, so plugins can consume
 tools registered elsewhere (or register their own with `bot.provide`).
 
+## Remove a tool
+
+`bot.unprovide(name)` removes a tool and returns `true` if it existed. Unplugging
+a plugin does not undo its `provide()` calls, so do it in `ctx.onDispose()`:
+
+```ts
+install(ctx) {
+  ctx.bot.provide('cache', createCache())
+  ctx.onDispose(() => { ctx.bot.unprovide('cache') })
+}
+```
+
 ## Multiple tools
 
 ```ts

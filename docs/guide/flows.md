@@ -345,8 +345,8 @@ Without `{ trigger }`, start it with `bot.trigger('quiz', { chatId })` or
 
 | Member | What it does |
 | --- | --- |
-| `c.ask(text, opts?)` | Send `text` and wait for a text answer. Resolves with the answer (the parsed value with `schema`). |
-| `c.waitText(opts?)` | Wait for a text message, without a prompt. |
+| `c.ask(text, opts?)` | Send `text` and wait for a text answer. Resolves with the answer (the parsed value with `schema`). A native button or list tap counts as an answer: its text is the button id or selected title (`ctx.body`). |
+| `c.waitText(opts?)` | Wait for a text message (or a button/list tap, as with `ask`), without a prompt. |
 | `c.choose(prompt, options, opts?)` | Send a numbered menu and resolve with the chosen key. |
 | `c.waitMedia(types?, opts?)` | Wait for media and resolve with the message. By default `image`, `video`, `audio`, `document` or `sticker`; voice notes only when listed (`['voice']`). Download the bytes with [`loadMediaOf()`](./messages#access-media-content). |
 | `c.waitLocation(opts?)` | Wait for a shared location and resolve with its `InboundLocation` (see [Receive a location](./messages#receive-a-location)). |

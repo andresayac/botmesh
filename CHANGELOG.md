@@ -4,6 +4,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### `@botmesh/core`: huecos detectados al escribir los ejemplos de la documentación (2026-10)
+- `c.ask()` / `c.waitText()` aceptan como respuesta la pulsación de un botón o fila de lista nativos que lleva texto (`type: 'buttons' | 'list'` con `body` no vacío, el mismo valor que lee `c.choose()`); antes volvían a preguntar como si fuera media. `createTestBot()` acepta también una fábrica de `defineBot` (la llama con el `MockProvider` y arranca el bot; lanza `TypeError` si el bot usa otro provider). Nuevo `bot.unprovide(name)`, inverso de `bot.provide()` (que sigue devolviendo el bot para encadenar). Guías de flujos, testing e inyección de dependencias (EN/ES) actualizadas.
+
 ### Integración de los 26 paquetes promovidos en `main` (2026-10)
 - Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
 - Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).

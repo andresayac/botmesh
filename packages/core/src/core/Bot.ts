@@ -878,7 +878,7 @@ export class Bot extends EventEmitter {
    * `onDispose` callbacks. Calling it again is a no-op. It does NOT undo event listeners
    * (`on`/`once`), `provide()`d tools, `locale()` messages, `schedule`/`every`/`delay`
    * jobs, `onIdle` handlers or a flow `replaceFlow()` overwrote: undo those in
-   * `ctx.onDispose()`.
+   * `ctx.onDispose()` (e.g. `ctx.bot.unprovide(name)`).
    *
    * `install()` should be synchronous. If it throws, whatever it registered so far is
    * rolled back and the error is rethrown; if it returns a promise that rejects, the
@@ -960,9 +960,25 @@ export class Bot extends EventEmitter {
    * DEPENDENCY INJECTION
    * ====================================================================== */
 
+  /**
+   * Inject `value` as `ctx.tools[name]` in every handler (replacing a previous value under
+   * the same name). Returns the bot, so calls can be chained. Undo it with {@link unprovide}.
+   */
   provide<T extends string>(name: T, value: unknown): this {
     this.tools[name] = value
     return this
+  }
+
+  /**
+   * Remove the tool injected under `name` by {@link provide} (the inverse of `provide`, as
+   * {@link unregisterFlow} is of `registerFlow`). Returns `true` when a tool was removed,
+   * `false` when none was provided under that name. Unplugging a plugin does not undo its
+   * `provide()` calls: call this from `ctx.onDispose()`.
+   */
+  unprovide(name: string): boolean {
+    if (!Object.prototype.hasOwnProperty.call(this.tools, name)) return false
+    delete this.tools[name]
+    return true
   }
 
   get injectTools(): DefaultTools & Record<string, unknown> {

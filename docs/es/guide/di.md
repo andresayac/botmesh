@@ -71,6 +71,19 @@ El `install(ctx)` de un plugin también recibe `ctx.tools`, así que los
 plugins pueden consumir herramientas registradas en otro lugar (o
 registrar las suyas con `bot.provide`).
 
+## Quitar una herramienta
+
+`bot.unprovide(name)` quita una herramienta y devuelve `true` si existía.
+Desenchufar un plugin no deshace sus `provide()`, así que hazlo en
+`ctx.onDispose()`:
+
+```ts
+install(ctx) {
+  ctx.bot.provide('cache', createCache())
+  ctx.onDispose(() => { ctx.bot.unprovide('cache') })
+}
+```
+
 ## Múltiples herramientas
 
 ```ts

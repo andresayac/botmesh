@@ -15,6 +15,9 @@
  * expect(chat.transcript()).toMatchSnapshot()
  * ```
  *
+ * Pass a {@link defineBot} factory instead of a config to test the bot module you
+ * ship: `await createTestBot(createBot)` builds it around the MockProvider.
+ *
  * Pass `{ chaos }` to put a seeded {@link ChaosProvider} between the mock and
  * the bot (duplicates, reordering, latency, send failures, drops, aliases):
  *
@@ -29,7 +32,8 @@ import { Bot } from '../core/Bot.js'
 import { MockProvider, type MockProviderOptions } from './MockProvider.js'
 import { ChaosProvider, type ChaosOptions } from './chaos.js'
 import { DEFAULT_TEST_USER, TestChatFactory, type TestChat } from './testChat.js'
-import type { BotConfig } from '../core/provider.js'
+import type { BotConfig, IProvider } from '../core/provider.js'
+import type { BotFactory } from '../dev/defineBot.js'
 
 export type { TestChat } from './testChat.js'
 
@@ -88,13 +92,37 @@ export async function createTestBot(
   config: Omit<BotConfig, 'provider'> | undefined,
   options: CreateTestBotOptions & { chaos: ChaosOptions },
 ): Promise<TestBot & { chaos: ChaosProvider<MockProvider> }>
+/**
+ * Test the bot a {@link defineBot} factory builds: the factory is called with the
+ * {@link MockProvider} (or its chaos wrapper) and the bot it returns is started.
+ *
+ * @example
+ * ```ts
+ * import createBot from '../src/bot.js'
+ *
+ * const { bot, chat } = await createTestBot(createBot)
+ * await chat.send('hola')
+ * await chat.expectReply(/Hola/)
+ * await bot.stop()
+ * ```
+ *
+ * @throws {TypeError} when the factory does not return a Bot built around the provider it was given.
+ */
+export async function createTestBot(factory: BotFactory, options?: CreateTestBotOptions & { chaos?: undefined }): Promise<TestBot>
 export async function createTestBot(
-  config: Omit<BotConfig, 'provider'> = {},
+  factory: BotFactory,
+  options: CreateTestBotOptions & { chaos: ChaosOptions },
+): Promise<TestBot & { chaos: ChaosProvider<MockProvider> }>
+export async function createTestBot(
+  configOrFactory: Omit<BotConfig, 'provider'> | BotFactory = {},
   options: CreateTestBotOptions = {},
 ): Promise<TestBot> {
   const provider = new MockProvider(options.provider)
   const chaos = options.chaos ? new ChaosProvider(provider, options.chaos) : undefined
-  const bot = new Bot({ ...config, provider: chaos ?? provider })
+  const transport = chaos ?? provider
+  const bot = typeof configOrFactory === 'function'
+    ? await fromFactory(configOrFactory, transport)
+    : new Bot({ ...configOrFactory, provider: transport })
   await bot.start()
 
   const chats = new TestChatFactory(provider)
@@ -106,4 +134,20 @@ export async function createTestBot(
     group: (groupId, opts) => chats.group(groupId, opts),
   }
   return chaos ? { ...base, chaos } : base
+}
+
+/** Build the bot of a `defineBot` factory around `provider`, refusing one built on another provider. */
+async function fromFactory(factory: BotFactory, provider: IProvider): Promise<Bot> {
+  const bot: unknown = await factory(provider)
+  const candidate = bot as Partial<Pick<Bot, 'start' | 'getProvider'>> | null
+  if (typeof candidate?.start !== 'function' || typeof candidate.getProvider !== 'function') {
+    throw new TypeError('createTestBot(factory): the factory must return the Bot it built: defineBot((provider) => new Bot({ provider }))')
+  }
+  if (candidate.getProvider() !== provider) {
+    throw new TypeError(
+      'createTestBot(factory): the bot was built with its own provider; build it with the provider the factory receives: ' +
+        'defineBot((provider) => new Bot({ provider }))',
+    )
+  }
+  return bot as Bot
 }
