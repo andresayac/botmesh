@@ -92,8 +92,9 @@ export interface MongoLikeCollection<T extends { _id: string }> {
     filter?: Record<string, unknown>,
     options?: { promoteBuffers?: boolean; projection?: Record<string, 0 | 1> },
   ): MongoLikeCursor<T>
-  deleteOne(filter: { _id: string } & Record<string, unknown>): Promise<{ deletedCount: number }>
-  deleteMany(filter: Record<string, unknown>): Promise<{ deletedCount: number }>
+  /** `session` runs the delete inside that session's transaction. */
+  deleteOne(filter: { _id: string } & Record<string, unknown>, options?: { session?: unknown }): Promise<{ deletedCount: number }>
+  deleteMany(filter: Record<string, unknown>, options?: { session?: unknown }): Promise<{ deletedCount: number }>
   createIndex(spec: Record<string, 1 | -1>): Promise<string>
 }
 
@@ -101,10 +102,18 @@ export interface MongoLikeDb {
   collection<T extends { _id: string }>(name: string): MongoLikeCollection<T>
 }
 
+/** Structural subset of the driver's `ClientSession` (transactions). */
+export interface MongoLikeSession {
+  withTransaction(fn: () => Promise<unknown>): Promise<unknown>
+  endSession(): Promise<void>
+}
+
 export interface MongoLikeClient {
   db(name?: string): MongoLikeDb
   connect(): Promise<unknown>
   close(force?: boolean): Promise<void>
+  /** Optional: with it, `deleteChat` is one transaction where the deployment supports them. */
+  startSession?(): MongoLikeSession
 }
 
 export interface MongoStoreOptions {
@@ -243,6 +252,8 @@ export class MongoStore implements IStore {
   private readonly collectionPrefix: string
   private readonly maxMessagesPerChat?: number
   private readonly logger?: { error?: (...args: unknown[]) => void }
+  /** False once the server rejected a transaction (standalone): deleteChat stops trying sessions. */
+  private transactions = true
   private started = false
 
   private readonly messages: MongoLikeCollection<MessageDoc>
@@ -394,9 +405,30 @@ export class MongoStore implements IStore {
     const docs = await this.chats.find({}, READ).toArray()
     return docs.map(({ _id, ...chat }) => chat)
   }
-  /** Removes the chat document AND purges its message log (consistent with MemoryStore). */
+  /**
+   * Removes the chat document AND purges its message log (consistent with MemoryStore).
+   * Both deletes run in one transaction when the deployment supports transactions (a
+   * replica set or mongos), so a failure in the middle leaves both in place. A standalone
+   * server rejects transactions: the store then deletes in sequence (messages first, so
+   * a retry finishes the job) and stops trying sessions.
+   */
   async deleteChat(chatId: string): Promise<void> {
     idString(chatId, 'chatId')
+    if (this.transactions && typeof this.client.startSession === 'function') {
+      const session = this.client.startSession()
+      try {
+        await session.withTransaction(async () => {
+          await this.messages.deleteMany({ chatId }, { session })
+          await this.chats.deleteOne({ _id: chatId }, { session })
+        })
+        return
+      } catch (err) {
+        if (!transactionsUnsupported(err)) throw err
+        this.transactions = false
+      } finally {
+        await session.endSession().catch(() => undefined)
+      }
+    }
     await this.messages.deleteMany({ chatId })
     await this.chats.deleteOne({ _id: chatId })
   }
@@ -547,4 +579,14 @@ export class MongoStore implements IStore {
     }
     this.started = false
   }
+}
+
+/**
+ * Whether `err` says the deployment cannot run transactions: a standalone server
+ * (IllegalOperation, code 20, "Transaction numbers are only allowed on a replica set
+ * member or mongos").
+ */
+function transactionsUnsupported(err: unknown): boolean {
+  const e = err as { code?: unknown; message?: unknown } | null
+  return e?.code === 20 || (typeof e?.message === 'string' && e.message.includes('Transaction numbers are only allowed'))
 }

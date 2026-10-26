@@ -97,7 +97,7 @@ Provisioned idempotently on `start()` (`CREATE TABLE IF NOT EXISTS`), with `{p}`
 | `{p}conversations` | `` `key` VARBINARY(1024) PRIMARY KEY, messages JSON `` | `AIMessage[]` |
 | `{p}cursors` | `` `key` VARBINARY(1024) PRIMARY KEY, value TEXT `` | delivery cursor (e.g. Telegram `update_id`) |
 
-Every table is created `ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`, regardless of the server defaults. Writes are upserts (`INSERT ... ON DUPLICATE KEY UPDATE`) with fully parameterized statements (`?` placeholders). The `chat_ts` index serves the `getMessagesByChat` window, `deleteChat` and the `maxMessagesPerChat` trim.
+Every table is created `ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`, regardless of the server defaults. Writes are upserts (`INSERT ... ON DUPLICATE KEY UPDATE`) with fully parameterized statements (`?` placeholders). The `chat_ts` index serves the `getMessagesByChat` window, `deleteChat` and the `maxMessagesPerChat` trim. `deleteChat` removes the chat row and its message log in one transaction (a deadlock victim is retried), so a failure in the middle leaves both in place.
 
 Why `VARBINARY` keys: ids are opaque strings and must compare exactly. A `VARCHAR` inherits the server collation — `utf8mb4_0900_ai_ci` on MySQL 8 is case- **and** accent-insensitive, so `abc`/`ABC` or `e`/`é` would share one row — and the `_bin` collations are `PAD SPACE` (`'k' = 'k '`). Keys may be up to 1024 bytes (long base64 message ids, composed checkpoint keys).
 
