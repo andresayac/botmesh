@@ -20,26 +20,33 @@ afterEach(async () => {
   while (dirs.length) await rm(dirs.pop()!, { recursive: true, force: true })
 })
 
-/** The guide's first ```ts block, transport swapped for a MockProvider, `bot` exported. */
-async function loadGuideBot(page: string): Promise<{ bot: Bot; provider: MockProvider }> {
-  const md = await readFile(join(root, page), 'utf8')
-  const code = /```ts\n([\s\S]*?)```/.exec(md)?.[1]
+/**
+ * The module the test runs: the guide's first ```ts block, transport swapped for a
+ * MockProvider, `bot` exported. Line endings are normalized first: a Windows checkout
+ * with `core.autocrlf=true` has CRLF markdown, and the patterns below match LF.
+ */
+function guideModuleSource(md: string, page: string): string {
+  const code = /```ts\n([\s\S]*?)```/.exec(md.replace(/\r\n/g, '\n'))?.[1]
   expect(code, page + ' has a ts block').toBeTruthy()
   const swapped = code!
     .replace("import { BaileysProvider } from '@botmesh/baileys'\n", '')
     .replace(/from '@botmesh\/core'/, `from '${src('index.ts')}'`)
     .replace(/provider: new BaileysProvider\(\{[\s\S]*?\n {2}\}\),/, 'provider: __provider,')
   expect(swapped).not.toContain('BaileysProvider')
-  const module = [
+  return [
     `import { MockProvider } from '${src('testing/MockProvider.ts')}'`,
     'const __provider = new MockProvider()',
     swapped,
     'export { bot, __provider }',
   ].join('\n')
+}
+
+async function loadGuideBot(page: string): Promise<{ bot: Bot; provider: MockProvider }> {
+  const md = await readFile(join(root, page), 'utf8')
   const dir = await mkdtemp(join(tmpdir(), 'botmesh-docs-'))
   dirs.push(dir)
   const file = join(dir, 'first-bot.ts')
-  await writeFile(file, module)
+  await writeFile(file, guideModuleSource(md, page))
   const mod = (await import(pathToFileURL(file).href)) as { bot: Bot; __provider: MockProvider }
   return { bot: mod.bot, provider: mod.__provider }
 }
@@ -84,6 +91,11 @@ const PAGES = [
 ]
 
 describe.each(PAGES)('$page runs as documented', (p) => {
+  it('extracts the same program from a CRLF checkout (Windows, core.autocrlf=true)', async () => {
+    const md = (await readFile(join(root, p.page), 'utf8')).replace(/\r\n/g, '\n')
+    expect(guideModuleSource(md.replace(/\n/g, '\r\n'), p.page).replace(/\r\n/g, '\n')).toBe(guideModuleSource(md, p.page))
+  })
+
   it('answers hola, the slash commands, media and the registration flow', async () => {
     const { bot, provider } = await loadGuideBot(p.page)
     const chat = chatOf(provider)
@@ -108,5 +120,6 @@ describe.each(PAGES)('$page runs as documented', (p) => {
     } finally {
       await bot.stop()
     }
-  })
+    // A dozen sequential turns, each waiting for a quiet outbox: slow on a loaded machine.
+  }, 30_000)
 })

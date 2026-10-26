@@ -65,6 +65,19 @@ export const HANDLERS = [
   ')',
 ]
 
+/**
+ * Factory lines that install the built-in slash commands (/start /help /reset /cancel /id
+ * /ping). Commands win over an active conversation, so `/reset` or `/cancel` typed at a
+ * flow's question escapes it instead of being taken as the answer. Goes before any
+ * catch-all plugin (`aiPlugin`). Pair with `coreImports: ['slashCommandsPlugin']`.
+ */
+export const SLASH_COMMANDS = [
+  '// /start /help /reset /cancel /id /ping: commands win over an active flow, so /reset or',
+  "// /cancel always escapes one. Install it before any catch-all plugin (e.g. aiPlugin).",
+  'bot.plug(slashCommandsPlugin)',
+  '',
+]
+
 export interface BotModuleParts {
   /** Import lines after the `@botmesh/core` import (transport, plugins, stores). */
   imports: string[]

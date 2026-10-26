@@ -15,6 +15,7 @@ import {
   CORE_VERSION,
   AI_KEY_WARNING,
   GITIGNORE,
+  SLASH_COMMANDS,
   aiBotConfig,
   baileysMain,
   botModule,
@@ -72,6 +73,8 @@ const baileys: ProjectTemplate = {
       path: 'src/bot.js',
       contents: botModule({
         imports: ["import { BaileysProvider } from '@botmesh/baileys'"],
+        coreImports: ['slashCommandsPlugin'],
+        setup: SLASH_COMMANDS,
         main: baileysMain('my-bot', '✅ Bot connected — send it "hola"'),
       }),
     },
@@ -109,6 +112,8 @@ const meta: ProjectTemplate = {
       path: 'src/bot.js',
       contents: botModule({
         imports: ["import { createServer } from 'node:http'", "import { CloudAPIProvider } from '@botmesh/meta'"],
+        coreImports: ['slashCommandsPlugin'],
+        setup: SLASH_COMMANDS,
         main: [
           ...requireEnv(['META_TOKEN', 'META_PHONE_ID', 'META_VERIFY_TOKEN', 'META_APP_SECRET']),
           '// Secrets come from .env when present (loaded via `node --env-file-if-exists=.env`).',
@@ -216,6 +221,8 @@ const telegram: ProjectTemplate = {
       path: 'src/bot.js',
       contents: botModule({
         imports: ["import { TelegramProvider } from '@botmesh/telegram'"],
+        coreImports: ['slashCommandsPlugin'],
+        setup: SLASH_COMMANDS,
         main: [
           ...requireEnv(['TELEGRAM_TOKEN']),
           '// TELEGRAM_TOKEN: create a bot with @BotFather and paste the token in .env.',
@@ -267,6 +274,7 @@ const ai: ProjectTemplate = {
       path: 'src/bot.js',
       contents: botModule({
         imports: ["import { BaileysProvider } from '@botmesh/baileys'", "import { aiPlugin } from '@botmesh/ai'"],
+        coreImports: ['slashCommandsPlugin'],
         prelude: [
           '// Business-scoped persona: keep the AI on YOUR business (support, sales, bookings).',
           '// Since 2026-01-15 the WhatsApp Business Platform terms prohibit general-purpose',
@@ -283,8 +291,9 @@ const ai: ProjectTemplate = {
         config: aiBotConfig('provider'),
         setup: [
           AI_KEY_WARNING,
+          ...SLASH_COMMANDS,
           '// AI autoresponder: answers text messages that no command/handler/flow consumed.',
-          "// Also adds ctx.tools.ai and a /reset command to clear a chat's context.",
+          "// Also adds ctx.tools.ai; its /reset (installed after the slash commands, so it wins) also clears the chat's AI context.",
           'bot.plug(',
           '  aiPlugin({',
           "    provider: 'anthropic',",
@@ -355,6 +364,7 @@ export const TEMPLATES: Record<TemplateName, ProjectTemplate> = {
   meta: withAgentsMd(meta, ['- Webhook transport: the raw request body must reach `provider.ingest(raw, headers)` untouched (signature check).']),
   telegram: withAgentsMd(telegram),
   ai: withAgentsMd(ai, [
+    '- Plugin order matters: `slashCommandsPlugin` first, `aiPlugin` last (it is the catch-all).',
     '- `aiPlugin` is a catch-all: it answers text nothing else consumed. Register handlers/flows normally; keep the persona',
     '  scoped to the business (WhatsApp Business Platform terms forbid general-purpose AI assistants).',
   ]),

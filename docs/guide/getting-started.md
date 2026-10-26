@@ -54,7 +54,7 @@ npm create botmesh@alpha my-bot -- --template telegram --yes
 | `clinic` | Appointment booking (specialty, day, time), list/cancel appointments |
 | `ai-full` | Business-scoped AI + keyword/regex intents + SQLite store + scheduler + slash commands + handoff (`ANTHROPIC_API_KEY`) |
 
-The use-case templates (`games` to `ai-full`) run on Baileys.
+The use-case templates (`games` to `ai-full`) run on Baileys. The transport templates (`baileys`, `meta`, `telegram`, `ai`) install the built-in slash commands (`/help`, `/reset`, `/cancel`, `/id`, `/ping`), so `/reset` or `/cancel` escapes their sample `menu` flow.
 
 | Flag | Meaning |
 | --- | --- |

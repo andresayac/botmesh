@@ -34,6 +34,9 @@ npm create botmesh@alpha my-bot -- --template telegram --yes
 | `telegram` | Telegram Bot API (long-polling)    | a bot token from @BotFather         |
 | `ai`       | Baileys + `@botmesh/ai` business-scoped customer-support autoresponder | `ANTHROPIC_API_KEY` (Claude), `BUSINESS_NAME` |
 
+Each of these ships a `hola` handler, a small `menu` flow and the built-in slash commands
+(`slashCommandsPlugin`: `/help`, `/reset`, `/cancel`, `/id`, `/ping`), so `/reset` or `/cancel` always escapes a flow.
+
 ### Use-case templates
 
 All of them run on WhatsApp via Baileys (scan a QR), use the v2 API (`flow()`, `bot.conversation()`, `ctx.user`)

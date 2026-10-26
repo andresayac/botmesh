@@ -55,7 +55,7 @@ npm create botmesh@alpha my-bot -- --template telegram --yes
 | `clinic` | Agenda de citas (especialidad, día, hora), listar y cancelar citas |
 | `ai-full` | IA limitada al negocio + intents por palabra clave/regex + store SQLite + scheduler + comandos slash + handoff (`ANTHROPIC_API_KEY`) |
 
-Las plantillas de casos de uso (de `games` a `ai-full`) usan Baileys.
+Las plantillas de casos de uso (de `games` a `ai-full`) usan Baileys. Las de transporte (`baileys`, `meta`, `telegram`, `ai`) instalan los comandos slash integrados (`/help`, `/reset`, `/cancel`, `/id`, `/ping`), así que `/reset` o `/cancel` sale de su flujo de ejemplo `menu`.
 
 | Flag | Significado |
 | --- | --- |

@@ -127,15 +127,6 @@ export class TelegramProvider implements IProvider<unknown> {
   private readonly draftStops = new Map<string, { onStop: () => void; at: number }>()
 
   constructor(config: TelegramProviderConfig) {
-    // Fail at once on a missing token (e.g. `process.env.TELEGRAM_TOKEN` before .env exists)
-    // instead of polling `/botundefined/getMe`. The value itself is never echoed.
-    if (typeof config?.token !== 'string' || config.token.trim() === '') {
-      throw new TypeError(
-        'TelegramProvider requires `token`: the bot token from @BotFather ' +
-          '(e.g. new TelegramProvider({ token: process.env.TELEGRAM_TOKEN }) with TELEGRAM_TOKEN set in .env). ' +
-          `Got ${config?.token === undefined ? 'undefined' : typeof config.token === 'string' ? 'an empty string' : 'a ' + typeof config.token}.`,
-      )
-    }
     this.config = {
       token: config.token,
       baseUrl: (config.baseUrl ?? 'https://api.telegram.org').replace(/\/+$/, ''),
