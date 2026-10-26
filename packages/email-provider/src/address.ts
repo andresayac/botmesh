@@ -16,9 +16,16 @@ export interface EmailAddress {
   address: string
 }
 
-/** Canonical form of an address: trimmed, angle brackets removed, lower-cased. */
+/**
+ * Canonical form of an address: trimmed, angle brackets removed, lower-cased.
+ * The trailing `>` run is cut with a backwards scan: `/>+$/` is quadratic on a
+ * run of `>` that something else follows.
+ */
 export function normalizeAddress(address: string): string {
-  return address.trim().replace(/^<+/, '').replace(/>+$/, '').trim().toLowerCase()
+  const t = address.trim().replace(/^<+/, '')
+  let end = t.length
+  while (end > 0 && t.charCodeAt(end - 1) === 62) end--
+  return t.slice(0, end).trim().toLowerCase()
 }
 
 /** Split on `sep` outside quotes, angle brackets and comments. */
@@ -79,8 +86,10 @@ function parseMailbox(token: string): EmailAddress | undefined {
   const t = token.trim()
   if (!t) return undefined
   const lt = t.lastIndexOf('<')
-  const gt = t.lastIndexOf('>')
-  if (lt !== -1 && gt > lt) {
+  // The angle address ends at the first `>` after its `<` (an addr-spec has
+  // none): anything after it is not part of the address.
+  const gt = lt === -1 ? -1 : t.indexOf('>', lt + 1)
+  if (gt !== -1) {
     const address = t.slice(lt + 1, gt).trim()
     if (!address.includes('@')) return undefined
     const rawName = stripComments(t.slice(0, lt)).trim()
