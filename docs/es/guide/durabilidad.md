@@ -249,7 +249,9 @@ d.metrics()  // { inboundJournaled, inboundDuplicates, inboundReplayed, inboundD
   confirmación del dueño anterior y se cuenta en `staleLeases`.
 - **`instanceId`.** Mantenlo estable entre reinicios de un despliegue, para que un
   proceso reiniciado recupere enseguida sus registros sin terminar en vez de esperar
-  a que venzan sus préstamos. Hazlo único por réplica que corra a la vez (el nombre
+  a que venzan sus préstamos. Su primer barrido tras el reinicio solo recupera los
+  préstamos tomados antes de que se recuperara (los de la encarnación muerta, incluida
+  una escritura que llegó tarde), nunca un envío que está haciendo él mismo. Hazlo único por réplica que corra a la vez (el nombre
   del pod de un StatefulSet, por ejemplo): dos procesos vivos con el mismo id se
   quitarían los préstamos. En un backend de un solo proceso (memoria, archivo) el valor
   por defecto es `<hostname>/<botId>/<connectionId>`. En un backend compartido

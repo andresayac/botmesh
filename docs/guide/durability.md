@@ -241,7 +241,9 @@ d.metrics()  // { inboundJournaled, inboundDuplicates, inboundReplayed, inboundD
   counted in `staleLeases`.
 - **`instanceId`.** Keep it stable across restarts of one deployment, so a restarted
   process reclaims its own unfinished records at once instead of waiting for their
-  leases to expire. Make it unique per replica that runs at the same time (a pod name
+  leases to expire. Its first sweep after the restart reclaims only the leases taken
+  before it recovered (the dead incarnation's, including a write that landed late),
+  never a send it is making itself. Make it unique per replica that runs at the same time (a pod name
   of a StatefulSet, for example): two live processes with one id would take each
   other's leases. On a single-process backend (memory, file) the default is
   `<hostname>/<botId>/<connectionId>`. On a shared backend (Postgres, Redis) the

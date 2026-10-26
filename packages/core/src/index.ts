@@ -492,7 +492,7 @@ export type {
   DurabilityConfig, DurabilityBackend, RetryBackoff,
   InboxJournal, InboxRecord, InboxState, InboxAppend,
   OutboxJournal, OutboxRecord, OutboxState, OutboxPut, OutboxError, ClaimedSend,
-  ClaimOptions, LeaseOptions,
+  ClaimOptions, OutboxClaimOptions, LeaseOptions,
 } from './durability/types.js'
 
 // Durable media references (durability.inbox.mediaRefs): the provider hooks' value type and
