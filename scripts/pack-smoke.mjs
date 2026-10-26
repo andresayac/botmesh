@@ -23,7 +23,7 @@
  *     consumer .ts typechecks with moduleResolution nodenext AND bundler
  *     (including the `ctx.tools.ai` DefaultTools augmentation); a small runtime
  *     scenario (createTestBot, aiPlugin + MockAIProvider from @botmesh/ai/testing, SQLiteStore); optional
- *     AI SDK and email peers (imapflow, nodemailer) absent → import works, a clear
+ *     AI SDK, email (imapflow, nodemailer) and @opentelemetry/api peers absent → import works, a clear
  *     lazy error only on use; the
  *     `botmesh` and `create-botmesh` bins run.
  *  4. Scaffold every create-botmesh template, check its @botmesh ranges resolve
@@ -93,6 +93,16 @@ import { GoHighLevelProvider, verifyGhlSignature, type GhlWebhookBody } from '@b
 import { channelOf as ghlChannelOf } from '@botmesh/gohighlevel/internal'
 import { EmailProvider, cursorThreadStore, type ImapClientLike, type SmtpTransportLike } from '@botmesh/email'
 import { parseEmail } from '@botmesh/email/internal'
+import { createIngress, createFetchHandler, createNodeHandler, type IngressRoute } from '@botmesh/server'
+import { expressIngress } from '@botmesh/server/express'
+import { fastifyIngress } from '@botmesh/server/fastify'
+import { honoIngress } from '@botmesh/server/hono'
+import { normalizePath } from '@botmesh/server/internal'
+import { EventWorker, MemoryEventJournal, createEnvelope, type EventEnvelope } from '@botmesh/events'
+import { eventsDurability } from '@botmesh/events/durability'
+import { otelMetricsPlugin, otelTracer } from '@botmesh/otel'
+import { SpanMetrics } from '@botmesh/otel/internal'
+import * as otelApi from '@opentelemetry/api'
 
 export const providers: IProvider[] = [
   // logger takes any LoggerLike (console included), not only pino.
@@ -147,6 +157,27 @@ export const mysqlSchedules = new MysqlScheduleStore({ pool: mysqlPool })
 const mongoClient = new MongoClient('mongodb://127.0.0.1:1')
 export const mongoStore = new MongoStore({ client: mongoClient, dbName: 'bot' })
 export const mongoSchedules = new MongoScheduleStore({ collection: mongoClient.db('bot').collection('schedules') })
+// @botmesh/server takes the published webhook providers as routes as they are.
+const telegramHook = new TelegramProvider({ token: 'x', polling: false, webhookSecret: 's', logger: console })
+const metaHook = new CloudAPIProvider({ accessToken: 'a', phoneNumberId: '1', verifyToken: 'v', appSecret: 's', logger: console })
+export const routes: IngressRoute[] = [{ path: '/wa', provider: metaHook }, { path: '/tg', provider: telegramHook, body: 'text' }]
+export const ingress = createIngress({ routes, bot: new Bot({ provider: metaHook }), maxBodyBytes: 1024 * 1024 })
+export const serverRefs = [expressIngress(ingress), fastifyIngress(ingress), honoIngress(ingress), createNodeHandler(ingress), createFetchHandler(ingress), normalizePath]
+// @botmesh/events journals as a bot durability backend; @botmesh/otel as the bot tracer.
+export const journal = new MemoryEventJournal()
+export const worker = new EventWorker(journal, { maxAttempts: 3 })
+export const envelope: EventEnvelope<{ text: string }> = createEnvelope({
+  eventType: 'message.received',
+  context: { tenantId: 't', environmentId: 'e', botId: 'b', providerId: 'p', connectionId: 'c' },
+  payload: { text: 'hi' },
+})
+export const observedBot = new Bot({
+  provider: new MockProvider(),
+  durability: { backend: eventsDurability({ journal }) },
+  telemetry: { tracer: otelTracer({ api: otelApi }) },
+})
+observedBot.plug(otelMetricsPlugin({ api: otelApi }))
+export const otelRefs = [SpanMetrics]
 
 const createBot = defineBot((provider) => {
   const bot = new Bot({ provider })
@@ -234,6 +265,33 @@ const smtpErr = await smtpOnly.send('a@example.com', { kind: 'text', text: 'x' }
 assert.match(String(smtpErr?.message), /nodemailer/)
 await smtpOnly.stop()
 assert.ok(Object.isFrozen(GatewayIntents))
+// @botmesh/server: a webhook route, health and 404 through the fetch handler.
+const { createIngress, createFetchHandler } = await import('@botmesh/server')
+const seen = []
+const handler = createFetchHandler(createIngress({ routes: [{ path: '/hook', provider: { ingest: (raw) => { seen.push(raw); return 200 } } }] }))
+assert.equal((await handler(new Request('http://x/hook', { method: 'POST', body: '{"a":1}' }))).status, 200)
+assert.ok(Buffer.isBuffer(seen[0]) && seen[0].toString() === '{"a":1}', 'the ingress hands over the raw bytes')
+assert.equal((await handler(new Request('http://x/healthz'))).status, 200)
+assert.equal((await handler(new Request('http://x/nope'))).status, 404)
+
+// @botmesh/events: append, process once, ack.
+const { MemoryEventJournal, EventWorker, createEnvelope } = await import('@botmesh/events')
+const journal = new MemoryEventJournal()
+await journal.append(createEnvelope({ eventType: 'ping', context: { tenantId: 't', environmentId: 'e', botId: 'b', providerId: 'p', connectionId: 'c' }, payload: 1 }))
+const worker = new EventWorker(journal, { maxAttempts: 2 })
+let handled = 0
+worker.on('ping', () => { handled++ })
+const batch = await worker.runBatch()
+assert.equal(handled, 1)
+assert.equal(batch.processed, 1)
+
+// @botmesh/events/durability as the backend of a running bot.
+const { eventsDurability } = await import('@botmesh/events/durability')
+const t4 = await createTestBot({ logger: silent, durability: { backend: eventsDurability({ journal: new MemoryEventJournal() }) } })
+t4.bot.when('hola', (ctx) => ctx.reply('durable hi'))
+await t4.chat.send('hola')
+await t4.chat.expectReply('durable hi')
+await t4.bot.stop()
 console.log('RUNTIME OK')
 process.exit(0)
 `
@@ -561,7 +619,7 @@ if (consumerOk) {
   }
   walk(nm, 0)
   if (dupes.length) fail('consumer', `duplicate @botmesh/core copies: ${dupes.join(', ')}`)
-  for (const sdk of ['@anthropic-ai/sdk', 'openai', '@google/generative-ai', 'imapflow', 'nodemailer']) {
+  for (const sdk of ['@anthropic-ai/sdk', 'openai', '@google/generative-ai', 'imapflow', 'nodemailer', '@opentelemetry/api']) {
     if (existsSync(join(nm, sdk))) fail('consumer', `optional peer ${sdk} got installed`)
   }
 
@@ -587,6 +645,24 @@ process.exit(bad ? 1 : 0)
     else if (owner) (row(owner).imported ??= []).push(m[2])
   }
   if (!imp.ok && !imp.out.includes('FAIL')) fail('consumer', `imports.mjs crashed\n${imp.out}`)
+
+  // 3a'. @botmesh/otel without its optional peer: the import works, the clear error comes on use.
+  writeFileSync(
+    join(CONSUMER, 'otel-lazy.mjs'),
+    `import assert from 'node:assert/strict'
+import { createOtelTracer, lazyOtelTracer } from '@botmesh/otel'
+const err = await createOtelTracer().then(() => undefined, (e) => e)
+assert.ok(err instanceof Error, 'expected a lazy error for the missing @opentelemetry/api')
+assert.match(err.message, /pnpm add @opentelemetry\\/api/)
+assert.equal(typeof lazyOtelTracer().startSpan, 'function')
+console.log('OTEL LAZY OK')
+`,
+  )
+  const lazy = run('node', ['otel-lazy.mjs'], { cwd: CONSUMER, timeout: 60_000 })
+  if (!lazy.ok || !lazy.out.includes('OTEL LAZY OK')) failFor('@botmesh/otel', `lazy @opentelemetry/api error:\n${lazy.out.split('\n').slice(-15).join('\n')}`)
+  else console.log('  @botmesh/otel imports without @opentelemetry/api and fails clearly on use')
+  // Its declarations name @opentelemetry/api types (the vendor-neutral API is its contract): an app using it installs it.
+  mustRun('consumer', 'npm', ['install', '--no-audit', '--no-fund', '--loglevel=error', '@opentelemetry/api@1.9.1'], { cwd: CONSUMER })
 
   // 3b. types, nodenext + bundler.
   mkdirSync(join(CONSUMER, 'src'))
@@ -628,7 +704,7 @@ process.exit(bad ? 1 : 0)
   writeFileSync(join(CONSUMER, 'runtime.mjs'), RUNTIME_MJS)
   const rt = run('node', ['runtime.mjs'], { cwd: CONSUMER, timeout: 60_000 })
   if (!rt.ok || !rt.out.includes('RUNTIME OK')) fail('runtime', rt.out.split('\n').slice(-20).join('\n'))
-  else console.log('  runtime scenario OK (createTestBot, aiPlugin+MockAIProvider, SQLiteStore, SQL/Mongo stores on injected pools, lazy SDK error)')
+  else console.log('  runtime scenario OK (createTestBot, aiPlugin+MockAIProvider, SQLiteStore, SQL/Mongo stores on injected pools, lazy SDK error, server ingress, events worker + durability)')
 
   // 3d. bins.
   const binOf = (pkgName, bin) => {

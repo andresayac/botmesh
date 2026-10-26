@@ -12,16 +12,15 @@ Tracing is **opt-in**. Without `BotConfig.telemetry` the bot runs exactly the co
 Spans carry **kinds, stages, outcomes and ids**, never message bodies, captions, prompts, completions, tool arguments or results, `c.state` or error messages. Chat, user and message ids are hashed by default. See [Personal data](#personal-data).
 :::
 
-::: warning `@botmesh/otel` is not on npm yet
-The tracing hooks are part of the published `@botmesh/core`, but the OpenTelemetry adapter lives only in the [repository](https://github.com/andresayac/botmesh/tree/main/packages/otel) for now. Until it is published, use it from a checkout, or implement `BotTracer` yourself: it is one method (`startSpan`) plus an optional `withSpan` (see [Other backends and tests](#other-backends-and-tests)), and [`packages/otel/src/tracer.ts`](https://github.com/andresayac/botmesh/blob/main/packages/otel/src/tracer.ts) is a complete OpenTelemetry implementation to start from.
-:::
-
 ## Quick start
 
 ```bash
-pnpm add @opentelemetry/api @opentelemetry/sdk-node \
+pnpm add @botmesh/otel @opentelemetry/api @opentelemetry/sdk-node \
   @opentelemetry/exporter-trace-otlp-http @opentelemetry/exporter-metrics-otlp-http @opentelemetry/sdk-metrics
 ```
+
+While the packages are in prerelease, add the dist-tag shown in
+[Getting started](/guide/getting-started).
 
 ```ts
 // telemetry.ts — load it before the bot (e.g. `node --import ./telemetry.js bot.js`)

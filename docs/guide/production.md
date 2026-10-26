@@ -91,13 +91,13 @@ The npm packages are `@botmesh/core`, `@botmesh/baileys`, `@botmesh/meta`,
 `@botmesh/evolution`, `@botmesh/wppconnect`, `@botmesh/sqlite-store`,
 `@botmesh/redis-store`, `@botmesh/postgres-store`, `@botmesh/mysql-store`,
 `@botmesh/mongo-store`, `@botmesh/ai`, `@botmesh/http`, `@botmesh/graph-core`,
-`@botmesh/wa-gateway-kit` and `create-botmesh` (`@botmesh/messenger`,
-`@botmesh/instagram`, `@botmesh/evolution`, `@botmesh/wppconnect`,
-`@botmesh/wa-gateway-kit` and the three SQL/Mongo stores ship for the first time with the beta).
+`@botmesh/wa-gateway-kit`, `@botmesh/server`, `@botmesh/events`, `@botmesh/otel`
+and `create-botmesh` (all but `@botmesh/telegram`, `@botmesh/sqlite-store`,
+`@botmesh/redis-store`, `@botmesh/ai`, `@botmesh/http` and `@botmesh/graph-core`
+ship for the first time with the beta).
 Some pages also describe packages that live only in the
 [repository](https://github.com/andresayac/botmesh/tree/main/packages) for now
-(`@botmesh/server`, `@botmesh/otel`,
-`@botmesh/events`, the other channels…). Each of those pages says so. Plan a
+(the TikTok channel, the sandbox…). Each of those pages says so. Plan a
 production deployment on the published ones.
 
 ## Before each release of your bot

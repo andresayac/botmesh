@@ -54,6 +54,15 @@ app.listen(3000)
 
 The same two routes work in any framework: answer the `GET` with `verifyChallenge(query)` and hand the raw `POST` body and headers to `ingest()`, which does not wait for your handlers.
 
+The recommended way to serve them is [`@botmesh/server`](https://andresayac.github.io/botmesh/guide/server) (`pnpm add @botmesh/server`): it keeps the raw bytes, answers the handshake, enforces body-size, time and concurrency limits and adds `/healthz` and `/readyz`, for `node:http`, Express, Fastify and Hono:
+
+```ts
+import { createIngress } from '@botmesh/server'
+import { expressIngress } from '@botmesh/server/express'
+
+app.use(expressIngress(createIngress({ routes: [{ path: '/webhook', provider }], bot }))) // before express.json()
+```
+
 `ingest(body, headers)` returns the HTTP status to answer with and never throws: `200` accepted, `400` for a body that is not a JSON object (or one already parsed while `appSecret` is set), `403` for a bad signature.
 
 > **Webhook signature.** `appSecret` is required: `ingest` checks `X-Hub-Signature-256` (constant-time

@@ -48,7 +48,7 @@ import {
 import {
   EventNotFoundError, FileEventJournal, StaleLeaseError as EventStaleLeaseError,
   type EventContext, type EventEnvelope, type EventRecord, type LeasedEventJournal, type SidecarHandle,
-} from './index.js'
+} from './journal.js'
 
 /** Options of {@link eventsDurability}. */
 export interface EventsDurabilityOptions {
@@ -305,7 +305,14 @@ interface ResolvedOptions {
 }
 
 /** A {@link DurabilityBackend} over an `@botmesh/events` journal. Build it with {@link eventsDurability}. */
+/** Module-private factory, set by the class's static block (the constructor is private). */
+let createDurability: (opts: ResolvedOptions) => EventsDurability
+
 export class EventsDurability implements DurabilityBackend {
+  static {
+    createDurability = (opts) => new EventsDurability(opts)
+  }
+
   readonly inbox: InboxJournal
   readonly outbox: OutboxJournal
   readonly exclusive: boolean
@@ -314,8 +321,8 @@ export class EventsDurability implements DurabilityBackend {
   /** The events journal holding the inbound records. */
   readonly journal: LeasedEventJournal
 
-  /** @internal Use {@link eventsDurability}. */
-  constructor(private readonly opts: ResolvedOptions, scope?: string) {
+  /** Build it with {@link eventsDurability} (or {@link EventsDurability.scope}). */
+  private constructor(private readonly opts: ResolvedOptions, scope?: string) {
     this.journal = opts.journal
     this.exclusive = opts.exclusive
     this.scopeName = scope
@@ -354,7 +361,7 @@ export function eventsDurability(options: EventsDurabilityOptions): EventsDurabi
   const channel = options.channel ?? DEFAULT_CHANNEL
   if (typeof channel !== 'string' || channel === '') throw new TypeError('eventsDurability(): `channel` must be a non-empty string')
   const kv = options.outbox ?? sidecarKv(journal)
-  return new EventsDurability({
+  return createDurability({
     journal,
     kv,
     context: { ...DEFAULT_CONTEXT, ...options.context },

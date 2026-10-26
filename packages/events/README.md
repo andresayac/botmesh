@@ -1,46 +1,67 @@
 # @botmesh/events
 
-> **Experimental — not yet published on npm.** Real, tested implementation, but the package is `private`: it is not part of the first alpha and its API may change. Use it from this monorepo (`workspace:*`).
+Primitives to process asynchronous work reliably: versioned event envelopes, leased journals with fencing tokens, an at-least-once `EventWorker` with retries and backoff, and a dead-letter state. The main entry has no dependencies (not even `@botmesh/core`); [`@botmesh/events/durability`](#bot-durability-backend) turns a journal into the durability backend of a [`@botmesh/core`](https://github.com/andresayac/botmesh/tree/main/packages/core) bot.
 
-Dependency-free primitives to process async work reliably: versioned envelopes, idempotency, leases, retries with backoff and a dead-letter queue (DLQ).
+## Install
+
+```bash
+pnpm add @botmesh/events
+```
+
+Node.js 22 or later, ESM only. `@botmesh/core` is an optional peer dependency, needed only by `@botmesh/events/durability` (a bot already has it).
+
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/events@beta` during the beta (`npm view @botmesh/events dist-tags` lists the tags). Once stable, the plain command above works.
+
+## Quick start
 
 ```ts
-import { createEnvelope, EventWorker, MemoryEventJournal } from '@botmesh/events'
+import { createEnvelope, EventWorker, FileEventJournal } from '@botmesh/events'
 
-const journal = new MemoryEventJournal()
-const event = createEnvelope({
-  eventType: 'message.received',
-  context: {
-    tenantId: 'acme', environmentId: 'production', botId: 'support',
-    providerId: 'meta', connectionId: 'main', chatId: '573001234567',
-  },
-  payload: { text: 'hello' },
-})
+const journal = await FileEventJournal.open('./data/events.json')
+await journal.append(createEnvelope({
+  eventType: 'order.created',
+  context: { tenantId: 'acme', environmentId: 'production', botId: 'support', providerId: 'meta', connectionId: 'main', chatId: '573001234567' },
+  payload: { orderId: 'A-17' },
+}))
 
-await journal.append(event)
 const worker = new EventWorker(journal, { maxAttempts: 5, leaseMs: 30_000 })
-worker.on('message.received', async (received) => {
-  console.log(received.payload)
+worker.on('order.created', async (event) => {
+  await notifyKitchen(event.payload) // make it idempotent: use event.idempotencyKey
 })
 
 const { processed, failed, stale } = await worker.runBatch()
 ```
 
+`runBatch(limit?)` claims up to `limit` due events (100 by default), runs their handlers and acknowledges them. A handler that throws schedules a retry with exponential backoff; after `maxAttempts` the event moves to the `dead` state (the dead-letter queue), where `list()` shows it and `replay()` puts it back. Call `runBatch()` from a timer or a scheduled task (`bot.every('5s', ...)`).
+
+## Journals
+
+| Journal | For | Notes |
+| --- | --- | --- |
+| `MemoryEventJournal` | tests, development | Lost on restart. |
+| `FileEventJournal.open(path, { lock?, fsync? })` | one process | Recovers its snapshot after a restart and writes with atomic replacement. `lock: true` adds an advisory `<file>.lock` so a second process cannot open the same file (a dead process's lock is taken over; nothing is ever killed). |
+| `SharedFileEventJournal.open(path, { lockTimeoutMs?, staleLockMs?, heartbeatMs?, appendLog?, fsync? })` | several processes on one host | Every write takes a cross-process mutex, re-reads the file, applies the change and replaces it atomically, so claims are exclusive and fencing tokens hold across processes. `appendLog` appends a delta per write and compacts every 1000 entries or 4 MiB. |
+
+The file journals rewrite the whole snapshot on each write (the append-log mode excepted): for high traffic, implement `LeasedEventJournal` over your database. A custom journal must check the fencing token in the same atomic operation that changes the state (for example `UPDATE ... WHERE fencing_token = $1 AND state = 'processing'`).
+
 ### Leases and fencing tokens
 
-Each `claim` returns a strictly increasing `fencingToken` per event (never reused, not even after `replay`). `EventWorker` returns it in `ack`/`fail`, and the journal rejects a superseded token with `StaleLeaseError`. So if a worker's lease expires while its handler is still running and another worker claims the event, the first can no longer mark it done, retry it or send it to the DLQ: `runBatch()` counts it as `stale`. It also skips a record whose lease expired before its handler started and returns it with `release()`, which does not consume the attempt: skipping it never moves it closer to the DLQ.
+Each claim returns a strictly increasing `fencingToken` per event (never reused, not even after `replay`). `EventWorker` passes it to `ack`/`fail`, and the journal rejects a superseded token with `StaleLeaseError`. If a worker's lease expires while its handler is still running and another worker claims the event, the first one can no longer mark it done, retry it or dead-letter it: `runBatch()` counts it as `stale`. A record whose lease expired before its handler started is skipped and released without consuming the attempt.
 
-Delivery is still *at-least-once*: a handler may run twice, so make it idempotent (use `envelope.idempotencyKey`). Calling `ack`/`fail` without `fencingToken` is an operator override with no check. A custom `EventJournal` adapter must check the token in the same atomic operation that changes state (e.g. `UPDATE ... WHERE fencing_token = $1 AND state = 'processing'`).
+Delivery is **at least once**: a handler may run twice, so make it idempotent with `envelope.idempotencyKey`. Calling `ack`/`fail` without a `fencingToken` is an operator override with no check.
 
-For tests, inject the clock: `new EventWorker(journal, { clock: () => now })`.
+## Worker options
 
-`MemoryEventJournal` is for development and tests. The `EventJournal` interface lets you implement durable adapters over Redis, PostgreSQL or an external broker without changing the workers.
+| Option | Default | What it does |
+| --- | --- | --- |
+| `maxAttempts` | `5` | Attempts before an event goes to the dead-letter state. |
+| `retryDelayMs` | `exponentialBackoff` (1 s doubling, capped at 60 s) | Fixed delay between attempts. |
+| `leaseMs` | the journal's (30 s) | Lease requested on each claim. |
+| `clock` | `Date.now` | Time source (inject it in tests). |
 
-For a single instance there is also `FileEventJournal.open('./data/events.json')`: it recovers the snapshot after a restart and writes with atomic replacement. It is not safe for several processes at once; use `SharedFileEventJournal` (below) or a database adapter for that.
+## Bot durability backend
 
-### Bot durability backend (`@botmesh/events/durability`)
-
-If your app already uses an event journal, it can also serve as the bot's [durability](../../docs/es/guide/durabilidad.md) backend (`BotConfig.durability`), without another store:
+An app that already keeps a journal can use it as the bot's durable inbox and outbox ([`BotConfig.durability`](https://andresayac.github.io/botmesh/guide/durability)), without another store:
 
 ```ts
 import { Bot } from '@botmesh/core'
@@ -54,10 +75,31 @@ await bot.stop()
 await journal.close()
 ```
 
-- **Inbox:** every inbound bot message is stored as an `EventRecord` in the journal (`eventType: 'botwa.inbound.message'`, channel `'botwa:durable'`), with its leases and fencing tokens. `list()` and `replay()` see them; an `EventWorker` **never** claims them, because a `claim` without `channel` only takes records without a channel. The bot itself processes those records (FIFO per chat, causality, ack on settle).
-- **Outbox:** the core outbox state machines over a key-value store saved as a *sidecar* of the same journal: same file and same atomic snapshot as the inbox. The file moves to `version: 2` as soon as a sidecar exists; a process that only uses events rewrites it keeping that sidecar.
-- `FileEventJournal` needs `{ lock: true }`: an advisory lock (`<file>.lock` with the pid) prevents two processes from using the same file; a dead process's lock is taken over. No process is ever killed. Within one process, a second `open(path, { lock: true })` of the same file is rejected until `close()` is called on the first; after `close()`, writes reject.
-- Cost: `FileEventJournal` rewrites the whole file on every write (app events + bot records during retention + outbox). Concurrent writes share a single rewrite and `extend()` (the lease heartbeat) only changes memory: it is written with the next change or on `close()`. With high traffic, use a dedicated file for the bot, a short retention or a database `outbox`.
-- Multiple replicas need a shared `LeasedEventJournal` with atomic operations and fencing. **`SharedFileEventJournal.open(path, { lockTimeoutMs?, staleLockMs? })`** is that for several processes on the same host: every write takes a cross-process mutex (`<file>.mutex` with `<pid>:<nonce>`), re-reads the file, applies the operation and replaces it atomically, so claims are exclusive and fencing tokens hold across processes; `extend()` is also written (other processes must see the heartbeat). The outbox lives in the same file (`readSidecar`/`updateSidecar`, no `sidecar()`), shared by all. A dead process's mutex is broken immediately and one held longer than `staleLockMs` (30 s) is considered abandoned; nothing is killed. Same format as `FileEventJournal`, but never both at once (a file with a live `FileEventJournal` is rejected). It rewrites the whole file on every write: for high traffic, use another `LeasedEventJournal` with a shared outbox (a Postgres or Redis `DurableKv`).
+- **Inbox:** each inbound message is an `EventRecord` of the journal (`eventType: 'botwa.inbound.message'`, channel `'botwa:durable'`, permanent names kept from the project's former name). `list()` and `replay()` see them; an `EventWorker` never claims them, because a claim without `channel` only takes records without one. The bot processes those records itself (FIFO per chat, causation, ack on settle).
+- **Outbox:** the core outbox over a key-value store kept as a *sidecar* of the same journal (same file, same atomic snapshot), or over a `DurableKv` you pass as `outbox` (a Postgres or Redis one when several processes share another journal).
+- `FileEventJournal` needs `{ lock: true }` here. Several replicas on one host share a `SharedFileEventJournal`.
 
-`LeasedEventJournal` (implemented by `MemoryEventJournal`, `FileEventJournal` and `SharedFileEventJournal`) adds these atomic operations to `EventJournal`: `appendRecord` (optionally already claimed), `claimOne`, `extend`, `purge`, and `claim` with `owner`/`reclaimOwn`/`channel`/`filter`/`order`. It also adds `fail` with explicit `dead`/`retryAt`, `release` with `toPending` and `sidecar()` (or, in multi-process journals, `readSidecar()`/`updateSidecar()`). Existing calls behave the same.
+| Option | Default | What it does |
+| --- | --- | --- |
+| `journal` | required | A `LeasedEventJournal` (the three bundled journals are). |
+| `outbox` | sidecar of `journal` | A shared `DurableKv` for the outbox. |
+| `context` | `'botwa'` placeholders | Envelope context written on the bot's records. |
+| `channel` | `'botwa:durable'` | Isolation channel of the bot's records. |
+| `exclusive` | `journal.exclusive` | Only one process uses this storage at a time. |
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| `StaleLeaseError` in logs, events counted as `stale` | A handler outlived its lease and another worker took the event. Raise `leaseMs` or shorten the handler. |
+| Events pile up in `dead` | The handler keeps throwing. Fix it, then `replay()` them. |
+| `FileEventJournal` refuses to open: locked | Another live process holds `<file>.lock`. Use `SharedFileEventJournal` for several processes. |
+| `APPEND_LOG_CORRUPT` when opening | A line in the middle of `<file>.log` is damaged. Restore from a backup, or cut the log at the reported line to keep the entries before it. |
+| `Cannot find package '@botmesh/core'` from `/durability` | Install `@botmesh/core`: the durability backend plugs into a bot. |
+
+## Links
+
+- [Operations guide: event processing](https://andresayac.github.io/botmesh/guide/operations#event-processing) · [Durable message processing](https://andresayac.github.io/botmesh/guide/durability)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/events/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/events) · [Issues](https://github.com/andresayac/botmesh/issues)
+
+Public package, covered by semver.

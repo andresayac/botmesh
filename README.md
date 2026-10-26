@@ -89,8 +89,8 @@ This is a pnpm monorepo with **45 packages**: 36 **Public**, 3 **Experimental** 
 | [`@botmesh/ai`](packages/ai) | Public | AI: Anthropic/OpenAI/Ollama/Gemini + 9 OpenAI-compatible presets (DeepSeek/Qwen/GLM/Kimi/Groq/…), auto-reply, tool calling with confirmation, per-user long-term memory and RAG. See the [WhatsApp AI policy](docs/guide/ai.md#whatsapp-ai-policy-since-2026-01-15). |
 | [`@botmesh/nlu`](packages/nlu) | Experimental | Local intents/NLU (define/match + `whenIntent`), no external services. |
 | [`@botmesh/manager`](packages/manager) | Experimental | Multi-bot orchestrator (registry, lifecycle) + dependency-free HTTP API (control plane `/v1` with API keys). |
-| [`@botmesh/otel`](packages/otel) | Experimental | OpenTelemetry: bot traces (inbound, dispatch, conversations, sends, AI) and `bot.metrics()` as OTel metrics. `@opentelemetry/api` as an optional peer. |
-| [`@botmesh/events`](packages/events) | Experimental | Versioned envelopes, idempotent journal, retries and DLQ for asynchronous processes. |
+| [`@botmesh/otel`](packages/otel) | Public | OpenTelemetry: bot traces (inbound, dispatch, conversations, sends, AI) and `bot.metrics()` as OTel metrics. `@opentelemetry/api` as an optional peer. |
+| [`@botmesh/events`](packages/events) | Public | Versioned envelopes, leased journals with fencing tokens, retries and DLQ for asynchronous processes, and a bot durability backend. |
 | [`@botmesh/rag`](packages/rag) | Experimental | RAG for `@botmesh/ai`: loaders, chunking, pluggable embeddings (OpenAI-compatible, Ollama, local hashing) and an in-memory vector index with optional JSON persistence. |
 | [`@botmesh/voice`](packages/voice) | Experimental | Voice: voice-note transcription (OpenAI-compatible, Deepgram) and spoken replies (OpenAI, ElevenLabs). |
 | [`@botmesh/chatwoot`](packages/chatwoot) | Experimental | Chatwoot bridge: two-way sync and human handoff driven by Chatwoot agents. |
@@ -101,7 +101,7 @@ This is a pnpm monorepo with **45 packages**: 36 **Public**, 3 **Experimental** 
 | [`@botmesh/http`](packages/http) | Public | Safe HTTP client: anti-SSRF, redirect validation, timeouts and download limits. |
 | [`@botmesh/graph-core`](packages/graph-core) | Public | Shared Meta Graph helpers (webhook verification, error mapping, ingest guard) used by meta/messenger/instagram. |
 | [`@botmesh/wa-gateway-kit`](packages/wa-gateway-kit) | Public | Code shared by the WhatsApp REST gateways (`evolution`, `wppconnect`): REST client over `secureFetch`, outbound media resolution and LID/PN identity reconciliation. Installed as their dependency. |
-| [`@botmesh/server`](packages/server) | Experimental | Webhook ingress for the providers: raw body, size limits, timeouts, concurrency and health endpoints for `node:http`, Express, Fastify and Hono (no dependencies). |
+| [`@botmesh/server`](packages/server) | Public | Webhook ingress for the providers: raw body, size limits, timeouts, concurrency and health endpoints for `node:http`, Express, Fastify and Hono (no dependencies). |
 | **Product / operations** (private, persistent) | | |
 | [`@botmesh/inbox`](packages/inbox) | Product | Persistent omni-channel inbox: CAS assignment, handoff, notes, unread, SLA and ledger projection (`attachInbox`). |
 | [`@botmesh/crm`](packages/crm) | Product | Contacts, tags, attributes, consent (lossless CAS) and per-tenant segments. |

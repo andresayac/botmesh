@@ -53,8 +53,8 @@ The **On npm** channels are installed with `pnpm add` and follow semver
 npm for the first time with it). `@botmesh/tiktok` has `"private": true` in its
 `package.json`: it is implemented and tested, but it is **not published to npm**
 and its API may still change. Use it from a clone of the monorepo (`"workspace:*"`).
-The same goes for [`@botmesh/server`](/guide/server) and the
-[sandbox](/guide/sandbox).
+The same goes for the [sandbox](/guide/sandbox). The webhook ingress,
+[`@botmesh/server`](/guide/server), is on npm.
 
 ## Choosing a channel
 
@@ -98,12 +98,24 @@ chat) and `@botmesh/tiktok` (comments on your own videos and DMs).
   hands the **raw body** plus the headers to `provider.ingest()`, which
   verifies the signature or token and returns the HTTP status to answer.
   [`@botmesh/server`](/guide/server) does that wiring (raw body, size limits,
-  timeouts, health endpoints) for `node:http`, Express, Fastify and Hono; it is
-  not on npm yet.
+  timeouts, concurrency cap, health endpoints) for `node:http`, Express,
+  Fastify and Hono.
 
-With the published packages, a route in any framework is enough. Read the
-body **as bytes** (the signature covers the exact bytes, so never pass a
-re-serialized JSON object) and answer with the status `ingest()` returns:
+The recommended way is `@botmesh/server` (`pnpm add @botmesh/server`): one
+route per provider, and the `GET` handshake and the signed `POST`s are
+handled for you:
+
+```ts
+import { createServer } from 'node:http'
+import { createIngress, createNodeHandler } from '@botmesh/server'
+
+const ingress = createIngress({ routes: [{ path: '/webhook', provider }], bot })
+createServer(createNodeHandler(ingress)).listen(3000) // also /healthz and /readyz
+```
+
+Without it, a route in any framework is enough. Read the body **as bytes**
+(the signature covers the exact bytes, so never pass a re-serialized JSON
+object) and answer with the status `ingest()` returns:
 
 ```ts
 import { createServer } from 'node:http'

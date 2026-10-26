@@ -103,9 +103,12 @@ bot.on('conversation:ended', ({ id, name, chatId, outcome, completed, durationMs
 
 ## Paquetes operativos
 
-::: warning Paquetes experimentales — ninguno está publicado
-`@botmesh/events` es **experimental**: una implementación real y con tests,
-pero todavía privada (no está en npm). Los paquetes de producto (`@botmesh/inbox`,
+`@botmesh/events` está publicado en npm (`pnpm add @botmesh/events`; mientras
+los paquetes estén en prerelease, añade el dist-tag que indica
+[Inicio](/es/guide/inicio)).
+
+::: warning Paquetes de producto — sin publicar
+Los paquetes de producto (`@botmesh/inbox`,
 `@botmesh/crm`, `@botmesh/hub`, `@botmesh/campaigns` y `@botmesh/deployments`)
 son reales y **persistentes**: cada uno tiene un contrato de almacenamiento,
 una implementación de referencia en RAM y un adaptador `Kv*` sobre cualquier
@@ -118,7 +121,7 @@ Los paquetes operativos son agnósticos de canal y están aislados por tenant.
 
 ### Procesamiento de eventos
 
-Usa `MemoryEventJournal` en tests. `FileEventJournal.open('./data/events.json')` persiste el journal de una sola instancia con snapshots atómicos, idempotencia, leases, reintentos y replay. Para múltiples réplicas implementa `EventJournal` sobre PostgreSQL, Redis o un broker.
+Usa `MemoryEventJournal` en tests. `FileEventJournal.open('./data/events.json')` persiste el journal de una sola instancia con snapshots atómicos, idempotencia, leases, reintentos y replay. Para varios procesos en un mismo host, `SharedFileEventJournal.open(path)` comparte un archivo bajo un mutex entre procesos; entre hosts, implementa `LeasedEventJournal` sobre PostgreSQL, Redis o un broker.
 
 `EventWorker` reclama eventos, invoca el handler, confirma el trabajo exitoso y mueve a la cola de mensajes muertos (DLQ) los que agotan sus reintentos.
 
@@ -144,4 +147,4 @@ Los cinco comparten el mismo modelo de almacenamiento: `Memory…Store` (referen
 
 ## Trazas (OpenTelemetry)
 
-`bot.metrics()` cuenta; las trazas explican. Con `BotConfig.telemetry` el bot emite un árbol de spans por mensaje (entrada → dispatch → handler / turno de conversación → llamadas al modelo y herramientas de IA → envío), con los ids con hash por defecto y sin contenido de mensajes. `@botmesh/otel` (en el repositorio, aún no en npm) manda esos spans a OpenTelemetry (Jaeger, Grafana Tempo, cualquier backend OTLP) y publica `bot.metrics()` como métricas de OpenTelemetry (`bot.plug(otelMetricsPlugin())`). Configuración, catálogo de spans, política de datos personales y un ejemplo con Jaeger / Grafana Tempo: [Trazas](./trazas).
+`bot.metrics()` cuenta; las trazas explican. Con `BotConfig.telemetry` el bot emite un árbol de spans por mensaje (entrada → dispatch → handler / turno de conversación → llamadas al modelo y herramientas de IA → envío), con los ids con hash por defecto y sin contenido de mensajes. `@botmesh/otel` manda esos spans a OpenTelemetry (Jaeger, Grafana Tempo, cualquier backend OTLP) y publica `bot.metrics()` como métricas de OpenTelemetry (`bot.plug(otelMetricsPlugin())`). Configuración, catálogo de spans, política de datos personales y un ejemplo con Jaeger / Grafana Tempo: [Trazas](./trazas).

@@ -25,7 +25,7 @@ const fs = require('fs')
 const root = path.resolve(__dirname, '..')
 const mode = process.argv[2] || 'missing'
 const ts = require(path.join(root, 'node_modules/typescript'))
-const PUBLIC = ['core', 'baileys-provider', 'meta-provider', 'telegram-provider', 'messenger-provider', 'instagram-provider', 'evolution-provider', 'wppconnect-provider', 'wa-gateway-kit', 'discord-provider', 'twilio-provider', 'gupshup-provider', 'email-provider', 'gohighlevel-provider', 'sqlite-store', 'redis-store', 'postgres-store', 'mysql-store', 'mongo-store', 'ai', 'http', 'graph-core', 'create-botmesh']
+const PUBLIC = ['core', 'baileys-provider', 'meta-provider', 'telegram-provider', 'messenger-provider', 'instagram-provider', 'evolution-provider', 'wppconnect-provider', 'wa-gateway-kit', 'discord-provider', 'twilio-provider', 'gupshup-provider', 'email-provider', 'gohighlevel-provider', 'sqlite-store', 'redis-store', 'postgres-store', 'mysql-store', 'mongo-store', 'ai', 'http', 'graph-core', 'create-botmesh', 'server', 'events', 'otel']
 /** Reviewed and accepted (see docs/api-review.md): the EventEmitter-compatible overloads of Bot.on/once/off/emit. */
 const ALLOWED_ANY = new Set(['Bot'])
 /**

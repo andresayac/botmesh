@@ -21,7 +21,7 @@ export interface OtelTracingOptions {
   tracerName?: string
   /**
    * Derive latency/token histograms from finished spans (low-cardinality attributes
-   * only; see {@link SpanMetrics}). Default `true` (on the global meter provider);
+   * only: kinds, stages, outcomes, provider and model names). Default `true` (on the global meter provider);
    * `false` turns it off. Recorded whether or not the span was sampled.
    */
   spanMetrics?: boolean | { meterProvider?: MeterProvider; prefix?: string }

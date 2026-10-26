@@ -269,7 +269,7 @@ createServer((req, res) => {
   `503`. No las reinicies por eso.
 - Escucha en una interfaz privada o protege el puerto: `bot.metrics()` no
   contiene datos personales, pero describe tu tráfico.
-- `@botmesh/server` (en el repositorio, aún no en npm) sirve `/healthz` y
+- `@botmesh/server` sirve `/healthz` y
   `/readyz` junto a las rutas de webhooks: ver [Servidor de webhooks](./servidor).
 
 ```yaml

@@ -96,13 +96,13 @@ Los paquetes de npm son `@botmesh/core`, `@botmesh/baileys`, `@botmesh/meta`,
 `@botmesh/evolution`, `@botmesh/wppconnect`, `@botmesh/sqlite-store`,
 `@botmesh/redis-store`, `@botmesh/postgres-store`, `@botmesh/mysql-store`,
 `@botmesh/mongo-store`, `@botmesh/ai`, `@botmesh/http`, `@botmesh/graph-core`,
-`@botmesh/wa-gateway-kit` y `create-botmesh` (`@botmesh/messenger`,
-`@botmesh/instagram`, `@botmesh/evolution`, `@botmesh/wppconnect`,
-`@botmesh/wa-gateway-kit` y los tres stores SQL/Mongo se publican por primera vez con la beta).
+`@botmesh/wa-gateway-kit`, `@botmesh/server`, `@botmesh/events`, `@botmesh/otel`
+y `create-botmesh` (todos salvo `@botmesh/telegram`, `@botmesh/sqlite-store`,
+`@botmesh/redis-store`, `@botmesh/ai`, `@botmesh/http` y `@botmesh/graph-core`
+se publican por primera vez con la beta).
 Algunas páginas describen además paquetes que de momento solo están en el
-[repositorio](https://github.com/andresayac/botmesh/tree/main/packages)
-(`@botmesh/server`, `@botmesh/otel`,
-`@botmesh/events`, los demás canales…), y cada una lo indica. Planifica un
+[repositorio](https://github.com/andresayac/botmesh/tree/main/packages) (el
+canal de TikTok, el sandbox…), y cada una lo indica. Planifica un
 despliegue de producción sobre los publicados.
 
 ## Antes de cada versión de tu bot

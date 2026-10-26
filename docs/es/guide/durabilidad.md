@@ -49,7 +49,7 @@ código que antes, en memoria y en un solo proceso.
 | `store.durability()` de un `SQLiteStore` (`SQLiteDurability`) | `@botmesh/sqlite-store` | Sí | Procesos en un mismo host que comparten el archivo |
 | `RedisDurability({ client \| url \| cluster, prefix })` | `@botmesh/redis-store` | Sí (con la persistencia de Redis activada) | Sí, con enrutado fijo por chat o `coordination` (ver [Varias réplicas](#varias-replicas)) |
 | `PostgresDurability({ pool \| connectionString, tablePrefix, logger })` | `@botmesh/postgres-store` | Sí | Sí, como Redis |
-| `eventsDurability({ journal })` | `@botmesh/events/durability` (aún no en npm) | Con un `FileEventJournal` abierto con `{ lock: true }` o un `SharedFileEventJournal` | Con un `SharedFileEventJournal` (procesos en un mismo host; ver *Un journal de `@botmesh/events`*) |
+| `eventsDurability({ journal })` | `@botmesh/events/durability` | Con un `FileEventJournal` abierto con `{ lock: true }` o un `SharedFileEventJournal` | Con un `SharedFileEventJournal` (procesos en un mismo host; ver *Un journal de `@botmesh/events`*) |
 
 SQLite guarda los journals en la tabla `durable` del archivo del store, creada
 con el resto del esquema. PostgreSQL crea una tabla, `{tablePrefix}durable`, de forma idempotente al

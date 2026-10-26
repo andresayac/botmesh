@@ -48,7 +48,7 @@ before, in memory and in a single process.
 | `store.durability()` of a `SQLiteStore` (`SQLiteDurability`) | `@botmesh/sqlite-store` | Yes | Processes on one host sharing the file |
 | `RedisDurability({ client \| url \| cluster, prefix })` | `@botmesh/redis-store` | Yes (with Redis persistence on) | Yes, with sticky per-chat routing or `coordination` (see [Several replicas](#several-replicas)) |
 | `PostgresDurability({ pool \| connectionString, tablePrefix, logger })` | `@botmesh/postgres-store` | Yes | Yes, like Redis |
-| `eventsDurability({ journal })` | `@botmesh/events/durability` (not on npm yet) | With a `FileEventJournal` opened with `{ lock: true }` or a `SharedFileEventJournal` | With a `SharedFileEventJournal` (processes on one host; see [below](#an-botmesh-events-journal)) |
+| `eventsDurability({ journal })` | `@botmesh/events/durability` | With a `FileEventJournal` opened with `{ lock: true }` or a `SharedFileEventJournal` | With a `SharedFileEventJournal` (processes on one host; see [below](#an-botmesh-events-journal)) |
 
 SQLite keeps the journals in the `durable` table of the store's file, created
 with the rest of the schema. PostgreSQL creates one table, `{tablePrefix}durable`, idempotently on start.

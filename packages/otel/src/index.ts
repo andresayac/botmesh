@@ -17,4 +17,3 @@ export { otelMetricsPlugin, registerOtelMetrics, bridgeMetrics } from './metrics
 export type { OtelMetricsOptions, MetricsSource } from './metrics.js'
 export { loadOtelApi } from './load.js'
 export type { OtelApi } from './load.js'
-export { SpanMetrics, METRIC_SOURCE_KEYS } from './spanMetrics.js'
