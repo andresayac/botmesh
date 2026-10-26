@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "description": "Example: an AI ordering assistant for a bakery on WhatsApp (Baileys or Twilio) with @botmesh/ai tools — quote, place, change and cancel orders with human confirmation.",
+  "exports": {
+    "./bot": { "types": "./lib/bot.d.ts", "default": "./lib/bot.js" },
+    "./shop": { "types": "./lib/shop.d.ts", "default": "./lib/shop.js" }
+  },
   "engines": { "node": ">=22" },
   "license": "MIT",
   "scripts": {

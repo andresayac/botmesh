@@ -1022,6 +1022,82 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.1)(vite@7.3.6(@types/node@26.1.1)(yaml@2.9.0))
 
+  packages/sandbox:
+    dependencies:
+      '@botmesh/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@botmesh/core':
+        specifier: workspace:*
+        version: link:../core
+      '@botmesh/discord':
+        specifier: workspace:*
+        version: link:../discord-provider
+      '@botmesh/example-bakery-ai':
+        specifier: workspace:*
+        version: link:../../examples/bakery-ai
+      '@botmesh/gohighlevel':
+        specifier: workspace:*
+        version: link:../gohighlevel-provider
+      '@botmesh/gupshup':
+        specifier: workspace:*
+        version: link:../gupshup-provider
+      '@botmesh/instagram':
+        specifier: workspace:*
+        version: link:../instagram-provider
+      '@botmesh/messenger':
+        specifier: workspace:*
+        version: link:../messenger-provider
+      '@botmesh/meta':
+        specifier: workspace:*
+        version: link:../meta-provider
+      '@botmesh/server':
+        specifier: workspace:*
+        version: link:../server
+      '@botmesh/telegram':
+        specifier: workspace:*
+        version: link:../telegram-provider
+      '@botmesh/tiktok':
+        specifier: workspace:*
+        version: link:../tiktok-provider
+      '@botmesh/twilio':
+        specifier: workspace:*
+        version: link:../twilio-provider
+      pino:
+        specifier: ^10.3.1
+        version: 10.3.1
+      ws:
+        specifier: ^8.18.0
+        version: 8.18.3
+    devDependencies:
+      '@botmesh/chatwoot':
+        specifier: workspace:*
+        version: link:../chatwoot
+      '@botmesh/email':
+        specifier: workspace:*
+        version: link:../email-provider
+      '@botmesh/evolution':
+        specifier: workspace:*
+        version: link:../evolution-provider
+      '@botmesh/wppconnect':
+        specifier: workspace:*
+        version: link:../wppconnect-provider
+      '@types/node':
+        specifier: ^26.1.1
+        version: 26.1.1
+      '@types/ws':
+        specifier: ^8.5.13
+        version: 8.18.1
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vite:
+        specifier: ^7.3.6
+        version: 7.3.6(@types/node@26.1.1)(yaml@2.9.0)
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.1)(vite@7.3.6(@types/node@26.1.1)(yaml@2.9.0))
+
   packages/server:
     devDependencies:
       '@botmesh/core':
@@ -2230,6 +2306,7 @@ packages:
   '@opentelemetry/sdk-trace-base@2.11.0':
     resolution: {integrity: sha512-H19x/TX/LZdqiYOjM7fqtSxwlplC5pgelavqbQdHbhdq0q/AI/TGkM2dfGuuynTXmJPeF2HoZVoPDu+TGoW78A==}
     engines: {node: ^18.19.0 || >=20.6.0}
+    deprecated: Use @opentelemetry/sdk-trace package
     peerDependencies:
       '@opentelemetry/api': '>=1.3.0 <1.10.0'
 

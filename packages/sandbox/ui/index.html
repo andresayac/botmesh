@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>botmesh sandbox</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%224%22 fill=%22%232f6fde%22/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #f4f2ee; --panel: #ffffff; --panel-2: #faf9f6; --ink: #1d1b18; --muted: #6f6a62; --line: #e4e0d8;
+  --bubble-bot: #ffffff; --bubble-user: #1d1b18; --bubble-user-ink: #fbfaf7; --chip: #f0ede6; --danger: #b3261e; --ok: #1f7a4d;
+  --accent: #2f6fde; --shadow: 0 1px 2px rgba(29, 27, 24, .06), 0 4px 16px rgba(29, 27, 24, .05);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141311; --panel: #1c1b19; --panel-2: #22211e; --ink: #f1eee8; --muted: #a39d93; --line: #33312d;
+    --bubble-bot: #262421; --bubble-user: #f1eee8; --bubble-user-ink: #1a1917; --chip: #2e2c28; --danger: #f2b8b5; --ok: #7fd1a6;
+    --shadow: none; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141311; --panel: #1c1b19; --panel-2: #22211e; --ink: #f1eee8; --muted: #a39d93; --line: #33312d;
+  --bubble-bot: #262421; --bubble-user: #f1eee8; --bubble-user-ink: #1a1917; --chip: #2e2c28; --danger: #f2b8b5; --ok: #7fd1a6;
+  --shadow: none; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.app { display: grid; grid-template-columns: 220px minmax(0, 1fr) 340px; grid-template-rows: auto minmax(0, 1fr); height: 100vh; }
+header.top { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.brand { font-weight: 700; letter-spacing: -.01em; }
+.brand small { font-weight: 500; color: var(--muted); margin-left: 6px; }
+.spacer { flex: 1; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+.dot.on { background: var(--ok); }
+.icon-btn { border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; padding: 6px 10px; }
+.app-body { display: contents; }
+nav.channels { border-right: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding: 8px; }
+.ch { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 0; border-radius: 10px; background: transparent; text-align: left; }
+.ch:hover { background: var(--panel-2); }
+.ch.active { background: var(--chip); }
+.ch .swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.ch .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.badge { min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--accent); color: #fff; font-size: 12px; text-align: center; }
+main.chat { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.chat-head { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.chat-head h1 { font-size: 16px; margin: 0; }
+.chat-head .meta { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timeline { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 8px; }
+.row { display: flex; }
+.row.user { justify-content: flex-end; }
+.bubble { max-width: min(560px, 82%); padding: 9px 12px; border-radius: 14px; background: var(--bubble-bot); box-shadow: var(--shadow); border: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; }
+.row.user .bubble { background: var(--bubble-user); color: var(--bubble-user-ink); border-color: transparent; }
+.bubble img { display: block; max-width: 100%; max-height: 260px; border-radius: 10px; margin-bottom: 6px; }
+.bubble .kind { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.row.user .bubble .kind { color: inherit; opacity: .7; }
+.bubble .foot { font-size: 11px; color: var(--muted); margin-top: 4px; text-align: right; }
+.row.user .bubble .foot { color: inherit; opacity: .65; }
+.ticks.read { color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip { border: 1px solid var(--line); background: var(--chip); border-radius: 999px; padding: 5px 12px; }
+.chip:hover { border-color: var(--accent); }
+.rows { margin-top: 8px; border-top: 1px solid var(--line); }
+.rows button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 8px 2px; }
+.rows button small { display: block; color: var(--muted); }
+.sys { align-self: center; font-size: 12px; color: var(--muted); padding: 2px 10px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); }
+.empty { margin: auto; text-align: center; color: var(--muted); max-width: 360px; }
+.composer { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--panel); align-items: center; position: relative; }
+.composer input[type=text] { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--panel-2); border-radius: 999px; padding: 10px 14px; }
+.composer .send { border: 0; background: var(--accent); color: #fff; border-radius: 999px; padding: 10px 16px; font-weight: 600; }
+.popover { position: absolute; bottom: 60px; left: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; box-shadow: var(--shadow); display: none; gap: 8px; flex-direction: column; width: 260px; z-index: 5; }
+.popover.open { display: flex; }
+.popover input { border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; padding: 7px 9px; }
+aside.inspector { border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+.tabs { display: flex; gap: 4px; padding: 8px; border-bottom: 1px solid var(--line); }
+.tab { border: 0; background: transparent; padding: 6px 10px; border-radius: 8px; color: var(--muted); }
+.tab.active { background: var(--chip); color: var(--ink); }
+.pane { flex: 1; overflow-y: auto; padding: 10px 12px; font-size: 13px; }
+.log { border-bottom: 1px solid var(--line); padding: 6px 0; }
+.log code { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+.st { font-weight: 600; }
+.st.bad { color: var(--danger); }
+.st.good { color: var(--ok); }
+.issue { color: var(--danger); margin-top: 2px; }
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.field label { color: var(--muted); font-size: 12px; }
+.field input, .field select { border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; padding: 7px 9px; }
+.primary { border: 0; background: var(--accent); color: #fff; border-radius: 8px; padding: 8px 12px; font-weight: 600; }
+.hint { color: var(--muted); font-size: 12px; }
+.toggle-inspector { display: none; }
+@media (max-width: 980px) {
+  .app { grid-template-columns: 180px minmax(0, 1fr); }
+  aside.inspector { display: none; position: fixed; inset: 52px 0 0 auto; width: min(360px, 100%); z-index: 10; box-shadow: var(--shadow); }
+  aside.inspector.open { display: flex; }
+  .toggle-inspector { display: inline-block; }
+}
+@media (max-width: 640px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); }
+  nav.channels { display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 6px 16px; gap: 4px; }
+  .ch { width: auto; flex: none; }
+  .timeline { padding: 14px 16px; }
+  .composer { padding: 10px 16px; }
+  .bubble { max-width: 90%; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <span class="brand">botmesh<small>sandbox</small></span>
+    <span class="dot" id="live" title="Server events"></span>
+    <span class="spacer"></span>
+    <button class="icon-btn toggle-inspector" id="toggleInspector" type="button">Inspector</button>
+    <button class="icon-btn" id="theme" type="button" title="Theme">◐</button>
+  </header>
+  <nav class="channels" id="channels" aria-label="Channels"></nav>
+  <main class="chat">
+    <div class="chat-head">
+      <span class="dot" id="botState"></span>
+      <div style="min-width:0">
+        <h1 id="title">…</h1>
+        <div class="meta" id="meta"></div>
+      </div>
+    </div>
+    <div class="timeline" id="timeline"></div>
+    <form class="composer" id="composer" autocomplete="off">
+      <button type="button" class="icon-btn" id="attachBtn" title="Send a file">📎</button>
+      <input type="file" id="file" hidden>
+      <button type="button" class="icon-btn" id="locBtn" title="Send a location">📍</button>
+      <input type="text" id="text" placeholder="Write as the user… (try: hola, menu, encuesta)">
+      <button class="send" type="submit">Send</button>
+      <div class="popover" id="locPop">
+        <strong>Share a location</strong>
+        <input id="lat" value="4.6097" aria-label="Latitude">
+        <input id="lng" value="-74.0817" aria-label="Longitude">
+        <input id="locName" placeholder="Name (optional)">
+        <button class="primary" type="button" id="locSend">Send location</button>
+      </div>
+    </form>
+  </main>
+  <aside class="inspector" id="inspector">
+    <div class="tabs">
+      <button class="tab active" data-tab="requests" type="button">API requests</button>
+      <button class="tab" data-tab="webhooks" type="button">Webhooks</button>
+      <button class="tab" data-tab="tools" type="button">Faults &amp; user</button>
+    </div>
+    <div class="pane" id="pane-requests"></div>
+    <div class="pane" id="pane-webhooks" hidden></div>
+    <div class="pane" id="pane-tools" hidden>
+      <div class="field">
+        <label for="fault">Make the next bot send fail with</label>
+        <select id="fault">
+          <option value="rateLimit">Rate limit (429 + Retry-After)</option>
+          <option value="invalidRecipient">Invalid recipient</option>
+          <option value="outsideWindow">Outside the 24 h window</option>
+          <option value="mediaTooLarge">Media too large</option>
+          <option value="auth">Auth failure</option>
+          <option value="serverError">Server error</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="times">How many requests</label>
+        <input id="times" type="number" min="1" value="1">
+      </div>
+      <button class="primary" id="inject" type="button">Inject fault</button>
+      <p class="hint">The provider maps each platform error to a typed ProviderError; the bot log shows it.</p>
+      <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+      <div class="field">
+        <label for="userId">Simulated user id</label>
+        <input id="userId">
+      </div>
+      <div class="field">
+        <label for="userName">Display name</label>
+        <input id="userName">
+      </div>
+      <button class="icon-btn" id="reset" type="button">Clear this channel</button>
+    </div>
+  </aside>
+</div>
+<script>
+const COLORS = { whatsapp: '#25a366', messenger: '#0a7cff', instagram: '#d6286e', telegram: '#2aa3dd', discord: '#5865f2', twilio: '#e2364a', gupshup: '#4a3aff', gohighlevel: '#1a9e8f', tiktok: '#111111' }
+const state = { channels: [], current: null, timeline: { inbox: [], outbox: [], requests: [], deliveries: [] }, unread: {}, users: {} }
+const $ = (id) => document.getElementById(id)
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
+const time = (at) => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+
+try { const t = localStorage.getItem('sandbox-theme'); if (t) document.documentElement.dataset.theme = t } catch {}
+$('theme').onclick = () => {
+  const cur = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+  const next = cur === 'dark' ? 'light' : 'dark'
+  document.documentElement.dataset.theme = next
+  try { localStorage.setItem('sandbox-theme', next) } catch {}
+}
+$('toggleInspector').onclick = () => $('inspector').classList.toggle('open')
+for (const tab of document.querySelectorAll('.tab')) {
+  tab.onclick = () => {
+    for (const t of document.querySelectorAll('.tab')) t.classList.toggle('active', t === tab)
+    for (const p of ['requests', 'webhooks', 'tools']) $('pane-' + p).hidden = p !== tab.dataset.tab
+  }
+}
+
+async function api(path, body) {
+  const res = await fetch('/api/' + path, body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText)
+  return res.json()
+}
+
+function renderChannels() {
+  $('channels').innerHTML = state.channels.map((c) => `
+    <button class="ch ${c.channel === state.current ? 'active' : ''}" data-ch="${c.channel}" type="button">
+      <span class="swatch" style="background:${COLORS[c.channel] || '#888'}"></span>
+      <span class="name">${esc(c.title)}</span>
+      ${state.unread[c.channel] ? `<span class="badge">${state.unread[c.channel]}</span>` : ''}
+    </button>`).join('')
+  for (const b of document.querySelectorAll('.ch')) b.onclick = () => select(b.dataset.ch)
+}
+
+async function select(channel) {
+  state.current = channel
+  state.unread[channel] = 0
+  try { localStorage.setItem('sandbox-channel', channel) } catch {}
+  const c = state.channels.find((x) => x.channel === channel)
+  document.documentElement.style.setProperty('--accent', COLORS[channel] || '#2f6fde')
+  $('title').textContent = c.title
+  $('meta').textContent = `simulator ${c.url}${c.webhookUrl ? ' → ' + c.webhookUrl : ''}`
+  $('botState').classList.toggle('on', c.ready === 'ready' || c.ready === 'open')
+  const user = state.users[channel] || c.user
+  $('userId').value = user.id
+  $('userName').value = user.name || ''
+  renderChannels()
+  state.timeline = await api(channel + '/timeline')
+  renderTimeline()
+  renderInspector()
+}
+
+function mediaSrc(o) {
+  if (o.media?.url) return o.media.url
+  if (o.media?.mediaId) return `/api/${state.current}/media/${encodeURIComponent(o.media.mediaId)}`
+  return ''
+}
+
+function botBubble(o) {
+  if (o.kind === 'action') return `<div class="sys">${esc(o.action)}${o.text ? ' · ' + esc(o.text) : ''}</div>`
+  if (o.kind === 'edit') return `<div class="sys">edited ${esc(o.targetId)} → ${esc(o.text)}</div>`
+  if (o.kind === 'delete') return `<div class="sys">deleted ${esc(o.targetId)}</div>`
+  if (o.kind === 'reaction') return `<div class="sys">reacted ${esc(o.text || '(removed)')} on ${esc(o.targetId)}</div>`
+  const read = state.timeline.inbox.filter((i) => i.kind === 'status' && i.id === o.id).map((i) => i.text)
+  const ticks = read.includes('read') ? '<span class="ticks read">✓✓</span>' : read.includes('delivered') ? '<span class="ticks">✓✓</span>' : '<span class="ticks">✓</span>'
+  let inner = ''
+  const src = mediaSrc(o)
+  if (['image', 'sticker'].includes(o.kind) && src) inner += `<img src="${esc(src)}" alt="">`
+  else if (['video', 'audio', 'voice', 'document'].includes(o.kind)) inner += `<div class="kind">${esc(o.kind)}${o.media?.filename ? ' · ' + esc(o.media.filename) : ''}</div>${src ? `<a href="${esc(src)}" target="_blank" rel="noopener">open file</a>` : ''}`
+  if (o.kind === 'location' && o.location) {
+    const { latitude, longitude, name } = o.location
+    inner += `<div class="kind">location</div>📍 ${esc(name || '')} ${latitude}, ${longitude}<br><a target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=17/${latitude}/${longitude}">open map</a>`
+  }
+  if (o.kind === 'template') inner += `<div class="kind">template</div><strong>${esc(o.template?.name)}</strong> ${o.template?.language ? '(' + esc(o.template.language) + ')' : ''}`
+  if (o.kind === 'contact') inner += `<div class="kind">contact</div>`
+  if (o.kind === 'card') inner += `<div class="kind">card</div>`
+  if (o.text) inner += esc(o.text)
+  if (o.kind === 'buttons') inner += `<div class="chips">${(o.buttons || []).map((b) => b.url ? `<a class="chip" target="_blank" rel="noopener" href="${esc(b.url)}">${esc(b.title)} ↗</a>` : `<button class="chip" data-reply="button" data-id="${esc(b.id)}" data-title="${esc(b.title)}" data-msg="${esc(o.id)}" type="button">${esc(b.title)}</button>`).join('')}</div>`
+  if (o.kind === 'list') inner += `<div class="rows">${(o.sections || []).flatMap((s) => s.rows).map((r) => `<button data-reply="list" data-id="${esc(r.id)}" data-title="${esc(r.title)}" data-msg="${esc(o.id)}" type="button">${esc(r.title)}${r.description ? `<small>${esc(r.description)}</small>` : ''}</button>`).join('')}</div>`
+  if (o.kind === 'poll') inner += `<div class="kind">poll</div><strong>${esc(o.poll?.question)}</strong><div class="chips">${(o.poll?.options || []).map((opt, i) => `<button class="chip" data-vote="${i}" data-poll="${esc(o.targetId || o.id)}" data-title="${esc(opt)}" type="button">${esc(opt)}</button>`).join('')}</div>`
+  return `<div class="row bot"><div class="bubble">${inner}<div class="foot">${time(o.at)} ${ticks}</div></div></div>`
+}
+
+function userBubble(i) {
+  const label = i.kind === 'text' ? '' : `<div class="kind">${esc(i.kind)}</div>`
+  return `<div class="row user"><div class="bubble">${label}${esc(i.text ?? (i.kind === 'location' ? '📍 location' : ''))}<div class="foot">${time(i.at)}</div></div></div>`
+}
+
+function renderTimeline() {
+  const items = [
+    ...state.timeline.inbox.filter((i) => i.kind !== 'status').map((i) => ({ at: i.at, html: userBubble(i) })),
+    ...state.timeline.outbox.map((o) => ({ at: o.at, html: botBubble(o) })),
+  ].sort((a, b) => a.at - b.at)
+  const el = $('timeline')
+  el.innerHTML = items.length ? items.map((x) => x.html).join('') : `<div class="empty"><p><strong>Write as a user</strong></p><p>Messages go to the bot through a signed webhook, and its answers come back through the simulated API. Try <em>hola</em>, <em>menu</em>, <em>ubicacion</em> or <em>encuesta</em>.</p></div>`
+  el.scrollTop = el.scrollHeight
+  for (const img of el.querySelectorAll('img')) img.onload = () => { el.scrollTop = el.scrollHeight }
+  for (const b of el.querySelectorAll('[data-reply]')) b.onclick = () => send({ reply: { kind: b.dataset.reply, id: b.dataset.id, title: b.dataset.title, messageId: b.dataset.msg } })
+  // Poll votes are sent as the option text: not every provider turns a native vote into a message.
+  for (const b of el.querySelectorAll('[data-vote]')) b.onclick = () => send({ text: b.dataset.title })
+}
+
+function renderInspector() {
+  const t = state.timeline
+  $('pane-requests').innerHTML = t.requests.slice().reverse().map((r) => `
+    <div class="log"><span class="st ${r.status >= 400 || r.issues.length ? 'bad' : 'good'}">${r.status}</span> <code>${esc(r.method)} ${esc(r.path)}</code>
+    ${r.fault ? `<div class="issue">fault: ${esc(r.fault)}</div>` : ''}${r.issues.map((x) => `<div class="issue">${esc(x)}</div>`).join('')}</div>`).join('') || '<p class="hint">No API calls yet.</p>'
+  $('pane-webhooks').innerHTML = t.deliveries.slice().reverse().map((d) => `
+    <div class="log"><span class="st ${d.ok ? 'good' : 'bad'}">${d.status || '—'}</span> <code>${esc(d.url)}</code> <span class="hint">#${d.attempt} ${time(d.at)}</span>${d.error ? `<div class="issue">${esc(d.error)}</div>` : ''}</div>`).join('') || '<p class="hint">No deliveries yet.</p>'
+}
+
+function currentUser() {
+  const id = $('userId').value.trim()
+  const name = $('userName').value.trim()
+  return id ? { id, ...(name ? { name } : {}) } : undefined
+}
+
+async function send(payload) {
+  try {
+    const user = currentUser()
+    await api(state.current + '/send', { ...payload, ...(user ? { user } : {}) })
+  } catch (err) {
+    alert(err.message)
+  }
+}
+
+$('composer').onsubmit = (e) => {
+  e.preventDefault()
+  const text = $('text').value.trim()
+  if (!text) return
+  $('text').value = ''
+  send({ text })
+}
+$('attachBtn').onclick = () => $('file').click()
+$('file').onchange = () => {
+  const f = $('file').files[0]
+  if (!f) return
+  const reader = new FileReader()
+  reader.onload = () => {
+    const base64 = String(reader.result).split(',')[1]
+    const kind = f.type.startsWith('image/') ? 'image' : f.type.startsWith('video/') ? 'video' : f.type.startsWith('audio/') ? (f.type.includes('ogg') ? 'voice' : 'audio') : 'document'
+    const caption = $('text').value.trim()
+    $('text').value = ''
+    send({ media: { kind, base64, mimetype: f.type || 'application/octet-stream', filename: f.name, ...(caption ? { caption } : {}) } })
+    $('file').value = ''
+  }
+  reader.readAsDataURL(f)
+}
+$('locBtn').onclick = () => $('locPop').classList.toggle('open')
+$('locSend').onclick = () => {
+  $('locPop').classList.remove('open')
+  send({ location: { latitude: Number($('lat').value), longitude: Number($('lng').value), name: $('locName').value.trim() } })
+}
+$('inject').onclick = async () => {
+  await api(state.current + '/fault', { kind: $('fault').value, times: Number($('times').value || 1) })
+  $('inject').textContent = 'Injected ✓'
+  setTimeout(() => { $('inject').textContent = 'Inject fault' }, 1200)
+}
+$('reset').onclick = async () => { await api(state.current + '/reset', {}); state.timeline = await api(state.current + '/timeline'); renderTimeline(); renderInspector() }
+for (const id of ['userId', 'userName']) $(id).onchange = () => { state.users[state.current] = currentUser() }
+
+let refresh
+function scheduleRefresh() {
+  clearTimeout(refresh)
+  refresh = setTimeout(async () => {
+    state.timeline = await api(state.current + '/timeline')
+    renderTimeline()
+    renderInspector()
+  }, 60)
+}
+
+function connect() {
+  const es = new EventSource('/api/events')
+  es.onopen = () => $('live').classList.add('on')
+  es.onerror = () => $('live').classList.remove('on')
+  for (const ev of ['inbound', 'outbound', 'delivery', 'issue']) {
+    es.addEventListener(ev, (e) => {
+      const { channel } = JSON.parse(e.data)
+      if (channel === state.current) scheduleRefresh()
+      else if (ev === 'outbound') { state.unread[channel] = (state.unread[channel] || 0) + 1; renderChannels() }
+    })
+  }
+}
+
+;(async () => {
+  state.channels = await api('channels')
+  let first = state.channels[0]?.channel
+  try { const saved = localStorage.getItem('sandbox-channel'); if (state.channels.some((c) => c.channel === saved)) first = saved } catch {}
+  connect()
+  if (first) await select(first)
+})()
+</script>
+</body>
+</html>

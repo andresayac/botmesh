@@ -1,0 +1,78 @@
+{
+  "name": "@botmesh/sandbox",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local platform simulators (WhatsApp Cloud API, Messenger, Instagram, Twilio, Gupshup, GoHighLevel, TikTok, Discord, Telegram) with signed webhooks, realistic errors and a web chat UI, so every channel can be tested end to end without registering anywhere.",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./providers": {
+      "types": "./lib/providers.d.ts",
+      "default": "./lib/providers.js"
+    }
+  },
+  "bin": {
+    "botmesh-sandbox": "./lib/cli.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "botmesh",
+    "sandbox",
+    "simulator",
+    "webhook",
+    "testing"
+  ],
+  "author": "Andres Aya",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andresayac/botmesh.git",
+    "directory": "packages/sandbox"
+  },
+  "files": [
+    "./lib/**/*",
+    "./ui/**/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "start": "node lib/cli.js",
+    "sandbox": "node lib/cli.js"
+  },
+  "dependencies": {
+    "@botmesh/ai": "workspace:*",
+    "@botmesh/core": "workspace:*",
+    "@botmesh/discord": "workspace:*",
+    "@botmesh/example-bakery-ai": "workspace:*",
+    "@botmesh/gohighlevel": "workspace:*",
+    "@botmesh/gupshup": "workspace:*",
+    "@botmesh/instagram": "workspace:*",
+    "@botmesh/messenger": "workspace:*",
+    "@botmesh/meta": "workspace:*",
+    "@botmesh/server": "workspace:*",
+    "@botmesh/telegram": "workspace:*",
+    "@botmesh/tiktok": "workspace:*",
+    "@botmesh/twilio": "workspace:*",
+    "pino": "^10.3.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@botmesh/chatwoot": "workspace:*",
+    "@botmesh/email": "workspace:*",
+    "@botmesh/evolution": "workspace:*",
+    "@botmesh/wppconnect": "workspace:*",
+    "@types/node": "^26.1.1",
+    "@types/ws": "^8.5.13",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.6",
+    "vitest": "^4.1.10"
+  }
+}
