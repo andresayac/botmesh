@@ -641,8 +641,16 @@ export class BotManager extends EventEmitter {
     if (requireCapability(entry.bot, 'hasFlow')(compiled.id)) {
       throw new ManagerError(`Flow "${compiled.id}" already exists on bot "${botId}"`, 'CONFLICT')
     }
-    requireCapability(entry.bot, 'registerFlow')(compiled)
+    const register = requireCapability(entry.bot, 'registerFlow')
+    // Persist first: a flow is never live without being saved (a failed save changes nothing).
+    const before = this.configs.get(botId)?.flows
     await this.saveFlows(botId, (flows) => [...flows, structuredClone(document) as FlowDocument])
+    try {
+      register(compiled)
+    } catch (error) {
+      await this.saveFlows(botId, () => before ?? []).catch(() => undefined)
+      throw error
+    }
     return compiled.id
   }
 
@@ -656,15 +664,20 @@ export class BotManager extends EventEmitter {
     const compiled = compileFlowDocument(document, { resolveSubflow: (id) => this.storedFlowDocument(botId, id) })
     if (compiled.id !== flowId) throw new ManagerError(`Flow document id "${compiled.id}" does not match "${flowId}"`, 'INVALID')
     const created = !requireCapability(entry.bot, 'hasFlow')(flowId)
-    requireCapability(entry.bot, 'replaceFlow')(flowId, compiled)
+    const replace = requireCapability(entry.bot, 'replaceFlow')
     const doc = structuredClone(document) as FlowDocument
-    await this.saveFlows(botId, (flows) => {
-      const i = flows.findIndex((f) => f.id === flowId)
-      if (i === -1) return [...flows, doc]
-      const copy = [...flows]
-      copy[i] = doc
-      return copy
-    })
+    const before = this.configs.get(botId)?.flows ?? []
+    const i = before.findIndex((f) => f.id === flowId)
+    const after = i === -1 ? [...before, doc] : before.map((f, j) => (j === i ? doc : f))
+    // Subflows are inlined when a flow is compiled: every stored flow that uses this one
+    // (directly or through another subflow) is recompiled against the new version. All
+    // of them compile BEFORE anything changes, so an invalid result changes nothing.
+    const resolve = subflowResolver(after)
+    const dependents = dependentsOf(after, flowId).map((flow) => compileFlowDocument(flow, { resolveSubflow: resolve }))
+    // Persist first: a flow is never live without being saved (a failed save changes nothing).
+    await this.saveFlows(botId, () => after)
+    replace(flowId, compiled)
+    for (const dependent of dependents) replace(dependent.id, dependent)
     return { created }
   }
 
@@ -683,13 +696,15 @@ export class BotManager extends EventEmitter {
     const entry = this.requireEntry(botId)
     const user = (this.configs.get(botId)?.flows ?? []).find((flow) => flow.id !== flowId && usesSubflow(flow.steps, flowId))
     if (user) throw new ManagerError(`Flow "${flowId}" is used as a subflow by "${user.id}"; remove or change that flow first`, 'CONFLICT')
-    const removed = requireCapability(entry.bot, 'unregisterFlow')(flowId)
+    const unregister = requireCapability(entry.bot, 'unregisterFlow')
     let persisted = false
+    // Persist first, like addFlow/putFlow: a failed save leaves the live flow in place.
     await this.saveFlows(botId, (flows) => {
       const kept = flows.filter((f) => f.id !== flowId)
       persisted = kept.length !== flows.length
       return kept
     })
+    const removed = unregister(flowId)
     return removed || persisted
   }
 
@@ -959,6 +974,21 @@ function usesSubflow(steps: readonly unknown[] | undefined, flowId: string): boo
     if (step.kind === 'subflow' && step.flowId === flowId) return true
     return usesSubflow(step.then, flowId) || usesSubflow(step.else, flowId) || (step.options ?? []).some((o) => usesSubflow(o.steps, flowId))
   })
+}
+
+/** Stored flows that use `flowId` as a subflow, directly or through other subflows. */
+function dependentsOf(flows: readonly FlowDocument[], flowId: string): FlowDocument[] {
+  const found = new Map<string, FlowDocument>()
+  const pending = [flowId]
+  while (pending.length) {
+    const id = pending.pop()!
+    for (const flow of flows) {
+      if (flow.id === flowId || found.has(flow.id) || !usesSubflow(flow.steps, id)) continue
+      found.set(flow.id, flow)
+      pending.push(flow.id)
+    }
+  }
+  return [...found.values()]
 }
 
 /** Resolve `subflow` steps against the flows stored with the same bot. */

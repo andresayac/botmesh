@@ -251,7 +251,11 @@ persisten con la config y se vuelven a registrar en cada reconstrucción. Los
 pasos `subflow` se resuelven contra los demás flujos guardados del bot (también
 en `createBot({ flows })`, `updateBot()` y `restore()`), y `removeFlow()`
 responde `CONFLICT` (`409` por REST) mientras otro flujo guardado siga usando
-como subflujo el que se quiere borrar.
+como subflujo el que se quiere borrar. Un subflujo se copia dentro del flujo al
+compilarlo, así que `putFlow()` recompila también cada flujo guardado que use
+el que cambia (directamente o a través de otro subflujo); todos compilan antes
+de cambiar nada. La config se guarda **antes** de tocar el bot en vivo: si el
+guardado falla, la llamada rechaza y el bot sigue con los flujos anteriores.
 
 ## API REST `/v1` (`createRestApi`)
 
@@ -265,6 +269,7 @@ si se pasa (para montarlo dentro de otro servidor) o reciben `404`.
 | `prefix` | `'/v1'` |
 | `publicDocs` | `true`: `openapi.json` y `flows/schema` no piden token (con `false` piden `bots:read`) |
 | `maxBodyBytes` | 1 MiB |
+| `bodyTimeoutMs` | `30000`: tiempo para recibir el cuerpo entero. Un cliente que envía las cabeceras y se detiene recibe `408 REQUEST_TIMEOUT` y se cierra la conexión. |
 | `rateLimit` | Token bucket por token (por dirección del cliente en llamadas anónimas): ráfaga de 60, 1 petición/s. Pasa opciones, tu propio `RateLimiter` o `false`. |
 | `idempotency` | En memoria, replay de 24 h. Pasa opciones, tu propio `IdempotencyStore` o `false`. |
 | `defaultTenantId` | `'default'` (tenant de los bots añadidos sin tenant) |
@@ -352,6 +357,7 @@ todas las rutas, públicas incluidas, están limitadas y añaden
 | `403` | `FORBIDDEN` | Falta el scope, o `tenantId` de otro tenant |
 | `404` | `NOT_FOUND` | Ruta, bot (o bot de otro tenant), flujo o conversación desconocidos |
 | `405` | `METHOD_NOT_ALLOWED` | Ruta conocida con un método incorrecto (cabecera `Allow`) |
+| `408` | `REQUEST_TIMEOUT` | El cuerpo no llegó dentro de `bodyTimeoutMs` |
 | `409` | `CONFLICT`, `BOT_NOT_RUNNING` | Id o flujo repetido, versión distinta, trigger con el bot detenido |
 | `413` | `PAYLOAD_TOO_LARGE` | Cuerpo mayor que `maxBodyBytes`, o contenido por encima de un límite del provider |
 | `415` | `UNSUPPORTED_MEDIA_TYPE` | El cuerpo no es `application/json` |

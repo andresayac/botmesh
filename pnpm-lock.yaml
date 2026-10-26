@@ -503,9 +503,6 @@ importers:
       '@botmesh/core':
         specifier: workspace:*
         version: link:../core
-      '@botmesh/deployments':
-        specifier: workspace:*
-        version: link:../deployments
       '@botmesh/http':
         specifier: workspace:*
         version: link:../http
@@ -513,6 +510,9 @@ importers:
       '@botmesh/ai':
         specifier: workspace:*
         version: link:../ai
+      '@botmesh/deployments':
+        specifier: workspace:*
+        version: link:../deployments
       '@types/node':
         specifier: ^26.1.1
         version: 26.1.1
@@ -2230,6 +2230,7 @@ packages:
   '@opentelemetry/sdk-trace-base@2.11.0':
     resolution: {integrity: sha512-H19x/TX/LZdqiYOjM7fqtSxwlplC5pgelavqbQdHbhdq0q/AI/TGkM2dfGuuynTXmJPeF2HoZVoPDu+TGoW78A==}
     engines: {node: ^18.19.0 || >=20.6.0}
+    deprecated: Use @opentelemetry/sdk-trace package
     peerDependencies:
       '@opentelemetry/api': '>=1.3.0 <1.10.0'
 

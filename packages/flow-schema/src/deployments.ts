@@ -5,7 +5,35 @@
  */
 
 import { createHash } from 'node:crypto'
-import { DeploymentRegistry, type Deployment, type DeploymentCandidate, type DeploymentGate, type GateResult } from '@botmesh/deployments'
+/*
+ * Structural twins of the `@botmesh/deployments` types: flow-schema does not depend on
+ * that package, yet a `DeploymentRegistry` (and its gates) fits these shapes as is.
+ */
+
+/** What a deployment gate receives (structurally `DeploymentCandidate` of `@botmesh/deployments`). */
+export interface FlowDeploymentCandidate {
+  tenantId: string
+  botId: string
+  version: string
+  /** The flow document JSON (see {@link flowArtifact}). */
+  artifact: string
+}
+
+/** Outcome of a gate (structurally `GateResult`). */
+export interface FlowGateResult {
+  ok: boolean
+  reason?: string
+  summary?: string
+  details?: unknown
+}
+
+/** A publish gate (structurally `DeploymentGate`). A bare boolean means `{ ok }`. */
+export type FlowDeploymentGate = (candidate: FlowDeploymentCandidate) => FlowGateResult | boolean | Promise<FlowGateResult | boolean>
+
+/** The registry surface {@link publishFlow} needs; a `DeploymentRegistry` fits. */
+export interface FlowDeploymentRegistry<D> {
+  publish(tenantId: string, botId: string, version: string, artifact: string, options: { gate?: FlowDeploymentGate }): Promise<D>
+}
 import { compileFlowDocument } from './compile.js'
 import { FlowDocumentError, validateFlowDocument, type FlowDocument, type FlowDocumentIssue } from './schema.js'
 
@@ -146,8 +174,8 @@ export function flowIssuesOf(value: unknown): FlowDocumentIssue[] {
  * A valid document passes with a summary (step count); an invalid one fails with its
  * issues in `details` and the first message in `reason`.
  */
-export function flowDocumentGate(options: { resolveSubflow?: (flowId: string) => FlowDocument | undefined } = {}): (candidate: DeploymentCandidate) => GateResult {
-  return ({ artifact }): GateResult => {
+export function flowDocumentGate(options: { resolveSubflow?: (flowId: string) => FlowDocument | undefined } = {}): (candidate: FlowDeploymentCandidate) => FlowGateResult {
+  return ({ artifact }): FlowGateResult => {
     let document: FlowDocument
     try {
       document = flowFromArtifact(artifact)
@@ -170,28 +198,28 @@ export interface PublishFlowOptions {
   /** Version label (default {@link flowVersionOf}). */
   version?: string
   /** Extra gate run after the document check (e.g. golden transcripts). */
-  gate?: DeploymentGate
+  gate?: FlowDeploymentGate
   /** Subflow resolver passed to the compiler. */
   resolveSubflow?: (flowId: string) => FlowDocument | undefined
 }
 
 /**
- * Publish a flow document through a {@link DeploymentRegistry}. The artifact is the
+ * Publish a flow document through a registry such as `DeploymentRegistry` of `@botmesh/deployments`. The artifact is the
  * document JSON; the gate validates and compiles it (then runs `options.gate`, if any).
  * Publishing the same content twice with the default version is refused by the registry
  * (`DeploymentExistsError`), which is what makes it idempotent per draft.
  */
-export async function publishFlow(
-  registry: DeploymentRegistry,
+export async function publishFlow<D>(
+  registry: FlowDeploymentRegistry<D>,
   tenantId: string,
   botId: string,
   document: FlowDocument,
   options: PublishFlowOptions = {},
-): Promise<Deployment> {
+): Promise<D> {
   const artifact = flowArtifact(document)
   const compileOptions = options.resolveSubflow ? { resolveSubflow: options.resolveSubflow } : {}
   const documentGate = flowDocumentGate(compileOptions)
-  const gate: DeploymentGate = options.gate
+  const gate: FlowDeploymentGate = options.gate
     ? async (candidate) => {
         const first = documentGate(candidate)
         if (!first.ok) return first
