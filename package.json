@@ -15,6 +15,7 @@
     "docs:dev": "vitepress dev docs",
     "docs:serve": "vitepress serve docs",
     "docs:check": "node scripts/smoke/docs-check.mjs",
+    "docs:deploy": "node scripts/docs-deploy.mjs",
     "typecheck": "pnpm -r typecheck",
     "pack:smoke": "node scripts/pack-smoke.mjs",
     "api-check": "node scripts/api-check.cjs missing && node scripts/api-check.cjs any && node scripts/api-check.cjs internal",

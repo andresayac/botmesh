@@ -22,7 +22,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/meta-provider"
   },
-  "homepage": "https://github.com/andresayac/botmesh/tree/main/packages/meta-provider#readme",
+  "homepage": "https://andresayac.github.io/botmesh/guide/channels#botmesh-meta-whatsapp-cloud-api",
   "bugs": { "url": "https://github.com/andresayac/botmesh/issues" },
   "files": ["./lib/**/*"],
   "scripts": {

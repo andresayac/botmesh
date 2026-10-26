@@ -125,7 +125,7 @@ const bot = new Bot({
 - **Watchdog.** Heartbeat, turns and leaderships are renewed every `leaseMs / 3`. A lease found gone aborts its `signal` (`'expired'`); with no successful renewal for 90% of `leaseMs`, every lease is given up locally (`'coordinator-down'`) before Redis can hand it to another replica.
 - Keys live under `{prefix}:co:`; a chat's counters expire `idleTtlMs` (default 1 day) after its last turn.
 - Limits: a failover that loses the last writes can grant a lease twice (Sentinel or Cluster). On Redis Cluster the coordinator uses the cluster layout: each chat's turn keys share a hash tag, and a waiting turn probes another replica's heartbeat with a separate call before skipping its ticket.
-- Guide: [Running N replicas](https://github.com/andresayac/botmesh/blob/main/docs/guide/replicas.md).
+- Guide: [Running N replicas](https://andresayac.github.io/botmesh/guide/replicas).
 
 ## Distributed lock
 
@@ -194,7 +194,7 @@ const store = new RedisStore({ client: cluster, prefix: 'mybot' })            //
 - **Rollback**: `direction: 'cluster-to-legacy'` into a single node, from a single node or a cluster client. It mirrors by default (`mirror: true`): the legacy target is made to match the cluster-layout source, so writes and deletions made after the forward pass are carried back (`report.pruned`), and a complete rollback removes the layout marker. `mirror: false` copies only (existing legacy keys win).
 - A client the store, `RedisCoordinator` or `RedisDurability` creates (`url` or `cluster`) always has an `'error'` listener (errors go to `logger`), so a dropped node connection never crashes the process.
 - **Key-layout internals** (key builders, `bucketOf`, `encodeSegment`, `hashSlot`, `INDEX_BUCKETS`, `LAYOUT_MARKER`) live in `@botmesh/redis-store/internal`, with **no semver guarantee**: they are for tooling that inspects a keyspace. Applications only need the `layout` option and `migrateToClusterLayout()` / `inspectKeyspace()`. The five values the main entry used to export are still re-exported there, `@deprecated`.
-- Guide: [Redis Cluster](https://github.com/andresayac/botmesh/blob/main/docs/guide/redis-cluster.md).
+- Guide: [Redis Cluster](https://andresayac.github.io/botmesh/guide/redis-cluster).
 
 ## Notes
 

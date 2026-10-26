@@ -59,7 +59,7 @@ customers — support, sales, bookings — is allowed. The `ai` template therefo
 business (`BUSINESS_NAME` in `.env`, `PERSONA` in `src/bot.js`) that declines unrelated requests; keep it that way,
 especially if you move the bot to the official Cloud API (`@botmesh/meta`). See the
 [current terms](https://www.whatsapp.com/legal/business-solution-terms) and the
-[AI plugin guide](https://github.com/andresayac/botmesh/blob/main/docs/guide/ai.md).
+[AI plugin guide](https://andresayac.github.io/botmesh/guide/ai).
 
 The templates are in Spanish, so every generated bot sets `lang: 'es'` in `new Bot(...)`: the built-in
 texts of `@botmesh/core` (slash commands, retries, timeouts) default to English otherwise.
@@ -67,7 +67,7 @@ Both AI templates (`ai`, `ai-full`) answer in Spanish and pin the built-in texts
 (`i18n: { defaultLocale: 'es', locales: ['es'] }` in `new Bot(...)`), so the slash commands and the AI's
 confirmation prompts (`¿Confirmas?`, `Sí`/`No`) always match the persona, even for a client that reports
 another language. To serve more languages, list them there and translate `PERSONA`. The `ai-full` tools follow the
-[side-effecting tools best practices](https://github.com/andresayac/botmesh/blob/main/docs/guide/ai-tools.md):
+[side-effecting tools best practices](https://andresayac.github.io/botmesh/guide/ai-tools):
 a `title` on every tool, product `labels`, `confirmLines` with code-computed totals, `dedupe` on create, and an
 `onToolEvent` audit log with metadata only.
 

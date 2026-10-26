@@ -112,7 +112,7 @@ They build and test with the rest of the workspace (`pnpm build`, `pnpm test`). 
 
 ## Documentation
 
-- Guides: [`docs/`](docs) (English in `docs/guide/`, Spanish in `docs/es/guide/`). There is no published site; to read them as a website locally: `pnpm docs:dev`.
+- Documentation site: **<https://andresayac.github.io/botmesh/>** (English guide, Spanish guide under [`/es/`](https://andresayac.github.io/botmesh/es/) and the [API reference](https://andresayac.github.io/botmesh/api/)). Sources in [`docs/`](docs) (English in `docs/guide/`, Spanish in `docs/es/guide/`); preview locally with `pnpm docs:dev`.
 - Migration guide v1 → v2: [`docs/MIGRATION-v1-to-v2.md`](docs/MIGRATION-v1-to-v2.md).
 - Product and engineering roadmap: [`ROADMAP.md`](ROADMAP.md).
 - Detailed catalogue of proposals: [`FEATURES.md`](FEATURES.md).

@@ -232,6 +232,16 @@ Remove `"private": true` from its `package.json`, check that it has `publishConf
 
 ## Documentation
 
-- VitePress site in `docs/` (`pnpm docs:dev` to preview on `http://localhost:5173/`). It is not hosted anywhere: the docs are read in the repo itself. Before accepting changes under `docs/`, run `pnpm run docs:site && pnpm docs:check` (broken links and anchors, Mermaid diagrams that do not render, repeated headings).
+- VitePress site in `docs/` (`pnpm docs:dev` to preview on `http://localhost:5173/`), published at <https://andresayac.github.io/botmesh/>. Before accepting changes under `docs/`, run `pnpm run docs:site && pnpm docs:check` (broken links and anchors, links that escape the base path, Mermaid diagrams that do not render, repeated headings).
+- The site is published **by hand** to GitHub Pages from the `gh-pages` branch; there is no GitHub Actions workflow for it (and none should be added). The maintainer deploys from a clean `main`:
+
+  ```bash
+  pnpm docs:deploy             # build with DOCS_BASE=/botmesh/, docs:check, force-push docs/dist to gh-pages
+  pnpm docs:deploy --dry-run   # same, but stops before the push and keeps the temp repo for inspection
+  ```
+
+  `scripts/docs-deploy.mjs` refuses a dirty working tree or a branch other than `main` (`--force-branch` overrides the branch check), builds the site under the `/botmesh/` base (`pnpm run docs` with `DOCS_BASE=/botmesh/`), runs `docs:check` on that build, adds `.nojekyll` (TypeDoc emits `_`-prefixed files that Jekyll would drop) and pushes `docs/dist` as a single commit (`docs: deploy <sha>`) with `git push --force origin HEAD:gh-pages` from a fresh repo in the OS temp dir. The `gh-pages` history is not kept.
+- One-time GitHub setting: **Settings → Pages → Build and deployment → Source: Deploy from a branch → Branch: `gh-pages` / `(root)`**.
+- `DOCS_BASE` (default `/`) sets the public base path and must start and end with `/`; `DOCS_SITE_URL` (default `https://andresayac.github.io/botmesh/`) is used for `sitemap.xml` and the canonical links. In Git Bash, prefix `MSYS_NO_PATHCONV=1` when setting `DOCS_BASE` by hand, or the shell rewrites `/botmesh/` into a Windows path. `pnpm docs:check` reads the base from `--base=`, `DOCS_BASE` or the build itself.
 - API reference generated with TypeDoc (`pnpm docs:api`) — note that TypeDoc runs against TypeScript 5.9 at the root (TypeDoc 0.28 does not support TS 7 yet, which is what compiles the packages).
 - Historical designs and decisions: `docs/superpowers/specs/` and `docs/superpowers/plans/`.
