@@ -33,7 +33,7 @@ Per package:
 | `@botmesh/meta` | GO after one beta | None. `GraphClient`, `toProviderError`, the verify re-exports and `debug` are `@deprecated`; `phoneNumberId` is `string \| number`; `lang` for Flow labels. Session window decided: the configuration and query surface (`SessionWindowManager`, `SessionWindowOptions`, `SessionWindowStore`, `MemorySessionWindowStore`, report types) is public with semver; the provider plumbing (`send`, `noteInbound`, `noteFailedStatus`, `RawSend`) is `@experimental`. |
 | `@botmesh/telegram` | GO after one beta | None. `pollTimeoutMs` (alias `pollTimeout`), `toTelegramError`, `@experimental` wire helpers, `debug` deprecated, poll votes parsed. |
 | `@botmesh/sqlite-store` | GO after one beta | None. Schema migrations via `PRAGMA user_version`, newer files refused untouched (`SQLiteSchemaVersionError`), DDL exports deprecated, `logger: Partial<LoggerLike>`, `busyTimeoutMs`. The schedules and durable tables are still created ad hoc, outside the version (record or fold in during beta). |
-| `@botmesh/redis-store` | Conditional | Move the cluster layout internals off the main entry; remove the deprecated `ttl`/`acquireLock` options. The node-redis 5 cluster flake did not reproduce in this round (see [Verification](#verification)). |
+| `@botmesh/redis-store` | GO after one beta | None. The cluster layout internals moved to `@botmesh/redis-store/internal` (deprecated re-exports kept on the main entry); the deprecated `ttl` option and `acquireLock` were removed. Real single-node and Cluster suites (chaos on) pass with node-redis 4, 5 and 6. |
 | `@botmesh/http`, `@botmesh/graph-core` | GO after one beta | None. `SecureFetchOptions` no longer extends `RequestInit` (no `redirect`; other `RequestInit` fields through a deprecated overload until stable); `resolveHost` (alias `resolvePublicHost`); `checkGraphSignature({ ... })` (positional form deprecated); graph-core is covered by semver. |
 | `create-botmesh` | GO after one beta | None. `TEMPLATES`, `agentsMd` and `findBotMeshMonorepo` live in `create-botmesh/internal` (no semver), deprecated on the main entry. |
 
@@ -339,14 +339,14 @@ Still open (all LOW):
   replica or webhook process, are dropped) and rebuilds the tally on each vote
   (O(voters x options)). Closed: `pollTimeoutMs`, `toTelegramError`, `@experimental`
   wire helpers, `debug` deprecated, `poll_answer` parsed.
-- **sqlite-store**: the schedules/schedule_fences and durable tables are created outside
-  the schema version; `MemoryStore` and the other stores still accept lone surrogates.
-  Closed: schema versioning, `LoggerLike` logger, `busyTimeoutMs`.
-- **redis-store**: layout internals exported; deprecated `ttl`/`acquireLock`; extra
-  round trips with `maxMessagesPerChat`; the cluster test helper's connect retry does not
+- **sqlite-store**: `MemoryStore` and the other stores still accept lone surrogates.
+  Closed: schema versioning, `LoggerLike` logger, `busyTimeoutMs`, the schedules/schedule_fences
+  and durable tables folded into the migrations (schema version 2).
+- **redis-store**: extra round trips with `maxMessagesPerChat`; the cluster test helper's connect retry does not
   destroy a client whose `connect()` failed. Closed: the node-redis 5 flake did not come
   back (v5 twice, plus v4 and v6, all green with chaos on), and a test asserts which
-  major `BOTWA_TEST_REDIS_CLIENT` loads.
+  major `BOTWA_TEST_REDIS_CLIENT` loads; the layout internals moved to
+  `@botmesh/redis-store/internal`; the deprecated `ttl` option and `acquireLock` were removed.
 - **http / graph-core**: the 413 override in graph-core only applies when the mapped
   error is a plain `ProviderError` (kept on purpose: a Graph code that says more wins).
   Closed: `SecureFetchOptions` is a closed set (no `redirect`; the other `RequestInit`

@@ -12,6 +12,11 @@
  * Version 0 is every file written before versioning existed (up to
  * `@botmesh/sqlite-store@0.2.0-alpha.0`): its tables were all created with
  * `IF NOT EXISTS`, so the baseline migration (1) only adds what is missing.
+ *
+ * Version 2 adds the durable scheduler's tables (`schedules`, `schedule_fences`) and the
+ * durability table (`durable` and its two partial indexes). Up to version 1 they were
+ * created ad hoc by `schedules()` / `durability()` on first use, outside the version, so
+ * the step is `IF NOT EXISTS` too: a file that already has them keeps its rows.
  */
 /**
  * The part of a better-sqlite3 `Database` the migrations use. Structural so the
@@ -22,6 +27,8 @@ export interface SchemaDatabase {
   pragma(source: string, options?: { simple?: boolean }): unknown
   transaction(fn: () => void): { immediate(): void }
 }
+import { DURABLE_SCHEMA } from './durability.js'
+import { SCHEDULES_SCHEMA } from './schedules.js'
 import { USER_DATA_SCHEMA } from './userData.js'
 
 /** The tables of the store itself (messages, chats, contacts, checkpoints, conversations, cursors). */
@@ -55,6 +62,11 @@ export const MIGRATIONS: readonly SchemaMigration[] = [
     version: 1,
     description: 'baseline: store tables and user_data',
     up: (db) => { db.exec(STORE_SCHEMA); db.exec(USER_DATA_SCHEMA) },
+  },
+  {
+    version: 2,
+    description: 'schedules, schedule_fences and durable tables',
+    up: (db) => { db.exec(SCHEDULES_SCHEMA); db.exec(DURABLE_SCHEMA) },
   },
 ]
 

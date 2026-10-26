@@ -189,3 +189,94 @@ describe('SQLiteStore schema versioning', () => {
     expect(() => new SQLiteStore({ file, busyTimeoutMs: 1.5 })).toThrow(RangeError)
   })
 })
+
+/**
+ * Version 1 (`@botmesh/sqlite-store` before the durable tables were versioned): the baseline
+ * store tables and `user_data` at `user_version = 1`. The `schedules`/`schedule_fences` and
+ * `durable` tables were created ad hoc, only when `schedules()` / `durability()` were first
+ * called, so a v1 file may or may not have them.
+ */
+function writeV1Db(file: string, opts: { adHocTables: boolean }): void {
+  const db = new Database(file)
+  db.pragma('journal_mode = WAL')
+  db.exec(RELEASED_0_2_0_ALPHA_0.replace(/CREATE TABLE IF NOT EXISTS schedules[\s\S]*$/, ''))
+  if (opts.adHocTables) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS schedules (
+        id TEXT PRIMARY KEY, kind TEXT NOT NULL, spec TEXT NOT NULL,
+        next_run_at INTEGER, last_run_at INTEGER, last_status TEXT,
+        fencing_token INTEGER NOT NULL DEFAULT 0,
+        lease_owner TEXT, lease_until INTEGER, updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS schedule_fences (id TEXT PRIMARY KEY, token INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS durable (
+        tbl TEXT NOT NULL, id TEXT NOT NULL, version INTEGER NOT NULL,
+        due_at INTEGER, done_at INTEGER, doc TEXT NOT NULL,
+        PRIMARY KEY (tbl, id)
+      );
+      CREATE INDEX IF NOT EXISTS durable_due_idx ON durable (tbl, due_at) WHERE due_at IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS durable_done_idx ON durable (tbl, done_at) WHERE done_at IS NOT NULL;
+    `)
+    db.prepare('INSERT INTO schedules (id, kind, spec, next_run_at, fencing_token, updated_at) VALUES (?,?,?,?,?,?)')
+      .run('daily', 'cron', '0 9 * * *', 1000, 4, 1)
+    db.prepare('INSERT INTO schedule_fences (id, token) VALUES (?, ?)').run('gone', 9)
+    db.prepare('INSERT INTO durable (tbl, id, version, due_at, done_at, doc) VALUES (?,?,?,?,?,?)')
+      .run('inbox', 'k1', 3, null, null, '{"x":1}')
+  }
+  db.pragma('user_version = 1')
+  db.close()
+}
+
+const tablesOf = (file: string): string[] => {
+  const db = new Database(file)
+  try {
+    return (db.prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'index') AND name NOT LIKE 'sqlite_%' ORDER BY name").all() as { name: string }[])
+      .map((r) => r.name)
+  } finally { db.close() }
+}
+
+const DURABLE_OBJECTS = ['durable', 'durable_done_idx', 'durable_due_idx', 'schedule_fences', 'schedules']
+
+describe('SQLiteStore schema versioning: schedules and durable tables (version 2)', () => {
+  it('creates the schedules and durable tables when the database is opened, inside the schema version', async () => {
+    const file = tmpFile()
+    const store = new SQLiteStore({ file })
+    await store.stop()
+    expect(SQLITE_SCHEMA_VERSION).toBe(2)
+    expect(userVersion(file)).toBe(2)
+    expect(tablesOf(file)).toEqual(expect.arrayContaining(DURABLE_OBJECTS))
+  })
+
+  it('migrates a version-1 file without the tables (schedules()/durability() never called)', async () => {
+    const file = tmpFile()
+    writeV1Db(file, { adHocTables: false })
+    expect(tablesOf(file)).not.toContain('schedules')
+    const store = new SQLiteStore({ file })
+    await store.stop()
+    expect(userVersion(file)).toBe(2)
+    expect(tablesOf(file)).toEqual(expect.arrayContaining(DURABLE_OBJECTS))
+  })
+
+  it('migrates a version-1 file whose tables were created ad hoc, keeping their rows', async () => {
+    const file = tmpFile()
+    writeV1Db(file, { adHocTables: true })
+    const store = new SQLiteStore({ file })
+    await store.start()
+    expect(userVersion(file)).toBe(2)
+    expect((await store.schedules().get('daily'))?.fencingToken).toBe(4)
+    // The fence of a deleted id survives: re-registering it never reuses a token.
+    const rec = await store.schedules().register({ id: 'gone', kind: 'interval', spec: '60000', nextRunAt: 5 }, 1)
+    expect(rec.fencingToken).toBe(9)
+    expect(await store.durability().kv.get('inbox', 'k1')).toEqual({ value: '{"x":1}', version: '3' })
+    await store.stop()
+  })
+
+  it('migrates a version-0 file straight to the current version', async () => {
+    const file = tmpFile()
+    writeReleasedDb(file)
+    const store = new SQLiteStore({ file })
+    await store.stop()
+    expect(userVersion(file)).toBe(2)
+    expect(tablesOf(file)).toEqual(expect.arrayContaining(DURABLE_OBJECTS))
+  })
+})

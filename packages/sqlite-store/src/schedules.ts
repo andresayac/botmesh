@@ -119,7 +119,11 @@ export class SQLiteScheduleStore implements ScheduleStore {
     this.bind(database)
   }
 
-  /** Create the table and prepare every statement and transaction on `database`. */
+  /**
+   * Prepare every statement and transaction on `database`. A database opened by
+   * {@link SQLiteStore} already has the tables (schema version 2); the idempotent DDL here
+   * only serves a bare connection handed to the constructor.
+   */
   private bind(database: SQLiteDatabaseLike): void {
     const db = database as unknown as BetterSqlite3.Database
     db.exec(SCHEDULES_SCHEMA)

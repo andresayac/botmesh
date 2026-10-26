@@ -80,7 +80,11 @@ export class SQLiteDurableKv implements DurableKv {
     this.bind(database)
   }
 
-  /** Create the table and prepare every statement on `database`. */
+  /**
+   * Prepare every statement on `database`. A database opened by {@link SQLiteStore}
+   * already has the table (schema version 2); the idempotent DDL here only serves a bare
+   * connection handed to the constructor.
+   */
   private bind(database: SQLiteDatabaseLike): void {
     const db = database as unknown as BetterSqlite3.Database
     db.exec(DURABLE_SCHEMA)

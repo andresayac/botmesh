@@ -15,9 +15,9 @@ import { Bot, MemoryStore, flow, type Coordinator, type StoredMessage } from '@b
 import { legacyMessageKey, type Ticket } from '@botmesh/core/spi'
 import { CrashableProvider, MockProvider, crashable } from '@botmesh/core/testing'
 import {
-  RedisCoordinator, RedisDurability, RedisDurableKv, RedisStore, hashSlot,
+  RedisCoordinator, RedisDurability, RedisDurableKv, RedisStore,
 } from '../src/index.js'
-import { storeKeys, coordKeys } from '../src/layout.js'
+import { coordKeys, hashSlot, storeKeys } from '../src/internal.js'
 import { scanEverywhere } from '../src/migrate.js'
 import { asRedisLike } from '../src/client.js'
 import {

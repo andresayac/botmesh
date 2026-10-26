@@ -182,6 +182,32 @@ the main entry as `@deprecated` aliases until v3.
 - `pairingCode` is renamed `pairingPhoneNumber` (the value was always the phone
   number); passing both with different numbers throws a `TypeError`.
 
+### `@botmesh/redis-store`
+
+**Breaking:** the cluster key-layout internals moved to a new subpath without a semver
+promise, `@botmesh/redis-store/internal`. The `layout` option, the `RedisKeyLayout`
+type, `migrateToClusterLayout()`, `inspectKeyspace()`, `isRedisClusterClient()` and
+`withClusterRetry()` stay on the main entry.
+
+| Names | Import from |
+| --- | --- |
+| `INDEX_BUCKETS`, `LAYOUT_MARKER`, `bucketOf`, `encodeSegment`, `hashSlot` | `@botmesh/redis-store/internal` (still re-exported by the main entry, `@deprecated`) |
+| `storeKeys`, `coordKeys`, `scheduleKeys`, `userDataKeys`, `hashTagOf`, `assertOneSlot`, `assertLayoutPrefix` and the key types | `@botmesh/redis-store/internal` (new; never exported before) |
+
+**Breaking:** two deprecated APIs were removed.
+
+| Removed | Use |
+| --- | --- |
+| `new RedisStore({ ttl: 3600 })` (seconds) | `new RedisStore({ sessionTtl: '1h' })` (a duration or milliseconds). Passing `ttl` from JavaScript throws a `TypeError` that names the replacement. |
+| `store.acquireLock(key, ttlMs)` → `token \| null` | `store.acquireLockFenced(key, ttlMs)` → `{ token, fence } \| null`; release with `releaseLock(key, lock.token)`. Same lock key, so replicas on the old and new versions still exclude each other during a rolling upgrade. From JavaScript the old call rejects with a `TypeError`. |
+
+```ts
+// Before
+const token = await store.acquireLock(`job:${id}`, 30_000)
+// After
+const token = (await store.acquireLockFenced(`job:${id}`, 30_000))?.token
+```
+
 ## `@botmesh/ai` entries
 
 `@botmesh/ai` got the same split as core: 135 names on the main entry before, 97 after.
@@ -302,7 +328,6 @@ const files = TEMPLATES.telegram.files('my-bot')
 // After
 import { getTemplate } from 'create-botmesh'
 const files = getTemplate('telegram').files('my-bot')
-```
 
 ## Sandbox API token
 

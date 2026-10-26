@@ -189,6 +189,32 @@ siguen en la entrada principal como alias `@deprecated` hasta v3.
 - `pairingCode` pasa a llamarse `pairingPhoneNumber` (el valor siempre fue el número
   de teléfono); pasar los dos con números distintos lanza un `TypeError`.
 
+### `@botmesh/redis-store`
+
+**Ruptura:** los internos del layout de claves cluster pasan a un subpath nuevo sin
+garantía semver, `@botmesh/redis-store/internal`. La opción `layout`, el tipo
+`RedisKeyLayout`, `migrateToClusterLayout()`, `inspectKeyspace()`,
+`isRedisClusterClient()` y `withClusterRetry()` siguen en la entrada principal.
+
+| Nombres | Importar de |
+| --- | --- |
+| `INDEX_BUCKETS`, `LAYOUT_MARKER`, `bucketOf`, `encodeSegment`, `hashSlot` | `@botmesh/redis-store/internal` (la entrada principal aún los reexporta, `@deprecated`) |
+| `storeKeys`, `coordKeys`, `scheduleKeys`, `userDataKeys`, `hashTagOf`, `assertOneSlot`, `assertLayoutPrefix` y los tipos de claves | `@botmesh/redis-store/internal` (nuevos; antes no se exportaban) |
+
+**Ruptura:** se eliminan dos API deprecadas.
+
+| Eliminado | Usa |
+| --- | --- |
+| `new RedisStore({ ttl: 3600 })` (segundos) | `new RedisStore({ sessionTtl: '1h' })` (una duración o milisegundos). Pasar `ttl` desde JavaScript lanza un `TypeError` que nombra el reemplazo. |
+| `store.acquireLock(key, ttlMs)` → `token \| null` | `store.acquireLockFenced(key, ttlMs)` → `{ token, fence } \| null`; libera con `releaseLock(key, lock.token)`. Usa la misma clave de lock, así que réplicas con la versión vieja y la nueva se siguen excluyendo durante un despliegue gradual. Desde JavaScript la llamada antigua rechaza con un `TypeError`. |
+
+```ts
+// Antes
+const token = await store.acquireLock(`job:${id}`, 30_000)
+// Después
+const token = (await store.acquireLockFenced(`job:${id}`, 30_000))?.token
+```
+
 ## Entradas de `@botmesh/ai`
 
 `@botmesh/ai` se divide igual que el core: 135 nombres en la entrada principal antes, 97 después.
@@ -315,7 +341,6 @@ const files = TEMPLATES.telegram.files('my-bot')
 // Después
 import { getTemplate } from 'create-botmesh'
 const files = getTemplate('telegram').files('my-bot')
-```
 
 ## Token de la API del sandbox
 

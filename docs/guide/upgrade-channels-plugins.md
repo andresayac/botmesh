@@ -112,11 +112,28 @@ cursor value with a lone UTF-16 surrogate (before, SQLite stored it as U+FFFD an
 could share a row). Escape or drop such characters before storing them.
 
 **Schema versioning.** The database records its layout in `PRAGMA user_version`
-(`SQLITE_SCHEMA_VERSION`, now `1`). Opening a file written by an earlier release (version
-`0`) migrates it in place, keeping every row; nothing to do. A file written by a **newer**
+(`SQLITE_SCHEMA_VERSION`, now `2`). Opening a file written by an earlier release (version
+`0` or `1`) migrates it in place, keeping every row; nothing to do. Version `2` folds the
+durable scheduler's tables (`schedules`, `schedule_fences`) and the durability table
+(`durable`) into the versioned migrations: they used to be created ad hoc the first time
+`schedules()` or `durability()` was called, and are now created when the file is opened. A file written by a **newer**
 release is refused with `SQLiteSchemaVersionError` (`code: 'SQLITE_SCHEMA_TOO_NEW'`) and
 left untouched: downgrades are not supported, so back up the file before upgrading if you
-may need to roll back. New options: `busyTimeoutMs` (default 5000, `PRAGMA busy_timeout`)
+may need to roll back.
+
+**Rolling back to the previous alpha.** The previous alpha writes and reads schema version
+`1`. Once this release opens a file, the file is at version `2` and the previous alpha
+refuses it with `SQLITE_SCHEMA_TOO_NEW` on its next start, even if the app never calls
+`schedules()` or `durability()`. This also applies during a rolling deploy: a process still
+on the previous alpha that shares the file fails when it restarts, so stop every process
+on the old version before the first one on the new version opens the file. To roll back,
+restore the copy taken before the upgrade. No rows were changed by the migration (it only
+adds tables with `CREATE TABLE IF NOT EXISTS`), so if you have no copy you can set
+`PRAGMA user_version = 1` by hand with the `sqlite3` CLI while no process has the file
+open, and the previous alpha opens it again. The version bump exists so that later
+migrations can assume these tables exist; without it they would stay outside the version.
+
+New options: `busyTimeoutMs` (default 5000, `PRAGMA busy_timeout`)
 and a `logger` that takes any `LoggerLike`. The exported `SCHEDULES_SCHEMA` and
 `DURABLE_SCHEMA` DDL strings are deprecated.
 

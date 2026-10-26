@@ -83,7 +83,6 @@ const store = new RedisStore({ client: fake })
 | `layout` | `'legacy' \| 'cluster'` | `'cluster'` on a cluster, else `'legacy'` | Key layout (see [Redis Cluster](#redis-cluster)). `'legacy'` on a cluster throws. |
 | `allowLegacyData` | `boolean` | `false` | Cluster layout on a single node: start even when legacy-layout keys exist under the prefix. |
 | `sessionTtl` | `string \| number` | —                   | TTL for AI conversations and flow checkpoints: a duration (`'24h'`, `'7d'`) or **milliseconds**, like every duration option of `@botmesh/core`. Messages, chats, contacts and cursors never expire — delete them explicitly. An invalid duration or a non-positive value throws from the constructor. |
-| `ttl`    | `number`          | —                         | **Deprecated**, use `sessionTtl`. Same TTL in **seconds** (fractions allowed). Setting both throws a `RangeError`. |
 | `maxMessagesPerChat` | `number` | — (unbounded)       | Keep only the newest N messages per chat; `saveMessage` prunes older ZSET members **and** their item keys. Must be a non-negative integer (else `RangeError`). |
 | `logger` | `{ error? }`    | —                         | Receives the errors of a store-created client (connection drops, failed reconnects) and lifecycle errors (e.g. close failure). |
 
@@ -146,22 +145,10 @@ try {
 
 - `acquireLockFenced(key, ttlMs = 30_000)` → `{ token, fence }`, or `null` when held. `fence` grows by one on every acquisition of `key` and never resets.
 - `renewLock(key, token, ttlMs = 30_000)` → `true` while `token` still owns the lock (atomic), `false` once it expired or changed hands.
-
-The older `acquireLock` (below) keeps working unchanged but has no fence; it is deprecated in favour of `acquireLockFenced`.
-
-```ts
-const token = await store.acquireLock(`chat:${chatId}`, 30_000) // SET NX PX
-if (!token) return // another replica holds it
-
-try {
-  await processChat(chatId)
-} finally {
-  await store.releaseLock(`chat:${chatId}`, token) // Lua compare-and-delete
-}
-```
-
-- `acquireLock(key, ttlMs = 30_000)` → opaque token on success, `null` when already held. The `PX` deadline guarantees a crashed holder never wedges the fleet. `ttlMs` must be a positive finite number (fractions are rounded up); anything else rejects with a `RangeError`.
 - `releaseLock(key, token)` → `true` only if the token still owns the lock. Release is an atomic Lua compare-and-delete, so a slow holder can never delete a newer owner's lock.
+- `ttlMs` must be a positive finite number (fractions are rounded up); anything else rejects with a `RangeError`. The `PX` deadline guarantees a crashed holder never wedges the fleet.
+
+The unfenced `acquireLock(key, ttlMs)` was removed: `const token = await store.acquireLock(k, ms)` becomes `const token = (await store.acquireLockFenced(k, ms))?.token` (same key, so old and new replicas still exclude each other during a rolling upgrade). Called from JavaScript, it now rejects with a `TypeError` naming the replacement.
 
 ## Durable scheduler tasks
 
@@ -175,7 +162,7 @@ bot.every('15m', { id: 'sync-crm', missed: 'run-once' }, async (run) => { /* run
 
 Every mutation is a compare-and-set on the task's JSON key (the same script as the upserts), so of N replicas claiming one occurrence exactly one wins, with a fencing token that only grows. Lease deadlines use the replicas' clocks: keep them in sync (NTP). `RedisScheduleStore` and `RedisLeaseProvider` can also be built on any client: `new RedisScheduleStore({ client, prefix })`.
 
-Unlike `acquireLock`, `leases()` grants carry a monotonic fencing token, and `acquire` by the current holder extends the lease.
+Like `acquireLockFenced`, `leases()` grants carry a monotonic fencing token, and `acquire` by the current holder extends the lease.
 
 ## Redis Cluster
 
@@ -206,6 +193,7 @@ const store = new RedisStore({ client: cluster, prefix: 'mybot' })            //
 - **Migration** of an existing keyspace, offline: `migrateToClusterLayout({ source, target?, prefix, dryRun?, deleteSource? })` (messages read from each chat's log, TTLs kept, fences, terms and schedule fencing tokens only grow, resumable). The layout marker is written only by a complete run (not one limited by `include`). `inspectKeyspace({ client, prefix })` counts keys per layout. A cluster-layout store on a single node refuses to start over legacy data unless `allowLegacyData: true`; a legacy-layout store on a prefix carrying the marker logs a warning (switch every replica at once).
 - **Rollback**: `direction: 'cluster-to-legacy'` into a single node, from a single node or a cluster client. It mirrors by default (`mirror: true`): the legacy target is made to match the cluster-layout source, so writes and deletions made after the forward pass are carried back (`report.pruned`), and a complete rollback removes the layout marker. `mirror: false` copies only (existing legacy keys win).
 - A client the store, `RedisCoordinator` or `RedisDurability` creates (`url` or `cluster`) always has an `'error'` listener (errors go to `logger`), so a dropped node connection never crashes the process.
+- **Key-layout internals** (key builders, `bucketOf`, `encodeSegment`, `hashSlot`, `INDEX_BUCKETS`, `LAYOUT_MARKER`) live in `@botmesh/redis-store/internal`, with **no semver guarantee**: they are for tooling that inspects a keyspace. Applications only need the `layout` option and `migrateToClusterLayout()` / `inspectKeyspace()`. The five values the main entry used to export are still re-exported there, `@deprecated`.
 - Guide: [Redis Cluster](https://github.com/andresayac/botmesh/blob/main/docs/guide/redis-cluster.md).
 
 ## Notes
@@ -232,7 +220,7 @@ The unit tests (`tests/redis-store.test.ts`, `tests/conformance.test.ts`, `tests
 - lifecycle: idempotent `start()` (also in parallel), persistence across `stop()`/`start()` with a new instance and a new connection, restarting the same instance, an unreachable server at startup, a dropped connection (through a local TCP proxy) without taking the process down, and a `stop()` that never hangs;
 - message log: order and `limit` of `getMessagesByChat` (out-of-order inserts, default limit, `Infinity`, fractions, `0`, negatives), repeated timestamps, `deleteMessage`, `deleteChat` purging every key, `maxMessagesPerChat` trimming and concurrent `saveMessage` from one and several connections (also trimming at the same time);
 - shallow merge of `upsertChat`/`upsertContact` (also concurrent, from several connections/replicas at once, and without altering JSON values), unicode/emoji in keys and values, multi-MB JSON and prefixes with glob metacharacters;
-- `ttl` (checked with `PTTL`, fractions included) and the distributed lock (exclusive across connections, `PX`, only the owner releases, expiration).
+- `sessionTtl` (checked with `PTTL`, sub-second values included) and the fenced lock (exclusive across connections, `PX`, only the owner releases, expiration).
 
 It is opt-in: it turns on with the `BOTWA_TEST_REDIS_URL` environment variable and, when it is not defined, the whole file is skipped, so `pnpm test` stays hermetic (no network).
 

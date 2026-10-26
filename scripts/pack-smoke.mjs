@@ -63,7 +63,8 @@ import { CloudAPIProvider } from '@botmesh/meta'
 import { BaileysProvider, toJid, type BaileysNativeMessage } from '@botmesh/baileys'
 import { socketOf, toInbound } from '@botmesh/baileys/internal'
 import { SQLiteStore } from '@botmesh/sqlite-store'
-import { RedisStore } from '@botmesh/redis-store'
+import { RedisStore, migrateToClusterLayout, type RedisKeyLayout } from '@botmesh/redis-store'
+import { hashSlot, storeKeys } from '@botmesh/redis-store/internal'
 import { secureFetch } from '@botmesh/http'
 import { verifySignature } from '@botmesh/graph-core'
 import { scaffold } from 'create-botmesh'
@@ -75,7 +76,7 @@ export const providers: IProvider[] = [
   new BaileysProvider({ session: 'demo', logger: console }),
 ]
 export const store = new SQLiteStore({ file: ':memory:' })
-export const refs = [RedisStore, secureFetch, verifySignature, scaffold, runCli, createPacer, messageKey, validateArgs, toolDefinitions, socketOf, toInbound, toJid]
+export const refs = [RedisStore, migrateToClusterLayout, hashSlot, storeKeys, secureFetch, verifySignature, scaffold, runCli, createPacer, messageKey, validateArgs, toolDefinitions, socketOf, toInbound, toJid]
 // A fake Anthropic client typed by the client contract on the main entry; wire names come from /internal.
 export const anthropicReply: AnthropicMessage = { content: [{ type: 'text', text: 'hi' }], model: 'm' }
 export const fakeAnthropic: AnthropicLike = { messages: { create: async () => anthropicReply } }
@@ -86,6 +87,7 @@ export const nativeRaw: BaileysNativeMessage = undefined
 // The backend SPI (@botmesh/core/spi): a durability backend over the reference KV.
 export const durable = new KvDurability(new MemoryKv())
 export const kvRow: DurableKvEntry | undefined = undefined
+export const redisLayout: RedisKeyLayout = 'cluster'
 
 const createBot = defineBot((provider) => {
   const bot = new Bot({ provider })

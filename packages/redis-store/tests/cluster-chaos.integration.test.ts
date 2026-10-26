@@ -11,8 +11,8 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createClient } from 'redis'
 import type { StoredMessage } from '@botmesh/core'
-import { RedisStore, hashSlot } from '../src/index.js'
-import { storeKeys } from '../src/layout.js'
+import { RedisStore } from '../src/index.js'
+import { hashSlot, storeKeys } from '../src/internal.js'
 import {
   CHAOS, CLUSTER_URL, cleanupPrefix, connectCluster, connectNode, runPrefix, waitClusterOk,
 } from './clusterEnv.js'

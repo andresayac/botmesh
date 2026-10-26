@@ -150,7 +150,8 @@ const bot = new Bot({
 
 `sessionTtl` (a duration like `'24h'`, or milliseconds, like every other duration
 option) expires AI conversation history and flow checkpoints; messages, chats and
-contacts never expire. It replaces the deprecated `ttl` option, which took seconds.
+contacts never expire. The former `ttl` option (seconds) was removed: `ttl: 3600` is
+`sessionTtl: '1h'`, and passing `ttl` now throws a `TypeError`.
 
 On a Redis Cluster, pass a cluster client (or `cluster` options): see [Redis Cluster](./redis-cluster.md).
 

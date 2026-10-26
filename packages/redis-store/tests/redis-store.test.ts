@@ -192,37 +192,37 @@ describe('RedisStore — distributed lock', () => {
   })
 
   it('acquires once; a second acquire fails while held', async () => {
-    const token = await store.acquireLock('job:42', 10_000)
-    expect(token).toBeTypeOf('string')
-    expect(await store.acquireLock('job:42', 10_000)).toBeNull()
+    const lock = await store.acquireLockFenced('job:42', 10_000)
+    expect(lock?.token).toBeTypeOf('string')
+    expect(await store.acquireLockFenced('job:42', 10_000)).toBeNull()
     // Lock key is namespaced and holds the token.
-    expect(fake.strings.get('botwa:lock:job:42')).toBe(token)
+    expect(fake.strings.get('botwa:lock:job:42')).toBe(lock!.token)
   })
 
   it('releases only with the matching token (compare-and-delete)', async () => {
-    const token = await store.acquireLock('job:7', 10_000)
-    expect(token).not.toBeNull()
+    const lock = await store.acquireLockFenced('job:7', 10_000)
+    expect(lock).not.toBeNull()
     // Foreign release: rejected, lock stays held.
     expect(await store.releaseLock('job:7', 'not-the-token')).toBe(false)
-    expect(await store.acquireLock('job:7', 10_000)).toBeNull()
+    expect(await store.acquireLockFenced('job:7', 10_000)).toBeNull()
     // Owner release: succeeds; releasing twice fails.
-    expect(await store.releaseLock('job:7', token!)).toBe(true)
-    expect(await store.releaseLock('job:7', token!)).toBe(false)
-    // Lock is free again.
-    expect(await store.acquireLock('job:7', 10_000)).toBeTypeOf('string')
+    expect(await store.releaseLock('job:7', lock!.token)).toBe(true)
+    expect(await store.releaseLock('job:7', lock!.token)).toBe(false)
+    // Lock is free again, with a higher fence.
+    expect((await store.acquireLockFenced('job:7', 10_000))?.fence).toBe(lock!.fence + 1)
   })
 
   it('expires the lock after its ttl', async () => {
-    expect(await store.acquireLock('job:9', 60_000)).not.toBeNull()
-    expect(await store.acquireLock('job:9', 60_000)).toBeNull()
+    expect(await store.acquireLockFenced('job:9', 60_000)).not.toBeNull()
+    expect(await store.acquireLockFenced('job:9', 60_000)).toBeNull()
     // Simulate the holder crashing past the TTL.
     fake.expires.set('botwa:lock:job:9', Date.now() - 1)
-    expect(await store.acquireLock('job:9', 60_000)).toBeTypeOf('string')
+    expect(await store.acquireLockFenced('job:9', 60_000)).not.toBeNull()
   })
 
   it('records the PX deadline from ttlMs', async () => {
     const before = Date.now()
-    await store.acquireLock('job:ttl', 1500)
+    await store.acquireLockFenced('job:ttl', 1500)
     const deadline = fake.expires.get('botwa:lock:job:ttl')
     expect(deadline).toBeGreaterThanOrEqual(before + 1500)
     expect(deadline).toBeLessThanOrEqual(Date.now() + 1500)
@@ -258,9 +258,9 @@ describe('RedisStore — lifecycle', () => {
     expect(fake.isOpen).toBe(false) // never quit
   })
 
-  it('applies ttl (seconds) to conversation and checkpoint keys only', async () => {
+  it('applies sessionTtl to conversation and checkpoint keys only', async () => {
     const fake = new FakeRedisClient()
-    const store = new RedisStore({ client: fake, ttl: 60 })
+    const store = new RedisStore({ client: fake, sessionTtl: '60s' })
     await store.setConversation('k', [{ role: 'user', content: 'hi' }])
     await store.setCheckpoint('k', { flowId: 'f', step: 1, state: {}, updatedAt: 1 })
     await store.setCursor('k', 'v')
@@ -426,18 +426,11 @@ describe('RedisStore — sessionTtl (duration, same unit convention as core)', (
     expect(remaining(fake, 'st:cp:k')).toBeLessThanOrEqual(60_000)
   })
 
-  it('the deprecated `ttl` (seconds) keeps working', async () => {
-    const fake = new FakeRedisClient()
-    const store = new RedisStore({ client: fake, prefix: 'st', ttl: 60 })
-    await store.setCheckpoint('k', { flowId: 'f', step: 1, state: {}, updatedAt: 1 })
-    expect(remaining(fake, 'st:cp:k')).toBeGreaterThan(55_000)
-  })
-
-  it('rejects invalid values and both options at once', () => {
+  it('rejects invalid values', () => {
     const fake = new FakeRedisClient()
     expect(() => new RedisStore({ client: fake, sessionTtl: 'soon' })).toThrow(/Invalid duration/)
     expect(() => new RedisStore({ client: fake, sessionTtl: 0 })).toThrow(RangeError)
-    expect(() => new RedisStore({ client: fake, sessionTtl: '1m', ttl: 60 })).toThrow(RangeError)
+    expect(() => new RedisStore({ client: fake, sessionTtl: '1m', ttl: 60 } as never)).toThrow(/removed/)
   })
 })
 
@@ -465,5 +458,20 @@ describe('RedisStore — key enumeration', () => {
     await store.upsertChat({ id: 'a' })
     expect(await store.listChats()).toEqual([{ id: 'a' }])
     expect(client.keysCalls).toBe(1)
+  })
+})
+
+describe('removed deprecated APIs', () => {
+  it('the `ttl` option (seconds) throws with the sessionTtl migration', () => {
+    const fake = new FakeRedisClient()
+    expect(() => new RedisStore({ client: fake, ttl: 60 } as never)).toThrow(TypeError)
+    expect(() => new RedisStore({ client: fake, ttl: 60 } as never)).toThrow(/sessionTtl/)
+    expect(() => new RedisStore({ client: fake, ttl: 60 } as never)).toThrow(/'60s'/)
+  })
+
+  it('acquireLock is gone from the type and rejects at runtime with the acquireLockFenced migration', async () => {
+    const store = new RedisStore({ client: new FakeRedisClient() })
+    // @ts-expect-error removed in favour of acquireLockFenced
+    await expect(store.acquireLock('job', 10_000)).rejects.toThrow(/acquireLockFenced/)
   })
 })

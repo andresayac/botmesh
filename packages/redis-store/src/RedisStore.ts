@@ -209,16 +209,6 @@ export interface RedisStoreOptions {
    */
   sessionTtl?: string | number
   /**
-   * Optional TTL in SECONDS applied to ephemeral session-state keys. Must be a
-   * positive finite number (fractions allowed, applied with millisecond
-   * precision); anything else throws a `RangeError` from the constructor.
-   * Setting both `ttl` and `sessionTtl` throws a `RangeError`.
-   *
-   * @deprecated Use {@link RedisStoreOptions.sessionTtl} (a duration or ms, like
-   * the rest of the framework): `ttl: 3600` is `sessionTtl: '1h'`.
-   */
-  ttl?: number
-  /**
    * Max messages retained per chat. When set, `saveMessage` prunes the oldest
    * entries (by score/timestamp) beyond the cap — both the ZSET members and
    * their item keys. Must be a non-negative integer (else `RangeError`).
@@ -294,7 +284,7 @@ export class RedisStore implements IStore {
   /** The client is a Redis Cluster client (no whole-keyspace scan). */
   private readonly onCluster: boolean
   private readonly allowLegacyData: boolean
-  /** `sessionTtl` / `ttl` option converted to milliseconds (sent as PX: EX only takes whole seconds). */
+  /** `sessionTtl` converted to milliseconds (sent as PX: EX only takes whole seconds). */
   private readonly ttlMs?: number
   private readonly maxMessagesPerChat?: number
   private readonly logger?: RedisStoreOptions['logger']
@@ -313,8 +303,14 @@ export class RedisStore implements IStore {
 
   constructor(opts: RedisStoreOptions = {}) {
     this.prefix = opts.prefix ?? 'botwa'
-    if (opts.sessionTtl != null && opts.ttl != null) {
-      throw new RangeError('RedisStore: set either sessionTtl or the deprecated ttl, not both')
+    // `ttl` (seconds) was removed: fail loudly instead of silently dropping the expiry of a
+    // JavaScript caller (TypeScript already rejects the property).
+    const removedTtl = (opts as { ttl?: unknown }).ttl
+    if (removedTtl != null) {
+      throw new TypeError(
+        `RedisStore: the \`ttl\` option (seconds) was removed; use \`sessionTtl\` (a duration or milliseconds), e.g. ` +
+          `\`ttl: ${String(removedTtl)}\` is \`sessionTtl: '${String(removedTtl)}s'\``,
+      )
     }
     if (opts.sessionTtl != null) {
       const ms = parseDuration(opts.sessionTtl)
@@ -322,14 +318,6 @@ export class RedisStore implements IStore {
         throw new RangeError(`RedisStore: sessionTtl must be a positive duration, got ${String(opts.sessionTtl)}`)
       }
       this.ttlMs = Math.max(1, Math.round(ms))
-    }
-    if (opts.ttl != null) {
-      // The server rejects a non-integer EX and any non-positive expiry, which
-      // previously surfaced as an error on every checkpoint/conversation write.
-      if (!(opts.ttl > 0) || !Number.isFinite(opts.ttl)) {
-        throw new RangeError(`RedisStore: ttl must be a positive number of seconds, got ${opts.ttl}`)
-      }
-      this.ttlMs = Math.max(1, Math.round(opts.ttl * 1000))
     }
     if (opts.maxMessagesPerChat != null && !(Number.isInteger(opts.maxMessagesPerChat) && opts.maxMessagesPerChat >= 0)) {
       throw new RangeError(`RedisStore: maxMessagesPerChat must be a non-negative integer, got ${opts.maxMessagesPerChat}`)
@@ -890,57 +878,26 @@ export class RedisStore implements IStore {
 
   /**
    * A fenced {@link RedisLeaseProvider} on this client and prefix (`{prefix}:lease:{key}`),
-   * e.g. for `BotConfig.scheduler.lease`. Unlike {@link acquireLock}, its grants carry a
-   * monotonic fencing token. Always the same instance.
+   * e.g. for `BotConfig.scheduler.lease`. Its grants carry a monotonic fencing token and
+   * `acquire` by the current holder extends the lease. Always the same instance.
    */
   leases(): RedisLeaseProvider {
     return (this.leaseProvider ??= new RedisLeaseProvider({ client: this.client, prefix: this.prefix, layout: this.layout }))
   }
 
   /**
-   * Try to acquire a distributed lock at `{prefix}:lock:{key}`.
-   *
-   * Returns an opaque token on success — pass it to {@link releaseLock} — or
-   * `null` when the lock is already held. The lock auto-expires after `ttlMs`
-   * so a crashed holder never wedges the fleet.
-   *
-   * LIMITATIONS — read before relying on this for mutual exclusion:
-   *  - **No fencing token.** The returned token only proves ownership to
-   *    {@link releaseLock}; it is NOT a monotonic fence a protected resource can
-   *    use to reject a stale holder. If a holder stalls (GC/IO pause) past
-   *    `ttlMs`, the lock expires, another client acquires it, and BOTH may run
-   *    the critical section concurrently. Size `ttlMs` well above worst-case
-   *    section time, and make the protected work idempotent.
-   *  - **No auto-renewal (watchdog).** A section longer than `ttlMs` is not safe.
-   *  - **Not Redlock.** On a single master, a `SET NX` can be lost if the master
-   *    fails over before replicating. Do not use for correctness-critical mutual
-   *    exclusion across a failover-capable cluster.
-   *
-   * It is a best-effort coordination primitive, adequate for at-most-once-ish
-   * scheduling of idempotent work — not a guarantee of strict exclusion.
-   *
-   * @deprecated For new code use {@link acquireLockFenced} (adds a fencing token and
-   * {@link renewLock}) or, to run bot replicas, {@link RedisCoordinator}
-   * (`BotConfig.coordination`). Kept with the same behaviour for compatibility.
-   */
-  async acquireLock(key: string, ttlMs = 30_000): Promise<string | null> {
-    // PX only takes a positive integer: the server rejected fractions, and a
-    // lock without a finite deadline would defeat the crash-safety guarantee.
-    if (!(ttlMs > 0) || !Number.isFinite(ttlMs)) {
-      throw new RangeError(`RedisStore.acquireLock: ttlMs must be a positive number, got ${ttlMs}`)
-    }
-    const token = randomUUID()
-    const acquired = await this.client.set(this.lockKey(key), token, { NX: true, PX: Math.ceil(ttlMs) })
-    return acquired === 'OK' ? token : null
-  }
-
-  /**
-   * Like {@link acquireLock}, plus a **fencing token**: `fence` grows by one every time
-   * the lock `key` is acquired (by anyone), so a protected resource can reject writes
-   * carrying a fence lower than the highest it has seen — which stops a holder that
-   * stalled past `ttlMs` from overwriting its successor's work. Release with
+   * Try to acquire a distributed lock at `{prefix}:lock:{key}` that auto-expires after
+   * `ttlMs` (so a crashed holder never wedges the fleet), with a **fencing token**: `fence`
+   * grows by one every time the lock `key` is acquired (by anyone), so a protected resource
+   * can reject writes carrying a fence lower than the highest it has seen — which stops a
+   * holder that stalled past `ttlMs` from overwriting its successor's work. Release with
    * {@link releaseLock}(key, token); extend a long section with {@link renewLock}.
-   * Returns `null` when the lock is held.
+   * Returns `null` when the lock is held. `ttlMs` must be a positive finite number
+   * (fractions are rounded up), else `RangeError`.
+   *
+   * Not Redlock: on a single master a grant can be lost if the master fails over before
+   * replicating; the fence is what keeps the protected work safe then. To run bot
+   * replicas, use {@link RedisCoordinator} (`BotConfig.coordination`).
    */
   async acquireLockFenced(key: string, ttlMs = 30_000): Promise<{ token: string; fence: number } | null> {
     if (!(ttlMs > 0) || !Number.isFinite(ttlMs)) {
@@ -1140,3 +1097,18 @@ export class RedisStore implements IStore {
     }
   }
 }
+
+// `acquireLock` (no fence) was removed in favour of `acquireLockFenced`. TypeScript rejects
+// the call; a JavaScript caller gets a rejection that names the replacement instead of a bare
+// "is not a function". Not part of the declared type.
+Object.defineProperty(RedisStore.prototype, 'acquireLock', {
+  configurable: true,
+  writable: true,
+  enumerable: false,
+  value: async function acquireLock(): Promise<never> {
+    throw new TypeError(
+      'RedisStore.acquireLock() was removed: use acquireLockFenced(key, ttlMs), which returns { token, fence } ' +
+        '(release with releaseLock(key, lock.token)), or RedisCoordinator to run bot replicas',
+    )
+  },
+})
