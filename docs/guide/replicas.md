@@ -56,9 +56,13 @@ of the process that died. With your own Redis connection use
 replica that received it takes a ticket in that chat's queue in Redis. The
 chat's turns go to the tickets in order, whichever replica holds them, and
 only one replica holds a chat's turn at a time. So two messages from one chat
-are never processed in parallel and are handled in the order they arrived,
-even when a load balancer spreads them over replicas. Different chats run in
-parallel. In groups the key is per participant, like the conversation scope.
+are never processed in parallel and are handled in the order their tickets
+were taken, even when a load balancer spreads them over replicas. A replica
+takes the ticket once the message is persisted (and journaled, with
+`durability`), so two messages of one chat that reach **different** replicas
+within a few milliseconds of each other (less than that pre-turn work) may be
+handled in either order; messages on the same replica, or further apart, keep
+their arrival order. Different chats run in parallel. In groups the key is per participant, like the conversation scope.
 
 A turn is held until the handler returns **and** the conversation it fed is
 waiting again (or has ended), also across a `c.goto()`, so another replica

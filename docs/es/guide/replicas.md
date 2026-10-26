@@ -57,9 +57,14 @@ conexión a Redis usa `new RedisCoordinator({ url, prefix })` en lugar de
 réplica que lo recibe toma un turno en la cola de ese chat en Redis. Los
 turnos del chat se conceden en ese orden, sea cual sea la réplica, y solo una
 réplica tiene el turno de un chat a la vez. Así, dos mensajes de un chat
-nunca se procesan en paralelo y se atienden en el orden en que llegaron,
-aunque un balanceador los reparta entre réplicas. Los chats distintos corren
-en paralelo. En grupos la clave es por participante, igual que el alcance de
+nunca se procesan en paralelo y se atienden en el orden en que tomaron su
+turno, aunque un balanceador los reparta entre réplicas. La réplica toma el
+turno cuando el mensaje ya está persistido (y anotado en el journal, con
+`durability`), así que dos mensajes de un chat que llegan a réplicas
+**distintas** con pocos milisegundos de diferencia (menos que ese trabajo
+previo al turno) pueden atenderse en cualquier orden; los que llegan a la misma
+réplica, o más separados, conservan el orden de llegada. Los chats distintos
+corren en paralelo. En grupos la clave es por participante, igual que el alcance de
 las conversaciones.
 
 El turno se mantiene hasta que el handler termina **y** la conversación que
