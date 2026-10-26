@@ -14,6 +14,8 @@
  * - **Transports** (`IProvider`): `toInboundLocation()`, the native-form helpers and the
  *   built-in message catalog for texts rendered outside a bot.
  * - **Tracer integrations** (`BotTracer`): the no-op tracer and the W3C trace-context helpers.
+ * - **Flow interpreters** (code that runs declarative steps inside a `do`, such as
+ *   `@botmesh/flow-schema`): the cancellable pause and the form runner of the core interpreter.
  *
  * Unlike `@botmesh/core/internal`, everything here follows semver: a breaking change is a
  * major release of `@botmesh/core`.
@@ -84,3 +86,7 @@ export type { I18nOptions, I18nLogger } from './i18n/I18n.js'
 export { noopTracer, NOOP_TRACING, errorTypeOf } from './telemetry/tracing.js'
 export { formatTraceparent, parseTraceparent } from './telemetry/w3c.js'
 export type { CheckpointTrace } from './telemetry/w3c.js'
+
+// Flow interpreters
+export { pauseControls } from './conversations/retry.js'
+export { runFormStep } from './forms/runForm.js'

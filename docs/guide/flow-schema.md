@@ -1,6 +1,13 @@
 # JSON flow schema
 
-`@botmesh/flow-schema` (private, monorepo only) defines **versioned, code-free flow documents**: JSON that the manager stores and hot-swaps, that the deployment gate validates, and that compiles to a core `CompiledFlow`.
+`@botmesh/flow-schema` defines **versioned, code-free flow documents**: JSON that you can store, edit in a UI and hot-swap, that a deployment gate validates, and that compiles to a core `CompiledFlow`.
+
+```bash
+pnpm add @botmesh/core @botmesh/flow-schema
+```
+
+While the packages are in prerelease, add the dist-tag shown in
+[Getting started](/guide/getting-started). The main entry is covered by semver; the expression engine and the compiler's metadata helpers live in `@botmesh/flow-schema/internal`, with no semver guarantee.
 
 A document is **data only**. It never carries functions, `eval`, module imports or arbitrary expressions: the only computation is a safe expression language and `{{ path }}` templates.
 

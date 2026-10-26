@@ -82,8 +82,11 @@ describe('@botmesh/core entry layout', () => {
       expect((main as Record<string, unknown>)[name], name).toBeUndefined()
       expect((internal as Record<string, unknown>)[name], name).toBeUndefined()
     }
-    // New in /spi (never on the main entry): the row check a backend runs when restoring a KV snapshot.
-    expect(keysOf(spi)).toEqual([...MOVED_TO_SPI, 'assertKvMutation'].sort())
+    // New in /spi (never on the main entry): the row check a backend runs when restoring a KV snapshot,
+    // and the flow-interpreter hooks (also kept in /internal) that @botmesh/flow-schema runs nested steps with.
+    expect(keysOf(spi)).toEqual([...MOVED_TO_SPI, 'assertKvMutation', 'pauseControls', 'runFormStep'].sort())
+    expect(spi.pauseControls).toBe(internal.pauseControls)
+    expect(spi.runFormStep).toBe(internal.runFormStep)
   })
 
   it('the in-memory coordinators live in /testing', () => {

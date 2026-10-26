@@ -1,15 +1,18 @@
 {
   "name": "@botmesh/flow-schema",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
-  "description": "Versioned JSON Schema for code-free BotWA flows: validation, safe expressions, migrations, compilation to CompiledFlow, reverse export and deploy helpers.",
+  "description": "Versioned, code-free JSON flow documents for botmesh: validation, safe expressions, migrations, compilation to CompiledFlow, reverse export and deploy helpers.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "exports": {
     ".": {
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
+    },
+    "./internal": {
+      "types": "./lib/internal.d.ts",
+      "default": "./lib/internal.js"
     }
   },
   "engines": {
@@ -27,8 +30,8 @@
   "author": "Andres Aya",
   "license": "MIT",
   "dependencies": {
-    "@botmesh/core": "workspace:*",
-    "@botmesh/http": "workspace:*"
+    "@botmesh/core": "workspace:^",
+    "@botmesh/http": "workspace:^"
   },
   "devDependencies": {
     "@botmesh/ai": "workspace:*",
@@ -37,5 +40,24 @@
     "typescript": "^7.0.2",
     "vite": "^7.3.7",
     "vitest": "^4.1.12"
+  },
+  "keywords": [
+    "botmesh",
+    "chatbot",
+    "flows",
+    "json-schema",
+    "no-code"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andresayac/botmesh.git",
+    "directory": "packages/flow-schema"
+  },
+  "homepage": "https://andresayac.github.io/botmesh/guide/flow-schema",
+  "bugs": {
+    "url": "https://github.com/andresayac/botmesh/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

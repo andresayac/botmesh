@@ -4,7 +4,7 @@ Guía para agentes de código (y humanos) que trabajan en este repositorio. Comp
 
 ## Qué es
 
-Framework de bots de mensajería **agnóstico de transporte**, en un **monorepo pnpm** (`packages/*` y `examples/*`). El motor es `@botmesh/core`; los canales (WhatsApp vía Baileys, Cloud API, Evolution API, WPPConnect, Twilio o Gupshup; Messenger, Instagram, Telegram, Discord, GoHighLevel, email y TikTok) son paquetes que implementan `IProvider`. Hay **45 paquetes** en `packages/` y un ejemplo ejecutable en `examples/bakery-ai` (`@botmesh/example-bakery-ai`, privado). Todo es **ESM-only**, **Node >= 22** y está en alpha: los 10 paquetes públicos están en npm bajo el dist-tag `alpha` (npm puso `latest` en la primera versión publicada de cada nombre y no se mueve, así que se queda atrás: instala con `@alpha`) y el resto son privados (la publicación va por Changesets, ver [Publicar una versión](#publicar-una-versión)).
+Framework de bots de mensajería **agnóstico de transporte**, en un **monorepo pnpm** (`packages/*` y `examples/*`). El motor es `@botmesh/core`; los canales (WhatsApp vía Baileys, Cloud API, Evolution API, WPPConnect, Twilio o Gupshup; Messenger, Instagram, Telegram, Discord, GoHighLevel, email y TikTok) son paquetes que implementan `IProvider`. Hay **45 paquetes** en `packages/` y un ejemplo ejecutable en `examples/bakery-ai` (`@botmesh/example-bakery-ai`, privado). Todo es **ESM-only**, **Node >= 22** y está en alpha: los paquetes públicos están en npm bajo el dist-tag `alpha` (npm puso `latest` en la primera versión publicada de cada nombre y no se mueve, así que se queda atrás: instala con `@alpha`) y el resto son privados (la publicación va por Changesets, ver [Publicar una versión](#publicar-una-versión)).
 
 Capas (las dependencias van siempre hacia abajo, nunca al revés):
 
@@ -22,13 +22,13 @@ Capas (las dependencias van siempre hacia abajo, nunca al revés):
 
 El nombre del directorio no siempre coincide con el del paquete (`packages/baileys-provider` → `@botmesh/baileys`, `packages/meta-provider` → `@botmesh/meta`, `packages/*-provider` → `@botmesh/<canal>`, `packages/eslint-plugin` → `eslint-plugin-botmesh`). Mira el `name` en su `package.json` antes de usar `--filter`.
 
-Solo 10 paquetes son **públicos**: `core`, `baileys`, `meta`, `telegram`, `sqlite-store`, `redis-store`, `ai`, `http`, `graph-core` y `create-botmesh`. Los otros 35 (más el ejemplo) llevan `"private": true` y nunca se publican:
+Solo 13 paquetes son **públicos**: `core`, `baileys`, `meta`, `telegram`, `sqlite-store`, `redis-store`, `ai`, `http`, `graph-core`, `create-botmesh`, `flow-schema`, `mcp` y `eslint-plugin-botmesh`. Los otros 32 (más el ejemplo) llevan `"private": true` y nunca se publican:
 
 - Canales: `discord`, `messenger`, `instagram`, `evolution`, `wppconnect`, `twilio`, `gohighlevel`, `gupshup`, `email`, `tiktok`.
 - Stores: `mongo-store`, `postgres-store`, `mysql-store`.
 - Plugins e infra: `server`, `wa-gateway-kit`, `rag`, `voice`, `nlu`, `dialogflow`, `chatwoot`, `tickets`, `moderation`, `manager`, `events`, `otel`.
-- Tooling: `eslint-plugin-botmesh`, `@botmesh/mcp`, `@botmesh/sandbox`.
-- Producto: `inbox`, `crm`, `hub`, `campaigns`, `deployments`, `tenant-kv` (todos persistentes sobre cualquier `DurableKv`) y `flow-schema` (documentos de flujo sin código).
+- Tooling: `@botmesh/sandbox`.
+- Producto: `inbox`, `crm`, `hub`, `campaigns`, `deployments` y `tenant-kv` (todos persistentes sobre cualquier `DurableKv`).
 - Ejemplo: `@botmesh/example-bakery-ai`.
 
 Un paquete público no puede depender de uno privado, y sus dependencias internas se declaran como `"workspace:^"` (al empaquetar salen como `^x.y.z`, así npm deduplica `@botmesh/core`).
@@ -150,7 +150,7 @@ Son los errores que más caro han salido. Respétalos aunque un cambio "parezca"
 - `aiPlugin` es un catch-all: se instala **después** de `slashCommandsPlugin`.
 
 ### Flujos declarativos (JSON)
-- `@botmesh/flow-schema` es la **única** definición del documento de flujo: esquema versionado, validador, expresiones seguras, compilador a `CompiledFlow`, exportación inversa y migraciones. `@botmesh/manager` depende de él (no mantengas una copia) y `@botmesh/deployments` solo aporta el almacenamiento vía `publishFlow`/`flowDocumentGate`.
+- `@botmesh/flow-schema` es la **única** definición del documento de flujo: esquema versionado, validador, expresiones seguras, compilador a `CompiledFlow`, exportación inversa y migraciones. `@botmesh/manager` depende de él (no mantengas una copia) y `@botmesh/deployments` solo aporta el almacenamiento vía `publishFlow`/`flowDocumentGate`. Es público: sus pasos anidados usan los hooks semver de `@botmesh/core/spi` (`pauseControls`, `runFormStep`), nunca `@botmesh/core/internal`, y no puede depender en runtime de `deployments` ni de `ai` (privados o opcionales).
 - Un documento es **datos puros**: no admite código, rutas locales ni `eval`. Las expresiones solo leen propiedades propias de `c.state`/`$body`/`$from`/`$sender`/`$isGroup`; las plantillas `{{ path }}` solo resuelven rutas; las URLs de media son http(s); el paso `http` usa `@botmesh/http` (anti-SSRF) y el paso `ai` solo puede restringir herramientas ya configuradas por id.
 - Los pasos declarativos se compilan 1:1 a `CompiledStep` (`say`, `ask`, `choose`, `goto`, `delay`, `media`, `guard`, `use`, `form`) y los que no tienen nodo (`condition`, `end`, `http`, `handoff`, `ai`) a un `do` con intérprete; el JSON de origen se guarda como metadato (`FLOW_STEP_SOURCE`) para que `exportFlowDocument` haga round-trip exacto. Un flujo con `do`/guard opacos lanza `FlowExportError`, no se exporta a medias.
 

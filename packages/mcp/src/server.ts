@@ -23,7 +23,7 @@ import { createTools, type ToolContext, type ToolDefinition } from './tools.js'
 import { MCP_SERVER_NAME, MCP_SERVER_VERSION } from './version.js'
 
 /** Protocol revisions this server accepts; the first one is its own. */
-export const MCP_PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'] as const
+export const MCP_PROTOCOL_VERSIONS = Object.freeze(['2025-06-18', '2025-03-26', '2024-11-05'] as const)
 
 /** Revision reported when the client asks for one this server does not know. */
 export const MCP_PROTOCOL_VERSION: string = MCP_PROTOCOL_VERSIONS[0]

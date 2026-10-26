@@ -109,12 +109,12 @@ This is a pnpm monorepo with **45 packages**: 10 **Public**, 27 **Experimental**
 | [`@botmesh/campaigns`](packages/campaigns) | Product | Consent-aware campaigns: durable per-recipient reservations (TTL), atomic settlement and `sendCampaign()` over `bot.broadcast()`. |
 | [`@botmesh/deployments`](packages/deployments) | Product | Immutable versions, active version, gate reservations, rollback and audited gate runs (including the golden-transcript gate). |
 | [`@botmesh/tenant-kv`](packages/tenant-kv) | Internal | Per-tenant JSON documents with compare-and-set over any `DurableKv`: the base of the product packages. |
-| [`@botmesh/flow-schema`](packages/flow-schema) | Internal | Versioned JSON schema for code-free flows, safe expressions, compilation to `CompiledFlow`, reverse export, migrations and deployment helpers. |
 | **Tooling** | | |
 | [`create-botmesh`](packages/create-botmesh) | Public | CLI scaffolder (`npm create botmesh`), 10 templates: `baileys`, `meta`, `telegram`, `ai` and the use-case ones `games`, `support`, `store`, `restaurant`, `clinic`, `ai-full`. Every project ships an `AGENTS.md` for coding agents. |
-| [`eslint-plugin-botmesh`](packages/eslint-plugin) | Experimental | ESLint rules for bots: v1 API leftovers, blocking `runtime.enter`, async `install`, empty triggers, `ask` without timeout and per-user global state. |
+| [`@botmesh/flow-schema`](packages/flow-schema) | Public | Versioned JSON documents for code-free flows: validation, safe expressions, compilation to `CompiledFlow`, reverse export, migrations and deployment helpers. |
+| [`eslint-plugin-botmesh`](packages/eslint-plugin) | Public | ESLint rules for bots: v1 API leftovers, blocking `runtime.enter`, async `install`, empty triggers, `ask` without timeout and per-user global state. |
 | [`@botmesh/sandbox`](packages/sandbox) | Experimental | Local simulators of WhatsApp Cloud API, Messenger, Instagram, Twilio, Gupshup, HighLevel, TikTok, Discord and Telegram (signed webhooks, realistic errors, request-shape checks) with a web chat UI: `pnpm sandbox`. Docker suites for Evolution API, WPPConnect, Chatwoot and Mailpit. |
-| [`@botmesh/mcp`](packages/mcp) | Experimental | Stdio MCP server (no dependencies) for agents: validates, compiles, renders, lints, migrates and diffs JSON flow documents without starting a bot; with `--docs` it searches these guides. |
+| [`@botmesh/mcp`](packages/mcp) | Public | Stdio MCP server for coding agents (`npx -y @botmesh/mcp`, no third-party dependencies): validates, compiles, renders, lints, migrates and diffs JSON flow documents without starting a bot; with `--docs` it searches these guides. |
 
 ## Development (in this repo)
 

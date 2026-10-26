@@ -4,6 +4,7 @@
  * what it applied, so an old stored draft can still be validated, compiled and compared.
  */
 
+import { deepFreeze } from './freeze.js'
 import { FLOW_DOCUMENT_VERSION, type FlowDocument } from './schema.js'
 import { upgradeV1ToV2 } from './legacy.js'
 
@@ -29,7 +30,7 @@ export class FlowMigrationError extends Error {
  * steps to the core meaning (retries after the first answer): 1 → 2 rewrites a v1
  * `retries: N` (N total answers) to `maxAttempts: N`, so the flow keeps its behaviour.
  */
-export const FLOW_MIGRATIONS: readonly FlowMigration[] = [
+export const FLOW_MIGRATIONS: readonly FlowMigration[] = deepFreeze([
   {
     from: 0,
     to: 1,
@@ -42,7 +43,7 @@ export const FLOW_MIGRATIONS: readonly FlowMigration[] = [
     to: 2,
     migrate: upgradeV1ToV2,
   },
-]
+])
 
 /**
  * Upgrade a loaded document of an older, still accepted version (1) to the current one;

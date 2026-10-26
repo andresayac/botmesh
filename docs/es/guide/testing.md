@@ -299,7 +299,7 @@ await assertTranscript(parseTranscript(readFileSync('tests/golden/checkout.json'
 
 ## Comprobaciones estáticas
 
-[`eslint-plugin-botmesh`](/es/guide/eslint) (experimental) detecta restos de la
+[`eslint-plugin-botmesh`](/es/guide/eslint) detecta restos de la
 API v1, un `runtime.enter()` bloqueante, `install()` async en plugins,
 triggers vacíos, esperas sin timeout y estado por usuario en variables de
 módulo antes de ejecutar el código.

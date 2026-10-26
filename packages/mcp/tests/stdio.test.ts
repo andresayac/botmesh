@@ -85,3 +85,30 @@ describe('docsDirFromEnv', () => {
     expect(docsDirFromEnv({ BOTMESH_DOCS_DIR: '', BOTWA_DOCS_DIR: 'old' })).toBe('old')
   })
 })
+
+describe('runStdio command line', () => {
+  async function capture(argv: readonly string[]): Promise<string> {
+    const { runStdio } = await import('../src/stdio.js')
+    const chunks: string[] = []
+    const original = process.stdout.write.bind(process.stdout)
+    process.stdout.write = ((chunk: string | Uint8Array) => { chunks.push(String(chunk)); return true }) as typeof process.stdout.write
+    try {
+      await runStdio({ argv })
+    } finally {
+      process.stdout.write = original
+    }
+    return chunks.join('')
+  }
+
+  it('--help prints the usage and returns without serving', async () => {
+    const out = await capture(['--help'])
+    expect(out).toMatch(/^Usage: botmesh-mcp/)
+    expect(out).toContain('--docs <dir>')
+    expect(await capture(['-h'])).toBe(out)
+  })
+
+  it('--version prints the package version and returns', async () => {
+    const { MCP_SERVER_VERSION } = await import('../src/version.js')
+    expect(await capture(['--version'])).toBe(`${MCP_SERVER_VERSION}\n`)
+  })
+})

@@ -38,6 +38,7 @@ export const requireTimeoutOnAsk: Rule.RuleModule = {
     docs: {
       description: 'Require a timeout on ask()/wait*() so abandoned conversations end',
       recommended: true,
+      url: 'https://andresayac.github.io/botmesh/guide/eslint#botmesh-require-timeout-on-ask',
     },
     schema: [
       {

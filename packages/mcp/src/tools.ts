@@ -124,37 +124,46 @@ export function stepKindsOf(schema: unknown = FLOW_DOCUMENT_SCHEMA): string[] {
  * A document that validates and lints clean, exercising say/ask/choose/condition/delay/media.
  * Kept in sync with the schema by the tests (it must always validate).
  */
-export const EXAMPLE_FLOW_DOCUMENT = Object.freeze({
+export const EXAMPLE_FLOW_DOCUMENT = deepFreeze({
   version: FLOW_DOCUMENT_VERSION,
-  id: 'pedido',
-  name: 'Tomar un pedido',
-  description: 'Ejemplo canónico: pregunta, menú, condición, media y cierre.',
-  trigger: ['pedido', 'menu'],
+  id: 'order',
+  name: 'Take an order',
+  description: 'Canonical example: a question, a menu, a condition, media and a farewell.',
+  trigger: ['order', 'menu'],
   timeout: '30m',
   steps: [
-    { kind: 'say', text: '¡Hola! Vamos con tu pedido.' },
-    { kind: 'ask', text: '¿Cómo te llamas?', stateKey: 'name', timeout: '60s' },
+    { kind: 'say', text: "Hi! Let's take your order." },
+    { kind: 'ask', text: "What's your name?", stateKey: 'name', timeout: '60s' },
     {
       kind: 'choose',
-      text: '¿Qué tamaño quieres, {{name}}?',
+      text: 'Which size would you like, {{name}}?',
       stateKey: 'size',
       timeout: '60s',
       options: [
-        { key: 's', label: 'Pequeño' },
-        { key: 'l', label: 'Grande', steps: [{ kind: 'say', text: '¡Buena elección!' }] },
+        { key: 's', label: 'Small' },
+        { key: 'l', label: 'Large', steps: [{ kind: 'say', text: 'Great choice!' }] },
       ],
     },
     {
       kind: 'condition',
       if: "size == 'l'",
-      then: [{ kind: 'say', text: 'Te cobramos el grande.' }],
-      else: [{ kind: 'say', text: 'Te cobramos el pequeño.' }],
+      then: [{ kind: 'say', text: 'You will be charged for the large one.' }],
+      else: [{ kind: 'say', text: 'You will be charged for the small one.' }],
     },
     { kind: 'delay', duration: '1s' },
-    { kind: 'media', type: 'image', source: { url: 'https://example.com/menu.png' }, caption: 'Menú del día' },
-    { kind: 'say', text: 'Listo, {{name}}. Te avisamos cuando esté.' },
+    { kind: 'media', type: 'image', source: { url: 'https://example.com/menu.png' }, caption: "Today's menu" },
+    { kind: 'say', text: "Done, {{name}}. We'll let you know when it's ready." },
   ],
 } satisfies FlowDocument)
+
+/** Freeze `value` and everything reachable from it (exported data must not be mutable). */
+function deepFreeze<T>(value: T): Readonly<T> {
+  if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value)
+    for (const child of Object.values(value)) deepFreeze(child)
+  }
+  return value
+}
 
 const flowValidate: ToolDefinition = {
   name: 'flow_validate',

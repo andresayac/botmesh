@@ -1,6 +1,6 @@
 # Release readiness: stable
 
-Go/no-go report for moving the ten public `@botmesh/*` packages to a **stable** release
+Go/no-go report for moving the public `@botmesh/*` packages (ten, plus the three tooling packages of the [promotion round](#promotion-round-tooling)) to a **stable** release
 (core `2.0.0`, the others at a version the maintainer picks). It closes the
 stable-readiness campaign of October 2026: six workstreams, each tested by one agent and
 checked by a reviewer, merged into `main` and verified together. The previous report
@@ -38,6 +38,9 @@ Per package:
 | `@botmesh/redis-store` | GO after one beta | None. The cluster layout internals moved to `@botmesh/redis-store/internal` (deprecated re-exports kept on the main entry); the deprecated `ttl` option and `acquireLock` were removed. Real single-node and Cluster suites (chaos on) pass with node-redis 4, 5 and 6. |
 | `@botmesh/http`, `@botmesh/graph-core` | GO after one beta | None. `SecureFetchOptions` no longer extends `RequestInit` (no `redirect`; other `RequestInit` fields through a deprecated overload until stable); `resolveHost` (alias `resolvePublicHost`); `checkGraphSignature({ ... })` (positional form deprecated); graph-core is covered by semver. |
 | `create-botmesh` | GO after one beta | None. `TEMPLATES`, `agentsMd` and `findBotMeshMonorepo` live in `create-botmesh/internal` (no semver), deprecated on the main entry. |
+| `@botmesh/flow-schema` (promoted, `pp/tooling`) | GO after one beta | None. Main entry 59 → 43; expression engine and step-source metadata in `/internal`; nested `delay`/`form` steps use the new semver hooks of `@botmesh/core/spi` instead of `/internal`; schema and migration table deep-frozen. |
+| `@botmesh/mcp` (promoted, `pp/tooling`) | GO after one beta | None. Main entry 40 → 19; framing, tool catalogue and docs search in `/internal`; `botmesh-mcp --help`/`--version`; version read from `package.json`. Exercised over stdio by the tests and the pack smoke test; not yet driven by a real MCP client (Claude Code, Cursor) from the packed tarball. |
+| `eslint-plugin-botmesh` (promoted, `pp/tooling`) | GO after one beta | None. Entry 14 → 8 (rule modules only through `rules`); `meta.version` from `package.json`; `meta.docs.url` per rule. |
 
 ## What changed
 
@@ -321,6 +324,24 @@ skipped, 0 failed.
   the `docs/gh-pages` branch is kept). No `C:/laragon/www/af-*` folder was left. Only
   this round's containers (`af-integ-*`, the `af-integ-sb` compose project with its
   network and volumes, and their anonymous volumes) were removed.
+
+### Promotion round: tooling
+
+Branch `pp/tooling` on top of `cda0ebe` promotes `@botmesh/flow-schema`, `@botmesh/mcp` and
+`eslint-plugin-botmesh` (changesets `major`, so `1.0.0-beta.0` in the beta pre mode) and
+adds a `minor` changeset for `@botmesh/core` (`2.0.0-beta.4`): `/spi` exports the
+flow-interpreter hooks `pauseControls` and `runFormStep` (`/spi` 93 → 95 names, also still
+in `/internal`). A public package must not import `@botmesh/core/internal`: its ranges
+(`^2.x`) would let a core minor remove a name it imports.
+
+| Package | Main entry before | Main entry after (deprecated) | New entries |
+| --- | --- | --- | --- |
+| `@botmesh/flow-schema` | 59 | 43 (0) | `/internal` 16 |
+| `@botmesh/mcp` | 40 | 19 (0) | `/internal` 23 |
+| `eslint-plugin-botmesh` | 14 | 8 (2) | none |
+
+`mcp` depends on `flow-schema`, so both move together. `@botmesh/manager` (which also
+consumes `flow-schema`), `sandbox` and the product packages stay private.
 
 ## Verification
 

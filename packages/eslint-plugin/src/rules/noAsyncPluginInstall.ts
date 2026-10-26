@@ -31,6 +31,7 @@ export const noAsyncPluginInstall: Rule.RuleModule = {
     docs: {
       description: 'Require Plugin.install() to be synchronous (Bot.plug() does not await it)',
       recommended: true,
+      url: 'https://andresayac.github.io/botmesh/guide/eslint#botmesh-no-async-plugin-install',
     },
     schema: [],
     messages: {
