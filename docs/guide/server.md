@@ -52,8 +52,7 @@ const tgBot = new Bot({ provider: telegram })
 const ingress = createIngress({
   routes: [
     { path: '/webhook/whatsapp', provider: whatsapp },
-    // TelegramProvider.ingest() parses strings: ask for the body as text
-    { path: '/webhook/telegram', provider: telegram, body: 'text' },
+    { path: '/webhook/telegram', provider: telegram },
   ],
   bot,                     // /readyz → 200 only when bot.getConnectionState() === 'ready'
   maxBodyBytes: 512 * 1024,
@@ -154,8 +153,8 @@ The defaults are exported as `DEFAULT_MAX_BODY_BYTES`,
 ### `body: 'buffer'` or `'text'`
 
 `ingest()` receives the raw body as a `Buffer` (default) or as a UTF-8
-string with `body: 'text'`. Use `'text'` for `TelegramProvider`, whose
-`ingest()` parses strings or objects but not buffers.
+string with `body: 'text'`. `TelegramProvider` takes either (its first
+alphas needed `body: 'text'`).
 
 ### Per-route size limit
 
@@ -234,7 +233,7 @@ request URL. That is fine for most providers, with these details:
 | Provider | Route setup |
 | --- | --- |
 | `CloudAPIProvider`, `MessengerProvider`, `InstagramProvider` | Default (`buffer`). The `GET` handshake goes to `verifyChallenge()` |
-| `TelegramProvider` (`polling: false`) | `body: 'text'` |
+| `TelegramProvider` (`polling: false`) | Default (`buffer`) or `body: 'text'` |
 | `EvolutionProvider`, `GoHighLevelProvider`, `TikTokProvider` | Default (`buffer`) |
 | `TwilioProvider` | Default. Configure `webhookUrl` (the exact public URL Twilio signs), or `webhookPath` behind a proxy you control |
 | `WPPConnectProvider` | The webhook token must arrive in a header (`x-webhook-token` or `Authorization: Bearer`): the query-string token needs `ingest(body, headers, url)`, which the ingress does not call |

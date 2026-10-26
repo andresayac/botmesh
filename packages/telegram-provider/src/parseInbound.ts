@@ -42,48 +42,72 @@ function isId(v: unknown): v is TelegramId {
   return (typeof v === 'number' && Number.isFinite(v)) || (typeof v === 'string' && v !== '')
 }
 
+/*
+ * Wire values are untrusted (a forged webhook body, a future Bot API shape):
+ * every field is type-checked before use, so a malformed Update is normalized
+ * or skipped, never thrown at the poll loop or at the host's webhook route.
+ */
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
+const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
+const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
+/** A user object with a usable id, else undefined. */
+const userOf = (v: unknown): TelegramUser | undefined => (isObj(v) && isId(v.id) ? (v as unknown as TelegramUser) : undefined)
+/** A chat object with a usable id, else undefined. */
+const chatOf = (v: unknown): TelegramChat | undefined => (isObj(v) && isId(v.id) ? (v as unknown as TelegramChat) : undefined)
+interface FileFields { file_id: string; mime_type?: string; file_name?: string; file_size?: number; emoji?: string }
+/** A file object with a non-empty string `file_id`, with its optional fields type-checked. */
+const fileOf = (v: unknown): FileFields | undefined =>
+  isObj(v) && typeof v.file_id === 'string' && v.file_id !== ''
+    ? { file_id: v.file_id, mime_type: str(v.mime_type), file_name: str(v.file_name), file_size: num(v.file_size), emoji: str(v.emoji) }
+    : undefined
+/** Telegram dates are unix seconds; a missing/zero/invalid one becomes the receive time. */
+const secondsToMs = (v: unknown): number => {
+  const s = num(v)
+  return s && s > 0 ? s * 1000 : Date.now()
+}
+const nameOf = (o: { first_name?: unknown; last_name?: unknown; username?: unknown }): string | undefined =>
+  [str(o.first_name), str(o.last_name)].filter(Boolean).join(' ') || str(o.username)
+
 function chatInfo(chat: TelegramChat): ChatInfo {
   const kind =
     chat.type === 'private' ? 'dm'
     : chat.type === 'group' || chat.type === 'supergroup' ? 'group'
     : chat.type === 'channel' ? 'channel'
     : 'dm'
-  const name =
-    chat.title ??
-    ([chat.first_name, chat.last_name].filter(Boolean).join(' ') || chat.username)
+  const name = str(chat.title) ?? nameOf(chat)
   return {
     id: String(chat.id),
     kind,
     name: name || undefined,
     isGroup: kind === 'group',
     isBroadcast: kind === 'channel',
-    platformData: { chatType: chat.type, username: chat.username },
+    platformData: { chatType: chat.type, username: str(chat.username) },
   }
 }
 
 /** The private chat between the bot and `user` (inline-mode callbacks carry no chat). */
 function userChatInfo(user: TelegramUser): ChatInfo {
-  const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username
+  const name = nameOf(user)
   return {
     id: String(user.id),
     kind: 'dm',
     name: name || undefined,
     isGroup: false,
     isBroadcast: false,
-    platformData: { chatType: 'private', username: user.username },
+    platformData: { chatType: 'private', username: str(user.username) },
   }
 }
 
 function senderInfo(user: TelegramUser | undefined, fallbackId: string): SenderInfo {
   if (!user || !isId(user.id)) return { id: fallbackId }
-  const displayName =
-    [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username
+  const displayName = nameOf(user)
   return {
     id: String(user.id),
     displayName: displayName || undefined,
-    username: user.username,
-    isBot: user.is_bot,
-    platformData: { languageCode: user.language_code },
+    username: str(user.username),
+    isBot: typeof user.is_bot === 'boolean' ? user.is_bot : undefined,
+    platformData: { languageCode: str(user.language_code) },
   }
 }
 
@@ -94,18 +118,18 @@ function senderInfo(user: TelegramUser | undefined, fallbackId: string): SenderI
  * chat is the stable identity. Otherwise `from`, else the chat itself.
  */
 function senderOf(msg: TelegramMessage, chatId: string): SenderInfo {
-  const sc = msg.sender_chat
-  if (sc && isId(sc.id)) {
+  const sc = chatOf(msg.sender_chat)
+  if (sc) {
     const info = chatInfo(sc)
     return {
       id: info.id,
       displayName: info.name,
-      username: sc.username,
+      username: str(sc.username),
       isBot: false,
       platformData: { senderChat: true, chatType: sc.type },
     }
   }
-  return senderInfo(msg.from, chatId)
+  return senderInfo(userOf(msg.from), chatId)
 }
 
 /**
@@ -113,11 +137,11 @@ function senderOf(msg: TelegramMessage, chatId: string): SenderInfo {
  * the message carries no addressable id and no `updateId` fallback was given.
  */
 function messageRef(msg: TelegramMessage, chatId: string, updateId?: number): MessageRef | undefined {
-  const nativeChat = isId(msg.chat?.id) ? msg.chat.id : chatId
-  if (typeof msg.ephemeral_message_id === 'number') {
+  const nativeChat = isObj(msg.chat) && isId(msg.chat.id) ? msg.chat.id : chatId
+  if (typeof msg.ephemeral_message_id === 'number' && Number.isSafeInteger(msg.ephemeral_message_id) && msg.ephemeral_message_id > 0) {
     return { id: `eph:${msg.ephemeral_message_id}`, chatId, native: { chat_id: nativeChat, ephemeral_message_id: msg.ephemeral_message_id } }
   }
-  if (typeof msg.message_id === 'number' && msg.message_id > 0) {
+  if (typeof msg.message_id === 'number' && Number.isSafeInteger(msg.message_id) && msg.message_id > 0) {
     return { id: String(msg.message_id), chatId, native: { chat_id: nativeChat, message_id: msg.message_id } }
   }
   // No usable id: update_id is unique per Update and repeated on webhook retries.
@@ -126,9 +150,11 @@ function messageRef(msg: TelegramMessage, chatId: string, updateId?: number): Me
 }
 
 function mediaOf(msg: TelegramMessage): { type: MessageType; body: string; media?: MediaRef; location?: InboundLocation } {
-  const caption = msg.caption ?? ''
-  if (msg.photo?.length) {
-    const last = msg.photo[msg.photo.length - 1]
+  const caption = str(msg.caption) ?? ''
+  // Sizes come smallest first: take the largest well-formed one.
+  const sizes = arr(msg.photo).map(fileOf).filter((f) => f !== undefined)
+  if (sizes.length) {
+    const last = sizes[sizes.length - 1]
     return {
       type: 'image',
       body: caption,
@@ -143,7 +169,7 @@ function mediaOf(msg: TelegramMessage): { type: MessageType; body: string; media
     ['sticker', 'sticker'],
   ]
   for (const [field, kind] of single) {
-    const f = msg[field]
+    const f = fileOf(msg[field])
     if (f) {
       return {
         type: kind,
@@ -152,38 +178,57 @@ function mediaOf(msg: TelegramMessage): { type: MessageType; body: string; media
       }
     }
   }
-  if (msg.venue || msg.location) {
+  if (isObj(msg.venue) || isObj(msg.location)) {
     // A venue (named place) also carries `location`; prefer the venue's own fields.
-    const v = msg.venue
-    const l = v?.location ?? msg.location
+    const v: Record<string, unknown> | undefined = isObj(msg.venue) ? msg.venue : undefined
+    const l: Record<string, unknown> | undefined = isObj(v?.location) ? v.location : isObj(msg.location) ? msg.location : undefined
     const location = toInboundLocation({
       latitude: l?.latitude,
       longitude: l?.longitude,
-      name: v?.title,
-      address: v?.address,
+      name: str(v?.title),
+      address: str(v?.address),
       live: !v && typeof l?.live_period === 'number' && l.live_period > 0,
     })
-    return { type: 'location', body: v?.title ?? v?.address ?? '', ...(location ? { location } : {}) }
+    return { type: 'location', body: str(v?.title) ?? str(v?.address) ?? '', ...(location ? { location } : {}) }
   }
-  if (msg.contact) {
-    const c = msg.contact
-    return { type: 'contact', body: [c.first_name, c.last_name, c.phone_number].filter(Boolean).join(' ') }
+  if (isObj(msg.contact)) {
+    const c: Record<string, unknown> = msg.contact
+    return { type: 'contact', body: [str(c.first_name), str(c.last_name), str(c.phone_number)].filter(Boolean).join(' ') }
   }
-  if (msg.poll) return { type: 'poll', body: msg.poll.question }
+  if (isObj(msg.poll)) return { type: 'poll', body: str((msg.poll as Record<string, unknown>).question) ?? '' }
   return { type: 'unknown', body: '' }
 }
 
 function mentionsOf(msg: TelegramMessage): string[] {
   const ids = new Set<string>()
-  for (const list of [msg.entities ?? [], msg.caption_entities ?? []]) {
+  for (const list of [arr(msg.entities), arr(msg.caption_entities)]) {
     for (const e of list) {
-      if (e.type === 'text_mention' && e.user?.id != null) ids.add(String(e.user.id))
+      if (!isObj(e) || e.type !== 'text_mention') continue
+      const user = userOf(e.user)
+      if (user) ids.add(String(user.id))
     }
   }
   return [...ids]
 }
 
-function toMessage(msg: TelegramMessage, updateId: number, selfId?: string): InboundMessage<TelegramMessage> {
+/**
+ * In groups, Telegram clients address a command to one bot as `/cmd@BotName`.
+ * When the leading `bot_command` entity names THIS bot (case-insensitive), the
+ * `@BotName` suffix is dropped from the body so `bot.command('cmd')` matches;
+ * a command addressed to another bot is left untouched (it then never matches).
+ * `raw.text` keeps the original.
+ */
+function stripOwnMention(msg: TelegramMessage, text: string, botUsername?: string): string {
+  if (!botUsername) return text
+  const first = arr(msg.entities)[0]
+  if (!isObj(first) || first.type !== 'bot_command' || first.offset !== 0 || typeof first.length !== 'number') return text
+  const command = text.slice(0, first.length)
+  const at = command.indexOf('@')
+  if (at < 0 || command.slice(at + 1).toLowerCase() !== botUsername.replace(/^@/, '').toLowerCase()) return text
+  return command.slice(0, at) + text.slice(first.length)
+}
+
+function toMessage(msg: TelegramMessage, updateId: number, selfId?: string, botUsername?: string): InboundMessage<TelegramMessage> {
   const chat = chatInfo(msg.chat)
   const chatId = chat.id
   const sender = senderOf(msg, chatId)
@@ -193,9 +238,9 @@ function toMessage(msg: TelegramMessage, updateId: number, selfId?: string): Inb
   let body: string
   let media: MediaRef | undefined
   let location: InboundLocation | undefined
-  if (msg.text != null) {
+  if (typeof msg.text === 'string') {
     type = 'text'
-    body = msg.text
+    body = stripOwnMention(msg, msg.text, botUsername)
   } else {
     const parsed = mediaOf(msg)
     type = parsed.type
@@ -204,14 +249,14 @@ function toMessage(msg: TelegramMessage, updateId: number, selfId?: string): Inb
     location = parsed.location
   }
 
-  const replied = msg.reply_to?.message ?? msg.reply_to_message
+  const replyTo = isObj(msg.reply_to) && isObj(msg.reply_to.message) ? msg.reply_to.message : undefined
+  const replied = replyTo ?? (isObj(msg.reply_to_message) ? msg.reply_to_message : undefined)
+  const repliedSender = replied ? (chatOf(replied.sender_chat) ?? userOf(replied.from)) : undefined
   const quoted = replied
     ? {
         ref: messageRef(replied, chatId),
-        body: replied.text ?? replied.caption,
-        senderId: replied.sender_chat && isId(replied.sender_chat.id)
-          ? String(replied.sender_chat.id)
-          : replied.from && isId(replied.from.id) ? String(replied.from.id) : undefined,
+        body: str(replied.text) ?? str(replied.caption),
+        senderId: repliedSender ? String(repliedSender.id) : undefined,
       }
     : undefined
 
@@ -219,7 +264,7 @@ function toMessage(msg: TelegramMessage, updateId: number, selfId?: string): Inb
   const ref = messageRef(msg, chatId, updateId) as MessageRef
   // An edit keeps the original id (so reply/react/edit still target the message;
   // the core deduper tells the edit apart by its content) and carries edit_date.
-  if (typeof msg.edit_date === 'number' && ref.native && typeof ref.native === 'object') {
+  if (num(msg.edit_date) !== undefined && ref.native && typeof ref.native === 'object') {
     ref.native = { ...(ref.native as Record<string, unknown>), edit_date: msg.edit_date }
   }
 
@@ -236,7 +281,7 @@ function toMessage(msg: TelegramMessage, updateId: number, selfId?: string): Inb
     fromMe: selfId != null && senderId === selfId,
     type,
     body,
-    timestamp: msg.date ? msg.date * 1000 : Date.now(),
+    timestamp: secondsToMs(msg.date),
     mentions: mentionsOf(msg),
     quoted,
     media,
@@ -260,9 +305,10 @@ function toMessage(msg: TelegramMessage, updateId: number, selfId?: string): Inb
  * known and non-zero, otherwise the receive time.
  */
 function toInteraction(cb: TelegramCallbackQuery, updateId: number): InboundInteraction<TelegramCallbackQuery> | undefined {
-  if (typeof cb.id !== 'string' || cb.id === '' || !cb.from || !isId(cb.from.id)) return undefined
-  const msg = cb.message && cb.message.chat && isId(cb.message.chat.id) ? cb.message : undefined
-  const chat = msg ? chatInfo(msg.chat) : userChatInfo(cb.from)
+  const from = userOf(cb.from)
+  if (typeof cb.id !== 'string' || cb.id === '' || !from) return undefined
+  const msg = isObj(cb.message) && chatOf(cb.message.chat) ? cb.message : undefined
+  const chat = msg ? chatInfo(msg.chat) : userChatInfo(from)
   let ref: MessageRef
   if (msg) {
     ref = messageRef(msg, chat.id, updateId) as MessageRef
@@ -271,7 +317,7 @@ function toInteraction(cb: TelegramCallbackQuery, updateId: number): InboundInte
   } else {
     ref = { id: `upd:${updateId}`, chatId: chat.id }
   }
-  const sender = senderInfo(cb.from, chat.id)
+  const sender = senderInfo(from, chat.id)
   return {
     interactionId: cb.id,
     ref,
@@ -283,8 +329,8 @@ function toInteraction(cb: TelegramCallbackQuery, updateId: number): InboundInte
     senderId: sender.id,
     isGroup: chat.isGroup,
     kind: 'button',
-    data: cb.data ?? '',
-    timestamp: msg?.date ? msg.date * 1000 : Date.now(),
+    data: str(cb.data) ?? '',
+    timestamp: secondsToMs(msg?.date),
     raw: cb,
   }
 }
@@ -314,13 +360,14 @@ export function isEditedMessage(message: { raw?: unknown }): boolean {
  * needed to route them (no chat id; no callback id or sender). Never emits an
  * event with an empty chatId, senderId or ref.id.
  */
-export function parseUpdate(update: TelegramUpdate, selfId?: string): InboundEvent | undefined {
-  const msg = update.message ?? update.edited_message
+export function parseUpdate(update: TelegramUpdate, selfId?: string, botUsername?: string): InboundEvent | undefined {
+  if (!isObj(update)) return undefined
+  const msg = isObj(update.message) ? update.message : isObj(update.edited_message) ? update.edited_message : undefined
   if (msg) {
-    if (!msg.chat || !isId(msg.chat.id)) return undefined
-    return { kind: 'message', message: toMessage(msg, update.update_id, selfId) }
+    if (!chatOf(msg.chat)) return undefined
+    return { kind: 'message', message: toMessage(msg, update.update_id, selfId, botUsername) }
   }
-  if (update.callback_query) {
+  if (isObj(update.callback_query)) {
     const interaction = toInteraction(update.callback_query, update.update_id)
     return interaction ? { kind: 'interaction', interaction } : undefined
   }

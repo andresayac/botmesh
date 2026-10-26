@@ -47,6 +47,13 @@ export interface TelegramProviderConfig {
   /** The bot's own user id (numeric, as string). If omitted, resolved via getMe. */
   selfId?: string
   /**
+   * The bot's @username (with or without the `@`). Learned from getMe when
+   * `selfId` is omitted; set it when you pass `selfId`. Used to turn a group
+   * command addressed to this bot (`/menu@MyBot`) into `/menu` so
+   * `bot.command('menu')` matches.
+   */
+  username?: string
+  /**
    * Secret token for webhook mode. Set the SAME value in Telegram's `setWebhook`
    * (`secret_token`) and here; `ingest()` then rejects any request whose
    * `X-Telegram-Bot-Api-Secret-Token` header does not match (401). Without it,
@@ -64,6 +71,14 @@ export interface TelegramProviderConfig {
   maxBackoffMs?: number
   /** Pause (ms) after an empty getUpdates batch. Default 250 (server long-poll already waited). */
   pollIdleMs?: number
+  /**
+   * Client-side timeout (ms) for each Bot API request, uploads included. A
+   * request that takes longer rejects with a `ProviderError` ("timed out").
+   * Long polls get `pollTimeout` seconds plus up to 15 s of grace instead, so a
+   * half-open connection never stalls the poll loop. Default 120000 (raise it
+   * for very large uploads to a self-hosted Bot API server).
+   */
+  requestTimeoutMs?: number
   debug?: boolean
   logger?: LoggerLike
 }
