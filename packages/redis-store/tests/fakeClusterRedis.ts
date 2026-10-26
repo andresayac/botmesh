@@ -21,7 +21,7 @@ import {
 import { DELETE_CHAT_SCRIPT } from '../src/scripts.js'
 import { TURN_SCRIPT } from '../src/coordScripts.js'
 import { hashSlot } from '../src/slot.js'
-import { FakeRedisClient, jsonRevision, stringMatch } from './fakeRedis.js'
+import { FakeRedisClient, cjsonRevision, stringMatch } from './fakeRedis.js'
 import { evalClusterCoordScript } from './fakeClusterScripts.js'
 
 export const CROSSSLOT = "CROSSSLOT Keys in request don't hash to the same slot"
@@ -75,8 +75,15 @@ export class LayoutFakeRedisClient extends FakeRedisClient {
       }
       case CAS_CHECKPOINT_INDEXED_SCRIPT: {
         const [record, index] = keys as [string, string]
-        const [expected, next, member, px] = args as [string, string, string, string]
-        if (jsonRevision(x.readString(record)) !== Number(expected)) return 0
+        const [expected, next, member, px, raw] = args as [string, string, string, string, string | undefined]
+        const current = x.readString(record)
+        if (raw !== undefined) {
+          if (current !== raw) return 0
+        } else {
+          const rev = cjsonRevision(current)
+          if (rev === null) return -1
+          if (rev !== Number(expected)) return 0
+        }
         if (px !== '') {
           x.setSync(record, next, { PX: Number(px) })
           x.zAddSync(index, { score: Date.now() + Number(px), value: member })
@@ -88,10 +95,16 @@ export class LayoutFakeRedisClient extends FakeRedisClient {
       }
       case CLEAR_CHECKPOINT_IF_INDEXED_SCRIPT: {
         const [record, index] = keys as [string, string]
-        const [expected, member] = args as [string, string]
+        const [expected, member, raw] = args as [string, string, string | undefined]
         const cur = x.readString(record)
         if (cur === null) { x.zRemSync(index, member); return 1 }
-        if (jsonRevision(cur) !== Number(expected)) return 0
+        if (raw !== undefined) {
+          if (cur !== raw) return 0
+        } else {
+          const rev = cjsonRevision(cur)
+          if (rev === null) return -1
+          if (rev !== Number(expected)) return 0
+        }
         x.delSync(record)
         x.zRemSync(index, member)
         return 1
