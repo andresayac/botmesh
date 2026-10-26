@@ -273,7 +273,11 @@ memoria no cambia. `TicketDesk` también se puede usar sin bot:
   SQLite o un archivo) en todas las réplicas. El desk relee entonces el
   índice en cada llamada, reclama los ids con compare-and-set y reintenta
   una escritura perdida (`maxRetries`, 20 por defecto; después
-  `TicketContentionError`).
+  `TicketContentionError`). Con `reuseOpen` (por defecto) también reclama
+  con compare-and-set el ticket abierto del chat, así que dos réplicas que
+  crean a la vez un ticket para el mismo chat (desde un handler, la API o
+  el manager) obtienen el mismo. Un `create` que falla nunca deja un ticket
+  abierto invisible para `get`, `list` y `queue`.
 
   ```ts
   import { durableKvTicketStorage, ticketsPlugin } from '@botmesh/tickets'

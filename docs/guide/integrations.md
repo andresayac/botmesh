@@ -263,7 +263,11 @@ used without a bot: `new TicketDesk({ storage: memoryTicketStorage() })`.
   `DurableKv` (Postgres, Redis, SQLite or a file) on every replica. The desk
   then re-reads the index on every call, claims ids with a compare-and-set
   and retries a lost write (`maxRetries`, default 20, then
-  `TicketContentionError`).
+  `TicketContentionError`). With `reuseOpen` (the default) it also claims
+  the chat's open ticket with a compare-and-set, so two replicas creating a
+  ticket for the same chat at once (from a handler, the API or the manager)
+  get the same one. A failed create never leaves an open ticket that `get`,
+  `list` and `queue` cannot see.
 
   ```ts
   import { durableKvTicketStorage, ticketsPlugin } from '@botmesh/tickets'

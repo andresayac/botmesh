@@ -80,3 +80,77 @@ describe('TicketDesk — several replicas over one shared storage', () => {
     await expect(d.create({ chatId: 'c', subject: 's' })).rejects.toBeInstanceOf(TicketContentionError)
   })
 })
+
+describe('TicketDesk — reuseOpen across replicas racing on one chat', () => {
+  for (const [name, make] of [
+    ['memoryTicketStorage', () => memoryTicketStorage()],
+    ['durableKvTicketStorage', () => durableKvTicketStorage(new MemoryKv())],
+  ] as const) {
+    it(`${name}: two desks creating for the same chat at once leave one open ticket`, async () => {
+      for (let round = 0; round < 20; round++) {
+        const shared = slowShared(make())
+        const a = new TicketDesk({ storage: shared })
+        const b = new TicketDesk({ storage: shared })
+        const made = await Promise.all([a.create({ chatId: 'c', subject: 'a' }), b.create({ chatId: 'c', subject: 'b' }), a.create({ chatId: 'c', subject: 'a2' })])
+        expect(new Set(made.map((t) => t.id)).size).toBe(1)
+        expect(made.filter((t) => t.created)).toHaveLength(1)
+        const fresh = new TicketDesk({ storage: shared })
+        expect(await fresh.list({ chatId: 'c', status: ['open', 'assigned', 'pending'] })).toHaveLength(1)
+      }
+    })
+  }
+
+  it('after the open ticket closes, the next create opens a new one', async () => {
+    const shared = memoryTicketStorage()
+    const a = new TicketDesk({ storage: shared })
+    const b = new TicketDesk({ storage: shared })
+    const first = await a.create({ chatId: 'c', subject: 's' })
+    await b.close(first.id)
+    const second = await b.create({ chatId: 'c', subject: 's' })
+    expect(second.created).toBe(true)
+    expect(second.id).not.toBe(first.id)
+    expect((await a.create({ chatId: 'c', subject: 's' })).id).toBe(second.id)
+  })
+})
+
+describe('TicketDesk — a failed create leaves no open ticket outside the index', () => {
+  it('index compare-and-set keeps losing: create rejects and no orphan ticket is stored', async () => {
+    const base = memoryTicketStorage()
+    const storage: TicketKeyValue = {
+      get: base.get,
+      set: base.set,
+      setIf: async (k, e, v) => (k === 'tickets:index' ? false : base.setIf!(k, e, v)),
+    }
+    const d = new TicketDesk({ storage, maxRetries: 2 })
+    await expect(d.create({ chatId: 'c', subject: 's' })).rejects.toBeInstanceOf(TicketContentionError)
+    for (let i = 1; i <= 3; i++) {
+      const raw = await base.get(`tickets:t:${i}`)
+      if (raw) expect(JSON.parse(raw).status).toBe('closed')
+    }
+    // Once the index is writable again, the chat gets exactly one listed ticket.
+    const fresh = new TicketDesk({ storage: base })
+    const t = await fresh.create({ chatId: 'c', subject: 's' })
+    expect(await fresh.get(t.id)).toMatchObject({ status: 'open' })
+    expect(await fresh.list({ chatId: 'c' })).toHaveLength(1)
+  })
+
+  it('a crash after the index write (ticket write fails) leaves only an ignored index entry', async () => {
+    const base = memoryTicketStorage()
+    let failTicketWrites = true
+    const storage: TicketKeyValue = {
+      get: base.get,
+      set: base.set,
+      setIf: async (k, e, v) => {
+        if (failTicketWrites && k.startsWith('tickets:t:')) throw new Error('disk gone')
+        return base.setIf!(k, e, v)
+      },
+    }
+    const d = new TicketDesk({ storage, reuseOpen: false })
+    await expect(d.create({ chatId: 'c', subject: 's' })).rejects.toThrow('disk gone')
+    failTicketWrites = false
+    const fresh = new TicketDesk({ storage: base })
+    expect(await fresh.list()).toEqual([])
+    const t = await fresh.create({ chatId: 'c', subject: 's' })
+    expect(await fresh.list()).toEqual([expect.objectContaining({ id: t.id, status: 'open' })])
+  })
+})

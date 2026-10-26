@@ -9,8 +9,8 @@
  * and never fail the operation.
  *
  * Storage layout (keys under `keyPrefix`, default `tickets:`): `seq` (last id),
- * `index` (JSON array of the ids of NON-closed tickets) and `t:<id>` (one JSON ticket
- * each). Only active tickets live in memory and in the index, so both stay bounded by
+ * `index` (JSON array of the ids of NON-closed tickets), `t:<id>` (one JSON ticket
+ * each) and, in shared mode with `reuseOpen`, `open:<chatId>` (the chat's claimed ticket). Only active tickets live in memory and in the index, so both stay bounded by
  * the live workload; closed tickets stay in `t:<id>` and are read on demand (`get`, and
  * `list` when the filter can match `closed`, which scans `1..seq`).
  *
@@ -22,6 +22,10 @@
  * replicas) can share it. Every call then re-reads the index from storage, a new id is
  * claimed with a compare-and-set on `seq`, and ticket and index writes are
  * compare-and-set with a bounded retry (`maxRetries`, then `TicketContentionError`).
+ * With `reuseOpen` (the default) the chat's open ticket is also claimed with a
+ * compare-and-set on `open:<chatId>`, so replicas creating for one chat at the same
+ * time (in a handler, the API or the manager) end up with one open ticket; a replica
+ * that finds a claimed ticket not yet written finishes writing it.
  * Without `setIf` the desk assumes it is the only writer (one replica).
  */
 
@@ -49,8 +53,9 @@ export class TicketNotFoundError extends Error {
 
 /**
  * Thrown when a shared-mode write keeps losing its compare-and-set to other replicas
- * after `maxRetries` attempts. Nothing half-written is left behind (a claimed id is
- * just skipped).
+ * after `maxRetries` attempts. No active ticket is left outside the index: a claimed id
+ * is just skipped, and a new ticket's id is listed before the ticket is written, so a
+ * failed create leaves at most an index entry with no ticket, which reads skip.
  */
 export class TicketContentionError extends Error {
   constructor(readonly operation: string) {
@@ -98,6 +103,17 @@ function clone<T>(v: T): T { return structuredClone(v) }
 function parseIndex(raw: string | undefined): string[] {
   const parsed: unknown = raw ? JSON.parse(raw) : []
   return Array.isArray(parsed) ? parsed.map(String) : []
+}
+
+/** The ticket a chat's `open:<chatId>` claim names (`''` or garbage = no claim). */
+function parseClaim(raw: string | undefined): Ticket | undefined {
+  if (!raw) return undefined
+  try {
+    const t = JSON.parse(raw) as Partial<Ticket> | null
+    return t && typeof t.id === 'string' && typeof t.chatId === 'string' ? t as Ticket : undefined
+  } catch {
+    return undefined
+  }
 }
 
 function assertPriority(p: unknown): asserts p is TicketPriority {
@@ -190,9 +206,27 @@ export class TicketDesk implements TicketsApi {
     assertPriority(priority)
 
     const { result, created } = await this.serial('create', async () => {
-      if (this.opts.reuseOpen !== false) {
+      const reuse = this.opts.reuseOpen !== false
+      if (reuse) {
         const existing = [...this.tickets.values()].find((t) => t.chatId === input.chatId && t.status !== 'closed')
         if (existing) return { result: existing, created: false }
+      }
+      // Shared mode: the chat's open ticket is claimed with a compare-and-set on
+      // `open:<chatId>`, so two replicas creating for one chat at once agree on one.
+      const claimKey = this.shared && reuse ? `${this.prefix}open:${input.chatId}` : undefined
+      const claimRaw = claimKey ? await this.storage.get(claimKey) : undefined
+      const claimed = parseClaim(claimRaw)
+      if (claimed && claimed.chatId === input.chatId) {
+        const storedRaw = await this.storage.get(`${this.prefix}t:${claimed.id}`)
+        const stored = storedRaw ? JSON.parse(storedRaw) as Ticket : undefined
+        if (stored?.status !== 'closed') {
+          // Open, or still being written by the replica that claimed it: finish that write.
+          const entry = await this.materialize(claimed)
+          // Closed meanwhile: start over, the claim is now stale.
+          if (entry === RETRY || entry[0].status === 'closed') return RETRY
+          this.remember(entry)
+          return { result: entry[0], created: false }
+        }
       }
       const at = this.now()
       const id = String(this.seq + 1)
@@ -211,12 +245,18 @@ export class TicketDesk implements TicketsApi {
       if (!await this.write(`${this.prefix}seq`, this.seqRaw, id)) return RETRY
       this.seq = Number(id)
       this.seqRaw = id
-      const raw = JSON.stringify(ticket)
-      if (!await this.write(`${this.prefix}t:${id}`, undefined, raw)) return RETRY
-      await this.editIndex('create', (ids) => [...ids, id])
-      this.tickets.set(id, ticket)
-      this.raws.set(id, raw)
-      return { result: ticket, created: true }
+      if (claimKey && !await this.storage.setIf!(claimKey, claimRaw, JSON.stringify(ticket))) return RETRY
+      let entry: [Ticket, string] | typeof RETRY
+      try {
+        entry = await this.materialize(ticket)
+      } catch (error) {
+        // Best effort: release the chat's claim so the next create does not finish this one.
+        if (claimKey) await this.storage.setIf!(claimKey, JSON.stringify(ticket), claimRaw ?? '').catch(() => undefined)
+        throw error
+      }
+      if (entry === RETRY) return RETRY
+      this.remember(entry)
+      return { result: entry[0], created: true }
     })
 
     const pos = this.queued().findIndex((t) => t.id === result.id)
@@ -268,15 +308,15 @@ export class TicketDesk implements TicketsApi {
       else if (closeReason !== undefined) next.closeReason = closeReason
       next.updatedAt = Math.max(this.now(), previous.updatedAt + 1)
       const nextRaw = JSON.stringify(next)
-      if (!await this.write(`${this.prefix}t:${next.id}`, curRaw, nextRaw)) return RETRY
       const wasActive = previous.status !== 'closed'
       const isActive = next.status !== 'closed'
-      if (wasActive !== isActive) {
+      // Reopening: list the id before the ticket turns active, so an active ticket is
+      // never left outside the index (a closed id in the index is harmless).
+      if (!wasActive && isActive) await this.editIndex('update', (ids) => [...ids.filter((k) => k !== next.id), next.id])
+      if (!await this.write(`${this.prefix}t:${next.id}`, curRaw, nextRaw)) return RETRY
+      if (wasActive && !isActive) {
         try {
-          await this.editIndex('update', (ids) => {
-            const rest = ids.filter((k) => k !== next.id)
-            return isActive ? [...rest, next.id] : rest
-          })
+          await this.editIndex('update', (ids) => ids.filter((k) => k !== next.id))
         } catch (error) {
           // Best effort: put the previous ticket back so storage matches memory.
           if (curRaw !== undefined) await this.write(`${this.prefix}t:${next.id}`, nextRaw, curRaw).catch(() => undefined)
@@ -372,6 +412,29 @@ export class TicketDesk implements TicketsApi {
       if (await this.storage.setIf!(key, raw, JSON.stringify(next))) return
     }
     throw new TicketContentionError(operation)
+  }
+
+  /**
+   * Store a new ticket: list its id in the index first, then write `t:<id>`. A create
+   * that fails or dies in between leaves at most an index entry with no ticket (skipped
+   * on read), never an active ticket outside the index. In shared mode another replica
+   * may have written the same ticket already (finishing a claimed create): the stored
+   * version wins. `RETRY` when `t:<id>` is gone after a lost compare-and-set.
+   */
+  private async materialize(ticket: Ticket): Promise<[Ticket, string] | typeof RETRY> {
+    const key = `${this.prefix}t:${ticket.id}`
+    const raw = JSON.stringify(ticket)
+    await this.editIndex('create', (ids) => [...ids, ticket.id])
+    if (await this.write(key, undefined, raw)) return [ticket, raw]
+    const current = await this.storage.get(key)
+    return current ? [JSON.parse(current) as Ticket, current] : RETRY
+  }
+
+  /** Keep an active ticket (and its raw witness) in memory. */
+  private remember([ticket, raw]: [Ticket, string]): void {
+    if (ticket.status === 'closed') return
+    this.tickets.set(ticket.id, ticket)
+    this.raws.set(ticket.id, raw)
   }
 
   private activeEntry(id: string): [Ticket, string | undefined] | undefined {
