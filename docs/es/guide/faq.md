@@ -13,9 +13,10 @@ Sí, con **pairing code** (transporte Baileys):
 ```ts
 const bot = new Bot({
   provider: new BaileysProvider({
-    session: 'my-bot',
+    session: 'mi-bot',
     pairingPhoneNumber: '+57300XXXXXXX', // formato internacional completo
   }),
+  lang: 'es',
 })
 
 // El código de vinculación llega por el evento 'qr' (el mismo que trae el QR)
@@ -39,7 +40,7 @@ por defecto cuando dispara un flow — dos personas hablándole al bot en el
 mismo grupo no comparten estado. Configura `conversationScope: 'chat'` si
 en cambio quieres una única conversación compartida por grupo.
 
-## ¿Por qué `bot.when('hi')` no coincide con "hi there"?
+## ¿Por qué `bot.when('hola')` no coincide con "hola a todos"?
 
 La estrategia de coincidencia por defecto es **igualdad normalizada**, no
 "contains" — el mensaje debe ser igual al trigger exactamente, después de
@@ -47,7 +48,7 @@ convertir a minúsculas, quitar acentos y colapsar espacios. Para
 coincidencia por subcadena, usa un `TriggerObject`:
 
 ```ts
-bot.when({ pattern: 'hi', match: 'contains' }, handler)
+bot.when({ pattern: 'hola', match: 'contains' }, handler)
 ```
 
 `match` también acepta `'startsWith'` y `'endsWith'`.
@@ -62,7 +63,7 @@ Usa un menú numerado (`.choose()` en un flow, `c.choose()` en una
 conversación) o una encuesta real:
 
 ```ts
-await ctx.poll('Confirm your order?', ['Yes', 'No'])
+await ctx.poll('¿Confirmas tu pedido?', ['Sí', 'No'])
 ```
 
 ## ¿Los flows/conversaciones sobreviven a un reinicio?
@@ -74,7 +75,8 @@ que el store tenga un archivo detrás:
 
 ```ts
 const bot = new Bot({
-  provider: new BaileysProvider({ session: 'my-bot' }),
+  provider: new BaileysProvider({ session: 'mi-bot' }),
+  lang: 'es',
   store: new MemoryStore({ file: './store.json' }), // o usa @botmesh/sqlite-store
 })
 ```
@@ -85,7 +87,7 @@ Sí, con `bot.send`:
 
 ```ts
 bot.schedule('0 9 * * *', async () => {
-  await bot.send('57300XXXXXXX@s.whatsapp.net', '🌅 Good morning!')
+  await bot.send('57300XXXXXXX@s.whatsapp.net', '🌅 ¡Buenos días!')
 })
 ```
 
@@ -99,7 +101,7 @@ de 24 horas: ver [Ventana de 24 h](./ventana-24h).
 
 ```ts
 process.on('SIGINT', async () => {
-  console.log('🛑 Shutting down...')
+  console.log('🛑 Apagando...')
   await bot.stop({ drain: true }) // espera envíos en curso y respuestas en pausa (hasta `timeout`, 10 s por defecto)
   process.exit(0)
 })
@@ -110,8 +112,8 @@ process.on('SIGINT', async () => {
 Sí, con providers/sesiones diferentes:
 
 ```ts
-const bot1 = new Bot({ provider: new BaileysProvider({ session: 'bot-1' }) })
-const bot2 = new Bot({ provider: new BaileysProvider({ session: 'bot-2' }) })
+const bot1 = new Bot({ provider: new BaileysProvider({ session: 'bot-1' }), lang: 'es' })
+const bot2 = new Bot({ provider: new BaileysProvider({ session: 'bot-2' }), lang: 'es' })
 await bot1.start()
 await bot2.start()
 ```

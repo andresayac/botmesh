@@ -27,7 +27,7 @@ bot.on('qr', (code) => console.log('Type this code in WhatsApp > Linked devices:
 Yes. `when()` handlers work in groups by default. To respond only in private:
 
 ```ts
-bot.when('hola', async (ctx) => {
+bot.when('hi', async (ctx) => {
   if (ctx.isGroup) return
   await ctx.reply('👋')
 })

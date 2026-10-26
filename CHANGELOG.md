@@ -26,6 +26,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 - Guías de testing, transcripciones doradas, sandbox, inspección de flujos, ESLint, esquema JSON de flujos y arquitectura (EN/ES): los ejemplos en inglés usan textos en inglés y los de español fijan `lang: 'es'`; la grabación de transcripciones ya no dice que se importa de `@botmesh/core` (es `@botmesh/core/testing`); el bot demo del sandbox documenta sus palabras clave reales; la arquitectura añade `logger.ts`, `handover.ts`, el filtro `fromMe`/ecos de la entrada y `wa-gateway-kit`/`server` en la infra compartida; la versión en español de la guía de ESLint aclara que `meta.docs.url` enlaza la guía en inglés.
 - README de `@botmesh/core`, `@botmesh/flow-schema` y `@botmesh/sandbox`: ejemplos en inglés, el enlace a la guía del sandbox es absoluto y la opción `fetch` de `compileFlowDocument` documenta su firma (la de `secureFetch`).
 
+### Docs de referencia y actualización: revisión de beta (2026-10)
+- Solución de problemas (EN/ES) y `llms.txt`: la nota de prerelease habla del dist-tag `beta` (`pnpm add @botmesh/core@beta`), y el título de los errores de Graph cita los mensajes reales (`the access token is invalid or expired`, `check the configured phone number id`).
+- Actualizar a estable (EN/ES): la beta ya trae la API congelada; los mapeadores `toDiscordError`/`toEmailError` ya no se describen como de canales privados (solo TikTok lo sigue siendo); `@botmesh/ai` exporta 98 nombres en la entrada principal.
+- Guía de migración v1 → v2: el paquete v1 era `@bot-wa/bot-wa-baileys` (no `@botmesh/botmesh`); los canales y stores que se daban por "experimentales, sin publicar" son públicos; instalación con `@beta`; sin nombres obsoletos (`bot.send`, `onType`, `store: new MemoryStore({ file })`) y con `lang: 'es'` en los ejemplos.
+- FAQ: textos del bot en inglés en la versión EN y en español (con `lang: 'es'`) en la ES.
+- `CONTRIBUTING.md`: modo prerelease `beta`, lista de paquetes al día, excepciones de `console.*` y cómo cubren los tests de `@botmesh/ai` las versiones de los SDK.
+
 ### `@botmesh/messenger`: prueba de release de la beta (2026-10)
 - **Texto saliente sin recortes:** una lista envía su texto antes de la plantilla genérica (que no tiene encabezado y lo perdía); el texto de `buttons` que pasa de los 640 caracteres de la plantilla de botones sale antes como texto plano (Graph rechazaba el envío); `buttons` sin botones es texto; el texto de una tarjeta o lista de más de 2000 caracteres se divide en varios mensajes.
 - Las etiquetas de botones y plantillas se cortan en límites de grafema (una secuencia de emoji con ZWJ se partía en otro símbolo).
