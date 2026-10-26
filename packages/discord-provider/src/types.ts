@@ -46,7 +46,9 @@ export interface DiscordProviderConfig {
    * What to do with message edits (`MESSAGE_UPDATE` with `edited_timestamp`):
    *  - `'deliver'` (default): an edit reaches the bot as a message that keeps the
    *    original `ref.id` (mark it with `isEditedMessage(ctx)`); the core dedupe
-   *    lets it through because its content changed.
+   *    lets it through because its content changed. Each `edited_timestamp` is
+   *    delivered once: pin/unfurl/flag updates of an edited message repeat it
+   *    and are dropped (last one remembered for 1000 messages).
    *  - `'ignore'`: edits are dropped.
    */
   editedMessages?: 'deliver' | 'ignore'

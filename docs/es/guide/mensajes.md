@@ -328,7 +328,8 @@ como un update `poll_answer` y el provider lo suma en el mismo evento `poll`
 (una selección vacía = voto retirado). Telegram solo informa de votos en
 encuestas que envió el bot, y el provider recuerda las 500 más recientes que
 envió este proceso. Los miembros del chat ven quién votó; `anonymousPolls: true`
-envía encuestas anónimas, cuyos votos nunca llegan al bot.
+envía encuestas anónimas, cuyos votos nunca llegan al bot. Un canal rechaza los
+votantes públicos: la encuesta se reintenta una vez como anónima y el canal se recuerda.
 
 ## Acceder al contenido del media
 

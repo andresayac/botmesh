@@ -43,7 +43,9 @@ export interface TelegramProviderConfig {
    * Send polls as anonymous Telegram polls. Default `false`: polls are sent
    * with `is_anonymous: false` so each vote reaches the bot as a `poll_answer`
    * update and becomes a `'poll'` event (`bot.on('poll')`), like on WhatsApp.
-   * Members of the chat can then see who voted. `true` sends anonymous polls,
+   * Members of the chat can then see who voted. Channels refuse public-voter
+   * polls: a poll to a channel is retried once as anonymous (no votes) and that
+   * channel gets anonymous polls from then on. `true` sends anonymous polls,
    * whose votes the bot never receives. A per-send
    * `platformData: { is_anonymous }` overrides it.
    */

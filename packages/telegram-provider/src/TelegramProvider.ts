@@ -120,6 +120,11 @@ const TOO_LARGE_400 = /too long|too big|entity too large/i
 /** Longest 429 `retry_after` honoured, in seconds (24 h, as in `@botmesh/graph-core`). */
 const MAX_RETRY_AFTER_SEC = 86_400
 
+/** Telegram's answer to a public-voter (`is_anonymous: false`) poll sent to a channel. */
+const PUBLIC_VOTERS_FORBIDDEN = /BROADCAST_PUBLIC_VOTERS_FORBIDDEN|non-anonymous polls can't be sent to channel/i
+/** Channels remembered as refusing public-voter polls (oldest evicted first). */
+const MAX_ANONYMOUS_POLL_CHATS = 1000
+
 /** Translate a Bot API error envelope into a typed provider error. */
 export function toTelegramError(chatId: ChatId, errorCode: number | undefined, description: string | undefined, retryAfterSec?: number): ProviderError {
   const desc = description ?? `Telegram error ${errorCode ?? 'unknown'}`
@@ -174,6 +179,8 @@ export class TelegramProvider implements IProvider<unknown> {
   private readonly deliverEdits: boolean
   /** Whether polls are sent anonymous (`anonymousPolls`): their votes never reach the bot. */
   private readonly anonymousPolls: boolean
+  /** Chats (channels) that refused a non-anonymous poll; bounded, oldest evicted first. */
+  private readonly anonymousPollChats = new Set<ChatId>()
   /** Polls this process sent, so `poll_answer` updates can be tallied. */
   private readonly polls = new PollTracker()
   /** Consecutive getUpdates failures — drives the exponential backoff; reset on success. */
@@ -537,15 +544,35 @@ export class TelegramProvider implements IProvider<unknown> {
       if (reply) params.reply_parameters = reply
     }
     // Non-anonymous by default so votes arrive as poll_answer updates (anonymousPolls: true opts out).
-    if (content.kind === 'poll' && !this.anonymousPolls) params.is_anonymous = false
+    // Channels refuse public-voter polls: such a chat is remembered and gets anonymous ones.
+    const explicitAnonymity = options?.platformData !== undefined && Object.hasOwn(options.platformData, 'is_anonymous')
+    const publicVotersByDefault = content.kind === 'poll' && !this.anonymousPolls && !explicitAnonymity && !this.anonymousPollChats.has(chatId)
+    if (publicVotersByDefault) params.is_anonymous = false
     if (options?.platformData) Object.assign(params, options.platformData)
-    const result = await this.callApi(out.method, params, { media, mediaField: out.mediaField })
+    let result: unknown
+    try {
+      result = await this.callApi(out.method, params, { media, mediaField: out.mediaField })
+    } catch (err) {
+      if (!(publicVotersByDefault && err instanceof ProviderError && PUBLIC_VOTERS_FORBIDDEN.test(err.message))) throw err
+      this.rememberAnonymousPollChat(chatId)
+      this.logger.debug({ chatId }, 'Telegram: chat refuses non-anonymous polls (channel); sent as anonymous, its votes will not reach the bot')
+      delete params.is_anonymous
+      result = await this.callApi(out.method, params, { media, mediaField: out.mediaField })
+    }
     if (content.kind === 'poll') this.polls.remember(result, chatId)
     // setMessageReaction answers `true`: the meaningful ref is the reacted-to message.
     if (content.kind === 'reaction' && (typeof result !== 'object' || result === null)) {
       return { ref: content.target, raw: result }
     }
     return { ref: this.refFromResult(result, chatId), raw: result }
+  }
+
+  private rememberAnonymousPollChat(chatId: ChatId): void {
+    if (this.anonymousPollChats.size >= MAX_ANONYMOUS_POLL_CHATS) {
+      const oldest = this.anonymousPollChats.values().next().value
+      if (oldest !== undefined) this.anonymousPollChats.delete(oldest)
+    }
+    this.anonymousPollChats.add(chatId)
   }
 
   private refFromResult(result: unknown, chatId: ChatId): MessageRef {

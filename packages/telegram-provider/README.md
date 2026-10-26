@@ -217,7 +217,10 @@ bot.on('poll', (vote) => {
 Telegram only sends answers for polls the bot created, and names the poll by id
 only, so the provider remembers the 500 most recent polls it sent (in memory): a
 vote on a poll sent before a restart is dropped with a `debug` log. Members of
-the chat can see who voted. `anonymousPolls: true` sends anonymous polls instead
+the chat can see who voted. Channels do not allow public-voter polls: a poll to a
+channel is retried once as anonymous (no votes) and that channel gets anonymous
+polls from then on (an explicit `platformData.is_anonymous` is never changed).
+`anonymousPolls: true` sends anonymous polls instead
 (no votes reach the bot); `platformData: { is_anonymous: true }` does it for one
 send. `parsePollAnswer(update)` reads a raw `poll_answer` (`@experimental`).
 

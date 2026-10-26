@@ -336,7 +336,9 @@ const hooked = new TelegramProvider({
   tally, like on WhatsApp. Chat members can see who voted; `anonymousPolls: true`
   sends anonymous polls, whose votes never reach the bot. Votes are tallied for
   polls this process sent (in memory, the last 500): a vote on a poll sent before
-  a restart is dropped.
+  a restart is dropped. Channels do not allow public-voter polls: a poll to a
+  channel is retried once as anonymous (no votes) and that channel gets anonymous
+  polls from then on.
 - **Self-hosted Bot API server**: set `baseUrl` to it. On plain HTTP or a
   private network, media downloads also need `mediaDownload: { allowHttp: true,
   allowPrivateHosts: true }` (plus a larger `maxBytes`). Run the server without
@@ -458,7 +460,10 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
 - **Edited messages** (`MESSAGE_UPDATE` with `edited_timestamp`) arrive as
   messages with the new text and the original `ref.id`; `isEditedMessage(ctx)`
   from `@botmesh/discord` tells them apart and `editedMessages: 'ignore'` drops
-  them. Other updates (embed unfurls, pins) are not routed.
+  them. Other updates (embed unfurls, pins, flags) are not routed: the provider
+  delivers an edit once per `edited_timestamp` (it remembers the last one for
+  the 1000 most recently edited messages), so pinning an edited message does not
+  re-deliver it.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/discord-provider)
 

@@ -5,7 +5,10 @@
  *
  *   MESSAGE_CREATE     → kind 'message'   (bots and system messages are ignored)
  *   MESSAGE_UPDATE     → kind 'message' for an edit (`edited_timestamp` set), keeping
- *                        the original `ref.id`; other updates (embed unfurls…) are ignored
+ *                        the original `ref.id`; updates of never-edited messages are
+ *                        ignored. This parser is stateless: `DiscordProvider` also drops
+ *                        updates repeating an `edited_timestamp` it already delivered
+ *                        (pins, unfurls, flags of an edited message)
  *   INTERACTION_CREATE → kind 'interaction' (button / select / slash command)
  *
  * Frames are read defensively: a field of the wrong type is ignored, so a
@@ -58,8 +61,9 @@ export function parseDispatch(t: string, d: unknown, selfId?: string | null): In
     case 'MESSAGE_CREATE':
       return parseMessageCreate(rec<DiscordMessagePayload>(d), selfId)
     case 'MESSAGE_UPDATE': {
-      // Only a content edit carries `edited_timestamp`; embed unfurls and other
-      // partial updates do not, and are not new input.
+      // Only an edited message carries `edited_timestamp`; updates of a never-edited
+      // message (unfurls, pins) do not. Repeats of an earlier edit's timestamp are
+      // filtered by DiscordProvider, which keeps the last one seen per message.
       const m = rec<DiscordMessagePayload>(d)
       return m && typeof m.edited_timestamp === 'string' ? parseMessageCreate(m, selfId) : undefined
     }

@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest'
 import { createRequire } from 'node:module'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type BetterSqlite3 from 'better-sqlite3'
@@ -125,6 +125,24 @@ describe('SQLiteStore schema versioning', () => {
     // The handle was released: the file can be removed (Windows keeps open files locked).
     rmSync(dir, { recursive: true, force: true })
     dir = ''
+  })
+
+  it('refuses a newer rollback-journal file before any persistent pragma (journal mode unchanged)', () => {
+    const file = tmpFile()
+    const db = new Database(file)
+    db.pragma('journal_mode = DELETE')
+    db.exec('CREATE TABLE future (x)')
+    db.pragma(`user_version = ${SQLITE_SCHEMA_VERSION + 5}`)
+    db.close()
+
+    expect(() => new SQLiteStore({ file })).toThrow(SQLiteSchemaVersionError)
+    const ro = new Database(file, { readonly: true })
+    try {
+      expect(ro.pragma('journal_mode', { simple: true })).toBe('delete')
+      expect(ro.pragma('user_version', { simple: true })).toBe(SQLITE_SCHEMA_VERSION + 5)
+    } finally { ro.close() }
+    expect(existsSync(`${file}-wal`)).toBe(false)
+    expect(existsSync(`${file}-shm`)).toBe(false)
   })
 
   it('runs pending migrations in order and rolls back a failing one (version and tables unchanged)', () => {

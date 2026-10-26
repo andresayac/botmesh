@@ -87,6 +87,8 @@ async function readLocalMedia(path: string, kind: OutboundContent['kind']): Prom
 const INTERACTION_TOKEN_TTL_MS = 15 * 60_000
 /** Most interaction tokens remembered at once. */
 const MAX_INTERACTIONS = 1000
+/** Messages whose last delivered `edited_timestamp` is remembered (see `isNewEdit`). */
+const MAX_TRACKED_EDITS = 1000
 
 export class DiscordProvider implements IProvider<unknown> {
   readonly id = 'discord'
@@ -138,6 +140,11 @@ export class DiscordProvider implements IProvider<unknown> {
   private readonly autoAckMs: number | false
   /** Whether `MESSAGE_UPDATE` edits reach the bot (`editedMessages` config). */
   private readonly deliverEdits: boolean
+  /**
+   * Last `edited_timestamp` delivered per message id (bounded, oldest first): later
+   * pin/embed/flag updates of an edited message repeat it and are not new edits.
+   */
+  private readonly lastEdits = new Map<string, string>()
   /** Application id for interaction followups: `config.appId`, else learnt from READY or an interaction. */
   private appId: string | undefined
 
@@ -250,13 +257,31 @@ export class DiscordProvider implements IProvider<unknown> {
       this.fan({ kind: 'connection', update: { state: 'ready' } })
     }
     if (t === 'INTERACTION_CREATE') this.learnAppId((d as { application_id?: unknown } | undefined)?.application_id)
-    if (t === 'MESSAGE_UPDATE' && !this.deliverEdits) return
+    if (t === 'MESSAGE_UPDATE' && (!this.deliverEdits || !this.isNewEdit(d))) return
     const event = parseDispatch(t, d, this._selfId)
     if (event?.kind === 'interaction') this.rememberInteraction(d)
     if (event) this.fan(event)
   }
 
   /** Keep the first application id seen when `appId` was not configured. */
+  /**
+   * Whether a `MESSAGE_UPDATE` carries an edit not delivered yet: its `edited_timestamp`
+   * differs from the last one seen for that message id. Updates without one are left
+   * to `parseDispatch` (which ignores them).
+   */
+  private isNewEdit(d: unknown): boolean {
+    const m = d as { id?: unknown; edited_timestamp?: unknown } | null | undefined
+    if (!m || typeof m.id !== 'string' || typeof m.edited_timestamp !== 'string') return true
+    if (this.lastEdits.get(m.id) === m.edited_timestamp) return false
+    this.lastEdits.delete(m.id)
+    if (this.lastEdits.size >= MAX_TRACKED_EDITS) {
+      const oldest = this.lastEdits.keys().next().value
+      if (oldest !== undefined) this.lastEdits.delete(oldest)
+    }
+    this.lastEdits.set(m.id, m.edited_timestamp)
+    return true
+  }
+
   private learnAppId(id: unknown): void {
     if (!this.appId && typeof id === 'string' && /^\d{1,32}$/.test(id)) this.appId = id
   }

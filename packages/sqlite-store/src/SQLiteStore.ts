@@ -35,7 +35,7 @@ import { SqliteUserData } from './userData.js'
 import { SQLiteScheduleStore, rebindScheduleStore } from './schedules.js'
 import { SQLiteDurability, rebindDurableKv } from './durability.js'
 import { openError } from './openError.js'
-import { MIGRATIONS, SQLiteSchemaVersionError, runMigrations } from './schema.js'
+import { MIGRATIONS, SQLiteSchemaVersionError, assertSupportedVersion, runMigrations } from './schema.js'
 
 /** `':memory:'` and `''` (anonymous temporary database) only exist while their connection is open. */
 function isInMemory(file: string): boolean {
@@ -175,9 +175,12 @@ export class SQLiteStore implements IStore {
     let db: BetterSqlite3.Database | undefined
     try {
       db = new this.DatabaseCtor(this.file)
-      if (this.wal) db.pragma('journal_mode = WAL')
-      db.pragma('synchronous = NORMAL')
+      // Connection-only pragmas first; refuse a newer file before `journal_mode = WAL`,
+      // which is persistent (rewrites the header, creates -wal/-shm).
       db.pragma(`busy_timeout = ${this.busyTimeoutMs}`)
+      db.pragma('synchronous = NORMAL')
+      assertSupportedVersion(db, MIGRATIONS, this.file)
+      if (this.wal) db.pragma('journal_mode = WAL')
       this.db = db
       const { from, to } = runMigrations(db, MIGRATIONS, this.file)
       if (from !== to && from !== 0) this.logger?.info?.({ from, to }, 'SQLiteStore: schema migrated')

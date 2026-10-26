@@ -81,7 +81,9 @@ aiPlugin({ provider: 'openai', baseUrl: 'https://mi-proxy.example/v1', maxTokens
   defecto).
 - **Las encuestas se envían no anónimas y sus votos llegan al bot.** Cada `poll_answer` se
   convierte en un evento `'poll'` con la misma forma que en WhatsApp (`vote.ref`,
-  `vote.senderId`, `vote.options` con `voters`). Los miembros del chat ven quién votó. Para
+  `vote.senderId`, `vote.options` con `voters`). Los miembros del chat ven quién votó. Los canales no
+  admiten votantes públicos: una encuesta a un canal se reintenta una vez como anónima (sin
+  votos) y el canal se recuerda. Para
   mantener encuestas anónimas (sin recibir votos):
 
 ```ts

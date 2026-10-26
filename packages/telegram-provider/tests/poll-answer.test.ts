@@ -61,6 +61,43 @@ describe('Telegram poll_answer', () => {
     expect(calls[2]!.body.is_anonymous).toBe(true)
   })
 
+  it('a channel refuses public-voter polls: the default retries once as anonymous and remembers the chat', async () => {
+    const calls: Array<Record<string, unknown>> = []
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>
+      calls.push(body)
+      if (body.is_anonymous === false) {
+        return { ok: false, status: 400, headers: { get: () => null }, json: async () => ({ ok: false, error_code: 400, description: 'Bad Request: BROADCAST_PUBLIC_VOTERS_FORBIDDEN' }) }
+      }
+      return { ok: true, status: 200, headers: { get: () => null }, json: async () => ({ ok: true, result: { ...pollMessage, chat: { id: -1009, type: 'channel', title: 'News' } } }) }
+    }))
+    const { p } = webhookProvider()
+    const r = await p.send('-1009', { kind: 'poll', question: 'Color?', options: ['Red', 'Blue'] })
+    expect(r.ref.id).toBe('501')
+    expect(calls).toHaveLength(2)
+    expect(calls[0]!.is_anonymous).toBe(false)
+    expect(calls[1]!.is_anonymous).toBeUndefined()
+    // Next poll to the same channel goes anonymous straight away.
+    await p.send('-1009', { kind: 'poll', question: 'Again?', options: ['Yes', 'No'] })
+    expect(calls).toHaveLength(3)
+    expect(calls[2]!.is_anonymous).toBeUndefined()
+    // Other chats keep the non-anonymous default.
+    await p.send('-100', { kind: 'poll', question: 'Color?', options: ['Red', 'Blue'] }).catch(() => undefined)
+    expect(calls[3]!.is_anonymous).toBe(false)
+  })
+
+  it('an explicit platformData is_anonymous: false is not silently downgraded in a channel', async () => {
+    const calls: Array<Record<string, unknown>> = []
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+      calls.push(JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>)
+      return { ok: false, status: 400, headers: { get: () => null }, json: async () => ({ ok: false, error_code: 400, description: "Bad Request: non-anonymous polls can't be sent to channel chats" }) }
+    }))
+    const { p } = webhookProvider()
+    await expect(p.send('-1009', { kind: 'poll', question: 'Q?', options: ['A', 'B'] }, { platformData: { is_anonymous: false } }))
+      .rejects.toThrow(/non-anonymous polls/)
+    expect(calls).toHaveLength(1)
+  })
+
   it('a vote on a poll the bot sent becomes a poll-vote with the same shape as Baileys (ref of the poll message, tallies with voters)', async () => {
     stubSendPoll()
     const { p, votes } = webhookProvider()

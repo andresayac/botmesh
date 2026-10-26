@@ -320,7 +320,8 @@ On **Telegram**, polls are sent non-anonymous, so each vote arrives as a
 (empty selection = vote withdrawn). Telegram only reports votes on polls the
 bot sent, and the provider remembers the 500 most recent ones it sent from this
 process. Members of the chat can see who voted; `anonymousPolls: true` sends
-anonymous polls, whose votes never reach the bot.
+anonymous polls, whose votes never reach the bot. A channel refuses public-voter
+polls: the poll is retried once as anonymous and the channel is remembered.
 
 ## Access media content
 

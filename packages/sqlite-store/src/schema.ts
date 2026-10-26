@@ -76,6 +76,17 @@ export class SQLiteSchemaVersionError extends Error {
 const versionOf = (db: BetterSqlite3.Database): number => Number(db.pragma('user_version', { simple: true }) ?? 0)
 
 /**
+ * Throw {@link SQLiteSchemaVersionError} when `db` was written by a newer version than
+ * `migrations` knows. Only reads `PRAGMA user_version`, so it can run before any
+ * persistent pragma (e.g. `journal_mode = WAL`) touches the file.
+ */
+export function assertSupportedVersion(db: BetterSqlite3.Database, migrations: readonly SchemaMigration[], file: string): void {
+  const latest = migrations.length ? migrations[migrations.length - 1]!.version : 0
+  const found = versionOf(db)
+  if (found > latest) throw new SQLiteSchemaVersionError(file, found, latest)
+}
+
+/**
  * Bring `db` to the last version of `migrations`. Returns the version found and
  * the version reached. Throws {@link SQLiteSchemaVersionError} for a newer file
  * and wraps a failing step (`cause` keeps the original error).

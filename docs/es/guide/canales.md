@@ -352,7 +352,9 @@ const hooked = new TelegramProvider({
   del chat ven quién votó; `anonymousPolls: true` envía encuestas anónimas, cuyos
   votos nunca llegan al bot. Se cuentan los votos de las encuestas que envió este
   proceso (en memoria, las últimas 500): un voto en una encuesta enviada antes de
-  un reinicio se descarta.
+  un reinicio se descarta. Los canales no admiten encuestas con votantes públicos:
+  una encuesta a un canal se reintenta una vez como anónima (sin votos) y ese canal
+  recibe encuestas anónimas desde entonces.
 - **Servidor Bot API propio (self-hosted)**: apunta `baseUrl` a él. Si va por
   HTTP plano o en una red privada, las descargas de media necesitan además
   `mediaDownload: { allowHttp: true, allowPrivateHosts: true }` (y un `maxBytes`
@@ -480,7 +482,10 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
 - **Mensajes editados** (`MESSAGE_UPDATE` con `edited_timestamp`) llegan como
   mensajes con el texto nuevo y el `ref.id` original; `isEditedMessage(ctx)` de
   `@botmesh/discord` los distingue y `editedMessages: 'ignore'` los descarta. Las
-  demás actualizaciones (previsualizaciones de enlaces, fijados) no se enrutan.
+  demás actualizaciones (previsualizaciones de enlaces, fijados, flags) no se
+  enrutan: el provider entrega una edición una sola vez por `edited_timestamp`
+  (recuerda el último de los 1000 mensajes editados más recientes), así que fijar
+  un mensaje editado no lo vuelve a entregar.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/discord-provider)
 

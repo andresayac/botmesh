@@ -76,6 +76,31 @@ describe('Discord MESSAGE_UPDATE', () => {
     }
   })
 
+  it('delivers an edit once per edited_timestamp: later pin/embed/flag updates of an edited message are ignored', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })))
+    const { sockets, factory } = fakeSocketFactory()
+    const provider = new DiscordProvider({ token: 'TOKEN', socketFactory: factory, logger: pino({ level: 'silent' }) })
+    const bodies: string[] = []
+    provider.onEvent((e) => { if (e.kind === 'message') bodies.push(e.message.body) })
+    await provider.start()
+    try {
+      const s = sockets[0]!
+      s.serverSend({ op: 10, d: { heartbeat_interval: 45_000 } })
+      s.serverSend({ op: 0, s: 1, t: 'READY', d: { session_id: 'S', resume_gateway_url: 'wss://r', user: { id: 'BOT' } } })
+      s.serverSend({ op: 0, s: 2, t: 'MESSAGE_UPDATE', d: edit })
+      // Pin, embed unfurl and flag change of the same (already edited) message: same edited_timestamp.
+      s.serverSend({ op: 0, s: 3, t: 'MESSAGE_UPDATE', d: { ...edit, pinned: true } })
+      s.serverSend({ op: 0, s: 4, t: 'MESSAGE_UPDATE', d: { ...edit, embeds: [{ url: 'https://x.test' }] } })
+      s.serverSend({ op: 0, s: 5, t: 'MESSAGE_UPDATE', d: { ...edit, flags: 4 } })
+      // A second real edit has a new edited_timestamp.
+      s.serverSend({ op: 0, s: 6, t: 'MESSAGE_UPDATE', d: { ...edit, content: 'hello!', edited_timestamp: '2024-01-01T00:02:00.000Z' } })
+      await wait(20)
+      expect(bodies).toEqual(['hello', 'hello!'])
+    } finally {
+      await provider.stop()
+    }
+  })
+
   it('rejects an invalid editedMessages value', () => {
     expect(() => new DiscordProvider({ token: 'TOKEN', editedMessages: 'drop' as never })).toThrow(/editedMessages/)
   })

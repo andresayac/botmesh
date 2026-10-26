@@ -76,7 +76,9 @@ for `maxFactLength`, silently dropping every fact).
 - File uploads have their own timeout, `uploadTimeoutMs` (5 minutes by default).
 - **Polls are sent non-anonymous and their votes reach the bot.** Each `poll_answer`
   becomes a `'poll'` event with the same shape as on WhatsApp (`vote.ref`, `vote.senderId`,
-  `vote.options` with `voters`). Members of the chat can see who voted. To keep anonymous
+  `vote.options` with `voters`). Members of the chat can see who voted. Channels refuse public-voter
+  polls, so a poll to a channel is retried once as anonymous (no votes) and the channel is
+  remembered. To keep anonymous
   polls (and receive no votes):
 
 ```ts
