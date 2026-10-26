@@ -5,7 +5,7 @@
  */
 import { describe, it, expect } from 'vitest'
 
-import { HookSystem } from '../src/index.js'
+import { HookSystem } from '../src/internal.js'
 import { createTestBot } from '../src/testing/index.js'
 
 describe('before-hook calling next() twice', () => {

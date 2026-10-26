@@ -13,10 +13,10 @@ import * as testing from '../src/testing/index.js'
 
 /** Every runtime (value) export of the main entry. Types are checked by `pnpm api-check`. */
 const MAIN_VALUES = [
-  'AUDIO', 'AccessList', 'BUILTIN_LOCALES', 'Bot', 'CALL', 'CONTACT', 'CORE_MESSAGES', 'ConcurrentWaitError',
+  'AUDIO', 'AccessList', 'BUILTIN_LOCALES', 'Bot', 'BotNotRunningError', 'CALL', 'CONTACT', 'CORE_MESSAGES', 'ConcurrentWaitError',
   'ConfigValidationError', 'ConversationCancelled', 'ConversationEnded', 'ConversationError', 'ConversationGoto',
   'ConversationRetry', 'ConversationTimeout', 'CoordinationUnavailableError', 'DOCUMENT', 'FLOW_MEDIA_KINDS',
-  'FileDurability', 'FlowBuilder', 'IMAGE', 'LOCATION', 'LeaseLostError', 'MEDIA', 'MediaTooLargeError',
+  'FileDurability', 'FlowBuilder', 'IMAGE', 'InvalidProviderEventError', 'LOCATION', 'LeaseLostError', 'MEDIA', 'MediaTooLargeError',
   'MediaUnavailableError', 'MemoryDurability', 'MemoryStore', 'NamespacedStore', 'OutsideSessionWindowError', 'POLL',
   'PROMETHEUS_CONTENT_TYPE', 'PacedSendCancelled', 'PayloadTooLargeError', 'ProviderError', 'ProviderNotLeaderError',
   'RateLimitedError', 'RecipientUnreachableError', 'RetriesExceeded', 'RetryUnavailableError', 'SPAN_NAMES', 'STICKER',

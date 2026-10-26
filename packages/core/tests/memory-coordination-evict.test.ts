@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest'
 
-import { MemoryCoordinationHub, MemoryCoordinator } from '../src/index.js'
+import { MemoryCoordinationHub, MemoryCoordinator } from '../src/testing/index.js'
 
 async function turn(c: MemoryCoordinator, key: string) {
   const t = await c.acquireTurn(await c.reserve(key))

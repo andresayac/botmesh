@@ -5,7 +5,8 @@
  */
 import { describe, it, expect } from 'vitest'
 
-import { Bot, I18n, CORE_MESSAGES, flow } from '../src/index.js'
+import { Bot, CORE_MESSAGES, flow } from '../src/index.js'
+import { I18n } from '../src/spi.js'
 import type { FormDefinition } from '../src/forms/types.js'
 import { createTestBot } from '../src/testing/index.js'
 import { MockProvider } from '../src/testing/MockProvider.js'
