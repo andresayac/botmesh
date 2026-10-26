@@ -74,7 +74,7 @@ await rag.save()
 | `pdf` | `pdf-parse` peer | Your own PDF extractor: `async (bytes) => text`. |
 | `maxFileBytes` | 20 MiB | Maximum bytes per loaded file. |
 | `retryDelayMs` | `30000` | After a failed ingest, `retrieve()` rejects at once with the same error for this long. |
-| `onError` | — | Non-fatal problems, e.g. a corrupt persisted index that was set aside and rebuilt. |
+| `onError` | — | Non-fatal problems, always a `RagError`: a corrupt persisted index set aside and rebuilt (`INVALID_INDEX`), an index built with another embedder that was re-embedded (`EMBEDDER_CHANGED`), or an index that could not be saved while loading and is served from memory (`PERSIST_FAILED`). |
 
 `retrieve(query, { topK, minScore, filter, signal })` overrides the defaults per call; `filter` receives each chunk (with its `metadata`).
 
@@ -85,13 +85,13 @@ await rag.save()
 | `'local'` (default) | `HashEmbedder` (512 dims): lexical, deterministic, no network. |
 | `'openai'` / `{ provider: 'openai', apiKey, model, baseUrl, dimensions, batchSize }` | `POST {baseUrl}/embeddings`. `text-embedding-3-small` and `OPENAI_API_KEY` by default. Any compatible API works. |
 | `'ollama'` / `{ provider: 'ollama', model, baseUrl }` | `POST {baseUrl}/api/embed`, `nomic-embed-text` on `http://localhost:11434` by default. |
-| Custom `Embedder` | `{ id, embed(texts) }`. |
+| Custom `Embedder` | `{ id, embed(texts) }`. `id` (a non-empty string such as `'my-model:768'`) names the vector space in the persisted index. |
 
 Requests go through [`@botmesh/http`](https://www.npmjs.com/package/@botmesh/http)'s `secureFetch` (anti-SSRF): HTTPS and public hosts by default. Ollama allows `http` and private hosts by default; for other internal endpoints use `http: { allowHttp: true, allowPrivateHosts: true }`.
 
 ## Persistence
 
-With `persistPath`, the index is saved (atomic write) after every change. On startup, vectors are reused for chunks whose text did not change and that were computed with the same embedder (`Embedder.id`); if you change the model, it is rebuilt. Without `documents`, the saved index is served as-is (a precompiled index).
+With `persistPath`, the index is saved (atomic write) after every change. On startup, vectors are reused for chunks whose text did not change and that were computed with the same embedder (`Embedder.id`); if you change the model, it is rebuilt: the configured documents, the documents added at runtime and, without `documents`, the chunks of a precompiled index are all embedded again with the new embedder. The switch is reported to `onError` (`EMBEDDER_CHANGED`) and the old file is kept as `<persistPath>.previous` before it is overwritten, so going back to the old embedder does not have to pay for the embeddings again (rename it back). If the index cannot be saved while it is loaded (a read-only file or directory, say), `onError` gets a `PERSIST_FAILED` and the index is served from memory; an explicit change (`addText`, `addDocuments`, `removeDocument`, `save()`) that cannot be saved rejects with `PERSIST_FAILED` (the file system error is its `cause`). Without `documents`, the saved index is served as-is (a precompiled index).
 
 Documents added at runtime (`addText`, `addDocuments`, `addFiles`) survive restarts; if one shares an id with a configured document, the configured one wins. If the file is corrupt and `documents` is set, it is moved aside as `<persistPath>.corrupt`, `onError` is notified and the index is rebuilt; without `documents` there is nothing to rebuild from and `ready()` fails with `INVALID_INDEX`.
 
@@ -107,7 +107,7 @@ Without the package, loading a PDF fails with `RagError('MISSING_DEPENDENCY')`. 
 
 ## Errors
 
-Everything fails with `RagError` and a `code`: `INVALID_OPTIONS`, `UNSUPPORTED_FORMAT`, `LOAD_FAILED`, `MISSING_DEPENDENCY`, `EMBEDDING_FAILED`, `INVALID_INDEX`. Messages never include the embedding provider's response body.
+Everything fails with `RagError` and a `code`: `INVALID_OPTIONS`, `UNSUPPORTED_FORMAT`, `LOAD_FAILED`, `MISSING_DEPENDENCY`, `EMBEDDING_FAILED`, `INVALID_INDEX`, `PERSIST_FAILED` (plus `EMBEDDER_CHANGED`, only reported to `onError`). Messages never include the embedding provider's response body, the API key or the endpoint's path and query string: a failed request names only the endpoint's origin (`https://api.openai.com`) and the network error code (`ECONNREFUSED`, `TIMEOUT`...). A JSON file nested deeper than 64 levels fails with `LOAD_FAILED`.
 
 ## Limits
 
@@ -118,10 +118,12 @@ The index is brute force: it is meant for thousands of chunks (a FAQ, a catalogu
 | Symptom | Cause and fix |
 | --- | --- |
 | `RagError` `MISSING_DEPENDENCY` when loading a PDF | The optional `pdf-parse` peer is not installed: `pnpm add pdf-parse`, or pass your own extractor in `pdf`. |
+| `RagError` `EMBEDDING_FAILED` with `ECONNREFUSED` | Nothing listens on the endpoint: start Ollama (`ollama serve`) or fix `baseUrl`. |
 | `RagError` `EMBEDDING_FAILED` with `HTTP 401` | Wrong or missing API key: set `OPENAI_API_KEY` or `embeddings: { provider: 'openai', apiKey }`. |
 | `EMBEDDING_FAILED` against a local or internal endpoint | `secureFetch` blocks plain `http` and private addresses by default. For a self-hosted OpenAI-compatible server pass `http: { allowHttp: true, allowPrivateHosts: true }` (Ollama already allows them). |
 | Every query fails right after a failed start | `retrieve()` fails fast with the last ingest error for `retryDelayMs`; fix the cause and call `rag.ready()` to retry at once. |
 | The whole corpus is re-embedded on every restart | The embedder id changed (another model or `dimensions`), or there is no `persistPath`. |
+| A `<persistPath>.previous` file appeared (`EMBEDDER_CHANGED` in `onError`) | The index was built with another embedder (check `embeddings`: a missing `'openai'` falls back to `'local'`) and was re-embedded; the previous file is the old index, untouched. |
 | A `<persistPath>.corrupt` file appeared | The saved index could not be read; it was set aside and rebuilt from `documents` (and reported to `onError`). |
 | Answers ignore an obviously relevant passage | The default `'local'` embedder is lexical (word overlap, no synonyms). Use `'openai'` or `'ollama'` for semantic search, or tune `chunkSize`/`topK`. |
 

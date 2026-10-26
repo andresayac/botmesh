@@ -51,7 +51,7 @@ function units(text: string, max: number): Unit[] {
       for (const word of s.split(/\s+/)) {
         if (word.length > max) {
           if (line) { push(line); line = '' }
-          for (let i = 0; i < word.length; i += max) push(word.slice(i, i + max))
+          for (const piece of hardSplit(word, max)) push(piece)
           continue
         }
         const next = line ? `${line} ${word}` : word
@@ -62,6 +62,22 @@ function units(text: string, max: number): Unit[] {
   }
   return out
 }
+
+/** Cut `word` into pieces of at most `max` UTF-16 units, never between the two halves of a surrogate pair. */
+function hardSplit(word: string, max: number): string[] {
+  const out: string[] = []
+  let i = 0
+  while (i < word.length) {
+    let end = Math.min(i + max, word.length)
+    // Do not leave a lone high surrogate at the end of a piece (unless max is 1).
+    if (end < word.length && end - i > 1 && isHighSurrogate(word.charCodeAt(end - 1))) end--
+    out.push(word.slice(i, end))
+    i = end
+  }
+  return out
+}
+
+const isHighSurrogate = (code: number): boolean => code >= 0xd800 && code <= 0xdbff
 
 /** Last `overlap` characters of `text`, starting at a word boundary. */
 function tail(text: string, overlap: number): string {
@@ -101,6 +117,21 @@ export interface MarkdownSection {
   body: string
 }
 
+/**
+ * An ATX heading (`## Title`, optionally closed by `##`), parsed in linear time: a
+ * backtracking regex over the title made a line padded with spaces take minutes.
+ * A closing `#` run only counts when a space precedes it, so `## C#` keeps its `#`.
+ */
+function parseHeading(line: string): { level: number; title: string } | undefined {
+  const m = /^(#{1,6})[ \t]+(\S.*)$/.exec(line)
+  if (!m) return undefined
+  let title = m[2]!.trimEnd()
+  let end = title.length
+  while (end > 0 && title[end - 1] === '#') end--
+  if (end < title.length && (end === 0 || /[ \t]/.test(title[end - 1]!))) title = title.slice(0, end).trimEnd()
+  return title ? { level: m[1]!.length, title } : undefined
+}
+
 /** Split markdown into sections by ATX headings (`#`..`######`), ignoring fenced code. */
 export function splitMarkdownSections(markdown: string): MarkdownSection[] {
   const sections: MarkdownSection[] = []
@@ -114,12 +145,11 @@ export function splitMarkdownSections(markdown: string): MarkdownSection[] {
   }
   for (const line of markdown.replace(/\r\n?/g, '\n').split('\n')) {
     if (/^\s*(```|~~~)/.test(line)) inFence = !inFence
-    const heading = inFence ? null : /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line)
+    const heading = inFence ? undefined : parseHeading(line)
     if (!heading) { body.push(line); continue }
     flush()
-    const level = heading[1]!.length
-    while (stack.length && stack[stack.length - 1]!.level >= level) stack.pop()
-    stack.push({ level, title: heading[2]!.trim() })
+    while (stack.length && stack[stack.length - 1]!.level >= heading.level) stack.pop()
+    stack.push(heading)
   }
   flush()
   return sections
