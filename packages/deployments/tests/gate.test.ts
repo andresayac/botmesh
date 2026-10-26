@@ -117,6 +117,31 @@ describe.each(stores)('publish gate over %s', (_name, make) => {
     await expect(r.publish('a', 'bot', '1.0.0', 'y')).resolves.toMatchObject({ artifact: 'y', active: true })
   })
 
+  it('caps gate details by UTF-8 bytes, not UTF-16 units, without splitting a character', async () => {
+    const r = new DeploymentRegistry(new MemoryDeploymentStore(), { maxGateDetailsBytes: 64 })
+    const details = { report: 'ñ🦜'.repeat(20) } // 40 characters, 120 bytes
+    await r.publish('a', 'bot', '1', 'x', { gate: () => ({ ok: true, details }) })
+    const [run] = await r.gateRuns('a', 'bot', '1')
+    expect(run).toMatchObject({ ok: true, truncated: true })
+    const text = run!.details as string
+    expect(Buffer.byteLength(text, 'utf8')).toBeLessThanOrEqual(64)
+    expect(JSON.stringify(details).startsWith(text)).toBe(true)
+    expect(text).not.toMatch(/[�-�]$/)
+  })
+
+  it('refuses a gate that finished after gateTimeoutMs (its reservation no longer protected the version)', async () => {
+    let now = 1_000
+    const store = new MemoryDeploymentStore({ clock: () => now })
+    const r = new DeploymentRegistry(store, { clock: () => now, gateTimeoutMs: 500 })
+    const error = await r.publish('a', 'bot', '1.0.0', 'x', { gate: () => { now += 501; return true } }).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(DeploymentGateError)
+    expect((error as DeploymentGateError).result.reason).toMatch(/gateTimeoutMs/)
+    expect(await r.get('a', 'bot', '1.0.0')).toBeUndefined()
+    const [run] = await r.gateRuns('a', 'bot', '1.0.0')
+    expect(run).toMatchObject({ ok: false })
+    expect(await r.publish('a', 'bot', '1.0.0', 'y')).toMatchObject({ artifact: 'y' })
+  })
+
   it('truncates oversized gate details without changing the decision', async () => {
     const r = new DeploymentRegistry(new MemoryDeploymentStore(), { maxGateDetailsBytes: 64 })
     const details = { report: 'x'.repeat(1000) }

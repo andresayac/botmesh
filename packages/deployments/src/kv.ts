@@ -45,6 +45,8 @@ export interface KvDeploymentStoreOptions {
 
 const DEFAULT_LIST_LIMIT = 1000
 const DEFAULT_RUNS_LIMIT = 100
+/** How long the reservation an ungated commit takes for itself holds the version (a crashed commit frees it after this). */
+const COMMIT_CLAIM_MS = 60_000
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 const isString = (v: unknown): v is string => typeof v === 'string'
@@ -155,18 +157,29 @@ export class KvDeploymentStore implements DeploymentStore {
   async commit(input: CommitInput): Promise<Deployment> {
     const { tenantId, botId, version } = input
     assertDeploymentIds(tenantId, botId, version)
+    // Writing the version document is not atomic with the bot document, so the version must
+    // be owned before it is written: a gated publish already holds its reservation, any other
+    // commit takes a short one here. Without it, two concurrent commits of one version both
+    // wrote the version document and the loser's artifact could end up as the stored one.
+    if (!input.reserved && !(await this.reserve(tenantId, botId, version, this.clock() + COMMIT_CLAIM_MS))) {
+      throw new DeploymentExistsError()
+    }
     const before = await this.bot(tenantId, botId)
     if (before?.versions.includes(version)) throw new DeploymentExistsError()
-    if (before && !input.reserved && this.isLive(before, version)) throw new DeploymentExistsError()
     // The version document first (overwriting an orphan of a crashed commit), then the
     // bot document, which is the single place that says the version exists and is active.
     const record: VersionDoc = { artifact: input.artifact, createdAt: this.clock(), ...(input.gate ? { gate: { ...input.gate } } : {}) }
-    await this.versions.in(tenantId, botId).update(version, () => record)
+    try {
+      await this.versions.in(tenantId, botId).update(version, () => record)
+    } catch (error) {
+      if (!input.reserved) await this.release(tenantId, botId, version).catch(() => undefined)
+      throw error
+    }
     let exists = false
     const written = await this.bots.in(tenantId).update(botId, (cur) => {
       exists = false
       const bot = cur ?? { activeVersion: null, versions: [], pending: {}, updatedAt: 0 }
-      if (bot.versions.includes(version) || (!input.reserved && this.isLive(bot, version))) {
+      if (bot.versions.includes(version)) {
         exists = true
         return undefined
       }

@@ -20,9 +20,12 @@ export interface PublishOptions {
 }
 
 export interface DeploymentRegistryOptions {
-  /** How long a version stays reserved while its gate runs (default 10 minutes). A gate that dies frees the version after it. */
+  /**
+   * How long a version stays reserved while its gate runs (default 10 minutes). A gate that
+   * dies frees the version after it, and a gate that passes after it is treated as failed.
+   */
   gateTimeoutMs?: number
-  /** Cap on the serialized gate `details` persisted per run (default 256 KiB); larger details are cut and flagged `truncated`. */
+  /** Cap, in UTF-8 bytes, on the serialized gate `details` persisted per run (default 256 KiB); larger details are cut (never mid-character) and flagged `truncated`. */
   maxGateDetailsBytes?: number
   /** Time source (epoch ms). Default `Date.now`. */
   clock?: () => number
@@ -71,7 +74,8 @@ export class DeploymentRegistry {
 
   private async publishGated(tenantId: string, botId: string, version: string, artifact: string, gate: DeploymentGate): Promise<Deployment> {
     const startedAt = this.clock()
-    if (!(await this.store.reserve(tenantId, botId, version, startedAt + this.gateTimeoutMs))) throw new DeploymentExistsError()
+    const reservedUntil = startedAt + this.gateTimeoutMs
+    if (!(await this.store.reserve(tenantId, botId, version, reservedUntil))) throw new DeploymentExistsError()
     let committed = false
     try {
       const candidate: DeploymentCandidate = { tenantId, botId, version, artifact }
@@ -82,6 +86,11 @@ export class DeploymentRegistry {
       } catch (error) {
         cause = error
         outcome = { ok: false, reason: error instanceof Error ? error.message : String(error) }
+      }
+      // Past gateTimeoutMs the reservation stopped protecting the version (another publish may
+      // own it by now), so a late pass is not trusted to commit.
+      if (outcome.ok && this.clock() > reservedUntil) {
+        outcome = { ...outcome, ok: false, reason: `gate took longer than gateTimeoutMs (${this.gateTimeoutMs} ms)` }
       }
       const run = await this.store.recordGateRun(this.gateRunOf(candidate, startedAt, outcome))
       if (!outcome.ok) throw new DeploymentGateError(candidate, outcome, { cause, runId: run.id })
@@ -95,7 +104,8 @@ export class DeploymentRegistry {
       committed = true
       return deployment
     } finally {
-      if (!committed) await this.store.release(tenantId, botId, version)
+      // Once expired, the reservation may belong to another publish by now: leave it alone.
+      if (!committed && this.clock() <= reservedUntil) await this.store.release(tenantId, botId, version)
     }
   }
 
@@ -106,8 +116,8 @@ export class DeploymentRegistry {
     const details = toJsonValue(outcome.details)
     if (details !== undefined) {
       const text = JSON.stringify(details)
-      if (text.length > this.maxGateDetailsBytes) {
-        run.details = text.slice(0, this.maxGateDetailsBytes)
+      if (Buffer.byteLength(text, 'utf8') > this.maxGateDetailsBytes) {
+        run.details = truncateUtf8(text, this.maxGateDetailsBytes)
         run.truncated = true
       } else {
         run.details = details
@@ -140,4 +150,17 @@ export class DeploymentRegistry {
   gateRuns(tenantId: string, botId: string, version: string, options?: { limit?: number }): Promise<GateRun[]> {
     return this.store.listGateRuns(tenantId, botId, version, options)
   }
+}
+
+/** The longest prefix of `text` that fits in `maxBytes` of UTF-8, never splitting a character. */
+function truncateUtf8(text: string, maxBytes: number): string {
+  let bytes = 0
+  let end = 0
+  for (const char of text) {
+    const size = Buffer.byteLength(char, 'utf8')
+    if (bytes + size > maxBytes) break
+    bytes += size
+    end += char.length
+  }
+  return text.slice(0, end)
 }

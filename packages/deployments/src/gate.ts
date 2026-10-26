@@ -57,7 +57,10 @@ export class DeploymentGateError extends Error {
   }
 }
 
-/** @internal */
+/**
+ * The {@link GateResult} of a gate return value: a boolean becomes `{ ok }`, anything that is
+ * not an object with a boolean `ok` becomes a failure (`gate returned an invalid result`).
+ */
 export function normalizeGateResult(value: GateResult | boolean): GateResult {
   if (typeof value === 'boolean') return { ok: value }
   if (typeof value !== 'object' || value === null || typeof value.ok !== 'boolean') {
