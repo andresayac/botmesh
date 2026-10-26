@@ -4,6 +4,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### Línea estable: `@botmesh/core` 2.0.0 y 1.0.0 para el resto (2026-10)
+- Los otros nueve paquetes públicos (`ai`, `baileys`, `meta`, `telegram`, `sqlite-store`, `redis-store`, `http`, `graph-core` y `create-botmesh`) salen de la serie 0.x: su primera versión estable será la **1.0.0** (changeset `first-stable-1-0.md`), junto a `@botmesh/core` 2.0.0. Con bumps minor se habrían quedado en 0.2.0, que semver no trata como estable.
+- `@botmesh/baileys` sale estable sobre la versión exacta `@whiskeysockets/baileys` `7.0.0-rc14`, que es el tag `latest` del propio Baileys en npm (no hay Baileys 7.x estable y la línea `6.7.x` no tiene direccionamiento LID). La política de actualización está en su README.
+
 ### Sitio de documentación en GitHub Pages (2026-10)
 - El sitio VitePress se publica en <https://andresayac.github.io/botmesh/> **a mano**, sin GitHub Actions: `pnpm docs:deploy` (`scripts/docs-deploy.mjs`) exige árbol limpio y rama `main` (`--force-branch` para otra), compila con `DOCS_BASE=/botmesh/`, pasa `docs:check`, añade `.nojekyll` y sube `docs/dist` como un único commit con `git push --force origin HEAD:gh-pages` desde un repo temporal; `--dry-run` hace todo menos el push. En GitHub: Settings → Pages → Deploy from a branch → `gh-pages` / `(root)`.
 - `docs/.vitepress/config.ts` toma la base de `DOCS_BASE` (por defecto `/`, validada: empieza y acaba en `/`) y genera `sitemap.xml`, `<link rel="canonical">` y `og:url` con `DOCS_SITE_URL` (por defecto la URL de Pages). La cabecera de la referencia TypeDoc enlaza de vuelta a la guía con la misma base.
