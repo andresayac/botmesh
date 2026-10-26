@@ -18,7 +18,7 @@ import type {
   MediaRef,
   MessageType,
 } from '@botmesh/core'
-import { toInboundLocation } from '@botmesh/core'
+import { toInboundLocation } from '@botmesh/core/spi'
 
 /* Loose Messenger webhook shapes (only the fields we read). */
 

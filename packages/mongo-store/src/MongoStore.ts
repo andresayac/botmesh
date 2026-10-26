@@ -46,10 +46,12 @@ import type {
   StoredChat,
   StoredContact,
   StoredMessage,
-  UserDataEntry,
   UserId,
 } from '@botmesh/core'
-import { legacyMessageKey, messageKey } from '@botmesh/core'
+import type {
+  UserDataEntry,
+} from '@botmesh/core/spi'
+import { legacyMessageKey, messageKey } from '@botmesh/core/spi'
 import { idString } from './ids.js'
 import { bsonSafeKeys } from './keys.js'
 import { MongoScheduleStore } from './schedules.js'

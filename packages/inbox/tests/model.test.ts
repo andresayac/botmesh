@@ -4,7 +4,8 @@
  * must have the same outcome and both must end in the same state.
  */
 import { describe, expect, it } from 'vitest'
-import { MemoryKv, type StoredMessage } from '@botmesh/core'
+import { type StoredMessage } from '@botmesh/core'
+import { MemoryKv } from '@botmesh/core/spi'
 import { KvInboxStore, MemoryInboxStore, type InboxStore } from '../src/index.js'
 import { outcome, rng } from '../../../test-utils/prng.js'
 

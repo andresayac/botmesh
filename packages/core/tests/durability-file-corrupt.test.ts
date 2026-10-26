@@ -8,7 +8,8 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { FileDurability, MemoryKv } from '../src/index.js'
+import { FileDurability } from '../src/index.js'
+import { MemoryKv } from '../src/spi.js'
 
 let dir: string
 let file: string

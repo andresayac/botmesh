@@ -5,7 +5,7 @@
  * an enabled plugin always has every declared permission granted.
  */
 import { describe, expect, it } from 'vitest'
-import { MemoryKv } from '@botmesh/core'
+import { MemoryKv } from '@botmesh/core/spi'
 import { KvPluginStore, MemoryPluginStore, PLUGIN_PERMISSIONS, PluginRegistry, type PluginPermission } from '../src/index.js'
 import { outcome, rng } from '../../../test-utils/prng.js'
 

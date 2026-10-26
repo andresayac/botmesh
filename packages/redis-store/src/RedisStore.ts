@@ -35,10 +35,13 @@ import type {
   StoredChat,
   StoredContact,
   StoredMessage,
-  UserDataEntry,
   UserId,
 } from '@botmesh/core'
-import { legacyMessageKey, messageKey, parseDuration } from '@botmesh/core'
+import type {
+  UserDataEntry,
+} from '@botmesh/core/spi'
+import { parseDuration } from '@botmesh/core'
+import { legacyMessageKey, messageKey } from '@botmesh/core/spi'
 import { RedisUserData } from './userData.js'
 import { escapeGlob } from './glob.js'
 import { matchKeys } from './keys.js'

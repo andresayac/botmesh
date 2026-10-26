@@ -9,9 +9,16 @@ import { randomBytes } from 'node:crypto'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import pg from 'pg'
 import {
-  Bot, MemoryCoordinationHub, MemoryCoordinator, flow,
-  type BotConfig, type ConversationHandoverConfig, type DurabilityBackend,
+  Bot,
+  flow,
+  type BotConfig,
+  type ConversationHandoverConfig,
+  type DurabilityBackend,
 } from '@botmesh/core'
+import {
+  MemoryCoordinationHub,
+  MemoryCoordinator,
+} from '@botmesh/core/testing'
 import { CrashableProvider, crashable } from '@botmesh/core/testing'
 import { PostgresDurability, PostgresStore } from '../src/index.js'
 

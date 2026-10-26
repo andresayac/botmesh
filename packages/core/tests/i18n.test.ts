@@ -7,13 +7,17 @@ import { describe, it, expect, vi } from 'vitest'
 
 import {
   Bot,
-  I18n,
   CORE_MESSAGES,
-  buildMessageContext,
   flow,
-  normalizeLocale,
   slashCommandsPlugin,
 } from '../src/index.js'
+import {
+  I18n,
+  normalizeLocale,
+} from '../src/spi.js'
+import {
+  buildMessageContext,
+} from '../src/internal.js'
 import type { InboundMessage, MessageContext } from '../src/index.js'
 import { MockProvider, type MockIncomingOptions } from '../src/testing/MockProvider.js'
 

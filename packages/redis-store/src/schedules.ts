@@ -23,13 +23,15 @@
  * ```
  */
 import {
+  type ScheduleStore,
+} from '@botmesh/core'
+import {
   applyScheduleComplete,
   isScheduleClaimable,
   type ClaimResult,
   type CompletePatch,
   type ScheduleRecord,
-  type ScheduleStore,
-} from '@botmesh/core'
+} from '@botmesh/core/spi'
 import type { RedisLikeClient } from './RedisStore.js'
 import { casJson, type CasIndex } from './cas.js'
 import { escapeGlob } from './glob.js'

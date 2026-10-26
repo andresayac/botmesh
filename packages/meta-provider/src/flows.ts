@@ -15,9 +15,18 @@
  */
 
 import {
-  CORE_MESSAGES, I18n, UnsupportedContentError, formOptionEntries, isFieldRequired, selectionBounds,
-  type FormContent, type FormDefinition, type FormField,
+  CORE_MESSAGES,
+  UnsupportedContentError,
+  type FormContent,
+  type FormDefinition,
+  type FormField,
 } from '@botmesh/core'
+import {
+  I18n,
+  formOptionEntries,
+  isFieldRequired,
+  selectionBounds,
+} from '@botmesh/core/spi'
 
 /** Flow JSON version emitted by default (`'YYYY-MM-DD'` dates need >= 5.0). */
 export const DEFAULT_FLOW_JSON_VERSION = '6.2'

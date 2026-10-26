@@ -69,7 +69,7 @@ namespace del store que recibe, así que el store crudo no encuentra nada con
 los ids de chat sin más.
 
 ```ts
-import { transcriptFromStore } from '@botmesh/core'
+import { transcriptFromStore } from '@botmesh/core/testing'
 
 const transcript = await transcriptFromStore(bot, [chatId], { name: 'support-123', limit: 500 })
 ```
@@ -246,7 +246,7 @@ bot nuevo.
 
 ```ts
 import { readFileSync } from 'node:fs'
-import { MemoryKv } from '@botmesh/core'
+import { MemoryKv } from '@botmesh/core/spi'
 import { parseTranscript, REPLAY_MASKS } from '@botmesh/core/testing'
 import { DeploymentGateError, DeploymentRegistry, KvDeploymentStore, goldenTranscriptGate } from '@botmesh/deployments'
 

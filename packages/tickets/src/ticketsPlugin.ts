@@ -87,7 +87,7 @@ export function ticketsPlugin(config: TicketsPluginConfig = {}): PluginSpec {
 
       const notify = async (chatId: ChatId, template: string | undefined, values: Record<string, unknown>, source: string) => {
         if (!template) return
-        try { await bot.sendTo(chatId, renderTemplate(template, values)) } catch (error) { report(error, source) }
+        try { await bot.send(chatId, renderTemplate(template, values)) } catch (error) { report(error, source) }
       }
       const step = async (source: string, fn: () => unknown) => {
         try { await fn() } catch (error) { report(error, source) }

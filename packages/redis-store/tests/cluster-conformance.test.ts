@@ -3,7 +3,8 @@
  *  (a) the cluster fake (CROSSSLOT rules, no KEYS/SCAN), layout picked automatically;
  *  (b) the single-node fake with `layout: 'cluster'` (the in-place migration setting).
  */
-import { legacyMessageKey, type StoredMessage } from '@botmesh/core'
+import { type StoredMessage } from '@botmesh/core'
+import { legacyMessageKey } from '@botmesh/core/spi'
 import { RedisDurability, RedisDurableKv, RedisStore, type RedisLikeClient } from '../src/index.js'
 import { storeKeys } from '../src/layout.js'
 import { ClusterFakeRedisClient, ScanningLayoutFakeRedisClient } from './fakeClusterRedis.js'

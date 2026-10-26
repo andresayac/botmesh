@@ -43,10 +43,12 @@ import type {
   StoredChat,
   StoredContact,
   StoredMessage,
-  UserDataEntry,
   UserId,
 } from '@botmesh/core'
-import { legacyMessageKey, messageKey } from '@botmesh/core'
+import type {
+  UserDataEntry,
+} from '@botmesh/core/spi'
+import { legacyMessageKey, messageKey } from '@botmesh/core/spi'
 import { PostgresUserData } from './userData.js'
 import { PostgresScheduleStore } from './schedules.js'
 import { jsonbSafeString, toJsonb } from './jsonb.js'

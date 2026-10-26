@@ -41,7 +41,7 @@
  * bot.on('message', (ctx) => { if (bot.isHandedOff(ctx.from)) crm.relay(ctx.from, ctx.body) })
  *
  * // The agent answers outside the pipeline:
- * await bot.sendTo(chatId, 'Hola, soy Ana 👋')
+ * await bot.send(chatId, 'Hola, soy Ana 👋')
  * await bot.resume(chatId)
  * ```
  */

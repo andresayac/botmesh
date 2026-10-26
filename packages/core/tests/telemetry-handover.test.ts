@@ -6,9 +6,22 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  Bot, MemoryCoordinationHub, MemoryCoordinator, MemoryStore, TRACE_ATTR, flow, formatTraceparent,
-  type BotConfig, type ConversationHandoverConfig, type FlowCheckpoint, type InterruptedConversation,
+  Bot,
+  MemoryStore,
+  TRACE_ATTR,
+  flow,
+  type BotConfig,
+  type ConversationHandoverConfig,
+  type FlowCheckpoint,
+  type InterruptedConversation,
 } from '../src/index.js'
+import {
+  formatTraceparent,
+} from '../src/spi.js'
+import {
+  MemoryCoordinationHub,
+  MemoryCoordinator,
+} from '../src/testing/index.js'
 import { MockProvider, createRecordingTracer, type RecordedSpan, type RecordingTracer } from '../src/testing/index.js'
 
 const tick = (ms = 20) => new Promise((r) => setTimeout(r, ms))

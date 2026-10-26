@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { Bot, flow, parseFormReply, type FormDefinition, type FormContent } from '@botmesh/core'
+import { Bot, flow, type FormDefinition, type FormContent } from '@botmesh/core'
+import { parseFormReply } from '@botmesh/core/spi'
 import { CloudAPIProvider } from '../src/CloudAPIProvider.js'
 import { parseInbound, type GraphWebhookBody } from '../src/parseInbound.js'
 import { flowJsonWarnings, flowScreenId, toFlowJson, toFlowMessage } from '../src/flows.js'

@@ -9,7 +9,8 @@
  * caller's `parse`, never trusting what the table holds.
  */
 
-import type { DurableKv, DurableKvIndex } from '@botmesh/core'
+import type { DurableKv } from '@botmesh/core'
+import type { DurableKvIndex } from '@botmesh/core/spi'
 import { assertDocId, assertTenantId, encodeSegment } from './encode.js'
 
 /** Thrown when a stored document is not valid JSON or fails the caller's `parse`. The message never includes the contents. */

@@ -2,9 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   RateLimitedError,
   ProviderError,
-  resolveStreamStrategy,
   splitMessage,
-  findSplitPoint,
   streamText,
   type MessageRef,
   type OutboundContent,
@@ -13,6 +11,10 @@ import {
   type DraftOptions,
   type ProviderCapabilities,
 } from '../src/index.js'
+import {
+  resolveStreamStrategy,
+  findSplitPoint,
+} from '../src/internal.js'
 import { createTestBot } from '../src/testing/index.js'
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))

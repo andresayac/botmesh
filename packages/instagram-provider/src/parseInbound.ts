@@ -9,7 +9,7 @@
  * (IGSID) of the sender — stable, opaque.
  */
 
-import { toInboundLocation } from '@botmesh/core'
+import { toInboundLocation } from '@botmesh/core/spi'
 import type {
   InboundEvent,
   InboundInteraction,

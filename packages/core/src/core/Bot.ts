@@ -372,7 +372,11 @@ export class Bot extends EventEmitter {
     return durable.enqueue(chatId, toOutbound(content), options)
   }
 
-  /** Send plain text to a chat. Same as `send(chatId, text)`. */
+  /**
+   * Send plain text to a chat. Same as `send(chatId, text)`.
+   *
+   * @deprecated Use {@link send}: `bot.send(chatId, text)` (a string is sent as text).
+   */
   async sendText(chatId: ChatId, text: string): Promise<SentMessage> {
     return this.send(chatId, { kind: 'text', text })
   }
@@ -509,6 +513,8 @@ export class Bot extends EventEmitter {
    * message during a handoff. Same path as {@link send} (`before`/`after('send')`
    * hooks, outbound ledger); it is the same call as {@link send}, named for handoff
    * code. Works whether or not the chat is handed off and never resumes the bot by itself.
+   *
+   * @deprecated Use {@link send}: `bot.send(chatId, content, options)` (the very same call).
    */
   sendTo(chatId: ChatId, content: string | OutboundContent, options?: SendOptions): Promise<SentMessage> {
     return this.send(chatId, content, options)
@@ -562,8 +568,9 @@ export class Bot extends EventEmitter {
   }
 
   /**
-   * Enter a conversation programmatically for the chat (or group participant) of `ctx` —
-   * either a registered one by name or an inline {@link ConversationHandler}.
+   * Enter an inline {@link ConversationHandler} for the chat (or group participant) of `ctx`.
+   * To start a REGISTERED conversation or flow, use {@link trigger} (the by-name form here is
+   * deprecated).
    *
    * Fire-and-forget by design: it returns immediately, so a handler can start a
    * conversation and return, releasing the chat's FIFO queue for the user's next
@@ -585,6 +592,13 @@ export class Bot extends EventEmitter {
    * })
    * ```
    */
+  enterConversation(handler: ConversationHandler, ctx: MessageContext): Promise<void>
+  /**
+   * @deprecated Start a registered conversation with {@link trigger}:
+   * `bot.trigger(name, { chatId: ctx.from, userId: ctx.sender, isGroup: ctx.isGroup, ifActive: 'replace' })`
+   * (safe to `await` from a handler of the same chat).
+   */
+  enterConversation(name: string, ctx: MessageContext): Promise<void>
   enterConversation(target: string | ConversationHandler, ctx: MessageContext): Promise<void> {
     const fn = typeof target === 'string' ? target : (target as ConversationFn)
     return this.runtime.enter(fn, ctx as unknown as Parameters<ConversationRuntime['enter']>[1])
@@ -592,16 +606,27 @@ export class Bot extends EventEmitter {
   }
 
   /**
-   * Register flows and/or plugins (an array is accepted). Chainable; to remove one later
-   * use the unsubscriber of {@link plug} or {@link unregisterFlow}.
+   * Register flows (an array is accepted). Chainable; remove one later with
+   * {@link unregisterFlow}. Plugins go through {@link plug}.
    */
+  use(flow: FlowBuilder | CompiledFlow | Array<FlowBuilder | CompiledFlow>): this
+  /**
+   * @deprecated Plug plugins with {@link plug} (`bot.plug(plugin)`), which also returns the
+   * unsubscriber; `use()` is for flows.
+   */
+  use(item: Plugin | Array<FlowBuilder | CompiledFlow | Plugin>): this
   use(item: FlowBuilder | CompiledFlow | Plugin | Array<FlowBuilder | CompiledFlow | Plugin>): this {
     const items = Array.isArray(item) ? item : [item]
     this.routes.use(items, (t, target) => this.registerEnterMatcher(t, target), (p) => this.plug(p))
     return this
   }
 
-  /** Same as `use(flow)`, typed for a single flow. */
+  /**
+   * Same as `use(flow)`, typed for a single flow.
+   *
+   * @deprecated Use {@link use} (`bot.use(flow)`), or {@link registerFlow} to get the flow id
+   * back and refuse a duplicate id.
+   */
   useFlow(flow: FlowBuilder | CompiledFlow): this { return this.use(flow) }
 
   /** Register a `/name` command (wins over an active conversation). Returns an unsubscriber. */
@@ -619,20 +644,28 @@ export class Bot extends EventEmitter {
   }
 
   /**
-   * Handle every message of one {@link MessageType}. `onImage`, `onAudio`, … are
-   * shorthands for it. Returns an unsubscriber.
+   * Handle every message of one {@link MessageType} (same as `when(IMAGE, handler)` and the
+   * other type triggers). Returns an unsubscriber.
    */
   onType(type: MessageType, handler: MessageHandler): () => void {
     return this.routes.onType(type, handler)
   }
-  onImage(handler: MessageHandler) { return this.onType('image', handler) }
-  onAudio(handler: MessageHandler) { return this.onType('audio', handler) }
-  onVideo(handler: MessageHandler) { return this.onType('video', handler) }
-  onDocument(handler: MessageHandler) { return this.onType('document', handler) }
-  onSticker(handler: MessageHandler) { return this.onType('sticker', handler) }
-  onLocation(handler: MessageHandler) { return this.onType('location', handler) }
-  onContact(handler: MessageHandler) { return this.onType('contact', handler) }
-  onPoll(handler: MessageHandler) { return this.onType('poll', handler) }
+  /** @deprecated Use `bot.onType('image', handler)` or `bot.when(IMAGE, handler)`. */
+  onImage(handler: MessageHandler): () => void { return this.onType('image', handler) }
+  /** @deprecated Use `bot.onType('audio', handler)` or `bot.when(AUDIO, handler)`. */
+  onAudio(handler: MessageHandler): () => void { return this.onType('audio', handler) }
+  /** @deprecated Use `bot.onType('video', handler)` or `bot.when(VIDEO, handler)`. */
+  onVideo(handler: MessageHandler): () => void { return this.onType('video', handler) }
+  /** @deprecated Use `bot.onType('document', handler)` or `bot.when(DOCUMENT, handler)`. */
+  onDocument(handler: MessageHandler): () => void { return this.onType('document', handler) }
+  /** @deprecated Use `bot.onType('sticker', handler)` or `bot.when(STICKER, handler)`. */
+  onSticker(handler: MessageHandler): () => void { return this.onType('sticker', handler) }
+  /** @deprecated Use `bot.onType('location', handler)` or `bot.when(LOCATION, handler)`. */
+  onLocation(handler: MessageHandler): () => void { return this.onType('location', handler) }
+  /** @deprecated Use `bot.onType('contact', handler)` or `bot.when(CONTACT, handler)`. */
+  onContact(handler: MessageHandler): () => void { return this.onType('contact', handler) }
+  /** @deprecated Use `bot.onType('poll', handler)` or `bot.when(POLL, handler)`. */
+  onPoll(handler: MessageHandler): () => void { return this.onType('poll', handler) }
 
   /* =========================================================================
    * DYNAMIC FLOW REGISTRY (manager)
@@ -676,6 +709,9 @@ export class Bot extends EventEmitter {
    * already running (or dormant) on the same key. Resolves `false` when the flow is
    * unknown, the subject is refused by the access lists (blacklist / whitelist) or the
    * chat is handed off; rejects when the bot is not started.
+   *
+   * @deprecated Use {@link trigger}: `bot.trigger(id, { chatId, userId, isGroup, data, body, ifActive: 'replace' })`
+   * (it resolves a {@link TriggerResult}; `result.started` is this method's boolean).
    */
   triggerFlow(id: string, target: FlowTriggerTarget, opts: FlowTriggerOptions = {}): Promise<boolean> {
     return this.ops.triggerFlow((name, o) => this.trigger(name, o), id, target, opts)

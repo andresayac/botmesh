@@ -6,9 +6,20 @@
 import { hostname } from 'node:os'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  Bot, KvDurability, MemoryDurability, MemoryKv, MemoryStore, flow,
-  type BotConfig, type DurabilityBackend, type OutboundContent, type SendOptions, type SendResult,
+  Bot,
+  MemoryDurability,
+  MemoryStore,
+  flow,
+  type BotConfig,
+  type DurabilityBackend,
+  type OutboundContent,
+  type SendOptions,
+  type SendResult,
 } from '../src/index.js'
+import {
+  KvDurability,
+  MemoryKv,
+} from '../src/spi.js'
 import { CrashableProvider, MockProvider, crashable } from '../src/testing/index.js'
 
 const bots: Bot[] = []

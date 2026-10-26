@@ -4,9 +4,19 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  Bot, MemoryCoordinationHub, MemoryCoordinator, MemoryDurability, MemoryScheduleStore, MemoryStore, ProviderNotLeaderError,
+  Bot,
+  MemoryDurability,
+  MemoryStore,
+  ProviderNotLeaderError,
   type BotConfig,
 } from '../src/index.js'
+import {
+  MemoryScheduleStore,
+} from '../src/spi.js'
+import {
+  MemoryCoordinationHub,
+  MemoryCoordinator,
+} from '../src/testing/index.js'
 import { MockProvider } from '../src/testing/index.js'
 
 const bots: Bot[] = []

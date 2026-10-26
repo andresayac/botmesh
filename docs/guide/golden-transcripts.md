@@ -66,7 +66,7 @@ the store you give it, so the raw store finds nothing under the plain chat
 ids.
 
 ```ts
-import { transcriptFromStore } from '@botmesh/core'
+import { transcriptFromStore } from '@botmesh/core/testing'
 
 const transcript = await transcriptFromStore(bot, [chatId], { name: 'support-123', limit: 500 })
 ```
@@ -240,7 +240,7 @@ fresh bot.
 
 ```ts
 import { readFileSync } from 'node:fs'
-import { MemoryKv } from '@botmesh/core'
+import { MemoryKv } from '@botmesh/core/spi'
 import { parseTranscript, REPLAY_MASKS } from '@botmesh/core/testing'
 import { DeploymentGateError, DeploymentRegistry, KvDeploymentStore, goldenTranscriptGate } from '@botmesh/deployments'
 

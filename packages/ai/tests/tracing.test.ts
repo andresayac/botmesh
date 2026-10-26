@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { MemoryStore, NOOP_TRACING, TRACE_ATTR, type BotTracing } from '@botmesh/core'
+import { MemoryStore, TRACE_ATTR, type BotTracing } from '@botmesh/core'
+import { NOOP_TRACING } from '@botmesh/core/spi'
 import { createRecordingTracer, createTestBot, type RecordingTracer } from '@botmesh/core/testing'
 
 import { aiPlugin } from '../src/plugin.js'

@@ -4,7 +4,8 @@ import { flow } from '../src/flows/FlowBuilder.js'
 import { MockProvider } from '../src/testing/MockProvider.js'
 import { RecipientUnreachableError } from '../src/core/provider.js'
 import type { BotConfig } from '../src/core/types.js'
-import { MetricsCollector, formatUptime, toPrometheus, type ConversationEndedEvent, type ConversationStartedEvent } from '../src/index.js'
+import { toPrometheus, type ConversationEndedEvent, type ConversationStartedEvent } from '../src/index.js'
+import { MetricsCollector, formatUptime } from '../src/internal.js'
 
 async function setup(config: Omit<BotConfig, 'provider'> = {}) {
   const provider = new MockProvider()

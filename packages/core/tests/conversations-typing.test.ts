@@ -8,13 +8,15 @@ import { describe, it, expect, expectTypeOf } from 'vitest'
 import { createTestBot } from '../src/testing/createTestBot.js'
 import type {
   ConversationControls,
-  ConversationFn,
   ConversationHandler,
   IdleCallback,
   MessageContext,
   RuntimeMessage,
   SentMessage,
 } from '../src/index.js'
+import type {
+  ConversationFn,
+} from '../src/internal.js'
 
 // A plugin-style augmentation (what `@botmesh/nlu` does for `ctx.tools.nlu`).
 declare module '../src/core/provider.js' {

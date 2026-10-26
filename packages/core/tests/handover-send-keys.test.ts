@@ -8,9 +8,16 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  Bot, MemoryCoordinationHub, MemoryCoordinator, MemoryDurability, MemoryStore, flow,
+  Bot,
+  MemoryDurability,
+  MemoryStore,
+  flow,
   type BotConfig,
 } from '../src/index.js'
+import {
+  MemoryCoordinationHub,
+  MemoryCoordinator,
+} from '../src/testing/index.js'
 import { MockProvider } from '../src/testing/index.js'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))

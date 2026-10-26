@@ -5,9 +5,17 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  Bot, MemoryCoordinationHub, MemoryCoordinator, flow,
-  type BotConfig, type ConversationHandoverConfig, type ConversationHandoverEvent, type InterruptedConversation,
+  Bot,
+  flow,
+  type BotConfig,
+  type ConversationHandoverConfig,
+  type ConversationHandoverEvent,
+  type InterruptedConversation,
 } from '../src/index.js'
+import {
+  MemoryCoordinationHub,
+  MemoryCoordinator,
+} from '../src/testing/index.js'
 import { MockProvider } from '../src/testing/index.js'
 import { GatedCheckpointStore } from './support/gatedCheckpointStore.js'
 

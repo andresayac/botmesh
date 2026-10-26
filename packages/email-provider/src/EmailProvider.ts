@@ -45,7 +45,6 @@ import {
   type IProvider,
   type InboundEvent,
   type InboundMessage,
-  type JsonValue,
   type LoggerLike,
   type MediaRef,
   type MediaSource,
@@ -57,6 +56,9 @@ import {
   type SerializedMediaRef,
   type UserId,
 } from '@botmesh/core'
+import {
+  type JsonValue,
+} from '@botmesh/core/testing'
 import { domainOf, looksLikeAddress, normalizeAddress, type EmailAddress } from './address.js'
 import { isAuthenticated } from './auth.js'
 import { detectBounce } from './bounce.js'

@@ -3,7 +3,7 @@ import { Bot } from '../src/core/Bot.js'
 import { MockProvider } from '../src/testing/MockProvider.js'
 import { RateLimitedError, RecipientUnreachableError } from '../src/core/provider.js'
 import type { ChatId, OutboundContent, SendOptions, SendResult } from '../src/core/types.js'
-import { runBroadcast } from '../src/index.js'
+import { runBroadcast } from '../src/internal.js'
 
 type SendImpl = (chatId: ChatId, content: OutboundContent, options?: SendOptions) => Promise<SendResult>
 

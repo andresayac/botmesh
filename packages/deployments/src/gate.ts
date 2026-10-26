@@ -6,7 +6,7 @@
  * `GateRun`, so its `details` must be JSON-safe (`toJsonValue` makes them so).
  */
 
-import type { JsonValue } from '@botmesh/core'
+import type { JsonValue } from '@botmesh/core/testing'
 import {
   replayTranscript,
   type ReplayBotFactory,

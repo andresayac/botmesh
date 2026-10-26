@@ -6,9 +6,17 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  Bot, MemoryCoordinationHub, MemoryCoordinator, MemoryDurability, flow,
-  type BotConfig, type DurabilityBackend, type MessageContext,
+  Bot,
+  MemoryDurability,
+  flow,
+  type BotConfig,
+  type DurabilityBackend,
+  type MessageContext,
 } from '../src/index.js'
+import {
+  MemoryCoordinationHub,
+  MemoryCoordinator,
+} from '../src/testing/index.js'
 import { CrashableProvider, crashable } from '../src/testing/index.js'
 import { GatedCheckpointStore } from './support/gatedCheckpointStore.js'
 

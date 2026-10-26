@@ -1,6 +1,7 @@
 /** TenantDocs unit tests: table naming, option validation, contention and disjointness from core's journal tables. */
 import { describe, expect, it } from 'vitest'
-import { KvDurability, MemoryKv, type DurableKv, type DurableKvIndex } from '@botmesh/core'
+import { type DurableKv } from '@botmesh/core'
+import { KvDurability, MemoryKv, type DurableKvIndex } from '@botmesh/core/spi'
 import { CorruptDocumentError, InvalidDocumentError, KvContentionError, PRODUCT_TABLE_PREFIX, TenantDocs, assertTenantId, encodeSegment } from '../src/index.js'
 
 interface Doc { v: number }

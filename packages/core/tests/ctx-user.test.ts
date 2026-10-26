@@ -13,12 +13,15 @@ import {
   MemoryStore,
   NamespacedStore,
   UserDataError,
-  UserDataService,
-  buildMessageContext,
   flow,
   userOf,
 } from '../src/index.js'
-import type { InboundMessage, IStore, UserDataEntry } from '../src/index.js'
+import {
+  UserDataService,
+  buildMessageContext,
+} from '../src/internal.js'
+import type { InboundMessage, IStore } from '../src/index.js'
+import type { UserDataEntry } from '../src/spi.js'
 import { createTestBot } from '../src/testing/createTestBot.js'
 import type { MockIncomingOptions, MockProvider } from '../src/testing/MockProvider.js'
 

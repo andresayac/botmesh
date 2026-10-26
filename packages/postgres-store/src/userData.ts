@@ -17,7 +17,8 @@
  * the way out.
  */
 
-import type { UserDataEntry, UserId } from '@botmesh/core'
+import type { UserId } from '@botmesh/core'
+import type { UserDataEntry } from '@botmesh/core/spi'
 
 type Query = <T>(text: string, values?: unknown[]) => Promise<{ rows: T[]; rowCount?: number | null }>
 

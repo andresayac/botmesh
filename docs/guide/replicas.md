@@ -323,7 +323,8 @@ share one `MemoryCoordinationHub` coordinate like replicas sharing Redis, and
 `coordinator.crash()` simulates a replica dying:
 
 ```ts
-import { Bot, MemoryCoordinationHub, MemoryCoordinator, MemoryStore } from '@botmesh/core'
+import { Bot, MemoryStore } from '@botmesh/core'
+import { MemoryCoordinationHub, MemoryCoordinator } from '@botmesh/core/testing'
 
 const hub = new MemoryCoordinationHub()
 const store = new MemoryStore()

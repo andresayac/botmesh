@@ -7,7 +7,7 @@
  * `senderId` — even when a later payload only carries the LID.
  */
 
-import { toInboundLocation } from '@botmesh/core'
+import { toInboundLocation } from '@botmesh/core/spi'
 import type {
   ChatInfo,
   DisconnectReason,

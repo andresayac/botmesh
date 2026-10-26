@@ -24,10 +24,12 @@ import type {
   StoredChat,
   StoredContact,
   StoredMessage,
-  UserDataEntry,
   UserId,
 } from '@botmesh/core'
-import { legacyMessageKey, messageKey } from '@botmesh/core'
+import type {
+  UserDataEntry,
+} from '@botmesh/core/spi'
+import { legacyMessageKey, messageKey } from '@botmesh/core/spi'
 import { SqliteUserData } from './userData.js'
 import { SQLiteScheduleStore, rebindScheduleStore } from './schedules.js'
 import { SQLiteDurability, rebindDurableKv } from './durability.js'

@@ -16,7 +16,8 @@
  * read the index instead of scanning (KEYS/SCAN only see one node of a cluster).
  */
 
-import type { UserDataEntry, UserId } from '@botmesh/core'
+import type { UserId } from '@botmesh/core'
+import type { UserDataEntry } from '@botmesh/core/spi'
 import type { RedisLikeClient } from './RedisStore.js'
 import { escapeGlob } from './glob.js'
 import { matchKeys } from './keys.js'

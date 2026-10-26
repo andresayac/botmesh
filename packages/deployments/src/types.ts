@@ -4,7 +4,7 @@
  * the registry and stores reject with.
  */
 
-import type { JsonValue } from '@botmesh/core'
+import type { JsonValue } from '@botmesh/core/testing'
 
 /** One published version of a bot. */
 export interface Deployment {

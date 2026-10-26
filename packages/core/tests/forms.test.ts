@@ -9,6 +9,8 @@ import {
 } from '../src/forms/validate.js'
 import { formReplyBody, parseFormReply } from '../src/forms/reply.js'
 import { UnsupportedContentError, type OutboundContent } from '../src/core/provider.js'
+import * as internal from '../src/internal.js'
+import * as spi from '../src/spi.js'
 import * as core from '../src/index.js'
 
 const signup: FormDefinition = {
@@ -308,11 +310,11 @@ describe('describe() / lint() support', () => {
     expect(lintFlows([flow('c').form(signup)]).map((x) => x.code)).toEqual(['missing-timeout'])
   })
 
-  it('exports the forms API from the package root', () => {
-    expect(typeof core.runFormStep).toBe('function')
-    expect(typeof core.parseFormReply).toBe('function')
-    expect(typeof core.validateFormValues).toBe('function')
-    expect(typeof core.assertFormDefinition).toBe('function')
+  it('exports the form renderer helpers from /spi and the step runner from /internal', () => {
+    expect(typeof internal.runFormStep).toBe('function')
+    expect(typeof spi.parseFormReply).toBe('function')
+    expect(typeof spi.validateFormValues).toBe('function')
+    expect(typeof spi.assertFormDefinition).toBe('function')
   })
 })
 

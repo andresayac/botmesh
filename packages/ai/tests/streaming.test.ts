@@ -205,7 +205,8 @@ describe('aiPlugin with stream', () => {
 
 describe('streaming + memory / RAG / tools', () => {
   it('streamReplyInChat injects user facts and RAG passages, yields the sources last and keeps them out of the history', async () => {
-    const { MemoryStore, UserDataService } = await import('@botmesh/core')
+    const { MemoryStore } = await import('@botmesh/core')
+    const { UserDataService } = await import('@botmesh/core/internal')
     const { MemoryManager } = await import('../src/memory/MemoryManager.js')
     const store = new MemoryStore()
     const users = new UserDataService(store)

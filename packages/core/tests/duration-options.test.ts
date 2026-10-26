@@ -4,7 +4,9 @@
  * construction with a `ConfigValidationError` that names the option.
  */
 import { afterEach, describe, expect, it } from 'vitest'
-import { Bot, ConfigValidationError, MemoryCoordinator, MemoryLeaseProvider, type BotConfig } from '../src/index.js'
+import { Bot, ConfigValidationError, type BotConfig } from '../src/index.js'
+import { MemoryLeaseProvider } from '../src/spi.js'
+import { MemoryCoordinator } from '../src/testing/index.js'
 import { MockProvider } from '../src/testing/index.js'
 import { normalizeTypingConfig } from '../src/internal.js'
 import { computeBackoff } from '../src/durability/backoff.js'

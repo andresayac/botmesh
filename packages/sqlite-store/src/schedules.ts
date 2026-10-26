@@ -17,14 +17,16 @@
 
 import type BetterSqlite3 from 'better-sqlite3'
 import {
+  type ScheduleStore,
+} from '@botmesh/core'
+import {
   applyScheduleComplete,
   isScheduleClaimable,
   type ClaimResult,
   type CompletePatch,
   type ScheduleKind,
   type ScheduleRecord,
-  type ScheduleStore,
-} from '@botmesh/core'
+} from '@botmesh/core/spi'
 
 /**
  * Idempotent schema of the schedules table, plus `schedule_fences`: the last fencing token

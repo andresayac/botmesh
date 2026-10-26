@@ -768,13 +768,17 @@ export interface MessageContext<TTools extends object = DefaultTools, TRaw = unk
 
   /* Reply helpers — every reply targets `this.from` (unchanged surface) */
   /* Text helpers accept {@link ReplyOptions}: `{ typing }` overrides `BotConfig.typing`, `{ delay }` pauses first. */
-  /** Send text to this chat. Same as {@link MessageContext.reply} (mirrors the flow DSL's `.say`). */
+  /**
+   * Send text to this chat. Same as {@link MessageContext.reply}.
+   *
+   * @deprecated Use {@link MessageContext.reply} (`ctx.reply(text)`). The flow DSL's `.say()` step is not affected.
+   */
   say(text: string, opts?: ReplyOptions): Promise<SentMessage>
-  /** Send text to this chat (`ctx.from`). The canonical text reply; `say`, `answer` and `text` are aliases. */
+  /** Send text to this chat (`ctx.from`). The canonical text reply. */
   reply(text: string, opts?: ReplyOptions): Promise<SentMessage>
-  /** Alias of {@link MessageContext.reply}. */
+  /** @deprecated Use {@link MessageContext.reply} (`ctx.reply(text)`). */
   answer(text: string, opts?: ReplyOptions): Promise<SentMessage>
-  /** Alias of {@link MessageContext.reply}. */
+  /** @deprecated Use {@link MessageContext.reply} (`ctx.reply(text)`). */
   text(t: string, opts?: ReplyOptions): Promise<SentMessage>
   photo(source: MediaSource, caption?: string): Promise<SentMessage>
   video(source: MediaSource, caption?: string, opts?: { gifPlayback?: boolean; ptv?: boolean }): Promise<SentMessage>
