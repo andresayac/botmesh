@@ -189,6 +189,9 @@ export class TikTokProvider implements IProvider<unknown> {
 
   constructor(config: TikTokProviderConfig) {
     if (!config.businessId) throw new Error('TikTokProvider requires `businessId` (the open_id of the TikTok account).')
+    if (typeof config.accessToken !== 'function' && (typeof config.accessToken !== 'string' || !config.accessToken)) {
+      throw new Error('TikTokProvider requires `accessToken`: the account access token, or a function that returns the current one.')
+    }
     this.config = config
     this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
     if (!config.appSecret && !config.allowUnsignedWebhooks) {

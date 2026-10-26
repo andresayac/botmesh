@@ -89,6 +89,12 @@ export class TwilioProvider implements IProvider<TwilioWebhookParams> {
     if (!config.authToken && !(config.apiKeySid && config.apiKeySecret)) {
       throw new Error('TwilioProvider requires `authToken` or `apiKeySid` + `apiKeySecret` for REST calls.')
     }
+    if (config.whatsappFrom && channelOf(config.whatsappFrom) !== 'whatsapp') {
+      throw new Error(`TwilioProvider \`whatsappFrom\` must carry the whatsapp: prefix, e.g. 'whatsapp:${config.whatsappFrom.trim()}'.`)
+    }
+    if (config.webhookUrl && !/^https?:\/\/[^/?#]+/i.test(config.webhookUrl)) {
+      throw new Error('TwilioProvider `webhookUrl` must be the absolute public URL Twilio calls (https://host/path), exactly as set in the console.')
+    }
     // `??` per field: an explicit `undefined` (e.g. an unset env var) keeps the default.
     this.config = {
       ...config,
@@ -138,7 +144,7 @@ export class TwilioProvider implements IProvider<TwilioWebhookParams> {
    * status to answer: 200 accepted, 400 unreadable, 403 bad/missing signature.
    */
   ingest(rawEvent: unknown, headers?: HeaderBag): number {
-    const url = this.config.webhookUrl ?? this.urlFromHeaders(headers)
+    const url = this.config.webhookUrl || this.urlFromHeaders(headers)
     return this.handleWebhook({ url: url ?? '', body: rawEvent, ...(headers ? { headers } : {}) }, true)
   }
 
