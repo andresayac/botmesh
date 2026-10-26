@@ -26,6 +26,7 @@ describe('TikTokProvider — transport failures are typed', () => {
 
   it('typing and markRead reject with a ProviderError too', async () => {
     const p = make(down)
+    await p.start()   // connected: presence hints reach the transport
     expect(await p.typing('dm:c1').catch((e: unknown) => e)).toBeInstanceOf(ProviderError)
     expect(await p.markRead([{ id: 'm', chatId: 'dm:c1' }]).catch((e: unknown) => e)).toBeInstanceOf(ProviderError)
   })

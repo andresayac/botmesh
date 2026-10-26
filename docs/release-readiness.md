@@ -24,7 +24,7 @@ Per package:
 
 | Package | Stable verdict | Blocking before `pre exit` |
 | --- | --- | --- |
-| `@botmesh/core` | GO after one beta | Fix `ChaosProvider.selfId` typing (TS2420 under `exactOptionalPropertyTypes`); decide on the first-`ask` checkpoint of `.persistent()` flows (fix or keep documented). |
+| `@botmesh/core` | GO after one beta | None left from this report: `ChaosProvider.selfId` is fixed and `.persistent()` flows checkpoint at their first `ask` (see [core](#core)). |
 | `@botmesh/ai` | Conditional | Move internal helpers and wire types to `/internal`, `MockAIProvider` to `/testing`; freeze the mutable exports; settle `onStreamEnd`. |
 | `@botmesh/baileys` | Conditional | Upstream is still `7.0.0-rc14` (no stable 7.x exists). Type native values as opaque, trim the JID helpers and mappers to `/internal`, rename `pairingCode`, deprecate `debug`. |
 | `@botmesh/meta` | Conditional | Deprecate the duplicate `GraphClient`/`toProviderError`, stop re-exporting the verify helpers, mark the session-window plumbing `@internal`. |
@@ -181,7 +181,7 @@ with Node 24 and pnpm 11.9.0. Real servers ran in Docker on `127.0.0.1`.
 | Tarballs | `pnpm pack:smoke` | OK for the 10 public packages; core entries `.`, `testing`, `testing/vitest`, `dev`, `spi`, `internal` imported from the tarball; the 10 create-botmesh templates install and boot. Nothing published. |
 | Release plan | `pnpm changeset status --verbose` | OK: 59 pending changesets. core **major** → `2.0.0-alpha.3`; ai, baileys, graph-core, meta, redis-store, sqlite-store, telegram, http, create-botmesh **minor** → `0.2.0-alpha.1`. |
 | Soak | `pnpm bench:soak` | 7 rounds of about 2,000 messages, 5,497 to 7,024 msg/s, p99 lag 33 to 45 ms, 0 errors. Heap 16.4 → 24.4 MB (948 KB/round), 21.8 MB after erasing the fresh chats. Stop under load 5 ms, no active handles. `i18n.reported` grows per new sender but is capped at 10,000 (`MAX_REPORTED`), which closes the earlier soak note. |
-| Docs | `pnpm run docs`, `pnpm run docs:site`, `pnpm docs:check` | OK. docs-check: 0 errors, 0 warnings. TypeDoc reports 29 warnings: types that live on `/spi` or `/internal` are referenced from main-entry docs, but TypeDoc only documents `src/index.ts`. |
+| Docs | `pnpm run docs`, `pnpm run docs:site`, `pnpm docs:check` | OK. docs-check: 0 errors, 0 warnings. TypeDoc reported 29 warnings at the time (types on `/spi` referenced from main-entry docs); since `co/core` it documents the main entry, `/spi` and `/testing` and reports 0. |
 
 Servers for the real-server run:
 
@@ -216,26 +216,38 @@ the main results.**
 
 ### core
 
-- MEDIUM (typing): `ChaosProvider.selfId` is typed `UserId | null | undefined` and fails
-  `implements IProvider` under `exactOptionalPropertyTypes` (TS2420). Small fix.
-- MEDIUM (documented): `.persistent()` writes no checkpoint on its first `.ask()`
-  unless durability or coordination is on.
-- LOW: `IMessageContext.acknowledge` is optional in the type though always present.
-- LOW: `OutsideSessionWindowError`'s default message embeds the chat id (providers pass
-  their own message).
+Closed after this report (branch `co/core`, see the `[Unreleased]` section of the
+changelog and the migration guides):
+
+- `ChaosProvider.selfId` (and `RecordingProvider.selfId`) return `UserId | null`:
+  no TS2420 under `exactOptionalPropertyTypes`.
+- `.persistent()` flows checkpoint when they start, so a restart at the first `.ask()`
+  resumes (tested with `SQLiteStore` and a restart).
+- New `'stopping'` lifecycle event, before the drain and the transport stop;
+  `@botmesh/ai` aborts in-flight model calls on it.
+- One presence policy while disconnected across core and the 13 channels:
+  `typing`/`markRead` are a best-effort no-op, logged at debug and counted in
+  `metrics().presenceSkipped` (and `botmesh.presence.skipped` in `@botmesh/otel`), written
+  into the `IProvider` contract and checked by
+  `assertPresenceWhileDisconnected` in every channel-contract test.
+- `OutsideSessionWindowError` / `RecipientUnreachableError` default messages carry no
+  chat id.
+- Durable outbox: split parts keep their order on retries, and the sweeper splits an
+  over-limit journaled record with deterministic `key#n` part keys.
+- TypeDoc documents `/spi` and `/testing` (named modules); `pnpm run docs` reports 0
+  warnings.
+- `IMessageContext.acknowledge` is required in the type; `ctx.delete()` after `stop()`
+  rejects with `BotNotRunningError`; unknown event kinds are ignored (forward
+  compatibility); `lang` vs `i18n.defaultLocale` accepts `es` / `es-MX`; the `logIds`
+  default no longer reuses a `'raw'` span policy; tests for the remaining deprecated
+  aliases.
+
+Still open:
+
 - LOW (to confirm on a real server): the automatic defer of a Discord slash command is
   type 5 ("thinking…"), which a later plain channel message may not replace. Answering
-  with `ctx.acknowledge(text)` first avoids it.
-- LOW (ops): AI calls are aborted on `'stopped'`, after the transport stopped; an
-  earlier `'stopping'` hook would need a lifecycle event.
-- Durable `bot.enqueue` now splits long text into journaled parts; the sweeper sends
-  them as journaled. `ctx.edit` text over the limit is not split (by design).
-- TypeDoc covers only the main entry (29 warnings for `/spi` and `/internal` types).
-- Leftovers noted by reviewers: tests for every deprecated alias (only the most used
-  are exercised), the `logIds` default reusing a `'raw'` tracing id policy, the
-  `BotNotRunningError` guard not covering `markRead`/`deleteMessage`, unknown event
-  kinds reported instead of ignored (forward compatibility), and `lang` vs
-  `i18n.defaultLocale` compared by exact tag (`es` vs `es-MX` throws).
+  with `ctx.acknowledge(text)` first avoids it (channel item, not core).
+- `ctx.edit` text over the limit is not split (by design).
 
 ### Other public packages
 
@@ -244,7 +256,7 @@ the main results.**
   constructors take the whole `AIConfig`; the Azure host heuristic for `max_tokens`
   covers only `*.openai.azure.com`; the Kimi default model is unconfirmed.
 - **baileys**: upstream `7.0.0-rc14` (no stable 7.x); native types leak (`WAMessage`,
-  `socket`, `auth`); `markRead`/`typing` do nothing while disconnected; a `read` and a
+  `socket`, `auth`); a `read` and a
   `played` receipt can both arrive for one voice note; when `ffmpeg-static` is
   installed without its binary the error hint loops.
 - **meta**: duplicate `GraphClient`/`toProviderError`; three ways to verify a webhook;
@@ -309,7 +321,7 @@ switching `workspace:*` to `workspace:^`, a changeset and a README section.
 
 - [ ] Fix or record as permanent each item of the per-package table in
   [Verdict](#verdict).
-- [ ] Fix `ChaosProvider.selfId` (TS2420) and decide the first-`ask` checkpoint.
+- [x] Fix `ChaosProvider.selfId` (TS2420) and decide the first-`ask` checkpoint (both fixed).
 - [ ] Settle `debug` vs `logger` and the ingest/error-mapper names across providers.
 - [ ] Add sqlite-store schema versioning.
 - [ ] Watch upstream Baileys for a stable 7.x.

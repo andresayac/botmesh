@@ -53,6 +53,7 @@ describe('InstagramProvider — IProvider signature parity', () => {
   it('accepts interface-shaped arguments on the concrete class', async () => {
     const calls = mockFetch()
     const p = new InstagramProvider(cfg)
+    await p.start()
 
     await p.markRead([ref])
     await p.typing('IGSID_1', 'typing')

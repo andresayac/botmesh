@@ -51,6 +51,11 @@ export interface LifecycleState {
    */
   pacedSendsOpen: boolean
   connState: ConnectionState
+  /**
+   * The provider reported a connection state since `start()` (any `connection` event).
+   * Until then presence hints are not gated on `connState` (see `presence.ts`).
+   */
+  connReported: boolean
   /** Aborted by `stop()`: cancels running broadcasts so nothing is sent through a stopped provider. */
   lifecycleAbort: AbortController
   /**
@@ -67,6 +72,7 @@ export function createLifecycleState(): LifecycleState {
     acceptingInbound: false,
     pacedSendsOpen: false,
     connState: 'closed',
+    connReported: false,
     lifecycleAbort: new AbortController(),
     sendsAbort: new AbortController(),
   }

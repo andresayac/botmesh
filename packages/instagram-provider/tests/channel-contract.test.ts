@@ -2,8 +2,8 @@
  * Cross-channel contract: epoch-ms timestamps (checked with the reusable helper from
  * `@botmesh/core/testing`) and the declared text limit.
  */
-import { describe, it, expect } from 'vitest'
-import { assertCapabilityContract, assertInboundContract } from '@botmesh/core/testing'
+import { describe, it, expect, vi } from 'vitest'
+import { assertCapabilityContract, assertPresenceWhileDisconnected, assertInboundContract } from '@botmesh/core/testing'
 import { parseInbound, type IgWebhookBody } from '../src/parseInbound.js'
 import { InstagramProvider } from '../src/InstagramProvider.js'
 
@@ -55,5 +55,16 @@ describe('request timeout', () => {
 
   it('rejects an invalid requestTimeoutMs', () => {
     expect(() => new InstagramProvider({ accessToken: 'T', verifyToken: 'v', appSecret: 's', requestTimeoutMs: 0 })).toThrow(/requestTimeoutMs/)
+  })
+})
+
+describe('presence while disconnected', () => {
+  it('markRead / typing resolve without contacting the transport before start()', async () => {
+    vi.stubGlobal('fetch', async () => { throw new Error('offline: the transport must not be contacted') })
+    try {
+      await assertPresenceWhileDisconnected(new InstagramProvider({ accessToken: 'T', verifyToken: 'v', appSecret: 's' }), { chatId: 'chat-1' })
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

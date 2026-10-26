@@ -78,6 +78,7 @@ describe('InstagramProvider', () => {
   it('typing sends sender_action typing_on / typing_off', async () => {
     const calls = mockFetch(() => ({ body: { recipient_id: 'IGSID_1' } }))
     const p = new InstagramProvider(baseCfg)
+    await p.start()
     await p.typing('IGSID_1')
     await p.typing('IGSID_1', 'paused')
     expect(JSON.parse(calls[0].init!.body as string).sender_action).toBe('typing_on')
@@ -87,6 +88,7 @@ describe('InstagramProvider', () => {
   it('markRead posts sender_action mark_seen (deduped per chat)', async () => {
     const calls = mockFetch(() => ({ body: {} }))
     const p = new InstagramProvider(baseCfg)
+    await p.start()
     await p.markRead([{ id: 'mid.1', chatId: 'IGSID_1' }, { id: 'mid.2', chatId: 'IGSID_1' }])
     expect(calls).toHaveLength(1)
     const body = JSON.parse(calls[0].init!.body as string)

@@ -52,13 +52,14 @@ function wrap(logger: LoggerLike, level = 'warn'): LoggerLike & { level: string;
 /**
  * How a chat/sender id appears in the bot's log lines (`BotConfig.logIds`): hashed by
  * default. Without an explicit policy and with tracing on, the span policy is reused, so a
- * log line and a span of the same chat carry the same hash.
+ * log line and a span of the same chat carry the same hash — unless the spans keep raw ids
+ * (`telemetry.ids: 'raw'`): the logs still hash them then (raw ids in logs need `logIds: 'raw'`).
  */
 export function logIdPolicy(
   config: Pick<BotConfig, 'logIds' | 'telemetry'>,
   tracing: Pick<TracingImpl, 'idAttribute'> | null,
 ): (id: string | undefined) => string | undefined {
-  if (config.logIds === undefined && tracing) return (id) => (id === undefined ? undefined : tracing.idAttribute(id))
+  if (config.logIds === undefined && tracing && config.telemetry?.ids !== 'raw') return (id) => (id === undefined ? undefined : tracing.idAttribute(id))
   const policy = createIdPolicy({ ids: config.logIds ?? 'hash', idKey: config.telemetry?.idKey })
   return (id) => (id === undefined ? undefined : policy(id))
 }

@@ -601,10 +601,13 @@ export class RateLimitedError extends ProviderError {
     this.name = 'RateLimitedError'
   }
 }
-/** Recipient can't be initiated / permanently unreachable (Telegram 403). */
+/**
+ * Recipient can't be initiated / permanently unreachable (Telegram 403). The chat is on
+ * {@link RecipientUnreachableError.chatId}; the default message leaves it out (it ends up in logs).
+ */
 export class RecipientUnreachableError extends ProviderError {
   constructor(public readonly chatId: ChatId, message?: string) {
-    super(message ?? `Recipient unreachable: ${chatId}`)
+    super(message ?? 'Recipient unreachable')
     this.name = 'RecipientUnreachableError'
   }
 }
@@ -623,10 +626,13 @@ export class MediaTooLargeError extends PayloadTooLargeError {
     this.name = 'MediaTooLargeError'
   }
 }
-/** Outside the send window for free-form content (Cloud API 24h window). */
+/**
+ * Outside the send window for free-form content (Cloud API 24h window). The chat is on
+ * {@link OutsideSessionWindowError.chatId}; the default message leaves it out (it ends up in logs).
+ */
 export class OutsideSessionWindowError extends ProviderError {
   constructor(public readonly chatId: ChatId, message?: string) {
-    super(message ?? `Outside session window for ${chatId}; a template is required`)
+    super(message ?? 'Outside the session window; a template is required')
     this.name = 'OutsideSessionWindowError'
   }
 }
@@ -720,7 +726,15 @@ export interface IProvider<TRaw = unknown> {
    * performs the operation or rejects (`UnsupportedContentError`/`ProviderError`) for a
    * target it cannot handle; it is never a silent stand-in for "not supported". Only
    * transient UI hints may be skipped silently (e.g. typing `paused` where the transport
-   * has no stop primitive). `assertCapabilityContract` (`@botmesh/core/testing`) checks it. */
+   * has no stop primitive). `assertCapabilityContract` (`@botmesh/core/testing`) checks it.
+   * PRESENCE WHILE DISCONNECTED (normative, same for every provider): `markRead` and
+   * `typing` are best-effort hints. While the provider's last emitted connection state is
+   * not `'ready'` (before `start()` connected, while reconnecting, after `stop()`), they
+   * resolve without contacting the transport: no throw, no queueing, no retry later. Once
+   * connected, a transport failure still rejects. The Bot applies the same rule before
+   * calling them (it skips the hint, logs it at debug and counts it in
+   * `metrics().presenceSkipped`), so a direct caller of the provider sees the same
+   * behaviour. `checkPresenceWhileDisconnected` (`@botmesh/core/testing`) checks it. */
   markRead?(refs: MessageRef[]): Promise<void>
   typing?(chatId: ChatId, state?: 'typing' | 'recording' | 'paused'): Promise<void>
   deleteMessage?(ref: MessageRef): Promise<void>
@@ -813,7 +827,7 @@ export interface MessageContext<TTools extends object = DefaultTools, TRaw = unk
    * `text` as a regular reply instead.
    */
   interaction?: { id: string; data: string; respondBy?: number }
-  acknowledge?(text?: string): Promise<void>
+  acknowledge(text?: string): Promise<void>
 
   /**
    * Present only on the context the `CALL` trigger receives (`type === 'call'`):

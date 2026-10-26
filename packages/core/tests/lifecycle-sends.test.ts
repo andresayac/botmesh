@@ -93,3 +93,35 @@ describe('concurrent start()/stop()', () => {
     await expect(bot.send('a@s', 'x')).rejects.toBeInstanceOf(BotNotRunningError)
   })
 })
+
+describe('message actions after stop()', () => {
+  it('ctx.delete() rejects with BotNotRunningError and never reaches the provider', async () => {
+    const { bot, provider } = make()
+    const deleted: unknown[] = []
+    ;(provider as unknown as { deleteMessage: (ref: unknown) => Promise<void> }).deleteMessage = async (ref) => { deleted.push(ref) }
+    let ctxRef: import('../src/index.js').MessageContext | undefined
+    bot.when('hola', (ctx) => { ctxRef = ctx })
+    await bot.start()
+    provider.incoming('hola', { from: 'u1' })
+    await new Promise((r) => setTimeout(r, 20))
+    await bot.stop()
+    const error = await ctxRef!.delete().then(() => undefined, (e: unknown) => e)
+    expect(error).toBeInstanceOf(BotNotRunningError)
+    expect((error as BotNotRunningError).operation).toBe('delete')
+    expect(deleted).toEqual([])
+  })
+
+  it('ctx.markRead() after stop() is a best-effort no-op (presence hint), not an error', async () => {
+    const { bot, provider } = make()
+    const reads: unknown[] = []
+    ;(provider as unknown as { markRead: (refs: unknown) => Promise<void> }).markRead = async (refs) => { reads.push(refs) }
+    let ctxRef: import('../src/index.js').MessageContext | undefined
+    bot.when('hola', (ctx) => { ctxRef = ctx })
+    await bot.start()
+    provider.incoming('hola', { from: 'u1' })
+    await new Promise((r) => setTimeout(r, 20))
+    await bot.stop()
+    await expect(ctxRef!.markRead()).resolves.toBeUndefined()
+    expect(reads).toEqual([])
+  })
+})

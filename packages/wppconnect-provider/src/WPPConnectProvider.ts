@@ -157,7 +157,11 @@ export class WPPConnectProvider implements IProvider<unknown> {
     return () => { this.listeners.delete(listener) }
   }
 
+  /** The last connection state this provider emitted was `'ready'` (presence hints are skipped otherwise). */
+  private presenceReady = false
+
   private fan(e: InboundEvent): void {
+    if (e.kind === 'connection') this.presenceReady = e.update.state === 'ready'
     for (const listener of this.listeners) {
       try {
         void Promise.resolve(listener(e))
@@ -254,6 +258,7 @@ export class WPPConnectProvider implements IProvider<unknown> {
   }
 
   async stop(): Promise<void> {
+    this.presenceReady = false
     this.emitConnection('closed')
   }
 
@@ -415,12 +420,16 @@ export class WPPConnectProvider implements IProvider<unknown> {
 
   /** send-seen marks whole chats as read (WhatsApp Web has no per-message receipt). */
   async markRead(refs: MessageRef[]): Promise<void> {
+    // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
+    if (!this.presenceReady) return
     for (const chatId of new Set(refs.map((r) => r.chatId))) {
       await this.api('POST', 'send-seen', target(chatId), chatId)
     }
   }
 
   async typing(chatId: ChatId, state: 'typing' | 'recording' | 'paused' = 'typing'): Promise<void> {
+    // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
+    if (!this.presenceReady) return
     if (state === 'recording') await this.api('POST', 'recording', { ...target(chatId), value: true, duration: 5 }, chatId)
     else await this.api('POST', 'typing', { ...target(chatId), value: state === 'typing' }, chatId)
   }

@@ -197,7 +197,11 @@ export class DiscordProvider implements IProvider<unknown> {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
   }
+  /** The last connection state this provider emitted was `'ready'` (presence hints are skipped otherwise). */
+  private presenceReady = false
+
   private fan(e: InboundEvent): void {
+    if (e.kind === 'connection') this.presenceReady = e.update.state === 'ready'
     for (const listener of this.listeners) {
       try {
         void Promise.resolve(listener(e))
@@ -225,6 +229,7 @@ export class DiscordProvider implements IProvider<unknown> {
   }
 
   async stop(): Promise<void> {
+    this.presenceReady = false
     await this.gateway?.stop()
     this.gateway = null
     for (const entry of this.interactions.values()) if (entry.timer) clearTimeout(entry.timer)
@@ -448,6 +453,8 @@ export class DiscordProvider implements IProvider<unknown> {
    * its own or when a message is sent), so 'paused' is a no-op.
    */
   async typing(chatId: ChatId, state?: 'typing' | 'recording' | 'paused'): Promise<void> {
+    // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
+    if (!this.presenceReady) return
     if (state === 'paused') return
     await this.rest.triggerTyping(chatId)
   }

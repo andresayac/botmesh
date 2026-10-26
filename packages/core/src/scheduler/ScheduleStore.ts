@@ -87,7 +87,7 @@ export interface ScheduleStore {
 }
 
 /**
- * Options of a {@link Scheduler} (and of `BotConfig.scheduler`). They only affect
+ * Options of a `Scheduler` (and of `BotConfig.scheduler`). They only affect
  * durable tasks — plain `schedule/every/delay(spec, fn)` tasks stay in-memory.
  */
 export interface SchedulerOptions {

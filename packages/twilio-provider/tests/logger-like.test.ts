@@ -30,6 +30,7 @@ describe('TwilioProvider logs carry no personal data', () => {
       http: { fetch, resolver: async () => ['93.184.216.34'] },
     })
     const chat = 'whatsapp:+573001112233'
+    await provider.start()
     provider.ingest({ MessageSid: `SM${'a'.repeat(32)}`, From: chat, To: 'whatsapp:+1', Body: 'hi' })
     await provider.typing(chat)
     const other = 'whatsapp:+573009998877'

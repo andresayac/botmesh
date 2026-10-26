@@ -66,4 +66,16 @@ describe('default locale', () => {
   it('rejects an invalid lang', () => {
     expect(() => new Bot({ provider: new MockProvider(), lang: '' })).toThrow(/lang/)
   })
+
+  it('lang and i18n.defaultLocale of the same language (es / es-MX) are accepted; the more specific tag wins', () => {
+    const defaultOf = (bot: Bot) => (bot as unknown as { i18n: I18n }).i18n.defaultLocale.toLowerCase()
+    expect(defaultOf(new Bot({ provider: new MockProvider(), lang: 'es', i18n: { defaultLocale: 'es-MX' } }))).toBe('es-mx')
+    expect(defaultOf(new Bot({ provider: new MockProvider(), lang: 'es-MX', i18n: { defaultLocale: 'es' } }))).toBe('es-mx')
+    expect(defaultOf(new Bot({ provider: new MockProvider(), lang: 'pt_BR', i18n: { defaultLocale: 'pt-BR' } }))).toBe('pt-br')
+  })
+
+  it('lang and i18n.defaultLocale of different languages (or regions) still throw', () => {
+    expect(() => new Bot({ provider: new MockProvider(), lang: 'en', i18n: { defaultLocale: 'es-MX' } })).toThrow(/lang/)
+    expect(() => new Bot({ provider: new MockProvider(), lang: 'es-AR', i18n: { defaultLocale: 'es-MX' } })).toThrow(/lang/)
+  })
 })

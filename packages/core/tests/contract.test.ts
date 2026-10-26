@@ -79,4 +79,17 @@ describe('IProvider v2 contract', () => {
     expect(new UnsupportedContentError('buttons').kind).toBe('buttons')
     expect(new RateLimitedError(1500).retryAfterMs).toBe(1500)
   })
+
+  it('default messages of chat-scoped errors never embed the chat id (it lands in logs); the id stays on .chatId', () => {
+    const chat = '573001112233@s.whatsapp.net'
+    const outside = new OutsideSessionWindowError(chat)
+    expect(outside.message).not.toContain(chat)
+    expect(outside.message).toMatch(/session window/i)
+    expect(outside.chatId).toBe(chat)
+    const unreachable = new RecipientUnreachableError(chat)
+    expect(unreachable.message).not.toContain(chat)
+    expect(unreachable.chatId).toBe(chat)
+    // An explicit message is kept as is.
+    expect(new OutsideSessionWindowError(chat, 'custom').message).toBe('custom')
+  })
 })

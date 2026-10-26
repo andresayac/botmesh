@@ -23,7 +23,7 @@
  * import { KvDurability, MemoryKv, messageKey } from '@botmesh/core/spi'
  * ```
  *
- * @packageDocumentation
+ * @module @botmesh/core/spi
  */
 
 // The contracts themselves (also exported by '@botmesh/core', repeated here so a backend

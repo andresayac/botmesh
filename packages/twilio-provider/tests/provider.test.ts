@@ -29,6 +29,8 @@ function make(responder?: (c: Call) => FakeResponse, extra: Record<string, unkno
     whatsappFrom: 'whatsapp:+14155238886', smsFrom: '+15017122661',
     webhookUrl: HOOK, http, ...extra,
   })
+  // As after start(), without its 'connection' event in `events`: presence hints go out.
+  ;(provider as unknown as { presenceReady: boolean }).presenceReady = true
   const events: InboundEvent[] = []
   provider.onEvent((e) => { events.push(e) })
   return { provider, calls, events }

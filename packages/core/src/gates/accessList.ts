@@ -66,7 +66,7 @@ export interface AccessListsSnapshot {
   whitelist: WhitelistSnapshot
 }
 
-/** Outcome of {@link checkAccess}. Anything other than `'allowed'` means the message is dropped. */
+/** Outcome of `checkAccess`. Anything other than `'allowed'` means the message is dropped. */
 export type AccessDecision = 'allowed' | 'blacklisted' | 'not-whitelisted'
 
 /** Normalize `string | string[]` input and validate every id BEFORE any mutation. */

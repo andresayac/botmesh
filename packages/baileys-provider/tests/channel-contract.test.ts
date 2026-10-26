@@ -3,7 +3,7 @@
  * reusable helper from `@botmesh/core/testing` against this provider's normalization path.
  */
 import { describe, it, expect } from 'vitest'
-import { assertCapabilityContract, assertInboundContract } from '@botmesh/core/testing'
+import { assertCapabilityContract, assertInboundContract, assertPresenceWhileDisconnected } from '@botmesh/core/testing'
 import { BaileysProvider } from '../src/BaileysProvider.js'
 import type { WAMessage } from '@whiskeysockets/baileys'
 import { IdentityStore } from '../src/identity.js'
@@ -36,6 +36,10 @@ describe('Baileys toInbound — inbound contract', () => {
 describe('capability contract', () => {
   it('capability flags agree with the optional methods (unsupported = absent)', () => {
     assertCapabilityContract(new BaileysProvider())
+  })
+
+  it('markRead / typing resolve without a socket call while not connected', async () => {
+    await assertPresenceWhileDisconnected(new BaileysProvider(), { chatId: PN })
   })
 })
 

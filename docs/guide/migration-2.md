@@ -20,6 +20,11 @@ behaviour where that is still possible. Most bots need at most two edits:
 | [`MemoryCoordinationHub` evicts idle chats](#memorycoordinationhub-evicts-idle-chats) | Tests that inspect the hub | Nothing |
 | [`broadcast({ maxRetries })`](#broadcast-retries) | Broadcasts | Rename to `retries` (alias kept) |
 | [WhatsApp Flow labels default to English](#whatsapp-flow-labels-default-to-english) | `@botmesh/meta` forms published with `toFlowJson` / `publishForm` | Pass `lang: 'es'` |
+| [Presence hints while disconnected](#presence-hints-while-disconnected) | Code that expected `typing()` / `markRead()` to throw while offline; custom providers | Nothing; custom providers resolve while not connected |
+| [`'stopping'` event](#stopping-event) | Plugins that cancel work on `'stopped'` | Listen to `'stopping'` to cancel before the transport stops |
+| [Persistent flows checkpoint when they start](#persistent-flows-checkpoint-when-they-start) | Stores that count checkpoint writes | Nothing (one more write per flow entry) |
+| [Error messages without chat ids](#error-messages-without-chat-ids) | Code that parsed the chat out of an error message | Read `error.chatId` |
+| [Smaller fixes](#smaller-fixes) | `ctx.delete()` after `stop()`, `ctx.acknowledge`, unknown event kinds, `lang` + `i18n.defaultLocale`, `ChaosProvider.selfId` | See the section |
 
 ## Built-in texts default to English
 
@@ -118,11 +123,14 @@ back-off).
 
 ## Invalid provider events
 
-An event that breaks the normalized contract (not an object, an unknown `kind`,
-a message without `chatId`, `ref`, `senderId`, `type` or `body`…) used to fail
-deep in the pipeline with a generic `TypeError`. It is now dropped and reported
-once on the `'error'` event as an `InvalidProviderEventError`, which names the
-provider and the broken field (never ids or message contents).
+An event that breaks the normalized contract (not an object, a `kind` that is
+not a string, a message without `chatId`, `ref`, `senderId`, `type` or `body`…)
+used to fail deep in the pipeline with a generic `TypeError`. It is now dropped
+and reported once on the `'error'` event as an `InvalidProviderEventError`, which
+names the provider and the broken field (never ids or message contents). An
+event whose `kind` is a string this core does not know (a newer provider) is not
+an error: it is ignored, with a debug log line, so providers can add event kinds
+without breaking older cores.
 
 ## A hook that calls `next()` twice
 
@@ -185,3 +193,62 @@ provider.publishForm(definition, { flowJson: { lang: 'es' } })
 
 A `submitLabel` on the definition always wins. Forms sent by a bot already use
 the user's `ctx.lang` for the button and the body.
+
+## Presence hints while disconnected
+
+`ctx.typing()`, `ctx.recording()`, `ctx.markRead()` and the automatic typing
+indicator are best-effort hints. They used to behave differently per channel while
+the transport was down: Baileys did nothing, the REST channels called the API
+anyway and some rejected. There is now one rule (the "PRESENCE WHILE DISCONNECTED"
+section of the `IProvider` contract): while the provider's last connection state is
+not `'ready'`, or once the bot is stopped, the hint is skipped without error, logged
+at debug and counted in `metrics().presenceSkipped` (`botmesh_presence_skipped_total`
+in `toPrometheus()`). The 13 built-in providers follow it when called directly too.
+Once connected, a transport failure still rejects as before.
+
+A custom provider should resolve `typing()` and `markRead()` without contacting its
+transport while it is not connected; `assertPresenceWhileDisconnected()` from
+`@botmesh/core/testing` checks it. A provider that never emits a connection event is
+not gated by the bot while it runs.
+
+## `'stopping'` event {#stopping-event}
+
+`bot.stop()` on a running bot now emits `'stopping'` right after inbound is closed,
+before the drain and before the transport stops; `'stopped'` still comes last. Cancel
+long work there (model calls, downloads): the transport can still deliver what is
+in flight. `@botmesh/ai` aborts its in-flight model calls on `'stopping'` (it used to
+wait for `'stopped'`, after the transport had stopped).
+
+## Persistent flows checkpoint when they start
+
+A `.persistent()` flow now writes its checkpoint when it starts (step 0) as well as
+after every step, so a restart while its first step waits, typically a flow that
+opens with `.ask()`, resumes it there and asks again. It used to be lost unless
+durability or coordination was on. The cost is one more checkpoint write per flow
+entry.
+
+## Error messages without chat ids
+
+The default messages of `OutsideSessionWindowError` and `RecipientUnreachableError`
+no longer include the chat id (it ended up in logs): they read `Outside the session
+window; a template is required` and `Recipient unreachable`. The id is still on
+`error.chatId`, and a message passed by the provider is kept as is.
+
+## Smaller fixes
+
+- `ctx.delete()` before `start()` or after `stop()` rejects with
+  `BotNotRunningError` (`operation: 'delete'`), like the sends.
+- `IMessageContext.acknowledge` is typed as a required method: it always existed at
+  runtime (a no-op without an interaction). `ctx.acknowledge?.()` still compiles.
+- A provider event whose `kind` is a string the core does not know is ignored with a
+  debug line instead of being reported as an `InvalidProviderEventError`.
+- `lang` and `i18n.defaultLocale` may name the same language with different
+  precision (`'es'` and `'es-MX'`); the more specific tag becomes the default.
+- With `telemetry.ids: 'raw'` and no `logIds`, log lines keep hashing ids (they used
+  to reuse the raw span policy).
+- `ChaosProvider.selfId` and `RecordingProvider.selfId` (`@botmesh/core/testing`)
+  return `null` instead of `undefined` when the wrapped provider has no self id, so
+  they implement `IProvider` under `exactOptionalPropertyTypes`.
+- In the durable outbox, a later part of a split text no longer overtakes an earlier
+  part that is waiting for a retry, and the sweeper splits a journaled record that is
+  over the channel's text limit (see [Durable processing](/guide/durability)).

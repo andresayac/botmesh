@@ -114,6 +114,12 @@ export interface BotEvents {
   error: { error: unknown; ctx?: MessageContext }
   /** Emitted once `start()` finishes. */
   started: void
+  /**
+   * Emitted once per `stop()` of a running bot, right after inbound is closed and BEFORE the
+   * drain and the transport stop: cancel long work here (model calls, downloads) while the
+   * transport can still deliver what is in flight. A throwing listener is reported on `'error'`.
+   */
+  stopping: void
   /** Emitted once `stop()` finishes. */
   stopped: void
   /** Emitted by the Dispatcher for an unrecognized `/xyz` command. */

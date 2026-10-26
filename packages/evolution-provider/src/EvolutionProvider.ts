@@ -145,7 +145,11 @@ export class EvolutionProvider implements IProvider<unknown> {
     return () => { this.listeners.delete(listener) }
   }
 
+  /** The last connection state this provider emitted was `'ready'` (presence hints are skipped otherwise). */
+  private presenceReady = false
+
   private fan(e: InboundEvent): void {
+    if (e.kind === 'connection') this.presenceReady = e.update.state === 'ready'
     for (const listener of this.listeners) {
       try {
         void Promise.resolve(listener(e))
@@ -205,6 +209,7 @@ export class EvolutionProvider implements IProvider<unknown> {
   }
 
   async stop(): Promise<void> {
+    this.presenceReady = false
     this.emitConnection('closed')
   }
 
@@ -328,12 +333,16 @@ export class EvolutionProvider implements IProvider<unknown> {
   }
 
   async markRead(refs: MessageRef[]): Promise<void> {
+    // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
+    if (!this.presenceReady) return
     if (refs.length === 0) return
     await this.api('POST', `/chat/markMessageAsRead/${this.instancePath}`, { readMessages: refs.map(keyFromRef) })
   }
 
   /** chat/sendPresence: `composing` / `recording` / `paused`. Evolution holds the presence for `delay` ms. */
   async typing(chatId: ChatId, state: 'typing' | 'recording' | 'paused' = 'typing'): Promise<void> {
+    // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
+    if (!this.presenceReady) return
     const presence = state === 'typing' ? 'composing' : state
     await this.api('POST', `/chat/sendPresence/${this.instancePath}`, { number: chatId, presence, delay: state === 'paused' ? 0 : 1200 }, chatId)
   }

@@ -18,7 +18,9 @@ describe('GoHighLevelProvider — transport failures are typed', () => {
   })
 
   it('markRead rejects with a ProviderError too', async () => {
-    const err = await make().markRead([{ id: 'm1', chatId: 'contact1', native: { conversationId: 'conv1' } }]).catch((e: unknown) => e)
+    const p = make()
+    await p.start()   // connected: presence hints reach the transport
+    const err = await p.markRead([{ id: 'm1', chatId: 'contact1', native: { conversationId: 'conv1' } }]).catch((e: unknown) => e)
     expect(err).toBeInstanceOf(ProviderError)
   })
 

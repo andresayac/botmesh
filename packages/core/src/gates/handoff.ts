@@ -19,7 +19,7 @@
  *
  * Persistence: the state is written to `StoredChat.handoff` (cleared to `null` on
  * resume) and the handed-off chat ids to a small index under the store cursor key
- * {@link HANDOFF_INDEX_KEY}, so `bot.start()` restores them with one read per
+ * `HANDOFF_INDEX_KEY`, so `bot.start()` restores them with one read per
  * handed-off chat instead of scanning every chat (stores without cursor support fall
  * back to `listChats()`). It survives restarts with a persistent store. Restore and
  * write failures are reported on the bot's `'error'` event and never fail `start()`;
@@ -63,7 +63,7 @@ export interface HandoffConfig {
   allowCommands?: string[]
   /**
    * Persist the handoff state in the store (`StoredChat.handoff` + the
-   * {@link HANDOFF_INDEX_KEY} index) so it survives a restart. Default `true`. With
+   * `HANDOFF_INDEX_KEY` index) so it survives a restart. Default `true`. With
    * `false` the state lives in memory only.
    */
   persist?: boolean
@@ -148,7 +148,7 @@ export interface HandoffDeps {
     listChats(): Promise<StoredChat[]>
   }
   /**
-   * Reads/writes the handed-off chat index ({@link HANDOFF_INDEX_KEY}). Omitted when the
+   * Reads/writes the handed-off chat index (`HANDOFF_INDEX_KEY`). Omitted when the
    * store has no cursor support; `load()` then scans `listChats()`.
    */
   index?: { get(): Promise<string | undefined>; set(value: string): Promise<void> }
@@ -194,7 +194,7 @@ function toStored(state: HandoffState): StoredHandoff {
   return stored
 }
 
-/** Parse the {@link HANDOFF_INDEX_KEY} value; throws on anything but an array of chat ids. */
+/** Parse the `HANDOFF_INDEX_KEY` value; throws on anything but an array of chat ids. */
 function parseIndex(raw: string | undefined): ChatId[] {
   if (raw === undefined) return []
   const ids: unknown = JSON.parse(raw)

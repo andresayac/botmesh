@@ -213,8 +213,10 @@ ends; without one it ends silently; with `{ redirect, message? }` the message
 flow('registrar').persistent().ask('Name?', 'name').say('Done')
 ```
 
-`.persistent()` checkpoints after every step, but that only survives a
-**process restart** if the store is backed by a file:
+`.persistent()` checkpoints when the flow starts and after every step, so a
+restart while it waits, even at its first `.ask()`, resumes it there (the
+pending question is asked again). That only survives a **process restart** if
+the store is backed by a file:
 
 ```ts
 const bot = new Bot({

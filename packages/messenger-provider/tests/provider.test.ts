@@ -112,6 +112,7 @@ describe('MessengerProvider', () => {
   it('typing sends sender_action typing_on / typing_off (no message key)', async () => {
     const calls = mockFetch(() => ({ body: { recipient_id: 'U' } }))
     const p = new MessengerProvider(baseCfg)
+    await p.start()
     await p.typing('U')
     await p.typing('U', 'paused')
     expect(JSON.parse(calls[0].init!.body as string)).toEqual({ recipient: { id: 'U' }, sender_action: 'typing_on' })
@@ -121,6 +122,7 @@ describe('MessengerProvider', () => {
   it('markRead sends mark_seen once per chat', async () => {
     const calls = mockFetch(() => ({ body: {} }))
     const p = new MessengerProvider(baseCfg)
+    await p.start()
     await p.markRead([{ id: 'm1', chatId: 'U' }, { id: 'm2', chatId: 'U' }, { id: 'm3', chatId: 'V' }])
     expect(calls).toHaveLength(2)
     expect(JSON.parse(calls[0].init!.body as string)).toEqual({ recipient: { id: 'U' }, sender_action: 'mark_seen' })

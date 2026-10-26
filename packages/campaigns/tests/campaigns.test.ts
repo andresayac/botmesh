@@ -154,7 +154,7 @@ describe.each(stores)('CampaignPlanner over %s', (_name, make) => {
 
 class FlakyProvider extends MockProvider {
   override async send(chatId: string, content: OutboundContent, options?: SendOptions): Promise<SendResult> {
-    if (chatId === 'down@s.whatsapp.net') throw new RecipientUnreachableError('provider down')
+    if (chatId === 'down@s.whatsapp.net') throw new RecipientUnreachableError(chatId, 'provider down')
     return super.send(chatId, content, options)
   }
 }

@@ -15,6 +15,7 @@ import { isSendDeferred } from '../../durability/bind.js'
 import type { ChatId, MessageRef, OutboundContent, SendOptions, SendResult, SentMessage } from '../types.js'
 import type { TextFormat } from '../provider.js'
 import { assertCoordinated, type BotKernel } from './kernel.js'
+import { presenceAllowed } from './presence.js'
 import { rateLimitPolicy, sendRetryingRateLimit, type RateLimitRetryPolicy } from './rateLimitRetry.js'
 import { SPAN_NAMES, TRACE_ATTR } from '../../telemetry/attributes.js'
 import type { BotSpan } from '../../telemetry/types.js'
@@ -116,7 +117,7 @@ export class OutboundPipeline {
    * cut in the chat's text format; `undefined` when it fits, is not text, or splitting is
    * off (`BotConfig.splitLongText: false`).
    */
-  private textParts(chatId: ChatId, content: OutboundContent): string[] | undefined {
+  textParts(chatId: ChatId, content: OutboundContent): string[] | undefined {
     // A non-string text is left to assertOutboundContent (a TypeError naming the field).
     if (content.kind !== 'text' || typeof content.text !== 'string' || this.k.config.splitLongText === false) return undefined
     const { provider } = this.k
@@ -366,6 +367,8 @@ export class OutboundPipeline {
   async typing(chatId: ChatId, state: 'typing' | 'recording' | 'paused'): Promise<void> {
     try {
       assertCoordinated(this.k)
+      // Best-effort while the transport is disconnected (skipped, logged, counted).
+      if (!presenceAllowed(this.k, 'typing', chatId)) return
       await this.k.provider.typing?.(chatId, state)
     } catch (error) {
       this.k.logger.debug({ chatId: this.k.logId(chatId), state, err: error instanceof Error ? error.message : String(error) }, 'typing indicator failed (ignored)')

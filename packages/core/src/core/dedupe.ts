@@ -46,7 +46,7 @@ export interface InboundDedupeOptions {
   /**
    * Maximum number of remembered inbound keys. When exceeded, the
    * least-recently-seen key is forgotten. Positive integer; default
-   * {@link DEFAULT_DEDUPE_SIZE} (1000).
+   * `DEFAULT_DEDUPE_SIZE` (1000).
    */
   size?: number
   /**

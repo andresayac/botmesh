@@ -151,6 +151,7 @@ describe('WPPConnectProvider — actions', () => {
 
   it('markRead (per chat), typing, recording, delete and edit', async () => {
     const { provider, calls } = make(() => ({ body: { status: 'success', response: {} } }))
+    ;(provider as unknown as { presenceReady: boolean }).presenceReady = true   // as after a 'CONNECTED' status
     const ref = { id: 'true_573001112233@c.us_M1', chatId: PN }
     await provider.markRead([ref, { ...ref, id: 'other' }])
     await provider.typing(PN)

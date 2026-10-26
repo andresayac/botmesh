@@ -226,8 +226,14 @@ enseguida. El barrido lo entrega y después ejecuta `after('send')` y escribe el
 registro de mensajes. Dentro de un proceso, los envíos a un chat conservan su orden
 mientras uno de ellos se reintenta en línea.
 Un texto que supera el límite del canal se divide después de los hooks, en un registro
-por parte (`key`, `key#2`, …, entregados en ese orden); el barrido envía cada registro tal
-como se anotó.
+por parte (`key`, `key#2`, …, entregados en ese orden). Una parte nunca adelanta a una
+anterior: mientras `key` espera un reintento, `key#2` espera detrás (y muere con ella si
+`key` va a la DLQ). Un registro anotado cuyo texto supera el límite (escrito por una
+versión anterior, o con un límite mayor) lo divide el barrido con el mismo divisor: la
+primera parte sale con la clave del registro y las demás se anotan como `key#2`,
+`key#3`… antes de enviarla, así que un reintento o una segunda pasada no anotan ni envían
+nada dos veces. Las claves de las partes solo dependen de la clave del registro, del límite del canal y del
+texto, así que son las mismas en cada replay.
 
 Los mensajes entrantes cuyo procesamiento falla *antes* de los handlers (por
 ejemplo, el store está caído) se reintentan con `inbox.backoff` y van a la DLQ tras

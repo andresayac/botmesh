@@ -99,7 +99,7 @@ describe('BaileysProvider actions while disconnected', () => {
 })
 
 describe('BaileysProvider message actions', () => {
-  type Internals = { sock: unknown }
+  type Internals = { sock: unknown; presenceReady: boolean }
   const CHAT = '573001112233@s.whatsapp.net'
 
   function connected() {
@@ -110,8 +110,21 @@ describe('BaileysProvider message actions', () => {
       updateMediaMessage: vi.fn(),
     }
     ;(p as unknown as Internals).sock = sock
+    ;(p as unknown as Internals).presenceReady = true   // as after a 'ready' connection update
     return { p, sock }
   }
+
+  it('markRead / typing are skipped while the socket is not connected (presence while disconnected)', async () => {
+    const { p, sock } = connected()
+    const presence = vi.fn(async () => { throw new Error('Connection Closed') })
+    Object.assign(sock, { sendPresenceUpdate: presence })
+    sock.readMessages.mockRejectedValue(new Error('Connection Closed'))
+    ;(p as unknown as Internals).presenceReady = false   // the socket reported 'closed'
+    await expect(p.markRead([{ id: 'A', chatId: CHAT }])).resolves.toBeUndefined()
+    await expect(p.typing(CHAT, 'typing')).resolves.toBeUndefined()
+    expect(sock.readMessages).not.toHaveBeenCalled()
+    expect(presence).not.toHaveBeenCalled()
+  })
 
   it('deleteMessage rejects with a ProviderError when disconnected', async () => {
     const p = new BaileysProvider({ session: 'actions' })

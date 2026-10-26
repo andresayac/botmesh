@@ -46,6 +46,12 @@ async function boot(p: DiscordProvider): Promise<void> {
   socketsOf(p)[0].serverSend({ op: 10, d: { heartbeat_interval: 60_000 } })
 }
 
+/** Boot and complete the gateway session (READY): the provider is connected. */
+async function ready(p: DiscordProvider): Promise<void> {
+  await boot(p)
+  socketsOf(p)[0].serverSend({ op: 0, t: 'READY', s: 1, d: { session_id: 'S' } })
+}
+
 afterEach(async () => {
   while (live.length) await live.pop()!.stop()
   vi.unstubAllGlobals()
@@ -190,9 +196,21 @@ describe('DiscordProvider — REST outbound', () => {
   it('typing POSTs /channels/{id}/typing', async () => {
     const calls = mockFetch(() => ({ body: {} }))
     const p = provider()
+    await ready(p)
     await p.typing!('C1')
     expect(calls[0].init!.method).toBe('POST')
     expect(calls[0].url).toBe('https://discord.com/api/v10/channels/C1/typing')
+  })
+
+  it('typing is skipped (no request) before READY and after stop() (presence while disconnected)', async () => {
+    const calls = mockFetch(() => { throw new Error('offline') })
+    const p = provider()
+    await expect(p.typing!('C1')).resolves.toBeUndefined()
+    await boot(p)                                   // connecting, not ready yet
+    await expect(p.typing!('C1')).resolves.toBeUndefined()
+    await p.stop()
+    await expect(p.typing!('C1')).resolves.toBeUndefined()
+    expect(calls).toHaveLength(0)
   })
 
   it('acknowledgeInteraction POSTs the callback: defer (type 6) or immediate (type 4)', async () => {

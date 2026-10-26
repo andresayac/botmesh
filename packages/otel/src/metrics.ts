@@ -54,11 +54,12 @@ export function bridgeMetrics(api: OtelApi, bot: MetricsSource, opts: OtelMetric
   const ended = meter.createObservableCounter(`${p}.conversations.ended`, { unit: '{conversation}', description: 'Conversations ended, by outcome.' })
   const flowStarted = meter.createObservableCounter(`${p}.flow.conversations.started`, { unit: '{conversation}', description: 'Conversations started, by flow.' })
   const flowEnded = meter.createObservableCounter(`${p}.flow.conversations.ended`, { unit: '{conversation}', description: 'Conversations ended, by flow and outcome.' })
+  const presence = meter.createObservableCounter(`${p}.presence.skipped`, { unit: '{hint}', description: 'Presence hints skipped while the transport was disconnected, by kind (typing | mark_read).' })
   const triggered = meter.createObservableCounter(`${p}.triggered`, { unit: '{conversation}', description: 'bot.trigger() calls that started a conversation.' })
   const errors = meter.createObservableCounter(`${p}.errors`, { unit: '{error}', description: "Errors reported on the bot's 'error' channel." })
   const active = meter.createObservableGauge(`${p}.conversations.active`, { unit: '{conversation}', description: 'Conversations alive right now.' })
   const uptime = meter.createObservableGauge(`${p}.uptime`, { unit: 's', description: 'Seconds since the last start() (0 while stopped).' })
-  const observables: Observable[] = [inbound, outbound, dropped, started, ended, flowStarted, flowEnded, triggered, errors, active, uptime]
+  const observables: Observable[] = [inbound, outbound, dropped, presence, started, ended, flowStarted, flowEnded, triggered, errors, active, uptime]
 
   const callback = (result: { observe(metric: Observable, value: number, attributes?: Attributes): void }): void => {
     const m = bot.metrics()
@@ -66,6 +67,11 @@ export function bridgeMetrics(api: OtelApi, bot: MetricsSource, opts: OtelMetric
     result.observe(outbound, m.messages.out, { ...base, result: 'ok' })
     result.observe(outbound, m.messages.outFailed, { ...base, result: 'failed' })
     for (const reason of ['duplicate', 'blocked', 'handoff'] as const) result.observe(dropped, m.dropped[reason], { ...base, reason })
+    // A core without presenceSkipped (older snapshot) reports nothing for it.
+    if (m.presenceSkipped) {
+      result.observe(presence, m.presenceSkipped.typing, { ...base, kind: 'typing' })
+      result.observe(presence, m.presenceSkipped.markRead, { ...base, kind: 'mark_read' })
+    }
     result.observe(started, m.conversations.started, base)
     for (const outcome of OUTCOMES) result.observe(ended, m.conversations[outcome], { ...base, outcome })
     if (perFlow) {

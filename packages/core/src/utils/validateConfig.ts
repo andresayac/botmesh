@@ -119,8 +119,8 @@ export function validateConfig<T extends Partial<BotConfig>>(config: T): T {
     throw new ConfigValidationError('lang', "a non-empty locale code (e.g. 'en', 'es')", config.lang)
   }
   if (config.lang !== undefined && config.i18n?.defaultLocale !== undefined
-    && config.lang.trim().toLowerCase().replace(/_/g, '-') !== String(config.i18n.defaultLocale).trim().toLowerCase().replace(/_/g, '-')) {
-    throw new ConfigValidationError('lang', `the same locale as i18n.defaultLocale (${String(config.i18n.defaultLocale)})`, config.lang)
+    && !sameLanguageTag(config.lang, String(config.i18n.defaultLocale))) {
+    throw new ConfigValidationError('lang', `the same locale as i18n.defaultLocale (${String(config.i18n.defaultLocale)}), or a more or less specific tag of it`, config.lang)
   }
 
   if (config.commandPrefix === '') {
@@ -221,4 +221,24 @@ export function validateConfig<T extends Partial<BotConfig>>(config: T): T {
   }
 
   return config
+}
+
+/** `'es_MX '` → `'es-mx'`: a locale tag compared case- and separator-insensitively. */
+function normalizeTag(tag: string): string {
+  return tag.trim().toLowerCase().replace(/_/g, '-')
+}
+
+/**
+ * `true` when the two tags name the same locale, or one is a less specific form of the other
+ * (`es` / `es-MX`): `BotConfig.lang` and `i18n.defaultLocale` may then both be set.
+ */
+export function sameLanguageTag(a: string, b: string): boolean {
+  const x = normalizeTag(a)
+  const y = normalizeTag(b)
+  return x === y || x.startsWith(`${y}-`) || y.startsWith(`${x}-`)
+}
+
+/** Of two {@link sameLanguageTag} tags, `true` when `a` is strictly more specific than `b`. */
+export function moreSpecificTag(a: string, b: string): boolean {
+  return normalizeTag(a).split('-').length > normalizeTag(b).split('-').length
 }

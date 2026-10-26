@@ -214,12 +214,12 @@ Hay un ejemplo real en
 
 ## Contratos de providers
 
-Dos comprobaciones más mantienen coherentes todos los canales (ver el
+Tres comprobaciones más mantienen coherentes todos los canales (ver el
 [contrato común de los canales](/es/guide/canales#contrato-comun-de-los-canales)). Cada
 provider integrado las ejecuta en su `tests/channel-contract.test.ts`.
 
 ```ts
-import { assertCapabilityContract, assertInboundContract, recordEvents } from '@botmesh/core/testing'
+import { assertCapabilityContract, assertInboundContract, assertPresenceWhileDisconnected, recordEvents } from '@botmesh/core/testing'
 
 // Forma de la entrada: timestamps en ms epoch (nunca segundos, nunca 0), body string, mentions array.
 const rec = recordEvents(provider)
@@ -229,6 +229,10 @@ assertInboundContract(rec.events)
 // Las capacidades coinciden con los métodos: typing() ⇔ capabilities.typing,
 // markRead() ⇔ readReceipts, editMessage() ⇔ edit, límites de texto válidos.
 assertCapabilityContract(provider)
+
+// Presencia sin conexión: en un provider sin arrancar (cuyo transporte lanza si se toca),
+// typing() y markRead() resuelven sin llegar a él.
+await assertPresenceWhileDisconnected(new MyProvider(config), { chatId: '123' })
 ```
 
 `checkInboundContract(events, { now?, maxFutureSkewMs?, minTimestamp? })` devuelve las
@@ -238,6 +242,8 @@ violaciones (`timestamp-missing`, `timestamp-unit`, `timestamp-future`, `respond
 mismo con las capacidades (`CapabilityContractError`). `MockProvider` cumple ambos: emite
 ms epoch, y sus flags `typing`/`readReceipts` siguen a la existencia de un método
 `typing()`/`markRead()` (una subclase o un test que añade uno recibe el flag).
+`checkPresenceWhileDisconnected` / `assertPresenceWhileDisconnected` informan la regla
+`presence-disconnected` cuando `typing()` o `markRead()` rechaza sin conexión.
 
 ## Transcripciones doradas
 

@@ -56,6 +56,7 @@ describe('DiscordProvider — IProvider signature parity', () => {
   it('accepts interface-shaped arguments on the concrete class', async () => {
     const calls = mockFetch()
     const p = provider()
+    ;(p as unknown as { presenceReady: boolean }).presenceReady = true   // as after the gateway's READY
 
     // No read-receipt primitive on Discord: markRead is absent (capabilities.readReceipts false).
     expect((p as IProvider).markRead).toBeUndefined()

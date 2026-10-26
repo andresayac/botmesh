@@ -58,7 +58,7 @@ export type WaitAccepts = 'text' | 'any' | readonly string[]
 export interface ResolvedWaitOptions {
   timeoutMs?: number
   filter?: (ctx: RuntimeMessage) => boolean
-  /** What this wait takes as an answer; surfaced by {@link ConversationRuntime.inspect}. */
+  /** What this wait takes as an answer; surfaced by `ConversationRuntime.inspect`. */
   accepts?: WaitAccepts
 }
 
@@ -77,7 +77,7 @@ export type ConversationFn<C extends ConversationControlsBase = ConversationCont
   (c: C, ctx: RuntimeMessage) => Promise<void>
 
 /**
- * One `register()` / `registerCompiled()` call, as recorded by {@link ConversationRuntime.listRegistrations}.
+ * One `register()` / `registerCompiled()` call, as recorded by `ConversationRuntime.listRegistrations`.
  * Exactly one of `flow` / `fn` is set.
  */
 export interface ConversationRegistration {
@@ -204,7 +204,7 @@ export interface RuntimeConfig {
  */
 export type ConversationOutcome = 'completed' | 'ended' | 'guarded' | 'cancelled' | 'timedOut' | 'retriesExceeded' | 'error'
 
-/** Options of {@link ConversationRuntime.enter}. */
+/** Options of `ConversationRuntime.enter`. */
 export interface EnterOptions {
   /** Initial `c.state` (shallow-copied). Used by `bot.trigger(name, { data })`. */
   state?: Record<string, unknown>
@@ -236,7 +236,7 @@ interface PendingWait {
 }
 
 /**
- * Lifecycle observer of ONE live conversation (see {@link ConversationRuntime.observe}).
+ * Lifecycle observer of ONE live conversation (see `ConversationRuntime.observe`).
  * Used by `c.idle()` watchdogs; callbacks must be cheap and must not throw.
  */
 export interface ConversationObserver {
@@ -474,10 +474,12 @@ export class ConversationRuntime {
         if (entry) { entry.cp = cp; entry.waits = 0; entry.cpDirty = false }
       }
       try {
-        // Durability: checkpoint the entry too, so a crash before the first step completes
-        // can resume the flow when the answer that was in flight is replayed. Coordination:
-        // likewise, so a flow suspended in its first step can be handed over.
-        if (startAt === 0 && (hasCause() || this.cfg.trackParked)) await save(0)
+        // Checkpoint the entry too. Persistent flows: a restart while the FIRST step waits
+        // (a flow that opens with `.ask()`) resumes it there instead of losing it. Durability:
+        // a crash before the first step completes can resume the flow when the answer that
+        // was in flight is replayed. Coordination: a flow suspended in its first step can be
+        // handed over.
+        if (startAt === 0 && (flow.opts.persistent || hasCause() || this.cfg.trackParked)) await save(0)
         await runSteps(flow, ctx, c as ConversationControls, startAt, (stepIndex) => save(stepIndex + 1))
       } finally {
         await entry?.parking

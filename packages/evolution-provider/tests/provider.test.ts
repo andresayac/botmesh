@@ -137,6 +137,7 @@ describe('EvolutionProvider — actions', () => {
 
   it('markRead, typing, deleteMessage and editMessage hit the chat controller', async () => {
     const { provider, calls } = make(() => ({ body: {} }))
+    ;(provider as unknown as { presenceReady: boolean }).presenceReady = true   // as after 'connection.update' open
     const ref = { id: 'M1', chatId: PN, native: { remoteJid: PN, fromMe: true, id: 'M1' } }
     await provider.markRead([ref])
     await provider.typing(PN)

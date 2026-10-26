@@ -44,6 +44,8 @@ describe('bot.metrics() → OpenTelemetry', () => {
     expect(value(await m.points('botmesh.messages.inbound'), { 'bot.id': 'ventas', env: 'test' })).toBe(snap.messages.in)
     expect(value(await m.points('botmesh.messages.outbound'), { result: 'ok' })).toBe(snap.messages.out)
     expect(value(await m.points('botmesh.dropped'), { reason: 'blocked' })).toBe(1)
+    expect(value(await m.points('botmesh.presence.skipped'), { kind: 'typing' })).toBe(snap.presenceSkipped.typing)
+    expect(value(await m.points('botmesh.presence.skipped'), { kind: 'mark_read' })).toBe(snap.presenceSkipped.markRead)
     expect(value(await m.points('botmesh.conversations.started'))).toBe(1)
     expect(value(await m.points('botmesh.conversations.ended'), { outcome: 'completed' })).toBe(1)
     expect(value(await m.points('botmesh.flow.conversations.started'), { flow: 'pedido' })).toBe(1)

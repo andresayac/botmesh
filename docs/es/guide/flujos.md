@@ -219,8 +219,10 @@ acepta un `FlowBuilder` como destino).
 flow('registrar').persistent().ask('Name?', 'name').say('Done')
 ```
 
-`.persistent()` hace un checkpoint después de cada paso, pero eso solo
-sobrevive a un **reinicio del proceso** si el store tiene un archivo detrás:
+`.persistent()` hace un checkpoint al empezar el flow y después de cada paso,
+así que un reinicio mientras espera, incluso en su primer `.ask()`, lo retoma
+ahí (la pregunta pendiente se vuelve a hacer). Eso solo sobrevive a un
+**reinicio del proceso** si el store tiene un archivo detrás:
 
 ```ts
 const bot = new Bot({

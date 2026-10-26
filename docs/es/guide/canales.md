@@ -167,6 +167,14 @@ Quien escribe un provider las comprueba con los helpers de `@botmesh/core/testin
   `deleteMessage`) y su flag de capacidad es `false`, así que `ctx.typing()`,
   `ctx.markRead()` y `ctx.delete()` no hacen nada. Un método que existe hace la
   operación o rechaza; nunca es un sustituto silencioso.
+- **La presencia es de mejor esfuerzo sin conexión.** `typing()` y `markRead()`
+  resuelven sin tocar el transporte mientras el último estado de conexión del provider
+  no es `'ready'` (antes de que `start()` conecte, durante una reconexión, después de
+  `stop()`): sin error, sin cola y sin reintento posterior. El bot aplica la misma
+  regla antes de llamarlos, registra la señal omitida en debug y la cuenta en
+  `metrics().presenceSkipped` (`botmesh_presence_skipped_total` en `toPrometheus()`).
+  Ya conectado, un fallo del transporte sigue rechazando.
+  `assertPresenceWhileDisconnected()` lo comprueba en un provider.
 - **Demasiadas opciones rechazan.** Un transporte que muestra menos botones, filas o
   respuestas de encuesta de las que enviaste rechaza con `UnsupportedContentError`
   (Cloud API, Messenger, Instagram, Discord), salvo que tenga una degradación

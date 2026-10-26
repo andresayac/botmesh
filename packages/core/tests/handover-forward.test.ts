@@ -334,7 +334,7 @@ describe('fallback for conversations that cannot be forwarded (async bot.convers
 })
 
 describe('no extra writes unless configured', () => {
-  it('without coordination a persistent flow writes one checkpoint per step, as before', async () => {
+  it('without coordination a persistent flow writes one checkpoint at entry and one per step', async () => {
     const store = new GatedCheckpointStore()
     const provider = new MockProvider()
     const bot = new Bot({ provider, store, logger: silent() })
@@ -350,7 +350,8 @@ describe('no extra writes unless configured', () => {
     await vi.waitFor(() => expect(texts(provider)).toContain('q?'))
     await sleep(20)
     expect(store.writes.map((w) => [w.key.split('|').pop(), w.cp.step, w.cp.parked, w.cp.answer, w.cp.handover]))
-      .toEqual([['c1', 1, undefined, undefined, undefined], ['c1', 2, undefined, undefined, undefined], ['c1', 3, undefined, undefined, undefined]])
+      // Step 0 at entry: a restart while the first step runs or waits resumes the flow there.
+      .toEqual([['c1', 0, undefined, undefined, undefined], ['c1', 1, undefined, undefined, undefined], ['c1', 2, undefined, undefined, undefined], ['c1', 3, undefined, undefined, undefined]])
   })
 
   it('validates the handover config', () => {

@@ -79,7 +79,8 @@ siga en la ventana de dedupe.
   registran por clase o por el motivo que reporta el provider. Las líneas del
   propio core llevan los ids de chat y de remitente según `BotConfig.logIds`:
   hasheados por defecto (HMAC de 16 caracteres, el mismo hash que los spans de
-  las trazas), `'raw'` para depurar en local y `'omit'` para quitarlos.
+  las trazas; unos spans con `telemetry.ids: 'raw'` no vuelven crudos los logs),
+  `'raw'` para depurar en local y `'omit'` para quitarlos.
 
 ### Corregido en la auditoría
 

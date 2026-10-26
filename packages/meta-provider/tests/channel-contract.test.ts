@@ -2,9 +2,9 @@
  * The inbound shape contract (epoch-ms timestamps, message fields), checked with the
  * reusable helper from `@botmesh/core/testing` against the Cloud API webhook parser.
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import type { IProvider } from '@botmesh/core'
-import { assertCapabilityContract, assertInboundContract } from '@botmesh/core/testing'
+import { assertCapabilityContract, assertPresenceWhileDisconnected, assertInboundContract } from '@botmesh/core/testing'
 import { CloudAPIProvider } from '../src/CloudAPIProvider.js'
 import { parseInbound, type GraphWebhookBody } from '../src/parseInbound.js'
 import { fixture } from './support-fixtures.js'
@@ -57,6 +57,17 @@ describe('local media path that cannot be read', () => {
       expect(err).toBeInstanceOf(UnsupportedContentError)
       expect((err as Error).message).toContain('botmesh-photo.png')
       expect(((err as Error).cause as { code?: string } | undefined)?.code).toBe('ENOENT')
+    }
+  })
+})
+
+describe('presence while disconnected', () => {
+  it('markRead / typing resolve without contacting the transport before start()', async () => {
+    vi.stubGlobal('fetch', async () => { throw new Error('offline: the transport must not be contacted') })
+    try {
+      await assertPresenceWhileDisconnected(new CloudAPIProvider({ accessToken: 'T', phoneNumberId: 'P', verifyToken: 'v', allowUnsignedWebhooks: true }), { chatId: 'chat-1' })
+    } finally {
+      vi.unstubAllGlobals()
     }
   })
 })

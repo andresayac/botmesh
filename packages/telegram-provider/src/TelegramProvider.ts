@@ -259,7 +259,11 @@ export class TelegramProvider implements IProvider<unknown> {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
   }
+  /** The last connection state this provider emitted was `'ready'` (presence hints are skipped otherwise). */
+  private presenceReady = false
+
   private fan(e: InboundEvent): void {
+    if (e.kind === 'connection') this.presenceReady = e.update.state === 'ready'
     for (const listener of this.listeners) {
       try {
         void Promise.resolve(listener(e))
@@ -313,6 +317,7 @@ export class TelegramProvider implements IProvider<unknown> {
   }
 
   async stop(): Promise<void> {
+    this.presenceReady = false
     this.stopped = true
     this.running = false
     this.lifecycle?.abort()
@@ -653,6 +658,8 @@ export class TelegramProvider implements IProvider<unknown> {
 
   /** sendChatAction: typing / record_voice. 'paused' has no Bot API primitive. */
   async typing(chatId: ChatId, state: 'typing' | 'recording' | 'paused' = 'typing'): Promise<void> {
+    // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
+    if (!this.presenceReady) return
     if (state === 'paused') return
     await this.callApi('sendChatAction', { chat_id: chatId, action: state === 'recording' ? 'record_voice' : 'typing' })
   }

@@ -76,7 +76,8 @@ is in the dedupe window.
   QR payloads, message bodies or addresses; errors are logged by class or by
   provider-reported reason. The core's own lines carry chat and sender ids
   through `BotConfig.logIds`: hashed by default (HMAC, 16 characters, the same
-  hash as the trace spans), `'raw'` for local debugging, `'omit'` to drop them.
+  hash as the trace spans; spans with `telemetry.ids: 'raw'` do not make the
+  logs raw), `'raw'` for local debugging, `'omit'` to drop them.
 
 ### Fixed during the audit
 

@@ -78,6 +78,10 @@ export function toPrometheus(snapshot: BotMetricsSnapshot, options: PrometheusOp
     [{ reason: 'handoff' }, snapshot.dropped.handoff],
     ...(snapshot.dropped.echo !== undefined ? [[{ reason: 'echo' }, snapshot.dropped.echo] as [Record<string, string>, number]] : []),
   ])
+  family('presence_skipped_total', 'counter', 'Presence hints (typing, read receipts) skipped while the transport was disconnected, by kind.', [
+    [{ kind: 'typing' }, snapshot.presenceSkipped?.typing ?? 0],
+    [{ kind: 'mark_read' }, snapshot.presenceSkipped?.markRead ?? 0],
+  ])
   family('triggers_total', 'counter', 'Conversations started through bot.trigger().', [[{}, snapshot.triggered]])
   family('errors_total', 'counter', 'Errors reported to the bot error channel.', [[{}, snapshot.errors]])
   return out.join('\n') + '\n'

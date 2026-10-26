@@ -209,12 +209,12 @@ Options: `requireRefChatId`, `rejectSuspiciousIds`, `distinctHumans`.
 
 ## Provider contracts
 
-Two more checks keep every channel consistent (see the
+Three more checks keep every channel consistent (see the
 [cross-channel contract](/guide/channels#cross-channel-contract)). Each built-in
 provider runs them in its `tests/channel-contract.test.ts`.
 
 ```ts
-import { assertCapabilityContract, assertInboundContract, recordEvents } from '@botmesh/core/testing'
+import { assertCapabilityContract, assertInboundContract, assertPresenceWhileDisconnected, recordEvents } from '@botmesh/core/testing'
 
 // Inbound shape: epoch-ms timestamps (never seconds, never 0), string body, mentions array.
 const rec = recordEvents(provider)
@@ -224,6 +224,10 @@ assertInboundContract(rec.events)
 // Capabilities agree with the methods: typing() ⇔ capabilities.typing,
 // markRead() ⇔ readReceipts, editMessage() ⇔ edit, valid text limits.
 assertCapabilityContract(provider)
+
+// Presence while disconnected: on a provider that is not started (and whose transport
+// throws if contacted), typing() and markRead() resolve without reaching it.
+await assertPresenceWhileDisconnected(new MyProvider(config), { chatId: '123' })
 ```
 
 `checkInboundContract(events, { now?, maxFutureSkewMs?, minTimestamp? })` returns the
@@ -233,6 +237,8 @@ violations (`timestamp-missing`, `timestamp-unit`, `timestamp-future`, `respond-
 same for capabilities (`CapabilityContractError`). `MockProvider` passes both: it emits
 epoch ms, and its `typing`/`readReceipts` flags follow whether a `typing()`/`markRead()`
 method exists (a subclass or a test that adds one gets the flag).
+`checkPresenceWhileDisconnected` / `assertPresenceWhileDisconnected` report the rule
+`presence-disconnected` when `typing()` or `markRead()` rejects while not connected.
 
 ## Golden transcripts
 

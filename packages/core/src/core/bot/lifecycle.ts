@@ -7,7 +7,7 @@
  * isolated: a throwing one is logged and the rest still run. The connection state becomes
  * `'closed'` and the original start error is rethrown.
  *
- * Stop: inbound off + broadcasts cancelled → the `stop()` of `quiesce` steps and the
+ * Stop: inbound off + broadcasts cancelled → `'stopping'` emitted → the `stop()` of `quiesce` steps and the
  * `pause()` of the others (reverse order) → optional drain of in-flight sends → paced sends closed and conversations
  * aborted (checkpoints kept) → the `stop()` of the remaining steps in reverse order (the
  * first error wins and is rethrown at the end).
@@ -237,6 +237,8 @@ export class Lifecycle {
     // Running broadcasts start no new send from here on; their in-flight sends are
     // in `inflightSends`, so `drain` still waits for them.
     state.lifecycleAbort.abort()
+    // Plugins cancel long work (model calls…) before the drain and the transport stop.
+    try { this.k.events.emit('stopping') } catch (error) { this.k.events.error({ error }) }
     const reversed = [...this.steps].reverse()
     let stopError: unknown
     const stopStep = async (step: LifecycleStep) => {
@@ -269,6 +271,7 @@ export class Lifecycle {
     for (const step of reversed) if (!step.quiesce) await stopStep(step)
     state.isStarted = false
     state.connState = 'closed'
+    state.connReported = false
     this.k.counters.markStopped()
     this.k.events.emit('stopped')
     if (stopError) throw stopError

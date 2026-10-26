@@ -1,6 +1,6 @@
 {
   "$schema": "https://typedoc.org/schema.json",
-  "entryPoints": ["src/index.ts"],
+  "entryPoints": ["src/index.ts", "src/spi.ts", "src/testing/index.ts"],
   "tsconfig": "tsconfig.json",
   "out": "../../docs/api",
   "name": "@botmesh/core",

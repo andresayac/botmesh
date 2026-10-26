@@ -20,10 +20,10 @@
  * ```
  */
 
-import type { IProvider, OutboundContent, ProviderCapabilities } from '../core/provider.js'
+import type { ChatId, IProvider, MessageRef, OutboundContent, ProviderCapabilities } from '../core/provider.js'
 
 /** Machine-readable rule ids reported in {@link CapabilityViolation.rule}. */
-export type CapabilityRule = 'typing' | 'read-receipts' | 'edit' | 'drafts' | 'content-kinds' | 'text-limit'
+export type CapabilityRule = 'typing' | 'read-receipts' | 'edit' | 'drafts' | 'content-kinds' | 'text-limit' | 'presence-disconnected'
 
 /** One disagreement between a provider's capabilities and its methods. */
 export interface CapabilityViolation {
@@ -86,5 +86,56 @@ export function checkCapabilityContract(provider: Pick<IProvider, 'capabilities'
  */
 export function assertCapabilityContract(provider: Pick<IProvider, 'capabilities'> & Partial<IProvider>): void {
   const violations = checkCapabilityContract(provider)
+  if (violations.length > 0) throw new CapabilityContractError(String(provider.id ?? 'unknown'), violations)
+}
+
+/** Target of {@link checkPresenceWhileDisconnected}: a chat for `typing()`, a message for `markRead()`. */
+export interface PresenceProbe {
+  chatId: ChatId
+  /** Message passed to `markRead()`; default `{ id: 'probe', chatId }`. */
+  ref?: MessageRef
+}
+
+/**
+ * Check the "PRESENCE WHILE DISCONNECTED" rule of `IProvider` on a provider that is NOT
+ * connected (never started, or stopped): `typing()` (each state) and `markRead()` must
+ * resolve without contacting the transport. Give the provider a transport that fails when
+ * contacted (a `fetch` or socket that throws), so a call that reaches it rejects and is
+ * reported. Empty array = conforming; a provider without the methods has nothing to check.
+ *
+ * @example
+ * ```ts
+ * import { assertPresenceWhileDisconnected } from '@botmesh/core/testing'
+ *
+ * await assertPresenceWhileDisconnected(new MyProvider({ fetch: offlineFetch }), { chatId: '123' })
+ * ```
+ */
+export async function checkPresenceWhileDisconnected(provider: Partial<IProvider>, probe: PresenceProbe): Promise<CapabilityViolation[]> {
+  const out: CapabilityViolation[] = []
+  const reason = (error: unknown) => (error instanceof Error ? error.message : String(error))
+  if (typeof provider.typing === 'function') {
+    for (const state of ['typing', 'recording', 'paused'] as const) {
+      try { await provider.typing(probe.chatId, state) } catch (error) {
+        out.push({ rule: 'presence-disconnected', message: `typing('${state}') rejected while disconnected (${reason(error)}): resolve without contacting the transport` })
+        break
+      }
+    }
+  }
+  if (typeof provider.markRead === 'function') {
+    try { await provider.markRead([probe.ref ?? { id: 'probe', chatId: probe.chatId }]) } catch (error) {
+      out.push({ rule: 'presence-disconnected', message: `markRead() rejected while disconnected (${reason(error)}): resolve without contacting the transport` })
+    }
+  }
+  return out
+}
+
+/**
+ * Throw a {@link CapabilityContractError} unless the (not connected) provider follows the
+ * presence-while-disconnected rule (see {@link checkPresenceWhileDisconnected}).
+ *
+ * @throws {CapabilityContractError}
+ */
+export async function assertPresenceWhileDisconnected(provider: Partial<IProvider>, probe: PresenceProbe): Promise<void> {
+  const violations = await checkPresenceWhileDisconnected(provider, probe)
   if (violations.length > 0) throw new CapabilityContractError(String(provider.id ?? 'unknown'), violations)
 }
