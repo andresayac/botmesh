@@ -61,25 +61,41 @@ beforeAll(async () => {
 })
 afterAll(() => { rmSync(dir, { recursive: true, force: true }) })
 
-/** Open, then run a worker batch and a list: the journal either refuses to open with an Error, or works. */
-async function exercise(open: () => Promise<FileEventJournal | SharedFileEventJournal>): Promise<'ok' | 'refused'> {
+const FAR = 1e15
+
+/**
+ * Open, then prove every live record is still usable: each pending, failed or processing record
+ * can be claimed (once its lease or retry time has passed) and completed under the fencing token
+ * of that claim; then run a worker batch, a list and an append. The journal either refuses to
+ * open with a clear Error, or works. `laterDamage`: the shared journal replays its append log on
+ * every call, so a damaged log entry may only be found then (and must be named).
+ */
+async function exercise(open: () => Promise<FileEventJournal | SharedFileEventJournal>, laterDamage = false): Promise<'ok' | 'refused'> {
   let j: FileEventJournal | SharedFileEventJournal
   try {
     j = await open()
   } catch (error) {
     expect(error).toBeInstanceOf(Error)
-    expect((error as Error).message).toMatch(/event journal|append log/)
+    expect((error as Error).message).toMatch(/invalid event journal|append log/)
     return 'refused'
   }
   try {
+    const live = (await j.list({ limit: Number.POSITIVE_INFINITY })).filter((r) => r.state === 'pending' || r.state === 'failed' || r.state === 'processing')
+    for (const record of live) {
+      const claimed = await j.claimOne(record.envelope.eventId, { now: FAR, leaseMs: 1_000, owner: 'fuzz' })
+      // A record that opens is never stranded: due or expired, it can be claimed and completed.
+      expect(claimed, `record ${record.envelope.eventId} (${JSON.stringify(record)}) is stranded`).not.toBeNull()
+      await j.ack(record.envelope.eventId, { now: FAR, fencingToken: claimed!.fencingToken })
+      expect((await j.get(record.envelope.eventId))?.state).toBe('done')
+    }
     const w = new EventWorker(j, { retryDelayMs: 0 })
     w.on('x', () => {})
     await w.runBatch(10)
     await j.list({ limit: Number.POSITIVE_INFINITY })
-    await j.append(createEnvelope({ eventType: 'x', context, payload: 1 }))
+    expect(await j.append(createEnvelope({ eventType: 'x', context, payload: 1 }))).toBe(true)
   } catch (error) {
-    // Reading may still find damage the open did not check (an append log is replayed per call).
-    expect((error as Error).message).toMatch(/event journal|append log/)
+    if (!laterDamage) throw error
+    expect((error as Error).message).toMatch(/invalid event journal append log/)
   } finally {
     await j.close()
   }
@@ -96,15 +112,20 @@ describe('fuzzed snapshot', () => {
       writeFileSync(file, mutate(base, rand))
       tally[await exercise(() => FileEventJournal.open(file))]++
     }
-    expect(tally.ok + tally.refused).toBe(300)
+    // Both paths are exercised: some damage is harmless, some is refused.
+    expect(tally.ok).toBeGreaterThan(0)
+    expect(tally.refused).toBeGreaterThan(0)
   }, 60_000)
 
   it('150 mutated append logs open cleanly or are refused clearly', async () => {
     const rand = prng(0xBADF00D)
+    const tally = { ok: 0, refused: 0 }
     for (let i = 0; i < 150; i++) {
       const file = join(dir, `l${i}.json`)
       writeFileSync(`${file}.log`, mutate(baseLog, rand))
-      await exercise(() => SharedFileEventJournal.open(file, { appendLog: true }))
+      tally[await exercise(() => SharedFileEventJournal.open(file, { appendLog: true }), true)]++
     }
+    expect(tally.ok).toBeGreaterThan(0)
+    expect(tally.refused).toBeGreaterThan(0)
   }, 120_000)
 })

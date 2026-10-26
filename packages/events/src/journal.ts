@@ -48,12 +48,16 @@ const REQUIRED_CONTEXT = ['tenantId', 'environmentId', 'botId', 'providerId', 'c
 /**
  * Build an envelope with defaults (`eventId` a random UUID, `correlationId` and `idempotencyKey`
  * the `eventId`, `partitionKey` `tenant/bot/connection/chat`, `occurredAt` now).
- * @throws {TypeError} when `eventType` or a required `context` id is missing.
+ * @throws {TypeError} when `eventType` or a required `context` id is missing, or `occurredAt`
+ *   is not a finite number.
  */
 export function createEnvelope<TPayload>(input: CreateEnvelopeInput<TPayload>): EventEnvelope<TPayload> {
   if (typeof input?.eventType !== 'string' || !input.eventType.trim()) throw new TypeError('createEnvelope(): eventType is required (a non-empty string)')
   if (!Number.isInteger(input.schemaVersion ?? 1) || (input.schemaVersion ?? 1) <= 0) {
     throw new Error('schemaVersion must be a positive integer')
+  }
+  if (input.occurredAt !== undefined && (typeof input.occurredAt !== 'number' || !Number.isFinite(input.occurredAt))) {
+    throw new TypeError(`createEnvelope(): occurredAt must be a finite number (epoch ms; got ${String(input.occurredAt)})`)
   }
   if (typeof input.context !== 'object' || input.context === null) {
     throw new TypeError('createEnvelope(): context is required ({ tenantId, environmentId, botId, providerId, connectionId })')
@@ -330,6 +334,12 @@ function checkLease(lease: EventLease | undefined, who: string): void {
   if (!lease) return
   checkFinite(lease.now, 'lease.now', who)
   checkFinite(lease.leaseMs, 'lease.leaseMs', who, 0, true)
+  checkOwner(lease.owner, 'lease.owner', who)
+}
+
+/** A lease holder is stored with the record (and written by file journals): a string or nothing. */
+function checkOwner(owner: unknown, name: string, who: string): void {
+  if (owner !== undefined && typeof owner !== 'string') throw new TypeError(`${who}: ${name} must be a string (got ${typeof owner})`)
 }
 
 /**
@@ -345,7 +355,15 @@ function jsonEnvelope<TPayload>(envelope: EventEnvelope<TPayload>): EventEnvelop
     throw new TypeError(`event ${String(envelope?.eventId)} is not JSON-serializable (${(error as Error).message}): file journals store JSON, so convert BigInt values and remove circular references from the payload`)
   }
   if (text === undefined) throw new TypeError('event envelope is not JSON-serializable')
-  return JSON.parse(text) as EventEnvelope<TPayload>
+  const stored = JSON.parse(text) as EventEnvelope<TPayload>
+  // What is written must be the same event: a toJSON that rewrites the identity (or a value JSON
+  // turns into something else, such as NaN into null) would store a different record.
+  for (const field of ['eventId', 'eventType', 'idempotencyKey', 'partitionKey', 'occurredAt'] as const) {
+    if (!Object.is(stored?.[field], envelope[field])) {
+      throw new TypeError(`event ${String(envelope.eventId)}: envelope.${field} changes when serialized to JSON (a toJSON method, or a value JSON cannot hold): file journals store JSON`)
+    }
+  }
+  return stored
 }
 
 export class MemoryEventJournal implements LeasedEventJournal {
@@ -362,6 +380,8 @@ export class MemoryEventJournal implements LeasedEventJournal {
   async appendRecord<TPayload>(envelope: EventEnvelope<TPayload>, options: AppendEventOptions = {}): Promise<{ status: 'appended' | 'duplicate'; record: EventRecord }> {
     checkFinite(options.now, 'now', 'appendRecord()')
     checkLease(options.lease, 'appendRecord()')
+    if (typeof envelope !== 'object' || envelope === null) throw new TypeError('appendRecord(): envelope must be an object')
+    if (options.channel !== undefined && typeof options.channel !== 'string') throw new TypeError('appendRecord(): channel must be a string')
     const existing = this.records.get(envelope.eventId) ?? this.records.get(this.idempotency.get(envelope.idempotencyKey) ?? '')
     if (existing) return { status: 'duplicate', record: structuredClone(existing) }
     const record: EventRecord<TPayload> = {
@@ -373,6 +393,10 @@ export class MemoryEventJournal implements LeasedEventJournal {
       ...(options.channel !== undefined ? { channel: options.channel } : {}),
     }
     if (options.lease) lease(record as EventRecord, options.lease.now, options.lease.leaseMs, options.lease.owner)
+    // The rules the snapshot reader applies: nothing stored here can make a file journal refuse
+    // to reopen, and no record is stored that could never be claimed (a NaN due time).
+    const why = recordProblem(record)
+    if (why) throw new TypeError(`appendRecord(): invalid event ${String(envelope.eventId)}: ${why}`)
     this.records.set(envelope.eventId, record as EventRecord)
     this.idempotency.set(envelope.idempotencyKey, envelope.eventId)
     return { status: 'appended', record: structuredClone(record as EventRecord) }
@@ -386,6 +410,7 @@ export class MemoryEventJournal implements LeasedEventJournal {
   async claim(limit: number, options: ClaimEventOptions = {}): Promise<EventRecord[]> {
     checkFinite(options.now, 'now', 'claim()')
     checkFinite(options.leaseMs, 'leaseMs', 'claim()', 0, true)
+    checkOwner(options.owner, 'owner', 'claim()')
     const now = options.now ?? Date.now()
     const leaseMs = options.leaseMs ?? 30_000
     if (!Number.isInteger(limit) || limit <= 0) throw new Error('claim limit must be a positive integer')
@@ -570,7 +595,14 @@ export interface FileEventJournalOptions {
 
 const RECORD_STATES: ReadonlySet<string> = new Set<EventRecordState>(['pending', 'processing', 'failed', 'done', 'dead'])
 
-/** Why `value` is not a journal record (`undefined` when it is one). */
+const finite = (v: unknown): boolean => typeof v === 'number' && Number.isFinite(v)
+const count = (v: unknown): boolean => typeof v === 'number' && Number.isInteger(v) && v >= 0
+
+/**
+ * Why `value` is not a journal record (`undefined` when it is one). Applied to every record a
+ * journal stores (`appendRecord`) and to every record a snapshot or append log holds, so a
+ * record that opens is one the journal can claim, fence and complete.
+ */
 function recordProblem(value: unknown): string | undefined {
   const r = value as Partial<EventRecord> | null
   if (typeof r !== 'object' || r === null) return 'not an object'
@@ -579,9 +611,18 @@ function recordProblem(value: unknown): string | undefined {
   for (const field of ['eventId', 'eventType', 'idempotencyKey', 'partitionKey'] as const) {
     if (typeof e[field] !== 'string') return `envelope.${field} is not a string`
   }
-  if (typeof e.occurredAt !== 'number') return 'envelope.occurredAt is not a number'
+  if (!finite(e.occurredAt)) return 'envelope.occurredAt is not a finite number'
+  if (typeof e.context !== 'object' || e.context === null || Array.isArray(e.context)) return 'envelope.context is not an object'
   if (typeof r.state !== 'string' || !RECORD_STATES.has(r.state)) return `unknown state ${JSON.stringify(r.state)}`
-  if (typeof r.attempts !== 'number' || typeof r.nextAttemptAt !== 'number') return 'attempts/nextAttemptAt are not numbers'
+  if (!count(r.attempts)) return 'attempts is not a non-negative integer'
+  if (!finite(r.nextAttemptAt)) return 'nextAttemptAt is not a finite number'
+  // undefined (in memory) and null are "no value"; JSON drops the first.
+  if (r.leaseUntil != null && !finite(r.leaseUntil)) return 'leaseUntil is not a finite number'
+  if (r.fencingToken != null && !count(r.fencingToken)) return 'fencingToken is not a non-negative integer'
+  if (r.completedAt != null && !finite(r.completedAt)) return 'completedAt is not a finite number'
+  if (r.lastError != null && typeof r.lastError !== 'string') return 'lastError is not a string'
+  if (r.owner !== undefined && typeof r.owner !== 'string') return 'owner is not a string'
+  if (r.channel !== undefined && typeof r.channel !== 'string') return 'channel is not a string'
   return undefined
 }
 

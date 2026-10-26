@@ -313,7 +313,10 @@ describe('eventsDurability(SharedFileEventJournal) with two replicas', () => {
     const a = crashable(eventsDurability({ journal: ja }))
     expect(a.exclusive).toBe(false)
     const pa = new CrashableProvider(a)
-    const config = { pollMs: 20, inbox: { leaseMs: 300 } }
+    // The lease must outlast a few shared-journal operations (each one rereads and rewrites the
+    // file under the cross-process mutex: 10-80 ms on a loaded machine). With a 300 ms lease B's own
+    // heartbeat could fall behind and B re-claimed m1 from itself, running the handler twice.
+    const config = { pollMs: 20, inbox: { leaseMs: 2_000 } }
     const botA = new Bot({ provider: pa, store, logger: silentLogger(), durability: { backend: a, instanceId: 'replica-a', ...config } })
     botA.on('error', () => {})
     botA.when('hola', async (ctx) => {
