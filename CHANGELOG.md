@@ -4,6 +4,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### `@botmesh/messenger`: prueba de release de la beta (2026-10)
+- **Texto saliente sin recortes:** una lista envía su texto antes de la plantilla genérica (que no tiene encabezado y lo perdía); el texto de `buttons` que pasa de los 640 caracteres de la plantilla de botones sale antes como texto plano (Graph rechazaba el envío); `buttons` sin botones es texto; el texto de una tarjeta o lista de más de 2000 caracteres se divide en varios mensajes.
+- Las etiquetas de botones y plantillas se cortan en límites de grafema (una secuencia de emoji con ZWJ se partía en otro símbolo).
+- **Entrada:** el webhook `message_edits` llega como mensaje con el id original (nuevo export `isEditedMessage()`); cada adjunto de un mensaje con varios llega al bot (ids `<mid>`, `<mid>#2`…; antes solo el primero); una ubicación conserva el nombre del lugar que Meta manda junto al payload; un enlace compartido (adjunto `fallback`) es un mensaje de texto con su título y URL en lugar de un "documento" cuya descarga traía la página web; un postback sin `mid` recibe un id estable a partir de su timestamp, así que un reintento de Meta se deduplica.
+- **Etiquetas de mensaje:** `options.platformData` acepta `tag`, `messaging_type`, `notification_type` y `persona_id` (un `tag` implica `MESSAGE_TAG`; un tipo incorrecto lanza `TypeError`; el resto de claves se ignora). El README remitía a `ctx.sendNative()`, que no podía ponerlas.
+- El id de página y la versión de la API van codificados en la ruta de la Send API.
+- README, guía de canales (EN/ES) y `llms.txt` actualizados; el e2e de `@botmesh/sandbox` cubre el texto de las listas y las ediciones.
+
 ### Integración de los 26 paquetes promovidos en `main` (2026-10)
 - Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
 - Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).

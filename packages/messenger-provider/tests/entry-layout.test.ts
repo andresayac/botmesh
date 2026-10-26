@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest'
 import * as main from '../src/index.js'
 import * as internal from '../src/internal.js'
 
-const MAIN_VALUES = ['MessengerProvider', 'toMessengerError']
+const MAIN_VALUES = ['MessengerProvider', 'isEditedMessage', 'toMessengerError']
 const INTERNAL_VALUES = ['parseInbound', 'toOutbound', 'toOutboundMessages']
 
 describe('@botmesh/messenger entries', () => {
