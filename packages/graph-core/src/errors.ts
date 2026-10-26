@@ -6,6 +6,7 @@
 
 import {
   ProviderError,
+  PayloadTooLargeError,
   OutsideSessionWindowError,
   RecipientUnreachableError,
   RateLimitedError,
@@ -199,7 +200,11 @@ export async function readGraphResponse<T = unknown>(res: GraphResponseLike, opt
   const body = (parsed && typeof parsed === 'object' ? parsed : {}) as { error?: GraphError }
   if (!res.ok || body.error) {
     const error = body.error && typeof body.error === 'object' ? body.error : { message: `HTTP ${res.status}` }
-    throw toGraphError(error, { ...opts, retryAfterMs: retryAfterMs(res.headers.get('Retry-After')) ?? opts.retryAfterMs })
+    const mapped = toGraphError(error, { ...opts, retryAfterMs: retryAfterMs(res.headers.get('Retry-After')) ?? opts.retryAfterMs })
+    // An oversized request (media upload, long body) is refused with HTTP 413 by Graph's
+    // front end, usually with no Graph code: report it as too large unless a code says more.
+    if (res.status === 413 && mapped.constructor === ProviderError) throw new PayloadTooLargeError(mapped.message)
+    throw mapped
   }
   return body as T
 }
