@@ -17,7 +17,7 @@ flowchart LR
 
 ```ts
 bot.before('message', async (ctx, next) => {
-  console.log('📥', ctx.from, ':', ctx.body)
+  console.log('📥', ctx.type)
   await next()  // ← important: call next() to continue
 })
 ```
@@ -150,7 +150,7 @@ send entirely:
 
 ```ts
 bot.before('send', async (payload, next) => {
-  console.log('📤 sending to', payload.chatId, payload.content)
+  console.log('📤 sending', payload.content.kind)
   await next()
 })
 ```

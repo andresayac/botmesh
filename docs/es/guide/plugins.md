@@ -8,10 +8,10 @@ Los plugins son paquetes reutilizables de funcionalidad.
 import { Bot, slashCommandsPlugin } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
 
-const bot = new Bot({ provider: new BaileysProvider({ session: 'my-bot' }) })
+const bot = new Bot({ provider: new BaileysProvider({ session: 'mi-bot' }), lang: 'es' })
 
 const unplug = bot.plug(slashCommandsPlugin, {
-  greeting: '🤖 Hi! Send /help to see my commands.',
+  greeting: '🤖 ¡Hola! Envía /help para ver mis comandos.',
 })
 
 await bot.start()
@@ -113,7 +113,7 @@ import { definePlugin } from '@botmesh/core'
 const loggingPlugin = definePlugin({
   name: 'logging',
   version: '1.0.0',
-  description: 'Log every message',
+  description: 'Registra el tipo de cada mensaje',
   install(ctx) {
     // ctx.bot        → la instancia de Bot
     // ctx.logger     → el logger del bot
@@ -122,7 +122,7 @@ const loggingPlugin = definePlugin({
     // ctx.onDispose  → registra lógica de limpieza
 
     ctx.bot.before('message', async (c, next) => {
-      ctx.logger.info(`📥 ${c.from}: ${c.body}`)
+      ctx.logger.info({ type: c.type }, '📥 mensaje recibido') // sin ids ni cuerpos en los logs
       await next()
     })
   },
@@ -153,7 +153,7 @@ const rateLimitPlugin = definePlugin({
 
       entry.count++
       if (entry.count > max) {
-        await c.reply(`⏳ Wait ${Math.ceil((entry.resetAt - now) / 1000)}s`)
+        await c.reply(`⏳ Espera ${Math.ceil((entry.resetAt - now) / 1000)} s`)
         c.abort()
         return
       }

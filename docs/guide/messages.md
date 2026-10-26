@@ -24,9 +24,10 @@ Every `MediaSource` form is accepted, including `{ native }` (a provider-specifi
 reference such as a Telegram `file_id`).
 
 A `ctx` reply that hits a `RateLimitedError` asking for a wait of up to 5 s is
-retried in place (at most twice), so a flow step does not end on a transient
-rate limit. Longer waits and other errors reject as before; `bot.send()` is not
-retried (broadcasts have their own back-off).
+retried once in place, so a flow step does not end on a transient rate limit
+(tune it with `BotConfig.rateLimitRetry: { retries, maxWaitMs }`, or turn it off
+with `false`). Longer waits and other errors reject as before; `bot.send()` is
+not retried (broadcasts have their own back-off).
 
 ### Long text is split automatically
 
@@ -140,7 +141,7 @@ typed `UnsupportedContentError` from `@botmesh/core`.
 ## Typing indicator and reply delays
 
 `BotConfig.typing` shows "typing…" before every text reply sent through `ctx`
-(`reply`/`say`/`answer`/`text`/`quote` and flow `.say`). The indicator lasts
+(`reply` and its deprecated aliases, `quote` and flow `.say`). The indicator lasts
 `text length / charsPerSecond`, clamped to `[minMs, maxMs]`. It is off by default.
 
 ```ts
@@ -240,10 +241,12 @@ bot.onType('contact', async (ctx) => { await ctx.reply('👤 Got your contact') 
 bot.onType('poll', async (ctx) => { await ctx.reply('📊 Got your poll') })
 ```
 
-`onImage`/`onAudio`/etc. are low-specificity matchers: a more specific
+`bot.onType(...)` handlers are low-specificity matchers (the old
+`onImage`/`onAudio`/… helpers are deprecated aliases): a more specific
 `bot.when(...)` that also matches wins first, unless it calls `ctx.pass()`.
-The same tier is available as trigger constants (`IMAGE`, `VOICE_NOTE`,
-`MEDIA`, `LOCATION`, `CALL`...): see [Special triggers](./triggers).
+The same matchers are available as trigger constants (`IMAGE`, `VOICE_NOTE`,
+`LOCATION`, `CALL`...; multi-type ones such as `MEDIA` rank just below): see
+[Special triggers](./triggers).
 
 ## Receive a location
 

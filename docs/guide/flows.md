@@ -390,11 +390,11 @@ use `userOf(ctx)` and `bot.handoff(ctx.from)` there.
 ## `c.retry()`: repeat the last wait
 
 `c.retry(message?)` repeats the most recent wait (`ask`, `waitText`,
-`waitMedia`, `choose`, `waitAny`) with the same options (`validate`,
+`waitMedia`, `waitLocation`, `choose`, `waitAny`) with the same options (`validate`,
 `filter`, `timeout`, `otherwise`, `maxAttempts`). Before waiting it re-sends the
 `ask` question or the `choose` menu, or `message` instead. For `choose`,
 `message` only replaces the header; the numbered options stay.
-`waitText`/`waitMedia`/`waitAny` have no prompt, so they only send
+`waitText`/`waitMedia`/`waitLocation`/`waitAny` have no prompt, so they only send
 `message` if you pass one. `c.retry('')` waits again silently.
 
 In an async conversation it returns the new value:
@@ -407,7 +407,8 @@ bot.conversation('hangman', async (c, ctx) => {
 })
 ```
 
-For `waitMedia`/`waitAny`, type it: `await c.retry<RuntimeMessage>('Send another photo')`.
+For `waitMedia`/`waitAny`, type it: `await c.retry<RuntimeMessage>('Send another photo')`
+(`c.retry<InboundLocation>()` after `waitLocation`).
 
 In a **flow step** (`.do()` or a `.choose()` `then` action) whose last wait
 belongs to an earlier step, `c.retry()` rewinds the flow to that step: it is

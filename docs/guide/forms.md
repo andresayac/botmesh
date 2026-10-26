@@ -112,6 +112,7 @@ as an interactive `flow` message. The `nfm_reply` webhook is turned into a
 A Flow has to exist on Meta before it can be sent. Map your form ids to Flows:
 
 ```ts
+import { writeFileSync } from 'node:fs'
 import { CloudAPIProvider, toFlowJson } from '@botmesh/meta'
 
 const provider = new CloudAPIProvider({
@@ -139,7 +140,9 @@ Endpoint Flows (`data_exchange`, dynamic encrypted screens) are not supported ye
 
 `MockProvider` declares no native forms, so `createTestBot` runs forms field by
 field. To test the native path, set `provider.capabilities.forms = 'native'` and
-answer with `chat.send(formReplyBody({ token, values }), { type: 'form' })`.
+answer with `chat.send(formReplyBody({ token, values }), { type: 'form' })`
+(`formReplyBody` comes from `@botmesh/core/spi`; `token` is the one on the form
+message the bot sent, in `provider.outbox`).
 
 `bot.describe()` draws `form` nodes with their fields, and `bot.lint()` reports
 `form-state-collision` when a form writes a `c.state` key that another

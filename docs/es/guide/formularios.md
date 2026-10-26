@@ -114,6 +114,7 @@ mensaje `'form'` cuyo `flow_token` corresponde al paso pendiente.
 El Flow tiene que existir en Meta antes de enviarse. Asocia tus formularios a Flows:
 
 ```ts
+import { writeFileSync } from 'node:fs'
 import { CloudAPIProvider, toFlowJson } from '@botmesh/meta'
 
 const provider = new CloudAPIProvider({
@@ -142,7 +143,9 @@ Los Flows con endpoint (`data_exchange`, pantallas dinámicas cifradas) aún no 
 `MockProvider` no declara formularios nativos, así que `createTestBot` ejecuta los
 formularios campo por campo. Para probar el camino nativo, pon
 `provider.capabilities.forms = 'native'` y responde con
-`chat.send(formReplyBody({ token, values }), { type: 'form' })`.
+`chat.send(formReplyBody({ token, values }), { type: 'form' })`
+(`formReplyBody` sale de `@botmesh/core/spi`; `token` es el del mensaje de
+formulario que envió el bot, en `provider.outbox`).
 
 `bot.describe()` dibuja nodos `form` con sus campos y `bot.lint()` avisa con
 `form-state-collision` cuando un formulario escribe una clave de `c.state` que

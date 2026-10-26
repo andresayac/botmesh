@@ -47,8 +47,8 @@ usuario.
 ### say — enviar un mensaje
 
 ```ts
-flow('x').say('text')                                // texto fijo
-flow('x').say((_ctx, c) => `Hi ${c.state.name}`)      // dinámico, lee c.state
+flow('x').say('texto')                               // texto fijo
+flow('x').say((_ctx, c) => `Hola ${c.state.name}`)    // dinámico, lee c.state
 flow('x').say('Pensando…').say('¡Listo!', { delay: '2s' }) // pausa 2 s antes de enviar
 ```
 
@@ -66,11 +66,11 @@ delay pendiente.
 ### ask — enviar un mensaje y esperar la respuesta {#ask}
 
 ```ts
-flow('x').ask('What is your name?', 'name')  // guarda la respuesta en c.state.name
+flow('x').ask('¿Cómo te llamas?', 'name')  // guarda la respuesta en c.state.name
 
-flow('x').ask('Email?', 'email', {
+flow('x').ask('¿Email?', 'email', {
   validate: (body) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body) ? true : '❌ Invalid email, try again',
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body) ? true : '❌ Email no válido, inténtalo de nuevo',
   maxAttempts: 3,
   timeout: '2m',
 })
@@ -92,8 +92,9 @@ preguntar. Las opciones son las mismas en todas las esperas (`.ask()`,
 | `delay` | ninguna | Pausa antes de enviar la pregunta (solo en pasos de flujo). |
 
 Cuando se rechaza el último intento, la conversación termina con
-`retriesMessage` ("❌ Too many attempts. Conversation ended." por defecto; con
-`lang: 'es'`, en español).
+`retriesMessage` ("❌ Demasiados intentos. Conversación terminada." con
+`lang: 'es'`; "❌ Too many attempts. Conversation ended." con el idioma por
+defecto, inglés).
 
 #### Validación con schema (compatible con zod)
 
@@ -145,8 +146,8 @@ argumento acepta `delay` y opciones por tipo (`filename`, `ptv`,
 
 ```ts
 flow('confirmar')
-  .choose('Confirm your order?', { si: 'Yes', no: 'No' })
-  .say((_ctx, c) => c.state.choice === 'si' ? '✅ Confirmed' : '❌ Cancelled')
+  .choose('¿Confirmas tu pedido?', { si: 'Sí', no: 'No' })
+  .say((_ctx, c) => c.state.choice === 'si' ? '✅ Confirmado' : '❌ Cancelado')
 ```
 
 `choose` envía un menú numerado construido a partir de `options`
@@ -159,11 +160,11 @@ después de elegirla; el control vuelve al flow padre después:
 
 ```ts
 flow('menu')
-  .choose('What are you interested in?', {
-    ofertas: { label: 'Offers 🏷️', then: (_ctx, c) => { c.state.interest = 'ofertas' } },
-    soporte: { label: 'Support 🛠️', then: (_ctx, c) => { c.state.interest = 'soporte' } },
+  .choose('¿Qué te interesa?', {
+    ofertas: { label: 'Ofertas 🏷️', then: (_ctx, c) => { c.state.interes = 'ofertas' } },
+    soporte: { label: 'Soporte 🛠️', then: (_ctx, c) => { c.state.interes = 'soporte' } },
   })
-  .say((_ctx, c) => `Got it: ${c.state.interest}`)
+  .say((_ctx, c) => `Entendido: ${c.state.interes}`)
 ```
 
 `then` también puede ser un flow completo (se ejecuta en línea y vuelve,
@@ -185,7 +186,7 @@ flow('ayuda').choose('Temas de ayuda', {
 ```ts
 flow('soporte')
   .timeout('60s')
-  .ask('Describe your issue', 'issue')
+  .ask('Describe tu problema', 'problema')
 ```
 
 `.timeout()` solo define la duración de espera — no recibe un argumento de
@@ -194,8 +195,9 @@ forma global, en el bot:
 
 ```ts
 const bot = new Bot({
-  provider: new BaileysProvider({ session: 'my-bot' }),
-  conversation: { timeoutMessage: '⏰ Session expired due to inactivity.' },
+  provider: new BaileysProvider({ session: 'mi-bot' }),
+  lang: 'es',
+  conversation: { timeoutMessage: '⏰ La sesión expiró por inactividad.' },
 })
 ```
 
@@ -206,7 +208,7 @@ valor por defecto de 5 minutos).
 ### goto — saltar a otro flow
 
 ```ts
-flow('a').say('Redirecting you...').goto('b')
+flow('a').say('Te redirijo...').goto('b')
 ```
 
 El destino también tiene que estar registrado (`bot.use(flow('b')...)` o
@@ -250,7 +252,7 @@ acepta un `FlowBuilder` como destino).
 ### persistent — sobrevive reinicios
 
 ```ts
-flow('registrar').persistent().ask('Name?', 'name').say('Done')
+flow('registrar').persistent().ask('¿Nombre?', 'name').say('Listo')
 ```
 
 `.persistent()` hace un checkpoint al empezar el flow y después de cada paso,
@@ -260,7 +262,8 @@ ahí (la pregunta pendiente se vuelve a hacer). Eso solo sobrevive a un
 
 ```ts
 const bot = new Bot({
-  provider: new BaileysProvider({ session: 'my-bot' }),
+  provider: new BaileysProvider({ session: 'mi-bot' }),
+  lang: 'es',
   store: new MemoryStore({ file: './store.json' }), // o un store real — ver la guía de Store
 })
 ```
@@ -272,7 +275,7 @@ regex/predicado, dale un id explícito con `.id('registrar')`.
 ### scope — restringir a dm / group / all
 
 ```ts
-flow('soporte').scope('dm').ask('Describe your issue', 'issue')
+flow('soporte').scope('dm').ask('Describe tu problema', 'problema')
 ```
 
 ### form — varios campos tipados en un paso
@@ -290,9 +293,9 @@ de `.say` lo leen y escriben directamente:
 
 ```ts
 flow('x')
-  .ask('Name?', 'name')
+  .ask('¿Nombre?', 'name')
   .do((_ctx, c) => { c.state.name = c.state.name.trim() })
-  .say((_ctx, c) => `Hi ${c.state.name}`)
+  .say((_ctx, c) => `Hola ${c.state.name}`)
 ```
 
 ### Estado tipado
@@ -321,15 +324,15 @@ quedan accesibles como `unknown`.
 ## Ejemplo completo: registro
 
 ```ts
-const register = flow('registrar')
-  .say('📝 *Let us register you*')
-  .ask('Name?', 'name')
-  .ask('Email?', 'email', {
-    validate: (body) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body) ? true : '❌ Invalid email',
+const registro = flow('registrar')
+  .say('📝 *Vamos a registrarte*')
+  .ask('¿Nombre?', 'name')
+  .ask('¿Email?', 'email', {
+    validate: (body) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body) ? true : '❌ Email no válido',
   })
   .say((_ctx, c) => `✅ ${c.state.name} <${c.state.email}>`)
 
-bot.use(register)
+bot.use(registro)
 ```
 
 ## Más allá del DSL
@@ -400,11 +403,11 @@ siendo un `RuntimeMessage`; ahí usa `userOf(ctx)` y `bot.handoff(ctx.from)`.
 ## `c.retry()`: repetir la última espera
 
 `c.retry(message?)` repite la espera más reciente (`ask`, `waitText`,
-`waitMedia`, `choose`, `waitAny`) con las mismas opciones (`validate`,
+`waitMedia`, `waitLocation`, `choose`, `waitAny`) con las mismas opciones (`validate`,
 `filter`, `timeout`, `otherwise`, `maxAttempts`). Antes de esperar reenvía la
 pregunta del `ask` o el menú del `choose`, o `message` en su lugar. En
 `choose`, `message` solo reemplaza el encabezado; las opciones numeradas se
-mantienen. `waitText`/`waitMedia`/`waitAny` no tienen pregunta, así que solo
+mantienen. `waitText`/`waitMedia`/`waitLocation`/`waitAny` no tienen pregunta, así que solo
 envían `message` si lo pasas. `c.retry('')` vuelve a esperar sin enviar
 nada.
 
@@ -418,7 +421,8 @@ bot.conversation('ahorcado', async (c, ctx) => {
 })
 ```
 
-Para `waitMedia`/`waitAny`, tipa el valor: `await c.retry<RuntimeMessage>('Envía otra foto')`.
+Para `waitMedia`/`waitAny`, tipa el valor: `await c.retry<RuntimeMessage>('Envía otra foto')`
+(`c.retry<InboundLocation>()` después de `waitLocation`).
 
 En un **paso de flujo** (`.do()` o una acción `then` de `.choose()`) cuya
 última espera es de un paso anterior, `c.retry()` rebobina el flujo hasta
