@@ -72,7 +72,7 @@ A `before('message')` hook (priority 100) downloads every voice note, transcribe
 | `trimPunctuation` | `boolean` | `true` | Removes leading/trailing punctuation from `body`. |
 | `language` / `prompt` | `string` | — | STT hints per message. Without `language`, the language resolved by i18n (`ctx.lang`, base code: `en-gb` → `en`) is used if it comes from a real signal (preference, provider or `detect`), never the default value; otherwise the service detects it. |
 | `useContextLanguage` | `boolean` | `true` | `false` ignores `ctx.lang` as a hint. |
-| `filter` | `(ctx) => boolean` | — | Return `false` to skip transcription (large groups, users without a plan…). |
+| `filter` | `(ctx) => boolean` | — | Return `false` to skip transcription (large groups, users without a plan…). A filter that throws is logged and skips. |
 | `priority` | `number` | `100` | Hook priority. |
 | `onError` | `(err, ctx) => void` | `warn` log | What to do when transcription fails. |
 
@@ -88,7 +88,7 @@ While the **last inbound message** of a chat is a voice note, outbound text to t
 | `maxChars` | `number` | `limits.maxTextChars` | Longer texts stay as text. |
 | `voice` / `instructions` | `string` | — | Voice and style for the replies. |
 | `triggerTypes` | `('voice' \| 'audio')[]` | `['voice']` | Which inbound messages turn voice mode on. |
-| `filter` | `(chatId, text) => boolean` | — | Return `false` to keep text as text (e.g. replies from a human agent). |
+| `filter` | `(chatId, text) => boolean` | — | Return `false` to keep text as text (e.g. replies from a human agent). A filter that throws is logged and keeps the text. |
 
 If synthesis fails or the channel does not support `voice` (`capabilities.contentKinds`), the original text is sent.
 
@@ -96,7 +96,7 @@ If synthesis fails or the channel does not support `voice` (`capabilities.conten
 
 | Method | Returns | Description |
 | --- | --- | --- |
-| `transcribe(source, opts?)` | `Promise<string>` | `source`: `ctx`, `ctx.media`, a `Buffer` or `{ buffer, mimetype?, filename?, durationSec? }`. |
+| `transcribe(source, opts?)` | `Promise<string>` | `source`: `ctx`, `ctx.media`, a `Buffer`/`Uint8Array` or `{ buffer, mimetype?, filename?, durationSec? }`. `opts`: `language`, `prompt`, `signal`, `timeoutMs` (can only tighten `limits.timeoutMs`). |
 | `transcribeDetailed(source, opts?)` | `Promise<Transcription>` | `{ text, language?, durationSec?, provider }`. |
 | `synthesize(text, opts?)` | `Promise<Buffer>` | Audio ready for `ctx.voice(buffer)`. |
 | `synthesizeDetailed(text, opts?)` | `Promise<SynthesizedAudio>` | `{ buffer, mimetype, format, provider }`. |
@@ -154,6 +154,8 @@ voicePlugin({
 
 Duration is checked **before** paying for the transcription when it is known (explicit `durationSec` or an OGG). Other containers are not estimated.
 
+Limits are validated at `plug()` (or `new VoiceClient()`): `timeoutMs` must be 1–2147483647 ms (the `setTimeout` range) and the other caps positive (`Infinity` turns a cap off); anything else throws a `VoiceConfigError` naming the field.
+
 ## Errors
 
 All extend `VoiceError` and carry a stable `code`:
@@ -170,7 +172,7 @@ All extend `VoiceError` and carry a stable `code`:
 | `VoiceRateLimitedError` | `RATE_LIMITED` | HTTP 429 (`retryAfterMs`). |
 | `VoiceError` | `NETWORK` / `BAD_RESPONSE` | Network failure (also when downloading the message audio), insecure URL or unexpected response. |
 
-Error messages and logs never include API keys, audio or transcripts. The service's own error detail is kept, but the request's API key and anything key-shaped (`sk-…`, even masked) are redacted from it first.
+Error messages and logs never include API keys, audio or transcripts. The service's own error detail is kept, but the request's API key and anything key-shaped (`sk-…` or `sk_…`, even masked) are redacted from it first.
 
 ## Testing
 

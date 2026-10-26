@@ -4,6 +4,12 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### `@botmesh/voice`: revisión de preparación para la beta (2026-10)
+- Un `timeoutMs` por llamada en `transcribe`/`synthesize` ahora se respeta (solo puede acortar `limits.timeoutMs`); antes se ignoraba.
+- `limits` se valida al enchufar el plugin (o al crear el `VoiceClient`) con un `VoiceConfigError` que nombra el campo: un `timeoutMs` `Infinity`, `0`, negativo o `NaN` hacía que cada llamada expirase al instante. `client.limits` queda congelado.
+- Deepgram ya no envía como `Content-Type` un mimetype entrante con saltos de línea o mal formado (la transcripción entera fallaba); `sk_…` (claves de ElevenLabs) se redacta del detalle de error igual que `sk-…`; se acepta audio en `Uint8Array`.
+- Un `autoTranscribe.filter` o `autoReplyWithVoice.filter` que lanza se registra en el log y se trata como `false`, en vez de descartar el mensaje o hacer fallar el envío.
+
 ### Integración de los 26 paquetes promovidos en `main` (2026-10)
 - Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
 - Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).

@@ -25,7 +25,7 @@ function escapeQuoted(value: string): string {
  * field injection) and a value that is not `type/subtype[; params]` becomes
  * `application/octet-stream`.
  */
-function safeContentType(value: string): string {
+export function safeContentType(value: string): string {
   const line = value.split(/[\r\n]/)[0]!.trim()
   return /^[\w!#$&^.+-]+\/[\w!#$&^.+-]+(?:\s*;[^\x00-\x1f\x7f]*)?$/.test(line) ? line : 'application/octet-stream'
 }
