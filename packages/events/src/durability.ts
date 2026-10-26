@@ -19,7 +19,7 @@
  * import { eventsDurability } from '@botmesh/events/durability'
  *
  * const journal = await FileEventJournal.open('./data/events.json', { lock: true })
- * const bot = new Bot({ provider, durability: { journal: eventsDurability({ journal }) } })
+ * const bot = new Bot({ provider, durability: { backend: eventsDurability({ journal }) } })
  * ```
  */
 

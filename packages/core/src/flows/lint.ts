@@ -173,7 +173,7 @@ export function lintFlows(source: FlowSource, options: LintOptions = {}): LintDi
       report({
         code: 'persistent-memory-store', severity: 'warning', flow: flow.name, nodeId: flow.entry,
         message: `Flow "${flow.name}" is persistent(), but the bot only has the in-memory store: its checkpoints are lost on restart. ` +
-          "Use storeConfig: { file: './store.json' } or a durable store (SQLite, Redis, Postgres, …).",
+          "Use store: new MemoryStore({ file: './store.json' }) or a durable store (SQLite, Redis, Postgres, …).",
       })
     }
     if (!reached.has(flow.name)) {

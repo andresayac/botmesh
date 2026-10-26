@@ -96,7 +96,7 @@ Their next run survives restarts. Claims run in `BEGIN IMMEDIATE` transactions, 
 
 ```ts
 const store = new SQLiteStore({ file: './data/bot.db' })
-const bot = new Bot({ provider, store, durability: { journal: store.durability() } })
+const bot = new Bot({ provider, store, durability: { backend: store.durability() } })
 ```
 
 Every write is one SQL statement conditioned on the stored version, so the compare-and-set is atomic even with several processes on the same file. `SQLiteDurableKv` (or `store.durability().kv`) is also the `DurableKv` the product packages (`@botmesh/inbox`, `@botmesh/crm`, `@botmesh/campaigns`, `@botmesh/deployments`, `@botmesh/hub`) persist to. Opt-in: nothing is created until you call it.

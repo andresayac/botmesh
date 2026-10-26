@@ -1317,6 +1317,32 @@ export function legacyMessageKey(ref: MessageRef): string {
  * 13. BOT CONFIG  (transport-agnostic top level; provider config injected)
  * ========================================================================== */
 
+/**
+ * The logger contract of the core and of every `@botmesh/*` package (`BotConfig.logger`,
+ * store and provider `logger` options). pino satisfies it as is; `console` and any object
+ * with these four methods work too.
+ *
+ * **Calling convention (pino style).** Every call the packages make has one of two shapes:
+ *
+ * - `logger.warn('message')`: a plain message.
+ * - `logger.warn({ err, chatId }, 'message')`: a context object FIRST, then the message. An
+ *   error goes under the `err` key (pino serializes its stack there).
+ *
+ * The packages never pass a message first and an object after it (pino would drop that
+ * object), and never rely on printf placeholders. A custom logger should therefore
+ * treat a leading object as structured context and the following string as the message.
+ * `child(bindings)` is optional: without it, the bindings (`{ module: 'store' }`) are dropped.
+ *
+ * @example
+ * ```ts
+ * const logger: LoggerLike = {
+ *   debug: () => {},
+ *   info: (obj, msg) => console.info(msg ?? obj, typeof obj === 'object' ? obj : ''),
+ *   warn: (obj, msg) => console.warn(msg ?? obj, typeof obj === 'object' ? obj : ''),
+ *   error: (obj, msg) => console.error(msg ?? obj, typeof obj === 'object' ? obj : ''),
+ * }
+ * ```
+ */
 export interface LoggerLike {
   debug(...a: unknown[]): void
   info(...a: unknown[]): void
@@ -1326,6 +1352,19 @@ export interface LoggerLike {
 }
 
 export type StoreKind = 'memory' | 'sqlite' | 'redis' | 'postgres' | 'mongo' | 'custom'
+
+/**
+ * @deprecated The type of the deprecated {@link BotConfig.storeConfig}: pass
+ * `store: new MemoryStore(options)` (see `MemoryStoreOptions`) instead.
+ */
+export interface BuiltinStoreConfig {
+  /** JSON file the in-memory store is loaded from and saved to. */
+  file?: string
+  /** Most messages kept per chat. */
+  maxMessagesPerChat?: number
+  /** Autosave period of `file`: a duration (`'30s'`) or ms. */
+  autoSaveInterval?: string | number
+}
 
 /**
  * ONLY transport-agnostic fields. All WhatsApp session/auth fields (qr,
@@ -1374,8 +1413,19 @@ export interface BotConfig {
    */
   durability?: DurabilityConfig
   /* ------------------------------------------------------------------------ */
+  /**
+   * Where chats, contacts, messages and conversation checkpoints are kept: an {@link IStore}
+   * instance (`new MemoryStore({ file })`, `new SQLiteStore({ file })`, `new RedisStore({ url })`,
+   * …). Default: an in-memory `MemoryStore`. A {@link StoreKind} string is accepted for
+   * compatibility and means the built-in `MemoryStore`.
+   */
   store?: StoreKind | IStore
-  storeConfig?: Record<string, unknown>
+  /**
+   * @deprecated Pass `store: new MemoryStore({ file, maxMessagesPerChat, autoSaveInterval })`
+   * instead. Options of the built-in `MemoryStore`, used only when {@link BotConfig.store} is not
+   * an `IStore` instance (the bot logs a warning either way).
+   */
+  storeConfig?: BuiltinStoreConfig
   /** REQUIRED in v2: the constructed transport provider (BaileysProvider, ...). */
   provider: IProvider
   commandPrefix?: string

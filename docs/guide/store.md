@@ -27,11 +27,11 @@ If you don't pass a `store`, the bot creates a `MemoryStore`. Everything lives i
 const bot = new Bot({
   provider: new BaileysProvider({ session: 'my-bot' }),
   // Optional: persist chats + flow state to a JSON file
-  storeConfig: {
+  store: new MemoryStore({
     file: './store.json',
     autoSaveInterval: '1m', // duration or ms (0 = disable)
     maxMessagesPerChat: 1000, // the default; Infinity disables the cap
-  },
+  }),
 })
 ```
 

@@ -220,7 +220,7 @@ sobrevive a un **reinicio del proceso** si el store tiene un archivo detrás:
 ```ts
 const bot = new Bot({
   provider: new BaileysProvider({ session: 'my-bot' }),
-  storeConfig: { file: './store.json' }, // o un store real — ver la guía de Store
+  store: new MemoryStore({ file: './store.json' }), // o un store real — ver la guía de Store
 })
 ```
 

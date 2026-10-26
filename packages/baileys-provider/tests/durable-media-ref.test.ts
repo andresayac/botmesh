@@ -175,7 +175,7 @@ describe('Baileys durable media references', () => {
     const shared = new MemoryDurability()
     const store = new MemoryStore()
     const silent = { level: 'silent', debug() {}, info() {}, warn() {}, error() {}, trace() {}, fatal() {}, child() { return silent } }
-    const durability = (journal: unknown) => ({ journal: journal as never, instanceId: 'r1', pollMs: 20 })
+    const durability = (journal: unknown) => ({ backend: journal as never, instanceId: 'r1', pollMs: 20 })
 
     const ha = await provider()
     ha.provider.start = async () => {}

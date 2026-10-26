@@ -59,6 +59,7 @@ export type {
   DefaultTools,
   BuildContextDeps,
   StoreKind,
+  BuiltinStoreConfig,
   BotConfig,
   LoggerLike,
   StoredMessage,

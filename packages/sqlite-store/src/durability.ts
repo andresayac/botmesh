@@ -13,7 +13,7 @@
  * @example
  * ```ts
  * const store = new SQLiteStore({ file: './data/bot.db' })
- * const bot = new Bot({ provider, store, durability: { journal: store.durability() } })
+ * const bot = new Bot({ provider, store, durability: { backend: store.durability() } })
  * ```
  */
 

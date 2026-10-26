@@ -69,7 +69,7 @@ export async function crashAndReplayMedia<P>(deps: MediaReplayDeps, h: MediaRepl
   const shared = new deps.MemoryDurability()
   const a = deps.crashable(shared)
   const pa = h.makeProvider()
-  const botA = new deps.Bot({ provider: pa, logger: silentLogger(), durability: { journal: a, instanceId: 'r1', pollMs: 20 } })
+  const botA = new deps.Bot({ provider: pa, logger: silentLogger(), durability: { backend: a, instanceId: 'r1', pollMs: 20 } })
   botA.on('error', () => {})
   botA.when(deps.trigger, async () => {
     a.crash()
@@ -81,7 +81,7 @@ export async function crashAndReplayMedia<P>(deps: MediaReplayDeps, h: MediaRepl
   await a.whenCrashed
 
   const pb = h.makeProvider()
-  const botB = new deps.Bot({ provider: pb, logger: silentLogger(), durability: { journal: shared, instanceId: 'r1', pollMs: 20 } })
+  const botB = new deps.Bot({ provider: pb, logger: silentLogger(), durability: { backend: shared, instanceId: 'r1', pollMs: 20 } })
   botB.on('error', () => {})
   const seen: string[] = []
   botB.when(deps.trigger, async (ctx) => {

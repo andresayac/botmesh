@@ -57,7 +57,7 @@ describe.skipIf(!URL)('conversation hand-over — real PostgreSQL', { timeout: 3
     const bot = new Bot({
       provider, store: s.store, logger: silent(),
       coordination: { coordinator, ...(o.settleMs !== undefined ? { settleMs: o.settleMs } : {}), ...(o.handover ? { handover: o.handover } : {}) },
-      durability: { journal: o.journal ?? s.journal, instanceId: id, pollMs: 20, inbox: { leaseMs: 500 } },
+      durability: { backend: o.journal ?? s.journal, instanceId: id, pollMs: 20, inbox: { leaseMs: 500 } },
     })
     bots.push(bot)
     return { bot, provider, coordinator }

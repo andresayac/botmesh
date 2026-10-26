@@ -214,7 +214,7 @@ flow('registrar').persistent().ask('Name?', 'name').say('Done')
 ```ts
 const bot = new Bot({
   provider: new BaileysProvider({ session: 'my-bot' }),
-  storeConfig: { file: './store.json' }, // or a real store — see the Store guide
+  store: new MemoryStore({ file: './store.json' }), // or a real store — see the Store guide
 })
 ```
 

@@ -37,7 +37,7 @@ function replica(
     botId: 'shop',
     logger: silent(),
     coordination: { coordinator },
-    durability: { journal: shared.journal, instanceId: id, pollMs: 10, outbox: { backoff: { baseMs: 5, capMs: 20, jitter: 0 } } },
+    durability: { backend: shared.journal, instanceId: id, pollMs: 10, outbox: { backoff: { baseMs: 5, capMs: 20, jitter: 0 } } },
     scheduler: { store: shared.schedules, tickMs: 20 },
     ...extra,
   })

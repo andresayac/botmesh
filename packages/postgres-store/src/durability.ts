@@ -15,7 +15,7 @@
  * const bot = new Bot({
  *   provider,
  *   store: new PostgresStore({ pool }),
- *   durability: { journal: new PostgresDurability({ pool }), instanceId: process.env.HOSTNAME },
+ *   durability: { backend: new PostgresDurability({ pool }), instanceId: process.env.HOSTNAME },
  * })
  * ```
  */

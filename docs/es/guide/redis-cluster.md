@@ -38,7 +38,7 @@ const bot = new Bot({
   store,
   coordination: { coordinator: store.coordinator() },              // mismo cliente y layout
   scheduler: { store: store.schedules(), lease: store.leases() },
-  durability: { journal: new RedisDurability({ client: cluster, prefix: 'mybot' }), instanceId: process.env.HOSTNAME },
+  durability: { backend: new RedisDurability({ client: cluster, prefix: 'mybot' }), instanceId: process.env.HOSTNAME },
 })
 ```
 

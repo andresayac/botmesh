@@ -96,7 +96,7 @@ for (const variant of VARIANTS) describe.skipIf(!variant.enabled)(`conversation 
         ...(o.handover ? { handover: o.handover } : {}),
       },
       ...(o.durable === false ? {} : {
-        durability: { journal: new RedisDurability({ ...conn, prefix }), instanceId: id, pollMs: 20, inbox: { leaseMs: 1_000 } },
+        durability: { backend: new RedisDurability({ ...conn, prefix }), instanceId: id, pollMs: 20, inbox: { leaseMs: 1_000 } },
       }),
     })
     cleanups.push(() => bot.stop())

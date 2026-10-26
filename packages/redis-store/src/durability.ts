@@ -16,7 +16,7 @@
  * const bot = new Bot({
  *   provider,
  *   store: new RedisStore({ client, prefix: 'mybot' }),
- *   durability: { journal: new RedisDurability({ client, prefix: 'mybot' }), instanceId: process.env.HOSTNAME },
+ *   durability: { backend: new RedisDurability({ client, prefix: 'mybot' }), instanceId: process.env.HOSTNAME },
  * })
  * ```
  */

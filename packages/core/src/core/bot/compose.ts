@@ -139,7 +139,15 @@ export function composeBot(host: ComposeHost, inputConfig: BotConfig, fields: Co
 
   // Store — injected instance, or the built-in MemoryStore. Every key is
   // namespaced so sharing one backend across bots cannot collide.
-  const storeConfig = config.storeConfig as { file?: string; maxMessagesPerChat?: number; autoSaveInterval?: number } | undefined
+  // `storeConfig` (deprecated) configures the built-in MemoryStore only.
+  const storeConfig = config.storeConfig
+  if (storeConfig !== undefined) {
+    if (typeof config.store === 'object' && config.store !== null) {
+      logger.warn('BotConfig.storeConfig is ignored: it only configures the built-in MemoryStore, and an IStore was passed as store')
+    } else {
+      logger.warn('BotConfig.storeConfig is deprecated: pass store: new MemoryStore({ file, maxMessagesPerChat, autoSaveInterval }) instead')
+    }
+  }
   const baseStore =
     (typeof config.store === 'object' && config.store !== null
       ? (config.store as IStore)

@@ -33,7 +33,7 @@ describe.skipIf(!built)('durability across a killed process', () => {
 
       const journal = await FileDurability.open(file) // stale lock of the dead pid is taken over
       const provider = new MockProvider()
-      const bot = new Bot({ provider, durability: { journal, instanceId: 'proc-1' } })
+      const bot = new Bot({ provider, durability: { backend: journal, instanceId: 'proc-1' } })
       const runs: string[] = []
       bot.when('hola', async (ctx) => { runs.push(ctx.body); await ctx.reply('uno'); await ctx.reply('dos') })
       await bot.start()

@@ -28,11 +28,11 @@ Si no pasas un `store`, el bot crea un `MemoryStore`. Todo vive en RAM; un archi
 const bot = new Bot({
   provider: new BaileysProvider({ session: 'mi-bot' }),
   // Opcional: persistir chats + estado de flujo a un archivo JSON
-  storeConfig: {
+  store: new MemoryStore({
     file: './store.json',
     autoSaveInterval: '1m', // duración o ms (0 = desactivar)
     maxMessagesPerChat: 1000, // el valor por defecto; Infinity quita el tope
-  },
+  }),
 })
 ```
 

@@ -3,6 +3,7 @@
  * jitter, and {@link computeBackoff}, which also accepts a user function policy.
  */
 
+import { parseDuration } from '../utils/duration.js'
 import type { RetryBackoff } from './types.js'
 
 /** Default retry policy: 1s, 2s, 4s… capped at 60s, ±20% jitter. */
@@ -18,8 +19,8 @@ export function computeBackoff(policy: RetryBackoff | undefined, attempt: number
     const ms = policy(attempt)
     return Number.isFinite(ms) && ms > 0 ? ms : 0
   }
-  const baseMs = policy?.baseMs ?? DEFAULT_BACKOFF.baseMs
-  const capMs = policy?.capMs ?? DEFAULT_BACKOFF.capMs
+  const baseMs = policy?.baseMs === undefined ? DEFAULT_BACKOFF.baseMs : parseDuration(policy.baseMs)
+  const capMs = policy?.capMs === undefined ? DEFAULT_BACKOFF.capMs : parseDuration(policy.capMs)
   const jitter = Math.min(1, Math.max(0, policy?.jitter ?? DEFAULT_BACKOFF.jitter))
   const exp = Math.min(capMs, baseMs * 2 ** Math.max(0, attempt - 1))
   const ms = exp * (1 + jitter * (random() * 2 - 1))

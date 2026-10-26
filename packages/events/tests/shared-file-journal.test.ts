@@ -310,7 +310,7 @@ describe('eventsDurability(SharedFileEventJournal) with two replicas', () => {
     expect(a.exclusive).toBe(false)
     const pa = new CrashableProvider(a)
     const config = { pollMs: 20, inbox: { leaseMs: 300 } }
-    const botA = new Bot({ provider: pa, store, logger: silentLogger(), durability: { journal: a, instanceId: 'replica-a', ...config } })
+    const botA = new Bot({ provider: pa, store, logger: silentLogger(), durability: { backend: a, instanceId: 'replica-a', ...config } })
     botA.on('error', () => {})
     botA.when('hola', async (ctx) => {
       await ctx.reply('uno')
@@ -322,7 +322,7 @@ describe('eventsDurability(SharedFileEventJournal) with two replicas', () => {
     await a.whenCrashed
 
     const pb = new MockProvider()
-    const botB = new Bot({ provider: pb, store, logger: silentLogger(), durability: { journal: eventsDurability({ journal: jb }), instanceId: 'replica-b', ...config } })
+    const botB = new Bot({ provider: pb, store, logger: silentLogger(), durability: { backend: eventsDurability({ journal: jb }), instanceId: 'replica-b', ...config } })
     botB.on('error', () => {})
     let runs = 0
     botB.when('hola', async (ctx) => {

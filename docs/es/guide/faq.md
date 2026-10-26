@@ -79,7 +79,7 @@ que el store tenga un archivo detrás:
 ```ts
 const bot = new Bot({
   provider: new BaileysProvider({ session: 'my-bot' }),
-  storeConfig: { file: './store.json' }, // o usa @botmesh/sqlite-store
+  store: new MemoryStore({ file: './store.json' }), // o usa @botmesh/sqlite-store
 })
 ```
 

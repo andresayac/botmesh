@@ -469,7 +469,7 @@ export class SQLiteStore implements IStore {
 
   /**
    * The durability backend on this database (table `durable`), sharing this store's
-   * connection: `new Bot({ store, durability: { journal: store.durability() } })`. Its
+   * connection: `new Bot({ store, durability: { backend: store.durability() } })`. Its
    * `kv` is a `DurableKv` the product packages (`@botmesh/inbox`…) can persist to as well.
    * Always the same instance.
    */

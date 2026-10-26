@@ -75,7 +75,7 @@ loses those checkpoints unless the store is file-backed:
 ```ts
 const bot = new Bot({
   provider: new BaileysProvider({ session: 'my-bot' }),
-  storeConfig: { file: './store.json' }, // or use @botmesh/sqlite-store
+  store: new MemoryStore({ file: './store.json' }), // or use @botmesh/sqlite-store
 })
 ```
 

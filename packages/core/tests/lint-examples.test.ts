@@ -124,8 +124,8 @@ const docsExamples: Array<[string, () => Bot]> = [
     bot.use(flow('b').say('Welcome to b'))
     return bot
   }],
-  ['guide/flows: persistent with storeConfig.file', () => {
-    const bot = mkBot({ storeConfig: { file: './store.json' } })
+  ['guide/flows: persistent with a file-backed MemoryStore', () => {
+    const bot = mkBot({ store: new MemoryStore({ file: './store.json' }) })
     bot.use(flow('registrar').persistent().ask('Name?', 'name').say('Done'))
     return bot
   }],
