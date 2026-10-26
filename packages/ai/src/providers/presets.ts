@@ -27,12 +27,12 @@ export interface Preset {
 export const PRESETS = {
   deepseek: { baseUrl: 'https://api.deepseek.com', model: 'deepseek-chat', env: 'DEEPSEEK_API_KEY', maxTokensField: 'max_tokens' },
   qwen: { baseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus', env: 'DASHSCOPE_API_KEY', maxTokensField: 'max_tokens' },
-  glm: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-plus', env: 'ZHIPUAI_API_KEY', maxTokensField: 'max_tokens' },
+  glm: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.3', env: 'ZHIPUAI_API_KEY', maxTokensField: 'max_tokens' },
   kimi: { baseUrl: 'https://api.moonshot.ai/v1', model: 'moonshot-v1-8k', env: 'MOONSHOT_API_KEY', maxTokensField: 'max_tokens' },
   groq: { baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile', env: 'GROQ_API_KEY', maxTokensField: 'max_tokens' },
   openrouter: { baseUrl: 'https://openrouter.ai/api/v1', model: 'openrouter/auto', env: 'OPENROUTER_API_KEY', maxTokensField: 'max_tokens' },
   mistral: { baseUrl: 'https://api.mistral.ai/v1', model: 'mistral-small-latest', env: 'MISTRAL_API_KEY', maxTokensField: 'max_tokens' },
-  grok: { baseUrl: 'https://api.x.ai/v1', model: 'grok-2-latest', env: 'XAI_API_KEY', maxTokensField: 'max_tokens' },
+  grok: { baseUrl: 'https://api.x.ai/v1', model: 'grok-4.7', env: 'XAI_API_KEY', maxTokensField: 'max_tokens' },
   together: { baseUrl: 'https://api.together.xyz/v1', model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', env: 'TOGETHER_API_KEY', maxTokensField: 'max_tokens' },
 } satisfies Record<string, Preset>
 

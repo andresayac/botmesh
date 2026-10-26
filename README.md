@@ -84,7 +84,7 @@ resolve. Once a stable version ships the tag can be dropped (see [prerelease mod
 
 Requires **Node >= 22**. Every package is **ESM-only**.
 
-Pin the AI SDK to the range `@botmesh/ai` declares as a peer (`@anthropic-ai/sdk@^0.68`, `openai@^6.48`, `@google/generative-ai@^0.21`): unlike `npm`, `pnpm add <sdk>` installs the newest major and only warns about the peer range.
+Install an AI SDK inside the range `@botmesh/ai` declares as a peer (`@anthropic-ai/sdk@^1`, `openai@^7`, `@google/genai@^2`; the previous majors `@anthropic-ai/sdk@^0.68` and `openai@^6.48` still work): unlike `npm`, `pnpm add <sdk>` installs the newest major and only warns when it falls outside the peer range.
 
 The quickest start is the scaffolder: `npm create botmesh@alpha my-bot` (see [`create-botmesh`](packages/create-botmesh)).
 

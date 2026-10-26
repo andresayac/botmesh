@@ -182,7 +182,7 @@ describe('GeminiProvider', () => {
       { role: 'user', parts: [{ text: 'hi' }] },
       { role: 'model', parts: [{ text: 'prev' }] },
     ])
-    expect(getGenerativeModel).toHaveBeenCalledWith({ model: 'gemini-2.0-flash' })
+    expect(getGenerativeModel).toHaveBeenCalledWith({ model: 'gemini-3.8-flash' })
   })
 
   it('streams text chunks', async () => {
@@ -196,5 +196,12 @@ describe('GeminiProvider', () => {
     let out = ''
     for await (const t of p.stream({ messages: [{ role: 'user', content: 'hi' }] })) out += t
     expect(out).toBe('ab')
+  })
+})
+
+describe('preset default models', () => {
+  it('point at current models (grok-2 and glm-4-plus were retired upstream)', () => {
+    expect(PRESETS.grok.model).toBe('grok-4.7')
+    expect(PRESETS.glm.model).toBe('glm-5.3')
   })
 })

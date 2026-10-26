@@ -5,8 +5,8 @@ import type { AnthropicLike } from './anthropic.js'
 import { OpenAIProvider } from './openai.js'
 import type { OpenAILike } from './openai.js'
 import { OllamaProvider } from './ollama.js'
-import { GeminiProvider } from './gemini.js'
-import type { GeminiLike } from './gemini.js'
+import { GeminiProvider, fromGoogleGenAI } from './gemini.js'
+import type { GeminiLike, GoogleGenAILike } from './gemini.js'
 import { PRESETS, isPreset } from './presets.js'
 
 /**
@@ -50,15 +50,45 @@ export async function resolveProvider(cfg: AIConfig): Promise<AIProvider> {
     }
     case 'ollama':
       return new OllamaProvider(cfg)
-    case 'gemini': {
-      const mod = await loadModule<{ GoogleGenerativeAI: new (apiKey?: string) => GeminiLike }>(
-        '@google/generative-ai',
-        'pnpm add @google/generative-ai',
-      )
-      const apiKey = cfg.apiKey ?? process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY
-      return new GeminiProvider(new mod.GoogleGenerativeAI(apiKey), cfg)
-    }
+    case 'gemini':
+      return new GeminiProvider(await resolveGeminiClient(cfg), cfg)
     default:
       throw new Error(`Unknown AI provider "${String(name)}". Use one of: ${['anthropic', 'openai', 'ollama', 'gemini', ...Object.keys(PRESETS)].join(', ')}`)
   }
+}
+
+/** Loads an optional peer SDK by name (`loadModule` in production, a stub in tests). */
+type ModuleLoader = (name: string, installHint: string) => Promise<unknown>
+
+/** `loadModule`'s "not installed" error (any other load failure is rethrown as is). */
+const isNotInstalled = (err: unknown): boolean => err instanceof Error && /which is not installed/.test(err.message)
+
+let warnedLegacyGemini = false
+
+/**
+ * The Gemini client: `@google/genai` when installed (with `baseUrl` as its
+ * `httpOptions.baseUrl`), else the deprecated `@google/generative-ai` with a one-time
+ * DeprecationWarning. The key falls back to GEMINI_API_KEY, then GOOGLE_API_KEY.
+ */
+export async function resolveGeminiClient(cfg: AIConfig, load: ModuleLoader = loadModule): Promise<GeminiLike> {
+  const apiKey = cfg.apiKey ?? process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY
+  let genai: { GoogleGenAI: new (o: { apiKey?: string; httpOptions?: { baseUrl: string } }) => GoogleGenAILike }
+  try {
+    genai = (await load('@google/genai', 'pnpm add @google/genai')) as typeof genai
+  } catch (err) {
+    if (!isNotInstalled(err)) throw err
+    let legacy: { GoogleGenerativeAI: new (apiKey?: string) => GeminiLike }
+    try {
+      legacy = (await load('@google/generative-ai', 'pnpm add @google/genai')) as typeof legacy
+    } catch (legacyErr) {
+      if (isNotInstalled(legacyErr)) throw err
+      throw legacyErr
+    }
+    if (!warnedLegacyGemini) {
+      warnedLegacyGemini = true
+      process.emitWarning('@google/generative-ai is deprecated upstream: install @google/genai (pnpm add @google/genai) and @botmesh/ai uses it instead.', { type: 'DeprecationWarning', code: 'BOTMESH_AI_GEMINI_LEGACY_SDK' })
+    }
+    return new legacy.GoogleGenerativeAI(apiKey)
+  }
+  return fromGoogleGenAI(new genai.GoogleGenAI({ apiKey, ...(cfg.baseUrl ? { httpOptions: { baseUrl: cfg.baseUrl } } : {}) }))
 }
