@@ -119,6 +119,12 @@ export interface DurableEngineDeps {
   now?: () => number
   /** Durable media references (provider hooks); absent = media tokens are journaled as they are. */
   media?: InboundMediaCodec
+  /**
+   * The bot's long-text splitter: the parts of a text over the transport's limit, or
+   * `undefined` when it fits (or is not text). The sweeper uses it for a journaled record
+   * whose text is over the limit (see {@link DurableEngine.enqueue} for the part keys).
+   */
+  split?(chatId: string, content: OutboundContent): string[] | undefined
 }
 
 /** A send prepared by {@link DurableEngine.prepareSend}. */
@@ -814,6 +820,7 @@ export class DurableEngine implements DurabilityControl {
     for (const [i, e] of encoded.entries()) {
       const put = await this.outbox.put({
         key: i === 0 ? key : `${key}#${i + 1}`, chatId: payload.chatId, ...(cause ? { causationId: cause.id } : {}), ...e!,
+        ...(i > 0 ? { previousPart: i === 1 ? key : `${key}#${i}` } : {}),
         ...(i === 0 && fingerprint ? { fingerprint } : {}), createdAt: now + i,
       }, now)
       if (put.status === 'created') this.counters.outboxJournaled++
@@ -829,8 +836,8 @@ export class DurableEngine implements DurabilityControl {
    * delivers them after it. Their `before('send')` hooks already ran. Each key derives as
    * the inline send of that part would have (`options.idempotencyKey`, else the next derived
    * key), so a replay finds them; `identity` is what the inline send fingerprints. A part is
-   * due no earlier than the deferred one (`behind`): it is journaled with one attempt
-   * charged and the retry time of that part, so the oldest-first sweep keeps their order.
+   * due no earlier than the deferred one (`behind`): it is journaled with the retry time of
+   * that part (no attempt charged), so the oldest-first sweep keeps their order.
    */
   async enqueueBehind(
     chatId: string,
@@ -862,7 +869,7 @@ export class DurableEngine implements DurabilityControl {
       const record = begun.record
       await this.settleSend(record, () => this.outbox.markFailed(key, record.fencingToken, {
         name: 'SendDeferredError', message: `waiting for the earlier part ${behind}`,
-      }, { now, retryAt: dueAt }))
+      }, { now, retryAt: dueAt, refund: true }))
     }
     if (this.sweeperOn) void this.sweep()
   }
@@ -884,7 +891,7 @@ export class DurableEngine implements DurabilityControl {
       await this.resolveAmbiguous(c)
       return
     }
-    const payload: { chatId: string; content: OutboundContent; options?: SendOptions } = {
+    let payload: { chatId: string; content: OutboundContent; options?: SendOptions } = {
       chatId: record.chatId,
       content: decodeJson<OutboundContent>(record.content),
       ...(record.options !== undefined ? { options: decodeJson<SendOptions>(record.options) } : {}),
@@ -892,6 +899,21 @@ export class DurableEngine implements DurabilityControl {
     const delivery = this.chats.run(record.chatId, async (): Promise<SendResult | undefined> => {
       this.inFlight.add(record.key)
       try {
+        try {
+          // A later part of a split text never overtakes an earlier one still to be sent.
+          if (await this.waitsForEarlierPart(record)) return undefined
+          // A record over the transport's text limit: the first part goes out under its key,
+          // the rest is journaled behind it first (deterministic keys: a retry adds nothing).
+          payload = await this.splitClaimed(record, payload)
+        } catch (error) {
+          // The journal failed before the provider was called: retry later, never leave the
+          // claim to expire (an expired claim would be taken for an ambiguous send).
+          const now = this.now()
+          await this.settleSend(record, () => this.outbox.markFailed(record.key, record.fencingToken, errorSummary(error), {
+            now, retryAt: now + computeBackoff(this.outboxBackoff, record.attempts),
+          }))
+          throw error
+        }
         if (record.attempts > 1) this.counters.outboxRetried++
         const result = await this.attempt(record, () => this.deps.transportSend(payload.chatId, payload.content, payload.options), this.now(), false)
         await this.deps.afterSend(payload, result)
@@ -905,6 +927,64 @@ export class DurableEngine implements DurabilityControl {
     })
     this.deliveries.set(record.key, delivery)
     try { await delivery } finally { this.deliveries.delete(record.key) }
+  }
+
+  /**
+   * A claimed part of a split text (a record with `previousPart`) whose previous part is
+   * still to be sent (`pending`, `failed`, `sending`) is put back, due just after that part's
+   * next attempt, and the claim's attempt is given back (waiting never uses up its retries);
+   * one whose previous part is dead dies with it. `true` when the record was not delivered.
+   * A caller's key that merely ends in `#<n>` has no `previousPart` and is never held back.
+   */
+  private async waitsForEarlierPart(record: OutboxRecord): Promise<boolean> {
+    const previousKey = record.previousPart
+    if (previousKey === undefined) return false
+    const previous = await this.outbox.get(previousKey)
+    if (!previous || previous.chatId !== record.chatId) return false
+    const now = this.now()
+    if (previous.state === 'dead') {
+      const error = { name: 'SendDeferredError', message: `an earlier part (${previousKey}) is dead` }
+      await this.settleSend(record, () => this.outbox.markFailed(record.key, record.fencingToken, error, { now, dead: true, refund: true }))
+      this.counters.outboxDead++
+      this.deps.emit('durability:dead', { kind: 'outbound', id: record.key, chatId: record.chatId, error: new Error(`an earlier part (${previousKey}) is dead`) })
+      return true
+    }
+    if (previous.state !== 'pending' && previous.state !== 'failed' && previous.state !== 'sending') return false
+    const after = previous.state === 'sending' ? (previous.leaseUntil ?? now) : previous.nextAttemptAt
+    const retryAt = Math.max(after, now) + 1
+    await this.settleSend(record, () => this.outbox.markFailed(record.key, record.fencingToken, {
+      name: 'SendDeferredError', message: `waiting for the earlier part ${previousKey}`,
+    }, { now, retryAt, refund: true }))
+    return true
+  }
+
+  /**
+   * The payload to send for a claimed record: as journaled, or, for a text over the
+   * transport's limit, its first part, after journaling the others as `<key>#2`, `<key>#3`…
+   * (pending, in order right behind the record). Same splitter and part keys as
+   * {@link enqueue}; a part already journaled (a retry, another pass) is left as it is.
+   */
+  private async splitClaimed(
+    record: OutboxRecord,
+    payload: { chatId: string; content: OutboundContent; options?: SendOptions },
+  ): Promise<{ chatId: string; content: OutboundContent; options?: SendOptions }> {
+    let parts: string[] | undefined
+    try { parts = this.deps.split?.(payload.chatId, payload.content) } catch { parts = undefined }
+    if (!parts || parts.length < 2) return payload
+    const now = this.now()
+    for (const [i, text] of parts.entries()) {
+      if (i === 0) continue
+      const partOptions = payload.options ? withoutQuote(payload.options) : undefined
+      const encoded = this.encodeSend({ content: { kind: 'text', text }, ...(partOptions ? { options: partOptions } : {}) })
+      if (!encoded) return payload
+      const put = await this.outbox.put({
+        key: `${record.key}#${i + 1}`, chatId: record.chatId, previousPart: i === 1 ? record.key : `${record.key}#${i}`,
+        ...(record.causationId !== undefined ? { causationId: record.causationId } : {}),
+        ...encoded, createdAt: record.createdAt + i,
+      }, now)
+      if (put.status === 'created') this.counters.outboxJournaled++
+    }
+    return { ...payload, content: { kind: 'text', text: parts[0] as string } }
   }
 
   /* ------------------------------------------------------------------------

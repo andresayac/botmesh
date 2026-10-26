@@ -123,6 +123,7 @@ describe('CloudAPIProvider', () => {
   it('markRead posts a read status', async () => {
     const calls = mockFetch(() => ({ body: { success: true } }))
     const p = new CloudAPIProvider(baseCfg)
+    await p.start()
     await p.markRead([{ id: 'wamid.1', chatId: 'x' }])
     const body = JSON.parse(calls[0].init!.body as string)
     expect(body.status).toBe('read')

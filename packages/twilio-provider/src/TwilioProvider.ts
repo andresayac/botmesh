@@ -117,7 +117,11 @@ export class TwilioProvider implements IProvider<TwilioWebhookParams> {
     return () => this.listeners.delete(listener)
   }
 
+  /** The last connection state this provider emitted was `'ready'` (presence hints are skipped otherwise). */
+  private presenceReady = false
+
   private fan(e: InboundEvent<TwilioWebhookParams>): void {
+    if (e.kind === 'connection') this.presenceReady = e.update.state === 'ready'
     for (const listener of this.listeners) {
       try {
         void Promise.resolve(listener(e))
@@ -133,6 +137,7 @@ export class TwilioProvider implements IProvider<TwilioWebhookParams> {
   }
 
   async stop(): Promise<void> {
+    this.presenceReady = false
     this.fan({ kind: 'connection', update: { state: 'closed' } })
   }
 
@@ -364,6 +369,8 @@ export class TwilioProvider implements IProvider<TwilioWebhookParams> {
    * 429 / 5xx / network failures are logged at debug and retried on the next call.
    */
   async typing(chatId: ChatId, state?: 'typing' | 'recording' | 'paused'): Promise<void> {
+    // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
+    if (!this.presenceReady) return
     if (state === 'paused' || channelOf(chatId) !== 'whatsapp') return
     const last = this.lastInbound.get(chatId)
     if (!last || !TYPING_MESSAGE_SID.test(last.sid)) return

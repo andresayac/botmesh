@@ -272,6 +272,7 @@ describe('TikTokProvider — high-intent comment hand-off to DM', () => {
     expect(calls).toHaveLength(2)
     expect(calls[1]!.json).toMatchObject({ recipient_type: 'CONVERSATION', recipient: fx.CONVERSATION_ID })
     expect(calls[1]!.json).not.toHaveProperty('direct_reply')
+    await provider.start()
     await provider.typing(HIC)
     expect(calls[2]!.json).toMatchObject({ recipient: fx.CONVERSATION_ID, sender_action: 'TYPING' })
   })
@@ -375,6 +376,7 @@ describe('TikTokProvider — error mapping', () => {
 describe('TikTokProvider — actions', () => {
   it('typing sends a TYPING sender action on DMs and is a no-op on comments', async () => {
     const { provider, calls } = harness()
+    await provider.start()
     await provider.typing('dm:c', 'typing')
     await provider.typing('comment:1:2')
     await provider.typing('dm:c', 'paused')
@@ -383,6 +385,7 @@ describe('TikTokProvider — actions', () => {
   })
   it('markRead sends one MARK_READ per DM conversation', async () => {
     const { provider, calls } = harness()
+    await provider.start()
     await provider.markRead([{ id: '1', chatId: 'dm:a' }, { id: '2', chatId: 'dm:a' }, { id: '3', chatId: 'dm:b' }, { id: '4', chatId: 'comment:1:2' }])
     expect(calls.map((c) => [c.json?.recipient, c.json?.sender_action])).toEqual([['a', 'MARK_READ'], ['b', 'MARK_READ']])
   })

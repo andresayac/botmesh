@@ -128,7 +128,7 @@ export class RecordingProvider<P extends IProvider = IProvider> implements IProv
     })
   }
 
-  get selfId(): UserId | null | undefined { return this.inner.selfId }
+  get selfId(): UserId | null { return this.inner.selfId ?? null }
   get connection(): unknown { return this.inner.connection }
 
   start(): Promise<void> { return this.inner.start() }

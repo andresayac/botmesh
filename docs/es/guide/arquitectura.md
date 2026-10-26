@@ -36,6 +36,7 @@ El motor vive en `packages/core/src/core/bot/`:
 | `lifecycle.ts` | `start()` / `stop()` como una lista ordenada de pasos, con rollback y drenado |
 | `inbound.ts` | El flujo de eventos del provider → listas de acceso → dedupe → persistencia → `groupMode` → Dispatcher; llamadas y eventos del provider (reacciones, recibos…) |
 | `outbound.ts` | Envíos y ediciones por los hooks de `send`, el registro de mensajes, respuestas pausadas, typing y `ctx.stream()` |
+| `presence.ts` | La política de presencia sin conexión: `typing` / `markRead` se omiten (log en debug + `metrics().presenceSkipped`) mientras el transporte no está `'ready'` |
 | `rateLimitRetry.ts` | El reintento corto en el sitio de las respuestas de `ctx` limitadas por tasa (`BotConfig.rateLimitRetry`) |
 | `contextFactory.ts` | Construye el `MessageContext` (`ctx`) de un mensaje, una llamada proyectada o un `bot.trigger()` |
 | `interactionAck.ts` | La única confirmación automática de una interacción en un transporte con `interactionsRequireAck` (Discord): antes del primer envío, cerca de `respondBy` o al terminar el enrutado |
@@ -131,7 +132,8 @@ flowchart LR
     style A4 stroke-dasharray: 5 5
 ```
 
-`stop()` cierra la entrada y cancela los broadcasts, detiene o pausa los pasos que
+`stop()` cierra la entrada y cancela los broadcasts, emite `'stopping'` (ahí los plugins
+cancelan el trabajo largo; `@botmesh/ai` aborta sus llamadas al modelo), detiene o pausa los pasos que
 producen trabajo nuevo (scheduler, barrido de durabilidad), opcionalmente drena los
 envíos en curso (`stop({ drain: true })`), cierra los envíos pausados y aborta las
 conversaciones (los checkpoints se conservan), y después detiene el resto de pasos en

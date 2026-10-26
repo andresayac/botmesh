@@ -10,7 +10,7 @@
 
 import type { TextFormat } from '../core/provider.js'
 
-/** Limits and markup of {@link splitMessage} / {@link findSplitPoint}. */
+/** Limits and markup of {@link splitMessage} / `findSplitPoint`. */
 export interface SplitTextOptions {
   /** Max UTF-16 code units per part (`capabilities.maxTextLength`). */
   maxLength?: number

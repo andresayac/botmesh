@@ -115,7 +115,11 @@ export class GoHighLevelProvider implements IProvider<GhlWebhookBody> {
     return () => this.listeners.delete(listener)
   }
 
+  /** The last connection state this provider emitted was `'ready'` (presence hints are skipped otherwise). */
+  private presenceReady = false
+
   private fan(e: InboundEvent<GhlWebhookBody>): void {
+    if (e.kind === 'connection') this.presenceReady = e.update.state === 'ready'
     for (const listener of this.listeners) {
       try {
         void Promise.resolve(listener(e))
@@ -131,6 +135,7 @@ export class GoHighLevelProvider implements IProvider<GhlWebhookBody> {
   }
 
   async stop(): Promise<void> {
+    this.presenceReady = false
     this.fan({ kind: 'connection', update: { state: 'closed' } })
   }
 
@@ -282,6 +287,8 @@ export class GoHighLevelProvider implements IProvider<GhlWebhookBody> {
    * conversation id (`ref.native.conversationId`) are skipped.
    */
   async markRead(refs: MessageRef[]): Promise<void> {
+    // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
+    if (!this.presenceReady) return
     const seen = new Set<string>()
     for (const ref of refs) {
       const native = ref.native as { conversationId?: unknown } | undefined

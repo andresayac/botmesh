@@ -56,6 +56,11 @@ export interface BotMetricsSnapshot {
     /** Echoes of the bot's own sends dropped by `BotConfig.echoFilter` (present only with the filter on). */
     echo?: number
   }
+  /**
+   * Presence hints (`ctx.typing()`/`recording()`, the automatic typing indicator,
+   * `ctx.markRead()`) skipped because the transport was disconnected (best-effort policy).
+   */
+  presenceSkipped: { typing: number; markRead: number }
   /** `bot.trigger()` calls that started a conversation. */
   triggered: number
   /** Errors reported to the bot `'error'` channel. */
@@ -108,6 +113,8 @@ export class MetricsCollector {
   trackEchoes = false
   private triggered = 0
   private errors = 0
+  private skippedTyping = 0
+  private skippedMarkRead = 0
   private startedAt?: number
 
   constructor(private now: () => number = Date.now) {}
@@ -135,6 +142,7 @@ export class MetricsCollector {
   handoffDropped(): void { this.droppedHandoff++ }
   echoDropped(): void { this.droppedEcho++ }
   triggerStarted(): void { this.triggered++ }
+  presenceSkipped(kind: 'typing' | 'markRead'): void { if (kind === 'typing') this.skippedTyping++; else this.skippedMarkRead++ }
   error(): void { this.errors++ }
 
   /** Zero every counter (uptime is kept). */
@@ -144,6 +152,7 @@ export class MetricsCollector {
     this.messagesIn = this.messagesOut = this.messagesOutFailed = 0
     this.droppedDuplicate = this.droppedBlocked = this.droppedHandoff = this.droppedEcho = 0
     this.triggered = this.errors = 0
+    this.skippedTyping = this.skippedMarkRead = 0
   }
 
   snapshot(activeConversations: number): BotMetricsSnapshot {
@@ -161,6 +170,7 @@ export class MetricsCollector {
         duplicate: this.droppedDuplicate, blocked: this.droppedBlocked, handoff: this.droppedHandoff,
         ...(this.trackEchoes || this.droppedEcho > 0 ? { echo: this.droppedEcho } : {}),
       },
+      presenceSkipped: { typing: this.skippedTyping, markRead: this.skippedMarkRead },
       triggered: this.triggered,
       errors: this.errors,
     }

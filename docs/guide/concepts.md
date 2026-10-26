@@ -144,11 +144,17 @@ engine. All transports feed the bot
 the same normalized events.
 
 Sends need a running bot: before `bot.start()` and after `bot.stop()`,
-`bot.send()` and `ctx.reply()` reject with `BotNotRunningError` and nothing
-reaches the provider (a `'ready'` listener may already send). Concurrent
-`start()` / `stop()` calls run one at a time, in call order. An event that
-breaks the provider contract is dropped and reported on `'error'` as an
-`InvalidProviderEventError`.
+`bot.send()`, `ctx.reply()` and `ctx.delete()` reject with `BotNotRunningError`
+and nothing reaches the provider (a `'ready'` listener may already send).
+Presence hints (`ctx.typing()`, `ctx.markRead()`, the automatic typing
+indicator) are best-effort instead: while the transport is disconnected or
+stopped they are skipped without error, logged at debug and counted in
+`metrics().presenceSkipped`. Concurrent `start()` / `stop()` calls run one at
+a time, in call order; each `stop()` of a running bot emits `'stopping'` before
+the drain and the transport stop, then `'stopped'`. An event that breaks the
+provider contract is dropped and reported on `'error'` as an
+`InvalidProviderEventError`; an event of a kind the core does not know (a newer
+provider) is ignored.
 
 ### 2. when — simple responses
 

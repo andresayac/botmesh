@@ -3,7 +3,7 @@
  * Bot only holds a nullable engine and a handful of `if (durable)` seams.
  */
 
-import type { ChatId, InboundInteraction, InboundMessage, IProvider, UserId } from '../core/provider.js'
+import type { ChatId, InboundInteraction, InboundMessage, IProvider, OutboundContent, UserId } from '../core/provider.js'
 import type { StoreNamespace } from '../store/NamespacedStore.js'
 import type { HookSystem } from '../hooks/HookSystem.js'
 import type { MessageLog } from '../core/ledger.js'
@@ -32,6 +32,8 @@ export interface DurabilityHost {
   handleInteraction(interaction: InboundInteraction): Promise<boolean>
   emit(event: string, payload: unknown): void
   reportError(error: unknown): void
+  /** The bot's long-text splitter (`undefined` = fits / not text / splitting off). */
+  split?(chatId: string, content: OutboundContent): string[] | undefined
 }
 
 /** `null` when `config` is `undefined` (durability off). @throws {ConfigValidationError} */
@@ -73,6 +75,7 @@ export function createDurability(config: DurabilityConfig | undefined, host: Dur
     },
     emit: host.emit,
     reportError: host.reportError,
+    ...(host.split ? { split: host.split } : {}),
   })
 }
 

@@ -36,6 +36,7 @@ The engine lives in `packages/core/src/core/bot/`:
 | `lifecycle.ts` | `start()` / `stop()` as an ordered list of steps, with rollback and drain |
 | `inbound.ts` | The provider's event stream → access gates → dedupe → persistence → `groupMode` → Dispatcher; calls and provider events (reactions, receipts…) |
 | `outbound.ts` | Sends and edits through the `send` hooks, the message ledger, paced replies, typing and `ctx.stream()` |
+| `presence.ts` | The presence-while-disconnected policy: `typing` / `markRead` skipped (debug log + `metrics().presenceSkipped`) while the transport is not `'ready'` |
 | `rateLimitRetry.ts` | The short in-place retry of rate-limited `ctx` replies (`BotConfig.rateLimitRetry`) |
 | `contextFactory.ts` | Builds the `MessageContext` (`ctx`) of a message, a projected call or a `bot.trigger()` |
 | `interactionAck.ts` | The single automatic ack of an interaction on a transport with `interactionsRequireAck` (Discord): before the first send, near `respondBy` or when routing ends |
@@ -130,7 +131,8 @@ flowchart LR
     style A4 stroke-dasharray: 5 5
 ```
 
-`stop()` closes inbound and cancels broadcasts, stops or pauses the steps that
+`stop()` closes inbound and cancels broadcasts, emits `'stopping'` (plugins cancel
+long work there, e.g. `@botmesh/ai` aborts its model calls), stops or pauses the steps that
 produce new work (scheduler, durability sweeper), optionally drains in-flight sends
 (`stop({ drain: true })`), closes paced sends and aborts conversations (checkpoints
 are kept), then stops the remaining steps in reverse order (the `storage` step first

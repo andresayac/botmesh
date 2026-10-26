@@ -231,7 +231,11 @@ export class CloudAPIProvider implements IProvider<unknown> {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
   }
+  /** The last connection state this provider emitted was `'ready'` (presence hints are skipped otherwise). */
+  private presenceReady = false
+
   private fan(e: InboundEvent): void {
+    if (e.kind === 'connection') this.presenceReady = e.update.state === 'ready'
     this.observe(e)
     for (const listener of this.listeners) {
       try {
@@ -276,6 +280,7 @@ export class CloudAPIProvider implements IProvider<unknown> {
   }
   /** Emits `closed` after any webhook batch still waiting on an async identity lookup. */
   async stop(): Promise<void> {
+    this.presenceReady = false
     while (this.pending) await this.pending
     this.fan({ kind: 'connection', update: { state: 'closed' } })
   }
@@ -485,6 +490,8 @@ export class CloudAPIProvider implements IProvider<unknown> {
   }
 
   async markRead(refs: MessageRef[]): Promise<void> {
+    // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
+    if (!this.presenceReady) return
     for (const r of refs) if (r.id) await this.graph.markRead(r.id)
   }
 

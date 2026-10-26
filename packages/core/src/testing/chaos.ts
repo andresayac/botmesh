@@ -468,8 +468,8 @@ export class ChaosProvider<P extends IProvider = IProvider> implements IProvider
     inner.onEvent((event) => this.receive(event))
   }
 
-  /** The wrapped provider's self id. */
-  get selfId(): UserId | null | undefined { return this.inner.selfId }
+  /** The wrapped provider's self id (`null` when it has none: never `undefined`, see `IProvider.selfId`). */
+  get selfId(): UserId | null { return this.inner.selfId ?? null }
   /** The wrapped provider's debug connection handle. */
   get connection(): unknown { return this.inner.connection }
   /** `false` while a simulated drop is in effect. */

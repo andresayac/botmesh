@@ -7,7 +7,7 @@
  * `IProvider.typing` / `IProvider.editMessage` methods. A failing typing
  * indicator NEVER fails a send — it is cosmetic and best effort.
  *
- * Support levels (see {@link messagingSupport}):
+ * Support levels (see `messagingSupport`):
  *  - `typing`: `native` when `capabilities.typing` and `provider.typing` exist;
  *    otherwise `unsupported` (no indicator AND no artificial wait).
  *  - `delay`:  always `native` (it is a core-side pause).
@@ -75,7 +75,7 @@ export interface ReplyOptions {
 /** How a provider supports a messaging feature. */
 export type MessagingSupport = 'native' | 'degraded' | 'unsupported'
 
-/** Messaging features whose support can be queried with `ctx.supports()` / {@link messagingSupport}. */
+/** Messaging features whose support can be queried with `ctx.supports()` / `messagingSupport`. */
 export type MessagingFeature = 'typing' | 'delay' | 'edit' | 'react'
 
 /** Options for `ctx.edit()`. */
@@ -230,6 +230,8 @@ export interface PacerOptions {
   logId?: (id: string) => string | undefined
   /** Injected for tests. */
   sleep?: (ms: number) => Promise<void>
+  /** Checked before each indicator: `false` skips it (the transport is disconnected). */
+  allowTyping?: (chatId: ChatId) => boolean
   /**
    * Read before each wait: when the signal aborts (the bot stopped) a pending wait ends at
    * once and its timer is cleared; the guard then drops the reply. Ignored with `sleep`.
@@ -254,6 +256,7 @@ export function createPacer(options: PacerOptions): Pacer {
   const wait = options.sleep ?? ((ms: number) => abortableSleep(ms, options.signal?.()))
 
   const indicate = (chatId: ChatId, state: 'typing' | 'paused'): void => {
+    if (options.allowTyping && !options.allowTyping(chatId)) return
     // Fire-and-forget: a slow or failing indicator never delays or fails the send.
     void Promise.resolve()
       .then(() => provider.typing?.(chatId, state))
@@ -302,7 +305,7 @@ function skipOrThrow<T>(guard: PaceGuard<T> | undefined): T {
   throw new PacedSendCancelled()
 }
 
-/** Thrown by {@link Pacer.run} when a reply is cancelled during its wait and no guard supplies a result. */
+/** Thrown by `Pacer.run` when a reply is cancelled during its wait and no guard supplies a result. */
 export class PacedSendCancelled extends Error {
   constructor() {
     super('paced reply cancelled before it was sent')

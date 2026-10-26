@@ -2,8 +2,17 @@
  * Shape check of the events a provider emits (`IProvider.onEvent`): the minimum the
  * inbound pipeline reads without crashing. A broken event is reported once as an
  * `InvalidProviderEventError` (see `bot/inbound.ts`) instead of surfacing as a generic
- * `TypeError` deep in the pipeline. Ids are only type-checked, never parsed.
+ * `TypeError` deep in the pipeline. Ids are only type-checked, never parsed. An event of a
+ * kind this core does not know (a newer provider) is not broken: it is ignored, for forward
+ * compatibility (see {@link isUnknownEventKind}).
  */
+
+const KNOWN_KINDS = new Set(['message', 'interaction', 'connection', 'status', 'reaction', 'poll-vote', 'group', 'presence', 'call'])
+
+/** A well-formed event whose string `kind` this core does not handle (ignored, not reported). */
+export function isUnknownEventKind(event: unknown): boolean {
+  return isObject(event) && typeof event.kind === 'string' && !KNOWN_KINDS.has(event.kind)
+}
 
 /** Why `event` breaks the normalized event contract, or `undefined` when it is usable. */
 export function invalidEventReason(event: unknown): string | undefined {
@@ -20,7 +29,8 @@ export function invalidEventReason(event: unknown): string | undefined {
     case 'group':
     case 'presence':
     case 'call': return isObject(event.event) ? undefined : `${event.kind}.event must be an object`
-    default: return `unknown kind ${JSON.stringify(typeof event.kind === 'string' ? event.kind.slice(0, 40) : typeof event.kind)}`
+    // Unknown string kinds are ignored by the caller (isUnknownEventKind), not reported.
+    default: return typeof event.kind === 'string' ? undefined : 'kind must be a string'
   }
 }
 

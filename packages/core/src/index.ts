@@ -25,6 +25,8 @@
  * bot.when('hola', async (ctx) => await ctx.reply('¡Hola! 👋'))
  * await bot.start()
  * ```
+ *
+ * @module @botmesh/core
  */
 
 // Core

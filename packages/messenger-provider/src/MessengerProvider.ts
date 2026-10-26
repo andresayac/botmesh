@@ -119,7 +119,11 @@ export class MessengerProvider implements IProvider<unknown> {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
   }
+  /** The last connection state this provider emitted was `'ready'` (presence hints are skipped otherwise). */
+  private presenceReady = false
+
   private fan(e: InboundEvent): void {
+    if (e.kind === 'connection') this.presenceReady = e.update.state === 'ready'
     for (const listener of this.listeners) {
       try {
         void Promise.resolve(listener(e))
@@ -136,6 +140,7 @@ export class MessengerProvider implements IProvider<unknown> {
     this.logger.debug('MessengerProvider ready — wire your webhook to ingest()')
   }
   async stop(): Promise<void> {
+    this.presenceReady = false
     this.fan({ kind: 'connection', update: { state: 'closed' } })
   }
 
@@ -257,6 +262,8 @@ export class MessengerProvider implements IProvider<unknown> {
 
   /** Mark conversations as seen (sender_action 'mark_seen' per chat). */
   async markRead(refs: MessageRef[]): Promise<void> {
+    // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
+    if (!this.presenceReady) return
     const seen = new Set<ChatId>()
     for (const r of refs) {
       if (!r.chatId || seen.has(r.chatId)) continue
@@ -267,6 +274,8 @@ export class MessengerProvider implements IProvider<unknown> {
 
   /** Typing indicator (sender_action 'typing_on' / 'typing_off'). */
   async typing(chatId: ChatId, state?: 'typing' | 'recording' | 'paused'): Promise<void> {
+    // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
+    if (!this.presenceReady) return
     const action = state === 'paused' ? 'typing_off' : 'typing_on'
     await this.postMessages({ recipient: { id: chatId }, sender_action: action }, chatId)
   }

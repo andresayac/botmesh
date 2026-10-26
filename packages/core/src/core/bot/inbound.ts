@@ -11,13 +11,14 @@ import type { DispatchContext } from '../Dispatcher.js'
 import { callToInbound, RecentIds } from '../calls.js'
 import { guardDownload } from '../mediaRefs.js'
 import { receiveTimestamp } from '../ledger.js'
-import { InvalidProviderEventError } from '../errors.js'
-import { invalidEventReason } from '../eventShape.js'
+import { BotNotRunningError, InvalidProviderEventError } from '../errors.js'
+import { invalidEventReason, isUnknownEventKind } from '../eventShape.js'
 import type { CallEvent, ChatId, HookEvent, InboundEvent, InboundInteraction, InboundMessage, MessageContext, UserId } from '../types.js'
 import type { ContextFactory } from './contextFactory.js'
 import { InteractionAck } from './interactionAck.js'
 import { admitAccess, admitHandoff } from './gates.js'
 import { assertCoordinated, type BotKernel } from './kernel.js'
+import { presenceAllowed } from './presence.js'
 import type { Persistence } from './persistence.js'
 import { SPAN_NAMES, TRACE_ATTR } from '../../telemetry/attributes.js'
 import type { TracingImpl } from '../../telemetry/tracing.js'
@@ -66,6 +67,11 @@ export class InboundPipeline {
       const invalid = invalidEventReason(event)
       if (invalid !== undefined) {
         this.k.events.error({ error: new InvalidProviderEventError(this.k.provider.id, invalid) })
+        return
+      }
+      // Forward compatibility: a kind this core does not know (a newer provider) is skipped.
+      if (isUnknownEventKind(event)) {
+        this.k.logger.debug({ kind: String((event as { kind: string }).kind).slice(0, 40) }, 'provider event of an unknown kind ignored')
         return
       }
       const tracing = this.k.tracing
@@ -134,6 +140,7 @@ export class InboundPipeline {
       case 'connection': {
         const u = event.update
         state.connState = u.state
+        state.connReported = true
         this.k.coordination?.onConnection(u.state)
         this.k.events.emit('connection', u)
         if (typeof u.authPayload === 'string') this.k.events.emit('qr', u.authPayload)
@@ -265,8 +272,17 @@ export class InboundPipeline {
   private contextWith(inbound: InboundMessage, interaction: InteractionInfo | undefined, ack: InteractionAck | undefined): MessageContext {
     const { provider } = this.k
     const ctx: MessageContext = this.contextFor(inbound, {
-      markRead: async (ref) => { assertCoordinated(this.k); await provider.markRead?.([ref]) },
-      deleteMessage: async (ref) => { assertCoordinated(this.k); await provider.deleteMessage?.(ref) },
+      markRead: async (ref) => {
+        assertCoordinated(this.k)
+        // Best-effort while the transport is disconnected (skipped, logged, counted).
+        if (!presenceAllowed(this.k, 'markRead', ref.chatId)) return
+        await provider.markRead?.([ref])
+      },
+      deleteMessage: async (ref) => {
+        if (!this.k.state.sendsOpen) throw new BotNotRunningError('delete')
+        assertCoordinated(this.k)
+        await provider.deleteMessage?.(ref)
+      },
       downloadMedia: guardDownload(provider.downloadMedia ? (ref) => provider.downloadMedia!(ref) : undefined),
       acknowledgeInteraction: ack
         // Already acked (by a send, the deadline timer or an earlier call): the text becomes a reply.

@@ -27,7 +27,7 @@ import { createBotScheduler } from '../../scheduler/botScheduler.js'
 import { UserDataService } from '../../user/UserDataService.js'
 import { KeyedQueue } from '../../utils/keyedQueue.js'
 import { parseTimerDuration } from '../../utils/timers.js'
-import { validateConfig } from '../../utils/validateConfig.js'
+import { moreSpecificTag, validateConfig } from '../../utils/validateConfig.js'
 import { Dispatcher } from '../Dispatcher.js'
 import { createInboundDeduper } from '../dedupe.js'
 import { createEchoFilter } from '../echo.js'
@@ -51,6 +51,7 @@ import { createLangSeams } from './lang.js'
 import { Lifecycle, defaultLifecycleSteps } from './lifecycle.js'
 import { BotOps } from './ops.js'
 import { OutboundPipeline } from './outbound.js'
+import { presenceAllowed } from './presence.js'
 import { Persistence } from './persistence.js'
 import { PluginHost } from './pluginHost.js'
 import { RouteRegistrar } from './routes.js'
@@ -137,6 +138,7 @@ export function composeBot(host: ComposeHost, inputConfig: BotConfig, fields: Co
     logger,
     logId: k.logId,
     signal: () => k.state.sendsAbort.signal,
+    allowTyping: (chatId) => presenceAllowed(k, 'typing', chatId),
   })
 
   // Store — injected instance, or the built-in MemoryStore. Every key is
@@ -195,6 +197,10 @@ export function composeBot(host: ComposeHost, inputConfig: BotConfig, fields: Co
   k.i18n = new I18n({ logger: logger.child({ module: 'i18n' }) })
   if (config.lang !== undefined) k.i18n.setDefaultLocale(config.lang)
   if (config.i18n !== undefined) k.i18n.configure(config.i18n)
+  // `lang: 'es-MX'` with `i18n.defaultLocale: 'es'`: the more specific tag is the default.
+  if (config.lang !== undefined && config.i18n?.defaultLocale !== undefined && moreSpecificTag(config.lang, String(config.i18n.defaultLocale))) {
+    k.i18n.setDefaultLocale(config.lang)
+  }
 
   const conv = config.conversation ?? {}
   const conversationTimeoutMs = conv.timeout !== undefined ? parseTimerDuration(conv.timeout, 'conversation.timeout') : undefined
@@ -335,6 +341,8 @@ export function composeBot(host: ComposeHost, inputConfig: BotConfig, fields: Co
     handleInteraction: (i) => inbound.handleInteraction(i),
     emit: (event, payload) => { k.events.emit(event, payload) },
     reportError: (error) => k.events.error({ error }),
+    // Late-bound: the outbound pipeline is built below (called only once the bot runs).
+    split: (chatId, content) => outbound.textParts(chatId, content),
   })
 
   const ready = new Promise<void>((resolve) => {

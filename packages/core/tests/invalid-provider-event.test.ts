@@ -33,7 +33,7 @@ describe('malformed provider events', () => {
   it.each([
     ['null', null, /not an object/],
     ['a string', 'message', /not an object/],
-    ['an unknown kind', { kind: 'bogus' }, /unknown kind "bogus"/],
+    ['a kind that is not a string', { kind: 7 }, /kind must be a string/],
     ['a message event without message', { kind: 'message' }, /message must be an object/],
     ['a message without chatId', { kind: 'message', message: { ...good, chatId: undefined } }, /message\.chatId/],
     ['a message without ref', { kind: 'message', message: { ...good, ref: undefined } }, /message\.ref/],
@@ -68,6 +68,16 @@ describe('malformed provider events', () => {
     const { bot, errors, handled, emit } = await setup()
     emit({ kind: 'message', message: good })
     await expect.poll(() => handled).toEqual(['hi'])
+    expect(errors).toEqual([])
+    await bot.stop()
+  })
+
+  it('an event of an unknown kind (a newer provider) is ignored: no error, nothing routed', async () => {
+    const { bot, chat, errors, handled, emit } = await setup()
+    emit({ kind: 'future-thing', payload: { x: 1 } })
+    await chat.send('hello')
+    await chat.expectReply('ok')
+    expect(handled).toEqual(['hello'])
     expect(errors).toEqual([])
     await bot.stop()
   })

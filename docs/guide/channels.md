@@ -162,6 +162,13 @@ Provider authors check them with the helpers of `@botmesh/core/testing`
   `deleteMessage`) is missing and its capability flag is `false`, so `ctx.typing()`,
   `ctx.markRead()` and `ctx.delete()` do nothing. A method that exists performs the
   operation or rejects; it is never a silent stand-in.
+- **Presence hints are best-effort while disconnected.** `typing()` and `markRead()`
+  resolve without contacting the transport while the provider's last connection state
+  is not `'ready'` (before `start()` connected, while reconnecting, after `stop()`):
+  no error, no queue, no later retry. The bot applies the same rule before calling
+  them, logs the skipped hint at debug and counts it in `metrics().presenceSkipped`
+  (`botmesh_presence_skipped_total` in `toPrometheus()`). Once connected, a transport
+  failure still rejects. `assertPresenceWhileDisconnected()` checks a provider.
 - **Too many options reject.** A transport that shows fewer buttons, rows or poll
   answers than you sent rejects with `UnsupportedContentError` (Cloud API, Messenger,
   Instagram, Discord), unless it has a documented degradation (numbered text on

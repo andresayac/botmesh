@@ -186,7 +186,7 @@ const bot = new Bot({
 })
 ```
 
-The full interface is documented in the [API reference](/api/interfaces/IStore.html). `MemoryStore` is the reference implementation of the contract; inside the monorepo, every store runs the shared conformance suite (`test-utils/store-conformance.ts`).
+The full interface is documented in the [API reference](/api/interfaces/_botmesh_core.IStore.html). `MemoryStore` is the reference implementation of the contract; inside the monorepo, every store runs the shared conformance suite (`test-utils/store-conformance.ts`).
 
 Semantics every store must keep:
 

@@ -2,8 +2,8 @@
  * Cross-channel contract: epoch-ms timestamps (checked with the reusable helper from
  * `@botmesh/core/testing`) against the real ingest path, and the declared text limit.
  */
-import { describe, it, expect } from 'vitest'
-import { assertCapabilityContract, assertInboundContract, recordEvents } from '@botmesh/core/testing'
+import { describe, it, expect, vi } from 'vitest'
+import { assertCapabilityContract, assertPresenceWhileDisconnected, assertInboundContract, recordEvents } from '@botmesh/core/testing'
 import { EvolutionProvider } from '../src/EvolutionProvider.js'
 import { fixture } from './support/fake.js'
 
@@ -31,5 +31,16 @@ describe('Evolution — channel contract', () => {
 describe('capability contract', () => {
   it('capability flags agree with the optional methods (unsupported = absent)', () => {
     assertCapabilityContract(provider())
+  })
+})
+
+describe('presence while disconnected', () => {
+  it('markRead / typing resolve without contacting the transport before start()', async () => {
+    vi.stubGlobal('fetch', async () => { throw new Error('offline: the transport must not be contacted') })
+    try {
+      await assertPresenceWhileDisconnected(provider(), { chatId: 'chat-1' })
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

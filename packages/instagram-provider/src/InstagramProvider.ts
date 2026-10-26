@@ -122,7 +122,11 @@ export class InstagramProvider implements IProvider<unknown> {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
   }
+  /** The last connection state this provider emitted was `'ready'` (presence hints are skipped otherwise). */
+  private presenceReady = false
+
   private fan(e: InboundEvent): void {
+    if (e.kind === 'connection') this.presenceReady = e.update.state === 'ready'
     for (const listener of this.listeners) {
       try {
         void Promise.resolve(listener(e))
@@ -139,6 +143,7 @@ export class InstagramProvider implements IProvider<unknown> {
     this.logger.debug('InstagramProvider ready — wire your webhook to ingest()')
   }
   async stop(): Promise<void> {
+    this.presenceReady = false
     this.fan({ kind: 'connection', update: { state: 'closed' } })
   }
 
@@ -213,12 +218,16 @@ export class InstagramProvider implements IProvider<unknown> {
 
   /** Mark conversations as seen (sender_action 'mark_seen', one per chat). */
   async markRead(refs: MessageRef[]): Promise<void> {
+    // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
+    if (!this.presenceReady) return
     const chats = new Set(refs.map((r) => r.chatId).filter(Boolean))
     for (const chatId of chats) await this.graph.sendSenderAction(chatId, 'mark_seen')
   }
 
   /** Typing indicator (sender_action 'typing_on'/'typing_off'). */
   async typing(chatId: ChatId, state?: 'typing' | 'recording' | 'paused'): Promise<void> {
+    // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
+    if (!this.presenceReady) return
     await this.graph.sendSenderAction(chatId, state === 'paused' ? 'typing_off' : 'typing_on')
   }
 

@@ -60,6 +60,7 @@ describe('Graph request timeout', () => {
     const fetch = hangingFetch()
     vi.stubGlobal('fetch', fetch)
     const p = new CloudAPIProvider(baseCfg)
+    await p.start()
     void p.markRead([{ id: 'wamid.1', chatId: '573001' }]).catch(() => {})
     await vi.waitFor(() => expect(fetch).toHaveBeenCalled())
     expect(fetch.mock.calls[0]![1]?.signal).toBeInstanceOf(AbortSignal)

@@ -20,6 +20,11 @@ español y `maxAttempts` donde una espera usaba `retries`.
 | [`MemoryCoordinationHub` expulsa chats inactivos](#memorycoordinationhub-expulsa-chats-inactivos) | Tests que inspeccionan el hub | Nada |
 | [`broadcast({ maxRetries })`](#reintentos-de-broadcast) | Difusiones | Renómbralo a `retries` (el alias se mantiene) |
 | [Las etiquetas de WhatsApp Flows pasan a inglés](#las-etiquetas-de-whatsapp-flows-pasan-a-ingles) | Formularios de `@botmesh/meta` publicados con `toFlowJson` / `publishForm` | Pasa `lang: 'es'` |
+| [Presencia sin conexión](#presencia-sin-conexion) | Código que esperaba que `typing()` / `markRead()` lanzaran sin conexión; providers propios | Nada; los providers propios resuelven sin conexión |
+| [Evento `'stopping'`](#evento-stopping) | Plugins que cancelan trabajo en `'stopped'` | Escucha `'stopping'` para cancelar antes de parar el transporte |
+| [Los flujos persistentes hacen checkpoint al empezar](#los-flujos-persistentes-hacen-checkpoint-al-empezar) | Stores que cuentan escrituras de checkpoint | Nada (una escritura más por entrada al flujo) |
+| [Mensajes de error sin ids de chat](#mensajes-de-error-sin-ids-de-chat) | Código que sacaba el chat del mensaje de un error | Lee `error.chatId` |
+| [Arreglos menores](#arreglos-menores) | `ctx.delete()` después de `stop()`, `ctx.acknowledge`, tipos de evento desconocidos, `lang` + `i18n.defaultLocale`, `ChaosProvider.selfId` | Ver la sección |
 
 ## Los textos internos pasan a inglés
 
@@ -125,11 +130,14 @@ propio back-off).
 
 ## Eventos de provider inválidos
 
-Un evento que rompe el contrato normalizado (no es un objeto, `kind`
-desconocido, un mensaje sin `chatId`, `ref`, `senderId`, `type` o `body`…)
+Un evento que rompe el contrato normalizado (no es un objeto, un `kind` que no
+es string, un mensaje sin `chatId`, `ref`, `senderId`, `type` o `body`…)
 fallaba dentro del pipeline con un `TypeError` genérico. Ahora se descarta y se
 informa una sola vez en el evento `'error'` como `InvalidProviderEventError`,
-que nombra el provider y el campo roto (nunca ids ni contenido de mensajes).
+que nombra el provider y el campo roto (nunca ids ni contenido de mensajes). Un
+evento cuyo `kind` es un string que este core no conoce (un provider más nuevo)
+no es un error: se ignora, con una línea de log en debug, para que los providers
+puedan añadir tipos de evento sin romper cores anteriores.
 
 ## Un hook que llama a `next()` dos veces
 
@@ -197,3 +205,69 @@ provider.publishForm(definicion, { flowJson: { lang: 'es' } })
 
 Un `submitLabel` en la definición siempre manda. Los formularios que envía un bot
 ya usan el `ctx.lang` del usuario para el botón y el cuerpo.
+
+## Presencia sin conexión
+
+`ctx.typing()`, `ctx.recording()`, `ctx.markRead()` y el indicador automático de
+escritura son señales de mejor esfuerzo. Antes se comportaban distinto en cada canal
+mientras el transporte estaba caído: Baileys no hacía nada, los canales REST llamaban
+igual a la API y algunos rechazaban. Ahora hay una sola regla (la sección "PRESENCE
+WHILE DISCONNECTED" del contrato `IProvider`): mientras el último estado de conexión
+del provider no es `'ready'`, o una vez parado el bot, la señal se omite sin error, se
+registra en debug y se cuenta en `metrics().presenceSkipped`
+(`botmesh_presence_skipped_total` en `toPrometheus()`). Los 13 providers integrados la
+cumplen también si se les llama directamente. Ya conectado, un fallo del transporte
+sigue rechazando como antes.
+
+Un provider propio debe resolver `typing()` y `markRead()` sin tocar su transporte
+mientras no está conectado; `assertPresenceWhileDisconnected()` de
+`@botmesh/core/testing` lo comprueba. Un provider que nunca emite un evento de conexión
+no queda limitado por el bot mientras este corre.
+
+## Evento `'stopping'` {#evento-stopping}
+
+`bot.stop()` sobre un bot en marcha emite ahora `'stopping'` justo después de cerrar la
+entrada, antes del drenado y antes de parar el transporte; `'stopped'` sigue llegando
+al final. Cancela ahí el trabajo largo (llamadas al modelo, descargas): el transporte
+todavía puede entregar lo que está en curso. `@botmesh/ai` aborta sus llamadas al
+modelo en `'stopping'` (antes esperaba a `'stopped'`, con el transporte ya parado).
+
+## Los flujos persistentes hacen checkpoint al empezar
+
+Un flujo `.persistent()` escribe ahora su checkpoint al empezar (paso 0) además de
+después de cada paso, así que un reinicio mientras espera su primer paso, normalmente
+un flujo que empieza con `.ask()`, lo retoma ahí y vuelve a preguntar. Antes se perdía
+salvo con durabilidad o coordinación. El coste es una escritura de checkpoint más por
+entrada al flujo.
+
+## Mensajes de error sin ids de chat
+
+Los mensajes por defecto de `OutsideSessionWindowError` y `RecipientUnreachableError`
+ya no incluyen el id del chat (acababa en los logs): dicen `Outside the session window;
+a template is required` y `Recipient unreachable`. El id sigue en `error.chatId`, y un
+mensaje que pase el provider se conserva tal cual.
+
+## Arreglos menores
+
+- `ctx.delete()` antes de `start()` o después de `stop()` rechaza con
+  `BotNotRunningError` (`operation: 'delete'`), como los envíos.
+- `IMessageContext.acknowledge` se tipa como método obligatorio: siempre existió en
+  ejecución (sin interacción no hace nada). `ctx.acknowledge?.()` sigue compilando.
+- Un evento de provider cuyo `kind` es un string que el core no conoce se ignora con
+  una línea en debug en vez de informarse como `InvalidProviderEventError`.
+- `lang` e `i18n.defaultLocale` pueden nombrar el mismo idioma con distinta precisión
+  (`'es'` y `'es-MX'`); la etiqueta más específica queda como predeterminada.
+- Con `telemetry.ids: 'raw'` y sin `logIds`, las líneas de log siguen hasheando los ids
+  (antes reutilizaban la política cruda de los spans).
+- `ChaosProvider.selfId` y `RecordingProvider.selfId` (`@botmesh/core/testing`)
+  devuelven `null` en vez de `undefined` cuando el provider envuelto no tiene id
+  propio, así implementan `IProvider` con `exactOptionalPropertyTypes`.
+- En el outbox durable, una parte posterior de un texto dividido ya no adelanta a una
+  anterior que espera un reintento, y el barrido divide un registro anotado que supera
+  el límite de texto del canal (ver [Procesamiento durable](/es/guide/durabilidad)).
+  Esperar detrás de una parte anterior no gasta intentos, y las partes se enlazan con el
+  nuevo campo `OutboxRecord.previousPart` (tus propias claves de idempotencia que acaban
+  en `#<n>` no se tratan como partes). Un `OutboxJournal` propio debe guardar
+  `previousPart` en `put()` y respetar la nueva opción `markFailed(..., { refund: true })`
+  (devolver el intento reclamado); si las ignora, las partes siguen sin orden en los
+  reintentos, como antes.

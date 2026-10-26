@@ -7,7 +7,7 @@
 import { describe, it, expect, vi } from 'vitest'
 
 import type { BotConfig } from '../src/index.js'
-import { createTestBot } from '../src/testing/index.js'
+import { createRecordingTracer, createTestBot } from '../src/testing/index.js'
 
 const SECRET = '573001234567@s.whatsapp.net'
 
@@ -53,6 +53,12 @@ describe('ids in logs', () => {
 
   it("logIds: 'omit' drops them", async () => {
     const out = await exercise({ debug: true, logIds: 'omit' })
+    expect(out).toContain('dispatching message')
+    expect(out).not.toContain(SECRET)
+  })
+
+  it("telemetry ids: 'raw' does not leak raw ids into the logs (logs keep hashing by default)", async () => {
+    const out = await exercise({ debug: true, telemetry: { tracer: createRecordingTracer().tracer, ids: 'raw' } })
     expect(out).toContain('dispatching message')
     expect(out).not.toContain(SECRET)
   })

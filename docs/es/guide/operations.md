@@ -23,6 +23,7 @@ const m = bot.metrics()
 //   flows: { registro: { started, completed, ended, guarded, cancelled, timedOut, retriesExceeded, errored, avgDurationMs } },
 //   messages: { in, out, outFailed },
 //   dropped: { duplicate, blocked, handoff },
+//   presenceSkipped: { typing, markRead },
 //   triggered,   // llamadas a bot.trigger() que iniciaron una conversación
 //   errors,      // errores reportados en bot.on('error')
 // }
@@ -36,6 +37,10 @@ const m = bot.metrics()
   interacciones y llamadas que descartan la blacklist / whitelist (cada
   entrega, porque el dedupe nunca registra lo bloqueado), y `handoff` los mensajes que no se enrutan porque el chat está
   [en manos de un humano](./handoff).
+- `presenceSkipped.typing` / `markRead` cuentan las señales de presencia
+  (`ctx.typing()`, `ctx.recording()`, el indicador automático de escritura,
+  `ctx.markRead()`) omitidas porque el transporte estaba desconectado o parado
+  (de mejor esfuerzo, ver [Canales](./canales#contrato-comun-de-los-canales)).
 - `flows` va por nombre de conversación/flujo. `avgDurationMs` es la duración
   media de las conversaciones que ya terminaron (`0` si ninguna terminó).
 - Un flujo que termina su función y un `goto` cuentan como `completed`;
@@ -68,6 +73,7 @@ El prefijo por defecto es `botmesh_` (`prefix: 'botwa_'` conserva los nombres de
 `flow_duration_avg_seconds{flow}`, `messages_in_total`,
 `messages_out_total{result}` (`sent` / `failed`),
 `inbound_dropped_total{reason}` (`duplicate` / `blocked` / `handoff`),
+`presence_skipped_total{kind}` (`typing` / `mark_read`),
 `triggers_total` y `errors_total`. Un prefijo o un nombre de label inválido
 lanza `TypeError`.
 

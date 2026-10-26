@@ -245,6 +245,7 @@ Con `@botmesh/otel`, los spans del bot también son el contexto activo de OpenTe
 | `botmesh.messages.inbound` | counter | |
 | `botmesh.messages.outbound` | counter | `result` = `ok`/`failed` |
 | `botmesh.dropped` | counter | `reason` = `duplicate`/`blocked`/`handoff` |
+| `botmesh.presence.skipped` | counter | `kind` = `typing`/`mark_read` |
 | `botmesh.conversations.started` / `.ended` | counter | `outcome` (ended) |
 | `botmesh.flow.conversations.started` / `.ended` | counter | `flow`, `outcome` (`perFlow`) |
 | `botmesh.triggered`, `botmesh.errors` | counter | |

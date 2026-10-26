@@ -153,11 +153,17 @@ enchufan al mismo motor. Todos los transportes
 alimentan al bot con los mismos eventos normalizados.
 
 Los envíos necesitan el bot en marcha: antes de `bot.start()` y después de
-`bot.stop()`, `bot.send()` y `ctx.reply()` rechazan con `BotNotRunningError` y
-no llega nada al provider (un listener de `'ready'` ya puede enviar). Las
-llamadas concurrentes a `start()` / `stop()` se ejecutan de una en una, en
-orden. Un evento que rompe el contrato del provider se descarta y se informa
-en `'error'` como `InvalidProviderEventError`.
+`bot.stop()`, `bot.send()`, `ctx.reply()` y `ctx.delete()` rechazan con
+`BotNotRunningError` y no llega nada al provider (un listener de `'ready'` ya
+puede enviar). Las señales de presencia (`ctx.typing()`, `ctx.markRead()`, el
+indicador automático de escritura) son de mejor esfuerzo: mientras el
+transporte está desconectado o parado se omiten sin error, se registran en
+debug y se cuentan en `metrics().presenceSkipped`. Las llamadas concurrentes a
+`start()` / `stop()` se ejecutan de una en una, en orden; cada `stop()` de un
+bot en marcha emite `'stopping'` antes del drenado y de parar el transporte, y
+después `'stopped'`. Un evento que rompe el contrato del provider se descarta y
+se informa en `'error'` como `InvalidProviderEventError`; un evento de un tipo
+que el core no conoce (un provider más nuevo) se ignora.
 
 ### 2. when — respuestas simples
 

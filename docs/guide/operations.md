@@ -23,6 +23,7 @@ const m = bot.metrics()
 //   flows: { registro: { started, completed, ended, guarded, cancelled, timedOut, retriesExceeded, errored, avgDurationMs } },
 //   messages: { in, out, outFailed },
 //   dropped: { duplicate, blocked, handoff },
+//   presenceSkipped: { typing, markRead },
 //   triggered,   // bot.trigger() calls that started a conversation
 //   errors,      // errors reported on bot.on('error')
 // }
@@ -36,6 +37,10 @@ const m = bot.metrics()
   interactions and calls dropped by the blacklist / whitelist (every
   delivery, since blocked input is never recorded by dedupe), and `handoff` the messages not routed because the chat is
   [handed off to a human](./handoff).
+- `presenceSkipped.typing` / `markRead` count the presence hints
+  (`ctx.typing()`, `ctx.recording()`, the automatic typing indicator,
+  `ctx.markRead()`) skipped because the transport was disconnected or stopped
+  (best-effort, see [Channels](./channels#cross-channel-contract)).
 - `flows` is keyed by conversation/flow name. `avgDurationMs` is the mean
   duration of the conversations that already ended (`0` when none did).
 - A flow that returns and a `goto` count as `completed`; `c.end()` counts as
@@ -67,6 +72,7 @@ The default prefix is `botmesh_` (`prefix: 'botwa_'` keeps the names of the alph
 `flow_duration_avg_seconds{flow}`, `messages_in_total`,
 `messages_out_total{result}` (`sent` / `failed`),
 `inbound_dropped_total{reason}` (`duplicate` / `blocked` / `handoff`),
+`presence_skipped_total{kind}` (`typing` / `mark_read`),
 `triggers_total` and `errors_total`. An invalid prefix or label name throws
 `TypeError`.
 

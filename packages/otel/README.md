@@ -37,6 +37,6 @@ Spans: `bot.inbound` → `bot.persist` / `bot.dispatch` → `bot.handler` → `b
 
 ## Metrics
 
-`otelMetricsPlugin(opts?)` (or `registerOtelMetrics(bot, opts?)`) publishes `bot.metrics()` as counters and observable gauges: `botmesh.messages.inbound`, `botmesh.messages.outbound{result}`, `botmesh.dropped{reason}`, `botmesh.conversations.started|ended{outcome}|active`, `botmesh.flow.conversations.*{flow}`, `botmesh.triggered`, `botmesh.errors`, `botmesh.uptime`, and the `botmesh.conversation.duration{flow,outcome}` histogram.
+`otelMetricsPlugin(opts?)` (or `registerOtelMetrics(bot, opts?)`) publishes `bot.metrics()` as counters and observable gauges: `botmesh.messages.inbound`, `botmesh.messages.outbound{result}`, `botmesh.dropped{reason}`, `botmesh.presence.skipped{kind}`, `botmesh.conversations.started|ended{outcome}|active`, `botmesh.flow.conversations.*{flow}`, `botmesh.triggered`, `botmesh.errors`, `botmesh.uptime`, and the `botmesh.conversation.duration{flow,outcome}` histogram.
 
 Full guide (Jaeger, Grafana Tempo, sampling, limits): `docs/es/guide/trazas.md` / `docs/guide/tracing.md`.

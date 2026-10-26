@@ -219,7 +219,11 @@ export class TikTokProvider implements IProvider<unknown> {
     return () => { this.listeners.delete(listener) }
   }
 
+  /** The last connection state this provider emitted was `'ready'` (presence hints are skipped otherwise). */
+  private presenceReady = false
+
   private fan(e: InboundEvent): void {
+    if (e.kind === 'connection') this.presenceReady = e.update.state === 'ready'
     for (const listener of this.listeners) {
       try {
         void Promise.resolve(listener(e)).catch((err: unknown) => this.logger.error({ err, eventKind: e.kind }, 'provider event listener failed'))
@@ -235,6 +239,7 @@ export class TikTokProvider implements IProvider<unknown> {
   }
 
   async stop(): Promise<void> {
+    this.presenceReady = false
     this.fan({ kind: 'connection', update: { state: 'closed' } })
   }
 
@@ -524,6 +529,8 @@ export class TikTokProvider implements IProvider<unknown> {
 
   /** "Typing" indicator (auto-hides after 5 s). DMs only; no-op elsewhere and for `paused`. */
   async typing(chatId: ChatId, state?: 'typing' | 'recording' | 'paused'): Promise<void> {
+    // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
+    if (!this.presenceReady) return
     if (state === 'paused') return
     const target = this.target(chatId)
     if (target.surface !== 'dm') return
@@ -532,6 +539,8 @@ export class TikTokProvider implements IProvider<unknown> {
 
   /** Mark DM conversations as read ("Seen"). One request per conversation; comments are skipped. */
   async markRead(refs: MessageRef[]): Promise<void> {
+    // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
+    if (!this.presenceReady) return
     const done = new Set<string>()
     for (const ref of refs) {
       const target = this.route(ref.chatId)

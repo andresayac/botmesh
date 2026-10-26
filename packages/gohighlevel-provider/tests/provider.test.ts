@@ -278,6 +278,7 @@ describe('GoHighLevelProvider — outbound', () => {
 describe('GoHighLevelProvider — markRead & media', () => {
   it('markRead PUTs unreadCount 0 once per conversation; refs without one are skipped', async () => {
     const { provider, calls } = make(() => ({ json: { success: true } }))
+    await provider.start()
     await provider.markRead([
       { id: 'a', chatId: 'c1', native: { conversationId: 'conv-1' } },
       { id: 'b', chatId: 'c1', native: { conversationId: 'conv-1' } },

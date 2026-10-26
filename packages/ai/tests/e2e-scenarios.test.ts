@@ -143,6 +143,19 @@ describe('e2e: unhappy paths', () => {
     expect(timers).toBeLessThanOrEqual(timersBefore)
   })
 
+  it("in-flight model calls are aborted on 'stopping', before the transport stops", async () => {
+    const hang = new HangingProvider()
+    const { bot, chat, provider } = await setup({ instance: hang })
+    let abortedWhenTransportStopped: number | undefined
+    const stop = provider.stop.bind(provider)
+    provider.stop = async () => { abortedWhenTransportStopped = hang.aborted; await stop() }
+    await chat.send('hola')
+    await tick()
+    expect(hang.started).toBe(1)
+    await bot.stop()
+    expect(abortedWhenTransportStopped).toBe(1)
+  })
+
   it('stop() also aborts a streamed answer that is still waiting for the model', async () => {
     const hang = new HangingProvider()
     const t = await createTestBot({ lang: 'es' }, { provider: { streaming: 'edit' } })

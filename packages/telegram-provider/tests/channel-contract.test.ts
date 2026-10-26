@@ -2,8 +2,8 @@
  * Cross-channel contract: epoch-ms timestamps (checked with the reusable helper from
  * `@botmesh/core/testing`) and the declared text limit.
  */
-import { describe, it, expect } from 'vitest'
-import { assertCapabilityContract, assertInboundContract } from '@botmesh/core/testing'
+import { describe, it, expect, vi } from 'vitest'
+import { assertCapabilityContract, assertPresenceWhileDisconnected, assertInboundContract } from '@botmesh/core/testing'
 import { parseUpdate } from '../src/parseInbound.js'
 import { TelegramProvider } from '../src/TelegramProvider.js'
 
@@ -48,5 +48,16 @@ describe('429 retry_after', () => {
     expect((toProviderError('c', 429, 'x', Number.NaN) as InstanceType<typeof RateLimitedError>).retryAfterMs).toBe(1000)
     expect((toProviderError('c', 429, 'x', -3) as InstanceType<typeof RateLimitedError>).retryAfterMs).toBe(1000)
     expect((toProviderError('c', 429, 'x', 7) as InstanceType<typeof RateLimitedError>).retryAfterMs).toBe(7000)
+  })
+})
+
+describe('presence while disconnected', () => {
+  it('markRead / typing resolve without contacting the transport before start()', async () => {
+    vi.stubGlobal('fetch', async () => { throw new Error('offline: the transport must not be contacted') })
+    try {
+      await assertPresenceWhileDisconnected(new TelegramProvider({ token: '1:x' }), { chatId: 'chat-1' })
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

@@ -3,7 +3,7 @@
  * (`ChaosProvider`, `withChaos`), identity-contract checks, crash simulation, golden
  * transcripts and in-memory coordinators. Never imported by the engine itself.
  *
- * @packageDocumentation
+ * @module @botmesh/core/testing
  */
 export { MockProvider } from './MockProvider.js'
 export type {
@@ -65,8 +65,8 @@ export type {
 export { checkInboundContract, assertInboundContract, InboundContractError } from './inboundContract.js'
 export type { InboundContractInput, InboundContractOptions, InboundRule, InboundViolation } from './inboundContract.js'
 // Capability contract: capability flags agree with the optional methods a provider exposes.
-export { checkCapabilityContract, assertCapabilityContract, CapabilityContractError } from './capabilityContract.js'
-export type { CapabilityRule, CapabilityViolation } from './capabilityContract.js'
+export { checkCapabilityContract, assertCapabilityContract, CapabilityContractError, checkPresenceWhileDisconnected, assertPresenceWhileDisconnected } from './capabilityContract.js'
+export type { CapabilityRule, CapabilityViolation, PresenceProbe } from './capabilityContract.js'
 
 // golden-transcripts: record, redact and replay conversations
 export {

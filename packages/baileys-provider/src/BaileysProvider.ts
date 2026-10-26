@@ -303,7 +303,11 @@ export class BaileysProvider implements IProvider<WAMessage> {
     return () => this.listeners.delete(listener)
   }
 
+  /** The last connection state this provider emitted was `'ready'` (presence hints are skipped otherwise). */
+  private presenceReady = false
+
   private fan(e: InboundEvent<WAMessage>): void {
+    if (e.kind === 'connection') this.presenceReady = e.update.state === 'ready'
     for (const listener of this.listeners) {
       try {
         void Promise.resolve(listener(e))
@@ -335,6 +339,7 @@ export class BaileysProvider implements IProvider<WAMessage> {
   }
 
   async stop(): Promise<void> {
+    this.presenceReady = false
     this.generation++
     this.cancelReconnect()
     this.isShuttingDown = true
@@ -442,11 +447,15 @@ export class BaileysProvider implements IProvider<WAMessage> {
   }
 
   async markRead(refs: MessageRef[]): Promise<void> {
+    // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
+    if (!this.presenceReady) return
     const keys = refs.map((r) => keyOfRef(r))
     if (keys.length) await this.sock?.readMessages(keys)
   }
 
   async typing(chatId: ChatId, state: 'typing' | 'recording' | 'paused' = 'typing'): Promise<void> {
+    // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
+    if (!this.presenceReady) return
     const presence = state === 'typing' ? 'composing' : state
     await this.sock?.sendPresenceUpdate(presence, chatId)
   }

@@ -171,6 +171,7 @@ describe('TelegramProvider actions', () => {
   it('typing → sendChatAction (typing / record_voice; paused is a no-op)', async () => {
     const calls = mockFetch(() => ({ body: { ok: true, result: true } }))
     const p = new TelegramProvider(baseCfg)
+    ;(p as unknown as { presenceReady: boolean }).presenceReady = true   // as after the 'ready' update
     await p.typing!('77')
     expect(JSON.parse(calls[0].init!.body as string)).toEqual({ chat_id: '77', action: 'typing' })
     await p.typing!('77', 'recording')
