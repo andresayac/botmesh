@@ -1,42 +1,49 @@
-import type { AIProvider, GenerateInput, GenerateResult, AIConfig, AIChatMessage } from '../types.js'
+import type { AIProvider, GenerateInput, GenerateResult, AIProviderConfig, AIChatMessage } from '../types.js'
 import type { AIToolCall } from '../tools/types.js'
 import { anthropicModelSupport, assertThinking } from './anthropicModels.js'
 
-export interface AnthropicContentBlock {
-  type: string
-  text?: string
-  /** `tool_use` blocks. */
-  id?: string
-  name?: string
-  input?: unknown
-}
-export interface AnthropicUsage {
-  input_tokens: number
-  output_tokens: number
-}
-export interface AnthropicMessage {
-  content: AnthropicContentBlock[]
-  stop_reason?: string
-  model: string
-  usage?: AnthropicUsage
-}
-export interface AnthropicStreamEvent {
-  type?: string
-  delta?: { type?: string; text?: string; stop_reason?: string | null }
-  /** `message_start`: the message being streamed (its `usage.input_tokens`). */
-  message?: { usage?: Partial<AnthropicUsage> }
-  /** `message_delta`: cumulative usage (`output_tokens`). */
-  usage?: Partial<AnthropicUsage>
-}
-export interface AnthropicRequestOptions {
-  signal?: AbortSignal
-}
+/**
+ * The part of an Anthropic client (`@anthropic-ai/sdk`) the provider uses: `messages.create`
+ * and, when present, `messages.stream`. Pass a real `new Anthropic()` or a fake with this shape.
+ * The request/response shapes are written inline (their names, such as `AnthropicMessage`, live
+ * in `@botmesh/ai/internal`); only the fields the provider reads are listed.
+ */
 export interface AnthropicLike {
   messages: {
-    create(args: Record<string, unknown>, options?: AnthropicRequestOptions): Promise<AnthropicMessage>
-    stream?(args: Record<string, unknown>, options?: AnthropicRequestOptions): AsyncIterable<AnthropicStreamEvent> & { getFinalMessage?: () => Promise<unknown> }
+    create(args: Record<string, unknown>, options?: { signal?: AbortSignal }): Promise<{
+      content: Array<{
+        type: string
+        text?: string
+        /** `tool_use` blocks. */
+        id?: string
+        name?: string
+        input?: unknown
+      }>
+      stop_reason?: string
+      model: string
+      usage?: { input_tokens: number; output_tokens: number }
+    }>
+    stream?(args: Record<string, unknown>, options?: { signal?: AbortSignal }): AsyncIterable<{
+      type?: string
+      delta?: { type?: string; text?: string; stop_reason?: string | null }
+      /** `message_start`: the message being streamed (its `usage.input_tokens`). */
+      message?: { usage?: { input_tokens?: number; output_tokens?: number } }
+      /** `message_delta`: cumulative usage (`output_tokens`). */
+      usage?: { input_tokens?: number; output_tokens?: number }
+    }> & { getFinalMessage?: () => Promise<unknown> }
   }
 }
+
+/** Request options of {@link AnthropicLike} calls (no semver: `@botmesh/ai/internal`). */
+export type AnthropicRequestOptions = NonNullable<Parameters<AnthropicLike['messages']['create']>[1]>
+/** A Messages API response, as the provider reads it (no semver: `@botmesh/ai/internal`). */
+export type AnthropicMessage = Awaited<ReturnType<AnthropicLike['messages']['create']>>
+/** One content block of {@link AnthropicMessage} (no semver: `@botmesh/ai/internal`). */
+export type AnthropicContentBlock = AnthropicMessage['content'][number]
+/** Token usage of {@link AnthropicMessage} (no semver: `@botmesh/ai/internal`). */
+export type AnthropicUsage = NonNullable<AnthropicMessage['usage']>
+/** One streamed event of `messages.stream` (no semver: `@botmesh/ai/internal`). */
+export type AnthropicStreamEvent = ReturnType<NonNullable<AnthropicLike['messages']['stream']>> extends AsyncIterable<infer E> ? E : never
 
 /** Default model when neither the config nor the call names one (outside semver: it follows Anthropic's current Opus). */
 const DEFAULT_MODEL = 'claude-opus-5-5'
@@ -71,7 +78,7 @@ export class AnthropicProvider implements AIProvider {
 
   constructor(
     private client: AnthropicLike,
-    private cfg: AIConfig,
+    private cfg: AIProviderConfig,
   ) {
     assertThinking(cfg.thinking)
   }

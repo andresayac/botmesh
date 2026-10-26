@@ -11,7 +11,7 @@
  */
 import { TRACE_ATTR, type BotSpan, type BotTracing, type TraceAttributes } from '@botmesh/core'
 
-import type { GenerateResult } from './types.js'
+import type { AIStreamEndInfo, GenerateResult } from './types.js'
 
 /** What a model call is for (`bot.ai.purpose`). */
 export type ModelPurpose = 'reply' | 'ask' | 'generate' | 'memory' | 'tool_step'
@@ -92,7 +92,7 @@ export function traceModelCall(
 }
 
 /** Stream-end info the provider reports (`GenerateInput.onStreamEnd`). */
-export type StreamEndInfo = { stopReason?: string; usage?: { input: number; output: number } }
+export type StreamEndInfo = AIStreamEndInfo
 
 /**
  * A streamed model call: the `chat {model}` span starts at the first `next()` and ends

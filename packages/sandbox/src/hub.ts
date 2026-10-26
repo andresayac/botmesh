@@ -104,7 +104,7 @@ function compact(_key: string, value: unknown): unknown {
 /** A scripted bakery model: picks a tool from keywords, then reports its result. */
 async function bakeryBot(provider: IProvider, logger: LoggerLike | undefined): Promise<Bot> {
   const { createBakeryBot } = await import('@botmesh/example-bakery-ai/bot')
-  const { MockAIProvider } = await import('@botmesh/ai')
+  const { MockAIProvider } = await import('@botmesh/ai/testing')
   const call = (name: string, args: unknown) => ({ toolCalls: [{ name, args }] })
   const model = new MockAIProvider({
     reply: (input) => {

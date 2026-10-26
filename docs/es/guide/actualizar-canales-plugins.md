@@ -38,7 +38,8 @@ new BaileysProvider({ session: 'mi-bot', editedMessages: 'ignore' })
 ### `@botmesh/ai`
 
 **`provider: 'openai'` con `baseUrl` envía `max_tokens`.** Con cualquier `baseUrl` que no
-sea `api.openai.com` ni `*.openai.azure.com`, el tope de tokens de salida va ahora en
+sea `api.openai.com` ni Azure OpenAI (`*.openai.azure.com`, `*.cognitiveservices.azure.com` o
+un endpoint de Azure AI Foundry `*.services.ai.azure.com` bajo `/openai`), el tope de tokens de salida va ahora en
 `max_tokens`, que es lo que esperan los servidores compatibles con OpenAI (vLLM, LM Studio,
 gateways). Si tu `baseUrl` es un proxy delante de OpenAI y usas un modelo o-series o gpt-5,
 vuelve a fijar el campo:
@@ -50,6 +51,19 @@ aiPlugin({ provider: 'openai', baseUrl: 'https://mi-proxy.example/v1', maxTokens
 **Las opciones de memoria fallan pronto.** Un `memory.maxFactLength`, `memory.maxFacts` o
 `memory.ttl` inválido lanza ahora un `RangeError` desde `aiPlugin()` en vez de fallar en
 `plug()` (o, con `maxFactLength`, descartar en silencio todos los hechos).
+
+**`onStreamEnd` tiene un contrato fijo.** `GenerateInput.onStreamEnd(info)` (un
+`AIStreamEndInfo`: `stopReason`, más `usage` en Anthropic y Gemini) se llama exactamente una vez
+por llamada a `stream()`, tras el último fragmento y antes de que termine la iteración, y solo
+si el stream termina con normalidad: nunca si falla, se aborta o el consumidor sale antes con
+`break`. Una excepción lanzada por el callback hace fallar la iteración del consumidor. Todos
+los proveedores integrados y `MockAIProvider` lo cumplen; un `AIProvider` propio que llame a
+`onStreamEnd` también debería.
+
+**Entradas y datos congelados.** `MockAIProvider` pasa a `@botmesh/ai/testing`, los helpers del
+plugin y los nombres de los tipos de los SDK a `@botmesh/ai/internal`, y los vocabularios,
+presets y textos exportados quedan congelados. Ver
+[Migrar a la API estable](./migracion-estable#entradas-de-botmesh-ai).
 
 ### `@botmesh/meta`
 

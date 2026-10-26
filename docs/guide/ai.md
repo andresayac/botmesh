@@ -168,8 +168,9 @@ bot.plug(aiPlugin({
 ```
 
 `baseUrl` is optional (OpenAI-compatible endpoints). The output-token cap goes in
-`max_completion_tokens` for OpenAI itself (no `baseUrl`, `api.openai.com` or
-`*.openai.azure.com`) and in `max_tokens` for any other `baseUrl` (vLLM, LM Studio,
+`max_completion_tokens` for OpenAI itself and Azure OpenAI (no `baseUrl`, `api.openai.com`,
+`*.openai.azure.com`, `*.cognitiveservices.azure.com`, or `*.services.ai.azure.com` under
+`/openai`) and in `max_tokens` for any other `baseUrl` (vLLM, LM Studio,
 gateways), which is what those servers expect. Set `maxTokensField` to override it.
 
 ### Gemini
@@ -447,7 +448,8 @@ no network calls — use it to test your own logic around `AIClient` without
 hitting a real provider:
 
 ```ts
-import { AIClient, ContextManager, MockAIProvider, type ConvStore, type AIMessage } from '@botmesh/ai'
+import { AIClient, ContextManager, type ConvStore, type AIMessage } from '@botmesh/ai'
+import { MockAIProvider } from '@botmesh/ai/testing'
 
 const memory = new Map<string, AIMessage[]>()
 const store: ConvStore = {
@@ -465,6 +467,16 @@ const answer = await client.ask('what time is it?')
 `reply` can also be a function of the request that returns `{ toolCalls }`
 to script tool calls (see [Testing in the tool calling guide](/guide/ai-tools#testing)),
 and `mock.calls` records every request the client sent.
+
+`MockAIProvider` and `validateArgs` (check a tool's arguments against its schema, as the
+tool loop does) come from `@botmesh/ai/testing`; the old `MockAIProvider` import from
+`@botmesh/ai` still works but is deprecated. The package has three entries: `@botmesh/ai`
+(application API), `@botmesh/ai/testing` (test doubles; both covered by semver) and
+`@botmesh/ai/internal` (the plugin's helpers and SDK wire type names, no semver).
+
+A custom `AIProvider` that streams should honour `GenerateInput.onStreamEnd`: call it once,
+after the last chunk, only when the stream ends normally (not on an error, an abort or an
+early `break`), with an `AIStreamEndInfo` (`stopReason`, `usage` when known).
 
 ## Roadmap
 

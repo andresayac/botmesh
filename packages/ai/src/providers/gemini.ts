@@ -6,47 +6,62 @@
  * so it gets its own provider rather than a preset.
  */
 
-import type { AIProvider, GenerateInput, GenerateResult, AIConfig, AIChatMessage } from '../types.js'
+import type { AIProvider, GenerateInput, GenerateResult, AIProviderConfig, AIChatMessage } from '../types.js'
 import type { AIToolCall, JSONSchema } from '../tools/types.js'
 
-export interface GeminiUsage {
-  promptTokenCount?: number
-  candidatesTokenCount?: number
-}
-export interface GeminiRequestOptions {
-  signal?: AbortSignal
-}
-export interface GeminiFunctionCall {
-  name: string
-  args?: unknown
-}
-export interface GeminiPart {
-  text?: string
-  functionCall?: GeminiFunctionCall
-  functionResponse?: { name: string; response: Record<string, unknown> }
-  /** Opaque signature of a thinking model's reasoning; must be replayed with its part. */
-  thoughtSignature?: string
-  thought?: boolean
-}
-export interface GeminiResponse {
-  text(): string
-  usageMetadata?: GeminiUsage
-  functionCalls?(): GeminiFunctionCall[] | undefined
-  candidates?: Array<{ content?: { parts?: GeminiPart[] }; finishReason?: string }>
-  /** Set when the prompt itself was blocked (then there are no candidates). */
-  promptFeedback?: { blockReason?: string }
-}
+/**
+ * A Gemini model handle (`getGenerativeModel()` of {@link GeminiLike}): `generateContent` and,
+ * when present, `generateContentStream`. The request/response shapes are written inline (their
+ * names, such as `GeminiResponse`, live in `@botmesh/ai/internal`); only the fields the provider
+ * reads are listed.
+ */
 export interface GeminiModelLike {
-  generateContent(args: Record<string, unknown>, requestOptions?: GeminiRequestOptions): Promise<{
-    response: GeminiResponse
+  generateContent(args: Record<string, unknown>, requestOptions?: { signal?: AbortSignal }): Promise<{
+    response: {
+      text(): string
+      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number }
+      functionCalls?(): Array<{ name: string; args?: unknown }> | undefined
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{
+            text?: string
+            functionCall?: { name: string; args?: unknown }
+            functionResponse?: { name: string; response: Record<string, unknown> }
+            /** Opaque signature of a thinking model's reasoning; must be replayed with its part. */
+            thoughtSignature?: string
+            thought?: boolean
+          }>
+        }
+        finishReason?: string
+      }>
+      /** Set when the prompt itself was blocked (then there are no candidates). */
+      promptFeedback?: { blockReason?: string }
+    }
   }>
-  generateContentStream?(args: Record<string, unknown>, requestOptions?: GeminiRequestOptions): Promise<{
-    stream: AsyncIterable<Pick<GeminiResponse, 'text' | 'candidates' | 'promptFeedback'> & { usageMetadata?: GeminiUsage }>
+  generateContentStream?(args: Record<string, unknown>, requestOptions?: { signal?: AbortSignal }): Promise<{
+    /** Stream chunks: the response fields above except `functionCalls`. */
+    stream: AsyncIterable<Pick<Awaited<ReturnType<GeminiModelLike['generateContent']>>['response'], 'text' | 'candidates' | 'promptFeedback' | 'usageMetadata'>>
   }>
 }
+/**
+ * The part of a Gemini client the provider uses. `fromGoogleGenAI(new GoogleGenAI(...))`
+ * builds one from `@google/genai`; the legacy `GoogleGenerativeAI` of `@google/generative-ai`
+ * already has this shape.
+ */
 export interface GeminiLike {
   getGenerativeModel(cfg: { model: string }): GeminiModelLike
 }
+
+/** Request options of {@link GeminiModelLike} calls (no semver: `@botmesh/ai/internal`). */
+export type GeminiRequestOptions = NonNullable<Parameters<GeminiModelLike['generateContent']>[1]>
+/** A `generateContent` response, as the provider reads it (no semver: `@botmesh/ai/internal`). */
+export type GeminiResponse = Awaited<ReturnType<GeminiModelLike['generateContent']>>['response']
+/** Token usage of {@link GeminiResponse} (no semver: `@botmesh/ai/internal`). */
+export type GeminiUsage = NonNullable<GeminiResponse['usageMetadata']>
+/** One content part of {@link GeminiResponse} (no semver: `@botmesh/ai/internal`). */
+export type GeminiPart = NonNullable<NonNullable<NonNullable<GeminiResponse['candidates']>[number]['content']>['parts']>[number]
+/** A function call of {@link GeminiPart} (no semver: `@botmesh/ai/internal`). */
+export type GeminiFunctionCall = NonNullable<GeminiPart['functionCall']>
 
 type GeminiContent = { role: 'user' | 'model' | 'function'; parts: GeminiPart[] }
 
@@ -71,7 +86,7 @@ export class GeminiProvider implements AIProvider {
   private callSeq = 0
   constructor(
     private client: GeminiLike,
-    private cfg: AIConfig,
+    private cfg: AIProviderConfig,
   ) {}
 
   private contents(messages: AIChatMessage[]): GeminiContent[] {
@@ -236,20 +251,36 @@ export function toGeminiSchema(schema: JSONSchema): JSONSchema {
  * @google/genai adapter
  * ========================================================================== */
 
-/** A `GenerateContentResponse` of `@google/genai` (only the fields the provider reads). */
-export interface GoogleGenAIResponse {
-  candidates?: Array<{ content?: { parts?: GeminiPart[] }; finishReason?: string }>
-  usageMetadata?: GeminiUsage
-  promptFeedback?: { blockReason?: string }
-}
-
-/** The part of a `GoogleGenAI` client (`@google/genai`) the provider uses: `ai.models`. */
+/**
+ * The part of a `GoogleGenAI` client (`@google/genai`) the provider uses: `ai.models`.
+ * Responses are written inline (their name, `GoogleGenAIResponse`, lives in
+ * `@botmesh/ai/internal`); only the fields the provider reads are listed.
+ */
 export interface GoogleGenAILike {
   models: {
-    generateContent(params: { model: string; contents: unknown; config?: Record<string, unknown> }): Promise<GoogleGenAIResponse>
-    generateContentStream(params: { model: string; contents: unknown; config?: Record<string, unknown> }): Promise<AsyncIterable<GoogleGenAIResponse>>
+    generateContent(params: { model: string; contents: unknown; config?: Record<string, unknown> }): Promise<{
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{
+            text?: string
+            functionCall?: { name: string; args?: unknown }
+            functionResponse?: { name: string; response: Record<string, unknown> }
+            thoughtSignature?: string
+            thought?: boolean
+          }>
+        }
+        finishReason?: string
+      }>
+      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number }
+      promptFeedback?: { blockReason?: string }
+    }>
+    /** Streams chunks shaped like a `generateContent` response. */
+    generateContentStream(params: { model: string; contents: unknown; config?: Record<string, unknown> }): Promise<AsyncIterable<Awaited<ReturnType<GoogleGenAILike['models']['generateContent']>>>>
   }
 }
+
+/** A `GenerateContentResponse` of `@google/genai`, as the provider reads it (no semver: `@botmesh/ai/internal`). */
+export type GoogleGenAIResponse = Awaited<ReturnType<GoogleGenAILike['models']['generateContent']>>
 
 /** Visible text of a response: the text parts, without thought summaries. */
 function genaiText(r: GoogleGenAIResponse): string {

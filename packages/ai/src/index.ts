@@ -1,3 +1,11 @@
+/**
+ * `@botmesh/ai` — multi-provider AI autoresponder plugin for `@botmesh/core`.
+ *
+ * Entries: this one (application API, semver), `@botmesh/ai/testing` (test doubles, semver)
+ * and `@botmesh/ai/internal` (plugin helpers and SDK wire shapes, no semver).
+ *
+ * @packageDocumentation
+ */
 import type { AIClient } from './AIClient.js'
 
 export { aiPlugin } from './plugin.js'
@@ -7,57 +15,56 @@ export type { AIClientOptions, AIToolCallOptions } from './AIClient.js'
 export { ContextManager } from './ContextManager.js'
 export type { ConvStore } from './ContextManager.js'
 export { chatKeyOf } from './chatKey.js'
-export { MockAIProvider } from './MockAIProvider.js'
-export type { MockOptions, MockTurn } from './MockAIProvider.js'
 export { resolveProvider } from './providers/resolve.js'
+
+// Providers and the client contracts they take (the wire shapes' names are in `/internal`)
 export { AnthropicProvider } from './providers/anthropic.js'
+export type { AnthropicLike } from './providers/anthropic.js'
 export { anthropicModelSupport, type AnthropicModelSupport } from './providers/anthropicModels.js'
-export type {
-  AnthropicLike, AnthropicRequestOptions, AnthropicMessage, AnthropicContentBlock, AnthropicUsage, AnthropicStreamEvent,
-} from './providers/anthropic.js'
 export { OpenAIProvider } from './providers/openai.js'
-export type {
-  OpenAIProviderOptions, OpenAILike, OpenAIRequestOptions, OpenAIChatCompletion, OpenAIChoice, OpenAIStreamChunk,
-} from './providers/openai.js'
+export type { OpenAIProviderOptions, OpenAILike } from './providers/openai.js'
 export { OllamaProvider } from './providers/ollama.js'
 export { GeminiProvider, fromGoogleGenAI } from './providers/gemini.js'
-export type {
-  GeminiLike, GeminiModelLike, GeminiRequestOptions, GeminiResponse, GeminiUsage, GeminiFunctionCall, GeminiPart,
-  GoogleGenAILike, GoogleGenAIResponse,
-} from './providers/gemini.js'
+export type { GeminiLike, GeminiModelLike, GoogleGenAILike } from './providers/gemini.js'
 export { LazyProvider } from './providers/LazyProvider.js'
 export { PRESETS, isPreset } from './providers/presets.js'
 export type { Preset, PresetName } from './providers/presets.js'
-export type { AIProvider, AIMessage, AIChatMessage, AIConfig, AIProviderName, GenerateInput, GenerateResult, Effort, AIThinking, AIStreamConfig } from './types.js'
+export type {
+  AIProvider, AIProviderConfig, AIMessage, AIChatMessage, AIConfig, AIProviderName, GenerateInput, GenerateResult,
+  AIStreamEndInfo, Effort, AIThinking, AIStreamConfig,
+} from './types.js'
 
-// ai-tools — native tool / function calling
+// Native tool / function calling
 export { defineTool, AIToolCancelledError } from './tools/types.js'
 export type {
   AITool, AIToolSet, AIToolContext, AIToolDefinition, AIToolCall, AIToolResult, AIToolEvent, AIToolEventType,
   AIToolLabels, ToolConfirmer, ToolConfirmRequest, ToolConfirmation, ToolConfirmReply, AIToolExecution, JSONSchema, SafeParseSchema, SafeParseResult, BivariantFn,
 } from './tools/types.js'
-export { AI_MESSAGES, AI_LOCALES, aiText, type AIMessageKey, type AITranslatable } from './i18n.js'
-export { runToolLoop, defaultConfirmPrompt, DEFAULT_MAX_STEPS, DEFAULT_TOOL_TIMEOUT_MS } from './tools/runner.js'
+export { AI_MESSAGES, AI_LOCALES, type AIMessageKey, type AITranslatable } from './i18n.js'
+export { runToolLoop } from './tools/runner.js'
 export type { ToolLoopOptions, ToolLoopResult } from './tools/runner.js'
-export { toolDefinitions, validateArgs, parametersOf } from './tools/schema.js'
-export type { ArgsValidation } from './tools/schema.js'
-export { confirmWith, isAffirmative, classifyConfirmation, DEFAULT_YES, DEFAULT_NO } from './tools/confirm.js'
+export { confirmWith, classifyConfirmation, DEFAULT_YES, DEFAULT_NO } from './tools/confirm.js'
 export type { ConfirmWithOptions, ConfirmVocabulary } from './tools/confirm.js'
-export { humanizeName, toolTitle, argLines, summarizeValue } from './tools/present.js'
-export { ToolLedger, stableKey, DEFAULT_DEDUPE_WINDOW_MS, DEFAULT_LEDGER_RETENTION_MS } from './tools/ledger.js'
+export { argLines, summarizeValue } from './tools/present.js'
 export type { ChatToolLedger } from './tools/ledger.js'
 export { formatMarkdown, formatMarkdownStream } from './format.js'
 export type { FormatMarkdownOptions, TextFormat } from './format.js'
-export { toGeminiSchema } from './providers/gemini.js'
-export type { OpenAIToolCall } from './providers/openai.js'
 
-// ai-memory-rag (FEATURES.md #29 RAG + #30 long-term memory)
+// Long-term memory and RAG
 export type { AIChatReply, AIAugmentStage, AIReplyOptions, AIStreamReplyOptions } from './AIClient.js'
-export { MemoryManager, DEFAULT_MEMORY_NAMESPACE } from './memory/MemoryManager.js'
+export { MemoryManager } from './memory/MemoryManager.js'
 export type { MemoryFact, AIMemoryConfig, AIMemoryExtractConfig, RememberOptions, UserDataAccessor } from './memory/MemoryManager.js'
-export { factsSchema, parseFacts } from './memory/extract.js'
-export { DEFAULT_RAG_INSTRUCTIONS, ragContextBlock, citedChunks, citedPassages, formatSources } from './rag.js'
 export type { AIRetriever, AIRetrievedChunk, AIRagConfig, AICitedPassage } from './rag.js'
+
+// Test doubles: their home is `@botmesh/ai/testing`.
+export {
+  /** @deprecated Import from '@botmesh/ai/testing'. This re-export goes away in the next major. */
+  MockAIProvider,
+  /** @deprecated Import from '@botmesh/ai/testing'. This re-export goes away in the next major. */
+  type MockOptions,
+  /** @deprecated Import from '@botmesh/ai/testing'. This re-export goes away in the next major. */
+  type MockTurn,
+} from './MockAIProvider.js'
 
 /**
  * Augment `@botmesh/core` so `ctx.tools.ai` is typed as {@link AIClient} in

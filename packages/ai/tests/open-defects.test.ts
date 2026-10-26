@@ -60,6 +60,18 @@ describe('openai with a custom baseUrl', () => {
     expect(field(await resolveProvider({ provider: 'openai', model: 'm', baseUrl: 'https://acme.openai.azure.com/openai/v1' }))).toBe('max_completion_tokens')
   })
 
+  it('treats every Azure OpenAI endpoint as OpenAI (cognitiveservices hosts, Foundry /openai paths)', async () => {
+    expect(field(await resolveProvider({ provider: 'openai', model: 'm', baseUrl: 'https://acme.cognitiveservices.azure.com/openai/v1' }))).toBe('max_completion_tokens')
+    expect(field(await resolveProvider({ provider: 'openai', model: 'm', baseUrl: 'https://acme.services.ai.azure.com/openai/v1/' }))).toBe('max_completion_tokens')
+    expect(field(await resolveProvider({ provider: 'openai', model: 'm', baseUrl: 'https://ACME.OpenAI.Azure.com/openai/v1' }))).toBe('max_completion_tokens')
+  })
+
+  it('keeps max_tokens for Azure AI Foundry model inference (non-OpenAI models) and look-alike hosts', async () => {
+    expect(field(await resolveProvider({ provider: 'openai', model: 'm', baseUrl: 'https://acme.services.ai.azure.com/models' }))).toBe('max_tokens')
+    expect(field(await resolveProvider({ provider: 'openai', model: 'm', baseUrl: 'https://openai.azure.com.evil.example/v1' }))).toBe('max_tokens')
+    expect(field(await resolveProvider({ provider: 'openai', model: 'm', baseUrl: 'https://acme.services.ai.azure.com/openainot/v1' }))).toBe('max_tokens')
+  })
+
   it('maxTokensField overrides the guess (also for presets)', async () => {
     expect(field(await resolveProvider({ provider: 'openai', model: 'm', baseUrl: 'http://127.0.0.1:8000/v1', maxTokensField: 'max_completion_tokens' }))).toBe('max_completion_tokens')
     expect(field(await resolveProvider({ provider: 'groq', apiKey: 'k', maxTokensField: 'max_completion_tokens' }))).toBe('max_completion_tokens')

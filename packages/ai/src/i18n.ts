@@ -14,9 +14,10 @@
  */
 
 import type { LocaleMessages, TranslateParams } from '@botmesh/core'
+import { deepFreeze } from './freeze.js'
 
 /** Keys of the built-in AI messages (override them under `ai.` in `bot.locale()`). */
-export const AI_MESSAGES = {
+export const AI_MESSAGES = deepFreeze({
   /** Autoreply when the provider fails or the model answers nothing (unless `errorMessage` is set). */
   error: 'ai.error',
   /** Reply when the provider refuses (`stopReason === 'refusal'`) (unless `refusalMessage` is set). */
@@ -62,12 +63,12 @@ export const AI_MESSAGES = {
   truncated: 'ai.tools.truncated',
   /** `rag.appendSources: true` line (`{sources}`: comma-separated labels). */
   sources: 'ai.rag.sources',
-} as const
+} as const)
 
 export type AIMessageKey = (typeof AI_MESSAGES)[keyof typeof AI_MESSAGES]
 
 /** Built-in Spanish and English texts of {@link AI_MESSAGES}. */
-export const AI_LOCALES: Readonly<Record<'es' | 'en', LocaleMessages>> = {
+export const AI_LOCALES: Readonly<Record<'es' | 'en', LocaleMessages>> = deepFreeze({
   es: {
     ai: {
       error: '⚠️ Ahora no puedo responder, intenta luego.',
@@ -127,7 +128,7 @@ export const AI_LOCALES: Readonly<Record<'es' | 'en', LocaleMessages>> = {
       rag: { sources: 'Sources: {sources}' },
     },
   },
-}
+})
 
 /** Something that may carry the chat language and a bound translator (a `MessageContext`). */
 export interface AITranslatable {

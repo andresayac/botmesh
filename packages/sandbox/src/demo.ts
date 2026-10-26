@@ -5,7 +5,8 @@
  */
 
 import { loadMediaOf, type Bot } from '@botmesh/core'
-import { MockAIProvider, aiPlugin, type GenerateInput } from '@botmesh/ai'
+import { aiPlugin, type GenerateInput } from '@botmesh/ai'
+import { MockAIProvider } from '@botmesh/ai/testing'
 import type { ChannelName } from './sim/base.js'
 
 export interface DemoOptions {

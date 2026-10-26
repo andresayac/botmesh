@@ -261,7 +261,8 @@ for millions, write your own retriever over a vector database. Details in the
 `retrieve()` will do:
 
 ```ts
-import { AIClient, ContextManager, MemoryManager, MockAIProvider } from '@botmesh/ai'
+import { AIClient, ContextManager, MemoryManager } from '@botmesh/ai'
+import { MockAIProvider } from '@botmesh/ai/testing'
 import { createTestBot } from '@botmesh/core/testing'
 
 const { bot } = await createTestBot()

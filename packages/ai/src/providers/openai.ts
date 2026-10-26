@@ -1,36 +1,48 @@
-import type { AIProvider, GenerateInput, GenerateResult, AIConfig, AIChatMessage } from '../types.js'
+import type { AIProvider, GenerateInput, GenerateResult, AIProviderConfig, AIChatMessage } from '../types.js'
 import type { AIToolCall } from '../tools/types.js'
 
 type ChatMessage = Record<string, unknown>
 
-export interface OpenAIToolCall {
-  id: string
-  type?: string
-  function: { name: string; arguments: string }
-}
-export interface OpenAIChoice {
-  /** `refusal` is set (and `content` null) when the model declined to answer. */
-  message?: { content?: string | null; tool_calls?: OpenAIToolCall[]; refusal?: string | null }
-  finish_reason?: string
-}
-export interface OpenAIChatCompletion {
-  choices: OpenAIChoice[]
-  model: string
-  usage?: { prompt_tokens: number; completion_tokens: number }
-}
-export interface OpenAIStreamChunk {
-  choices: Array<{ delta?: { content?: string | null; refusal?: string | null }; finish_reason?: string | null }>
-}
-export interface OpenAIRequestOptions {
-  signal?: AbortSignal
-}
+/**
+ * The part of an OpenAI client (`openai`, or any OpenAI-compatible SDK) the provider uses:
+ * `chat.completions.create`, which returns a completion, or an async iterable of chunks
+ * when called with `stream: true`. The request/response shapes are written inline (their
+ * names, such as `OpenAIChatCompletion`, live in `@botmesh/ai/internal`); only the fields
+ * the provider reads are listed.
+ */
 export interface OpenAILike {
   chat: {
     completions: {
-      create(args: Record<string, unknown>, options?: OpenAIRequestOptions): Promise<OpenAIChatCompletion | AsyncIterable<OpenAIStreamChunk>>
+      create(args: Record<string, unknown>, options?: { signal?: AbortSignal }): Promise<{
+        choices: Array<{
+          /** `refusal` is set (and `content` null) when the model declined to answer. */
+          message?: {
+            content?: string | null
+            tool_calls?: Array<{ id: string; type?: string; function: { name: string; arguments: string } }>
+            refusal?: string | null
+          }
+          finish_reason?: string
+        }>
+        model: string
+        usage?: { prompt_tokens: number; completion_tokens: number }
+      } | AsyncIterable<{
+        choices: Array<{ delta?: { content?: string | null; refusal?: string | null }; finish_reason?: string | null }>
+      }>>
     }
   }
 }
+
+type OpenAICreateResult = Awaited<ReturnType<OpenAILike['chat']['completions']['create']>>
+/** Request options of {@link OpenAILike} calls (no semver: `@botmesh/ai/internal`). */
+export type OpenAIRequestOptions = NonNullable<Parameters<OpenAILike['chat']['completions']['create']>[1]>
+/** A non-streamed chat completion (no semver: `@botmesh/ai/internal`). */
+export type OpenAIChatCompletion = Exclude<OpenAICreateResult, AsyncIterable<unknown>>
+/** One choice of {@link OpenAIChatCompletion} (no semver: `@botmesh/ai/internal`). */
+export type OpenAIChoice = OpenAIChatCompletion['choices'][number]
+/** One tool call of {@link OpenAIChoice} (no semver: `@botmesh/ai/internal`). */
+export type OpenAIToolCall = NonNullable<NonNullable<OpenAIChoice['message']>['tool_calls']>[number]
+/** One streamed chunk (no semver: `@botmesh/ai/internal`). */
+export type OpenAIStreamChunk = Extract<OpenAICreateResult, AsyncIterable<unknown>> extends AsyncIterable<infer C> ? C : never
 
 export interface OpenAIProviderOptions {
   /** Provider display name (defaults to 'openai'; presets pass their own). */
@@ -49,7 +61,7 @@ export class OpenAIProvider implements AIProvider {
   private readonly maxTokensField: 'max_tokens' | 'max_completion_tokens'
   constructor(
     private client: OpenAILike,
-    private cfg: AIConfig,
+    private cfg: AIProviderConfig,
     opts: OpenAIProviderOptions = {},
   ) {
     this.name = opts.name ?? 'openai'

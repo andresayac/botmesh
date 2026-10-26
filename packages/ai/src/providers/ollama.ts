@@ -1,4 +1,4 @@
-import type { AIProvider, GenerateInput, GenerateResult, AIConfig, AIChatMessage } from '../types.js'
+import type { AIProvider, GenerateInput, GenerateResult, AIProviderConfig, AIChatMessage } from '../types.js'
 import type { AIToolCall } from '../tools/types.js'
 
 type OllamaChatMessage = Record<string, unknown>
@@ -19,7 +19,7 @@ export class OllamaProvider implements AIProvider {
   private base: string
   private callSeq = 0
   constructor(
-    private cfg: AIConfig,
+    private cfg: AIProviderConfig,
     private fetchImpl: typeof fetch = fetch,
   ) {
     this.base = (cfg.baseUrl ?? 'http://localhost:11434').replace(/\/$/, '')

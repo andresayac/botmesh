@@ -1,5 +1,6 @@
 import { describe, it, expect, expectTypeOf } from 'vitest'
-import { aiPlugin, defineTool, MockAIProvider } from '../src/index.js'
+import { aiPlugin, defineTool } from '../src/index.js'
+import { MockAIProvider } from '../src/testing.js'
 import type { AIToolSet, SafeParseSchema } from '../src/index.js'
 
 describe('tool typing', () => {

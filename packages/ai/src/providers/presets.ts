@@ -9,6 +9,8 @@
  * not passed explicitly.
  */
 
+import { deepFreeze } from '../freeze.js'
+
 export interface Preset {
   /** OpenAI-compatible endpoint. */
   baseUrl: string
@@ -24,7 +26,10 @@ export interface Preset {
   maxTokensField: 'max_tokens' | 'max_completion_tokens'
 }
 
-export const PRESETS = {
+/** Names of the built-in OpenAI-compatible presets. */
+export type PresetName = 'deepseek' | 'qwen' | 'glm' | 'kimi' | 'groq' | 'openrouter' | 'mistral' | 'grok' | 'together'
+
+const presets: Record<PresetName, Preset> = {
   deepseek: { baseUrl: 'https://api.deepseek.com', model: 'deepseek-chat', env: 'DEEPSEEK_API_KEY', maxTokensField: 'max_tokens' },
   qwen: { baseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus', env: 'DASHSCOPE_API_KEY', maxTokensField: 'max_tokens' },
   glm: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.3', env: 'ZHIPUAI_API_KEY', maxTokensField: 'max_tokens' },
@@ -34,10 +39,15 @@ export const PRESETS = {
   mistral: { baseUrl: 'https://api.mistral.ai/v1', model: 'mistral-small-latest', env: 'MISTRAL_API_KEY', maxTokensField: 'max_tokens' },
   grok: { baseUrl: 'https://api.x.ai/v1', model: 'grok-4.7', env: 'XAI_API_KEY', maxTokensField: 'max_tokens' },
   together: { baseUrl: 'https://api.together.xyz/v1', model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', env: 'TOGETHER_API_KEY', maxTokensField: 'max_tokens' },
-} satisfies Record<string, Preset>
+}
 
-export type PresetName = keyof typeof PRESETS
+/**
+ * The built-in presets by name. Frozen: copy an entry to tweak it
+ * (`{ ...PRESETS.groq, model: '...' }`), or pass `model` / `baseUrl` / `maxTokensField`
+ * to `aiPlugin()`.
+ */
+export const PRESETS: Readonly<Record<PresetName, Readonly<Preset>>> = deepFreeze(presets)
 
 export function isPreset(name: string): name is PresetName {
-  return name in PRESETS
+  return Object.hasOwn(PRESETS, name)
 }

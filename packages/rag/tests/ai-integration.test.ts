@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createTestBot } from '@botmesh/core/testing'
-import { aiPlugin, MockAIProvider, type AIRetriever } from '@botmesh/ai'
+import { aiPlugin, type AIRetriever } from '@botmesh/ai'
+import { MockAIProvider } from '@botmesh/ai/testing'
 import { createRag } from '../src/Rag.js'
 
 const FAQ = `# Tienda

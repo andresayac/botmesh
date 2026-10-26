@@ -146,6 +146,52 @@ channels got the same renames (`toDiscordError`, `toMessengerError`,
 packages (Telegram poll votes, Discord edits, SQLite schema versioning) are in
 [Upgrade notes: channels & plugins](./upgrade-channels-plugins).
 
+## `@botmesh/ai` entries
+
+`@botmesh/ai` got the same split as core: 135 names on the main entry before, 97 after.
+
+| Import from | What it holds |
+| --- | --- |
+| `@botmesh/ai` | `aiPlugin`, `AIClient`, the providers and the client contracts they take (`AnthropicLike`, `OpenAILike`, `GeminiLike`, `GeminiModelLike`, `GoogleGenAILike`), tools, confirmations, memory, RAG types, `formatMarkdown`. |
+| `@botmesh/ai/testing` | **New.** `MockAIProvider` (with `MockOptions`, `MockTurn`) and `validateArgs` (with `ArgsValidation`), to unit-test a tool's schema. Covered by semver. |
+| `@botmesh/ai/internal` | **New.** The plugin's helpers and the names of the SDK request/response shapes. No semver guarantee. |
+
+`MockAIProvider`, `MockOptions` and `MockTurn` are still re-exported by `@botmesh/ai`, but
+deprecated: import them from `@botmesh/ai/testing`.
+
+**Breaking:** the names below are no longer exported by `@botmesh/ai`. Change the import
+path; the values are the same.
+
+| Names | Import from |
+| --- | --- |
+| `validateArgs`, `ArgsValidation` | `@botmesh/ai/testing` |
+| `aiText`, `defaultConfirmPrompt`, `DEFAULT_MAX_STEPS`, `DEFAULT_TOOL_TIMEOUT_MS`, `toolDefinitions`, `parametersOf`, `isAffirmative`, `humanizeName`, `toolTitle`, `ToolLedger`, `stableKey`, `DEFAULT_DEDUPE_WINDOW_MS`, `DEFAULT_LEDGER_RETENTION_MS` | `@botmesh/ai/internal` |
+| `toGeminiSchema`, `DEFAULT_MEMORY_NAMESPACE`, `factsSchema`, `parseFacts`, `DEFAULT_RAG_INSTRUCTIONS`, `ragContextBlock`, `citedChunks`, `citedPassages`, `formatSources` | `@botmesh/ai/internal` |
+| `AnthropicMessage`, `AnthropicContentBlock`, `AnthropicUsage`, `AnthropicStreamEvent`, `AnthropicRequestOptions`, `OpenAIChatCompletion`, `OpenAIChoice`, `OpenAIStreamChunk`, `OpenAIToolCall`, `OpenAIRequestOptions`, `GeminiResponse`, `GeminiUsage`, `GeminiPart`, `GeminiFunctionCall`, `GeminiRequestOptions`, `GoogleGenAIResponse` | `@botmesh/ai/internal` (types) |
+
+The client contracts did not change shape: their request and response types are now written
+inline, so a fake client typed `AnthropicLike` (or `OpenAILike`, `GeminiLike`…) compiles as
+before. To name a response shape, derive it from the contract or import it from `/internal`:
+
+```ts
+import type { AnthropicLike } from '@botmesh/ai'
+type Reply = Awaited<ReturnType<AnthropicLike['messages']['create']>>
+```
+
+**Breaking (frozen data):** `PRESETS`, `DEFAULT_YES`, `DEFAULT_NO`, `AI_MESSAGES` and
+`AI_LOCALES` are deep-frozen, and typed `readonly`. Changing them used to change the defaults
+of every bot in the process; now it throws a `TypeError` in strict mode. Extend a copy:
+
+```ts
+aiPlugin({ toolConfirm: { yes: [...DEFAULT_YES, 'arre'] } })
+```
+
+Provider constructors now take an `AIProviderConfig` (`model`, `maxTokens`, `effort`,
+`thinking`, `baseUrl`), the part of `AIConfig` a provider reads. Passing a whole `AIConfig`
+still compiles. `GenerateInput.onStreamEnd` receives a named `AIStreamEndInfo`; its contract
+(once, after the last chunk, only on a normal end) is in
+[Upgrade notes: channels & plugins](./upgrade-channels-plugins#botmesh-ai).
+
 ## Sandbox API token
 
 `@botmesh/sandbox` is private, but scripts that drive its web API change:

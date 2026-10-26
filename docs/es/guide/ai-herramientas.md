@@ -161,7 +161,8 @@ las cortesías alrededor del sí/no. Las palabras de "sí" por defecto
 `yep`; las de "no" (`DEFAULT_NO`) son `no`, `n`, `nop`, `nope`, `nel`,
 `cancelar`, `cancela`, `cancelo`, `cancel`, `negativo`, `mejor no`,
 `para nada`, `tampoco`, `no gracias`, `2` y `0`. Cámbialas con
-`toolConfirm.yes` / `toolConfirm.no`.
+`toolConfirm.yes` / `toolConfirm.no`; las dos listas están congeladas, así que extiende
+una copia (`yes: [...DEFAULT_YES, 'arre']`).
 
 - **Sin doble confirmación**: cuando el turno tiene confirmador, el prompt de
   sistema lleva una nota localizada (`ai.tools.confirmNote`) con las
@@ -602,7 +603,8 @@ texto plano para terminar. Construye un `AIClient` con tus herramientas y
 comprueba el resultado:
 
 ```ts
-import { AIClient, ContextManager, MockAIProvider } from '@botmesh/ai'
+import { AIClient, ContextManager } from '@botmesh/ai'
+import { MockAIProvider } from '@botmesh/ai/testing'
 import { MemoryStore } from '@botmesh/core'
 
 const mock = new MockAIProvider({

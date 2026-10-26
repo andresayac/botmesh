@@ -16,15 +16,23 @@ import { PRESETS, isPreset } from './presets.js'
  * fall back to each preset's conventional env var.
  */
 /**
- * Token-cap field for `provider: 'openai'`: OpenAI itself (and Azure OpenAI) wants
+ * Token-cap field for `provider: 'openai'`: OpenAI itself and Azure OpenAI want
  * `max_completion_tokens`; any other `baseUrl` is an OpenAI-compatible server, and those
- * nearly all want `max_tokens`.
+ * nearly all want `max_tokens`. Azure OpenAI is `*.openai.azure.com`,
+ * `*.cognitiveservices.azure.com`, or an Azure AI Foundry `*.services.ai.azure.com`
+ * endpoint under `/openai` (its `/models` inference API serves non-OpenAI models).
  */
-function openAIMaxTokensField(baseUrl: string | undefined): 'max_tokens' | 'max_completion_tokens' {
+export function openAIMaxTokensField(baseUrl: string | undefined): 'max_tokens' | 'max_completion_tokens' {
   if (!baseUrl) return 'max_completion_tokens'
-  let host: string
-  try { host = new URL(baseUrl).hostname.toLowerCase() } catch { return 'max_tokens' }
-  return host === 'api.openai.com' || host.endsWith('.openai.azure.com') ? 'max_completion_tokens' : 'max_tokens'
+  let url: URL
+  try { url = new URL(baseUrl) } catch { return 'max_tokens' }
+  const host = url.hostname.toLowerCase()
+  const openaiPath = url.pathname === '/openai' || url.pathname.startsWith('/openai/')
+  const openai = host === 'api.openai.com'
+    || host.endsWith('.openai.azure.com')
+    || host.endsWith('.cognitiveservices.azure.com')
+    || (host.endsWith('.services.ai.azure.com') && openaiPath)
+  return openai ? 'max_completion_tokens' : 'max_tokens'
 }
 
 export async function resolveProvider(cfg: AIConfig): Promise<AIProvider> {

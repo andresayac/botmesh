@@ -154,7 +154,8 @@ words around a yes/no are ignored. The default "yes" words (`DEFAULT_YES`) are
 `correcto`, `está bien`, `sure`, `yeah` and `yep`; the "no" words
 (`DEFAULT_NO`) are `no`, `n`, `nop`, `nope`, `nel`, `cancelar`, `cancela`,
 `cancelo`, `cancel`, `negativo`, `mejor no`, `para nada`, `tampoco`,
-`no gracias`, `2` and `0`. Change them with `toolConfirm.yes` / `toolConfirm.no`.
+`no gracias`, `2` and `0`. Change them with `toolConfirm.yes` / `toolConfirm.no`;
+both lists are frozen, so extend a copy (`yes: [...DEFAULT_YES, 'arre']`).
 
 - **No double confirmation**: when the turn has a confirmer, the system prompt
   gets a localized note (`ai.tools.confirmNote`) listing the `confirm: true`
@@ -581,7 +582,8 @@ make the "model" call a tool, and plain text to finish. Build an `AIClient`
 with your tools and assert on the result:
 
 ```ts
-import { AIClient, ContextManager, MockAIProvider } from '@botmesh/ai'
+import { AIClient, ContextManager } from '@botmesh/ai'
+import { MockAIProvider } from '@botmesh/ai/testing'
 import { MemoryStore } from '@botmesh/core'
 
 const mock = new MockAIProvider({

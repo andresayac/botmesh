@@ -267,7 +267,8 @@ un `MemoryManager` sobre los perfiles del bot; para probar el RAG, sirve
 cualquier objeto con `retrieve()`:
 
 ```ts
-import { AIClient, ContextManager, MemoryManager, MockAIProvider } from '@botmesh/ai'
+import { AIClient, ContextManager, MemoryManager } from '@botmesh/ai'
+import { MockAIProvider } from '@botmesh/ai/testing'
 import { createTestBot } from '@botmesh/core/testing'
 
 const { bot } = await createTestBot()
