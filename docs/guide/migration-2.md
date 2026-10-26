@@ -251,4 +251,9 @@ window; a template is required` and `Recipient unreachable`. The id is still on
   they implement `IProvider` under `exactOptionalPropertyTypes`.
 - In the durable outbox, a later part of a split text no longer overtakes an earlier
   part that is waiting for a retry, and the sweeper splits a journaled record that is
-  over the channel's text limit (see [Durable processing](/guide/durability)).
+  over the channel's text limit (see [Durable processing](/guide/durability)). Waiting
+  behind an earlier part costs no retry attempt, and the parts are linked by the new
+  `OutboxRecord.previousPart` field (your own idempotency keys ending in `#<n>` are not
+  treated as parts). A custom `OutboxJournal` should store `previousPart` from `put()`
+  and honour the new `markFailed(..., { refund: true })` option (give the claimed attempt
+  back); one that ignores them keeps the parts unordered on retries, as before.

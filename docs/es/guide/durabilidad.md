@@ -228,7 +228,11 @@ mientras uno de ellos se reintenta en línea.
 Un texto que supera el límite del canal se divide después de los hooks, en un registro
 por parte (`key`, `key#2`, …, entregados en ese orden). Una parte nunca adelanta a una
 anterior: mientras `key` espera un reintento, `key#2` espera detrás (y muere con ella si
-`key` va a la DLQ). Un registro anotado cuyo texto supera el límite (escrito por una
+`key` va a la DLQ). Esperar detrás de una parte anterior no cuenta como intento, así que
+cada parte conserva todo su presupuesto de `outbox.retries` para sus propios fallos. El
+vínculo entre partes se guarda en el registro de cada parte (`OutboxRecord.previousPart`),
+no se deduce de la clave: tus propias claves de idempotencia pueden acabar en `#2`, `#3`…
+y siguen siendo envíos independientes. Un registro anotado cuyo texto supera el límite (escrito por una
 versión anterior, o con un límite mayor) lo divide el barrido con el mismo divisor: la
 primera parte sale con la clave del registro y las demás se anotan como `key#2`,
 `key#3`… antes de enviarla, así que un reintento o una segunda pasada no anotan ni envían

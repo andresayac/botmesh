@@ -148,19 +148,6 @@ function withoutQuote(options: SendOptions): SendOptions | undefined {
   return Object.keys(rest).length > 0 ? rest : undefined
 }
 
-/**
- * The key of the part journaled right before `key` in a split text (`<base>#n`, n >= 2):
- * `<base>` for part 2, `<base>#(n-1)` after it; `undefined` for a key without a part suffix.
- */
-export function previousPartKey(key: string): string | undefined {
-  const match = /^(.*)#([1-9]\d*)$/.exec(key)
-  if (!match) return undefined
-  const base = match[1] as string
-  const n = Number(match[2])
-  if (n < 2 || base === '') return undefined
-  return n === 2 ? base : `${base}#${n - 1}`
-}
-
 /** A reserved turn in a partition queue (see `DurableEngine.reserve`). */
 interface PartitionSlot {
   run<T>(task: () => Promise<T>): Promise<T>
@@ -833,6 +820,7 @@ export class DurableEngine implements DurabilityControl {
     for (const [i, e] of encoded.entries()) {
       const put = await this.outbox.put({
         key: i === 0 ? key : `${key}#${i + 1}`, chatId: payload.chatId, ...(cause ? { causationId: cause.id } : {}), ...e!,
+        ...(i > 0 ? { previousPart: i === 1 ? key : `${key}#${i}` } : {}),
         ...(i === 0 && fingerprint ? { fingerprint } : {}), createdAt: now + i,
       }, now)
       if (put.status === 'created') this.counters.outboxJournaled++
@@ -848,8 +836,8 @@ export class DurableEngine implements DurabilityControl {
    * delivers them after it. Their `before('send')` hooks already ran. Each key derives as
    * the inline send of that part would have (`options.idempotencyKey`, else the next derived
    * key), so a replay finds them; `identity` is what the inline send fingerprints. A part is
-   * due no earlier than the deferred one (`behind`): it is journaled with one attempt
-   * charged and the retry time of that part, so the oldest-first sweep keeps their order.
+   * due no earlier than the deferred one (`behind`): it is journaled with the retry time of
+   * that part (no attempt charged), so the oldest-first sweep keeps their order.
    */
   async enqueueBehind(
     chatId: string,
@@ -881,7 +869,7 @@ export class DurableEngine implements DurabilityControl {
       const record = begun.record
       await this.settleSend(record, () => this.outbox.markFailed(key, record.fencingToken, {
         name: 'SendDeferredError', message: `waiting for the earlier part ${behind}`,
-      }, { now, retryAt: dueAt }))
+      }, { now, retryAt: dueAt, refund: true }))
     }
     if (this.sweeperOn) void this.sweep()
   }
@@ -942,19 +930,21 @@ export class DurableEngine implements DurabilityControl {
   }
 
   /**
-   * A claimed part of a split text whose previous part is still to be sent (`pending`,
-   * `failed`, `sending`) is put back, due just after that part's next attempt; one whose
-   * previous part is dead dies with it. `true` when the record was not delivered.
+   * A claimed part of a split text (a record with `previousPart`) whose previous part is
+   * still to be sent (`pending`, `failed`, `sending`) is put back, due just after that part's
+   * next attempt, and the claim's attempt is given back (waiting never uses up its retries);
+   * one whose previous part is dead dies with it. `true` when the record was not delivered.
+   * A caller's key that merely ends in `#<n>` has no `previousPart` and is never held back.
    */
   private async waitsForEarlierPart(record: OutboxRecord): Promise<boolean> {
-    const previousKey = previousPartKey(record.key)
+    const previousKey = record.previousPart
     if (previousKey === undefined) return false
     const previous = await this.outbox.get(previousKey)
     if (!previous || previous.chatId !== record.chatId) return false
     const now = this.now()
     if (previous.state === 'dead') {
       const error = { name: 'SendDeferredError', message: `an earlier part (${previousKey}) is dead` }
-      await this.settleSend(record, () => this.outbox.markFailed(record.key, record.fencingToken, error, { now, dead: true }))
+      await this.settleSend(record, () => this.outbox.markFailed(record.key, record.fencingToken, error, { now, dead: true, refund: true }))
       this.counters.outboxDead++
       this.deps.emit('durability:dead', { kind: 'outbound', id: record.key, chatId: record.chatId, error: new Error(`an earlier part (${previousKey}) is dead`) })
       return true
@@ -964,7 +954,7 @@ export class DurableEngine implements DurabilityControl {
     const retryAt = Math.max(after, now) + 1
     await this.settleSend(record, () => this.outbox.markFailed(record.key, record.fencingToken, {
       name: 'SendDeferredError', message: `waiting for the earlier part ${previousKey}`,
-    }, { now, retryAt }))
+    }, { now, retryAt, refund: true }))
     return true
   }
 
@@ -988,7 +978,7 @@ export class DurableEngine implements DurabilityControl {
       const encoded = this.encodeSend({ content: { kind: 'text', text }, ...(partOptions ? { options: partOptions } : {}) })
       if (!encoded) return payload
       const put = await this.outbox.put({
-        key: `${record.key}#${i + 1}`, chatId: record.chatId,
+        key: `${record.key}#${i + 1}`, chatId: record.chatId, previousPart: i === 1 ? record.key : `${record.key}#${i}`,
         ...(record.causationId !== undefined ? { causationId: record.causationId } : {}),
         ...encoded, createdAt: record.createdAt + i,
       }, now)

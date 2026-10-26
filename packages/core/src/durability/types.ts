@@ -190,6 +190,13 @@ export interface OutboxRecord {
    * hooks). A replay whose derived key matches but whose content differs is a new send.
    */
   fingerprint?: string
+  /**
+   * The key of the record that must be sent before this one: set on the later parts of a
+   * split text (`<key>#2` follows `<key>`, `<key>#3` follows `<key>#2`…). The sweeper never
+   * sends a record while that one is still to be sent, and dead-letters it when that one is
+   * dead. A key ending in `#<n>` chosen by the caller has no such link.
+   */
+  previousPart?: string
   createdAt: number
   sentAt?: number
   /** When the record reached a terminal state (`sent`, `dead`, `unknown`). */
@@ -202,6 +209,7 @@ export type OutboxPut = Pick<OutboxRecord, 'key' | 'chatId' | 'content' | 'creat
   causationId?: string
   options?: JsonValue
   fingerprint?: string
+  previousPart?: string
 }
 
 /** A record returned by {@link OutboxJournal.claimDue}. */
@@ -227,8 +235,12 @@ export interface OutboxJournal {
   markSent(key: string, token: number, result: { ref: MessageRef }, now: number): Promise<void>
   /** Extend the lease of a `sending` record (heartbeat while the provider call runs). @throws {StaleLeaseError} */
   extend(key: string, token: number, leaseUntil: number): Promise<void>
-  /** `sending` → `failed` (due at `retryAt`) or `dead`. @throws {StaleLeaseError} */
-  markFailed(key: string, token: number, error: OutboxError, options: { now: number; retryAt?: number; dead?: boolean }): Promise<void>
+  /**
+   * `sending` → `failed` (due at `retryAt`) or `dead`. With `refund`, the claim made no
+   * provider call (a split part deferred behind an earlier one): the attempt it counted is
+   * given back, so waiting never uses up the record's retries. @throws {StaleLeaseError}
+   */
+  markFailed(key: string, token: number, error: OutboxError, options: { now: number; retryAt?: number; dead?: boolean; refund?: boolean }): Promise<void>
   /**
    * Lease due `pending`/`failed` records and `sending` records whose lease expired
    * (returned with `ambiguous: true`), oldest `createdAt` first. Claimed records come back

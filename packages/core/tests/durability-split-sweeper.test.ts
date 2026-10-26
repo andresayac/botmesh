@@ -9,7 +9,7 @@
  *   `<key>#2`, `<key>#3`… (deterministic, so a retry or a second pass journals nothing new).
  */
 import { describe, expect, it, vi } from 'vitest'
-import { Bot, ProviderError } from '../src/index.js'
+import { Bot, ProviderError, UnsupportedContentError } from '../src/index.js'
 import { KvDurability, MemoryKv } from '../src/spi.js'
 import { MockProvider } from '../src/testing/index.js'
 
@@ -117,3 +117,85 @@ describe('durable outbox: the sweeper splits an over-limit record', () => {
   })
 })
 
+
+/** Sends whose text satisfies `match` reject with a transient error, `n` times. */
+function failText(provider: MockProvider, match: (text: string) => boolean, n: number, error: () => Error = () => new ProviderError('transient')): void {
+  const send = provider.send.bind(provider)
+  let left = n
+  provider.send = async (chatId, content, options) => {
+    if (left > 0 && content.kind === 'text' && match(content.text)) { left--; throw error() }
+    return send(chatId, content, options)
+  }
+}
+
+describe('durable outbox: waiting behind an earlier part costs no retry budget', () => {
+  it('a part deferred while the earlier part retries keeps its own retries', async () => {
+    const provider = new MockProvider({ maxTextLength: 30 })
+    // Part 1 fails 4 times (sent at its 5th attempt), then part 2 fails twice.
+    failText(provider, (t) => t === PARTS[0], 4)
+    failText(provider, (t) => t === PARTS[1], 2)
+    const bot = new Bot({ provider, durability: fast })
+    bot.on('error', () => {})
+    await bot.start()
+    await bot.enqueue('user-1', LONG, { idempotencyKey: 'k' })
+    await vi.waitFor(() => expect(texts(provider)).toHaveLength(PARTS.length), { timeout: 5_000 })
+    expect(texts(provider)).toEqual(PARTS)
+    const records = await bot.durability!.outbox.list()
+    expect(records.map((r) => [r.key, r.state, r.attempts])).toEqual([
+      ['k', 'sent', 5], ['k#2', 'sent', 3], ['k#3', 'sent', 1], ['k#4', 'sent', 1],
+    ])
+    await bot.stop()
+  })
+
+  it('a deferral gives the claimed attempt back (KvOutbox markFailed refund)', async () => {
+    const backend = new KvDurability(new MemoryKv())
+    const lease = { owner: 'a', leaseMs: 1_000, now: 0 }
+    const { record } = await backend.outbox.put({ key: 'x', chatId: 'c', content: 'hi', createdAt: 0 }, 0, lease)
+    expect(record.attempts).toBe(1)
+    await backend.outbox.markFailed('x', record.fencingToken, { name: 'SendDeferredError', message: 'waiting' }, { now: 0, retryAt: 10, refund: true })
+    expect((await backend.outbox.get('x'))?.attempts).toBe(0)
+  })
+})
+
+describe('durable outbox: user keys ending in #<n> are not split parts', () => {
+  it("enqueue('order#3') is not coupled to a dead 'order#2'", async () => {
+    const provider = new MockProvider()
+    failText(provider, (t) => t === 'first', Number.MAX_SAFE_INTEGER, () => new UnsupportedContentError('text'))
+    const bot = new Bot({ provider, durability: fast })
+    bot.on('error', () => {})
+    await bot.start()
+    await bot.enqueue('u', 'first', { idempotencyKey: 'order#2' })
+    await vi.waitFor(async () => expect((await bot.durability!.outbox.get('order#2'))?.state).toBe('dead'))
+    await bot.enqueue('u', 'second', { idempotencyKey: 'order#3' })
+    await vi.waitFor(() => expect(texts(provider)).toEqual(['second']), { timeout: 3_000 })
+    expect((await bot.durability!.outbox.get('order#3'))?.state).toBe('sent')
+    await bot.stop()
+  })
+
+  it("enqueue('invoice#2') does not wait behind a retrying 'invoice'", async () => {
+    const provider = new MockProvider()
+    failText(provider, (t) => t === 'first', Number.MAX_SAFE_INTEGER)
+    const bot = new Bot({ provider, durability: { pollMs: 20, outbox: { backoff: { baseMs: 10_000, capMs: 10_000 } } } })
+    bot.on('error', () => {})
+    await bot.start()
+    await bot.enqueue('u', 'first', { idempotencyKey: 'invoice' })
+    await vi.waitFor(async () => expect((await bot.durability!.outbox.get('invoice'))?.state).toBe('failed'))
+    await bot.enqueue('u', 'second', { idempotencyKey: 'invoice#2' })
+    await vi.waitFor(() => expect(texts(provider)).toEqual(['second']), { timeout: 3_000 })
+    await bot.stop()
+  })
+
+  it('split parts record the part they follow', async () => {
+    const provider = new MockProvider({ maxTextLength: 30 })
+    const bot = new Bot({ provider, durability: fast })
+    bot.on('error', () => {})
+    await bot.start()
+    await bot.enqueue('user-1', LONG, { idempotencyKey: 'p' })
+    await vi.waitFor(() => expect(texts(provider)).toHaveLength(PARTS.length), { timeout: 3_000 })
+    const records = await bot.durability!.outbox.list()
+    expect(records.map((r) => [r.key, r.previousPart])).toEqual([
+      ['p', undefined], ['p#2', 'p'], ['p#3', 'p#2'], ['p#4', 'p#3'],
+    ])
+    await bot.stop()
+  })
+})

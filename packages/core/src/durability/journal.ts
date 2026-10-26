@@ -238,6 +238,7 @@ export class KvOutbox implements OutboxJournal {
       content: input.content,
       ...(input.options !== undefined ? { options: input.options } : {}),
       ...(input.fingerprint !== undefined ? { fingerprint: input.fingerprint } : {}),
+      ...(input.previousPart !== undefined ? { previousPart: input.previousPart } : {}),
       state: 'pending',
       attempts: 0,
       nextAttemptAt: now,
@@ -272,10 +273,13 @@ export class KvOutbox implements OutboxJournal {
     return this.complete(key, token, (r) => ({ ...r, leaseUntil }))
   }
 
-  markFailed(key: string, token: number, error: OutboxError, o: { now: number; retryAt?: number; dead?: boolean }): Promise<void> {
-    return this.complete(key, token, (r) => o.dead
-      ? { ...clearLease(r), state: 'dead', lastError: error, completedAt: o.now }
-      : { ...clearLease(r), state: 'failed', lastError: error, nextAttemptAt: o.retryAt ?? o.now })
+  markFailed(key: string, token: number, error: OutboxError, o: { now: number; retryAt?: number; dead?: boolean; refund?: boolean }): Promise<void> {
+    return this.complete(key, token, (r) => {
+      const attempts = o.refund ? Math.max(0, r.attempts - 1) : r.attempts
+      return o.dead
+        ? { ...clearLease(r), attempts, state: 'dead', lastError: error, completedAt: o.now }
+        : { ...clearLease(r), attempts, state: 'failed', lastError: error, nextAttemptAt: o.retryAt ?? o.now }
+    })
   }
 
   async claimDue(o: OutboxClaimOptions): Promise<ClaimedSend[]> {

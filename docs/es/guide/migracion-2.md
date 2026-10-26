@@ -265,3 +265,9 @@ mensaje que pase el provider se conserva tal cual.
 - En el outbox durable, una parte posterior de un texto dividido ya no adelanta a una
   anterior que espera un reintento, y el barrido divide un registro anotado que supera
   el límite de texto del canal (ver [Procesamiento durable](/es/guide/durabilidad)).
+  Esperar detrás de una parte anterior no gasta intentos, y las partes se enlazan con el
+  nuevo campo `OutboxRecord.previousPart` (tus propias claves de idempotencia que acaban
+  en `#<n>` no se tratan como partes). Un `OutboxJournal` propio debe guardar
+  `previousPart` en `put()` y respetar la nueva opción `markFailed(..., { refund: true })`
+  (devolver el intento reclamado); si las ignora, las partes siguen sin orden en los
+  reintentos, como antes.

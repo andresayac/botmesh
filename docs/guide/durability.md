@@ -219,7 +219,10 @@ is being retried inline.
 A text over the channel's limit is split after the hooks ran, into one record per part
 (`key`, `key#2`, …, delivered in that order). A part never overtakes an earlier one:
 while `key` waits for a retry, `key#2` waits behind it (and dies with it if `key` is
-dead-lettered). A journaled record whose text is over the limit (written by an older
+dead-lettered). Waiting behind an earlier part does not count as an attempt, so a part
+keeps its whole `outbox.retries` budget for its own failures. The link between parts is
+stored on each part record (`OutboxRecord.previousPart`), not read from the key: your
+own idempotency keys may end in `#2`, `#3`… and stay independent sends. A journaled record whose text is over the limit (written by an older
 version, or under a larger limit) is split by the sweeper with the same splitter: the
 first part goes out under the record's key and the others are journaled as `key#2`,
 `key#3`… before it is sent, so a retry or a second pass journals and sends nothing
