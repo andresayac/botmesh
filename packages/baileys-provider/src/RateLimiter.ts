@@ -2,7 +2,7 @@
  * RateLimiter — Token bucket rate limiter for outbound messages.
  *
  * WhatsApp bans accounts that send too many messages in a short period. This
- * rate limiter sits in the `before('send')` hook pipeline and enforces:
+ * rate limiter sits in front of every `BaileysProvider.send()` and enforces:
  *   - Per-chat limits (e.g. max 5 messages per 10 seconds to the same chat)
  *   - Global limits (e.g. max 50 messages per 60 seconds across all chats)
  *   - Optional human-like jitter between sends
@@ -14,7 +14,7 @@
  *
  * @example
  * ```ts
- * const bot = new Bot({
+ * const provider = new BaileysProvider({
  *   session: 'my-bot',
  *   rateLimit: {
  *     perChat: { max: 5, window: '10s' },

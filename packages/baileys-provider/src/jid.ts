@@ -6,7 +6,7 @@
  *
  * @example
  * ```ts
- * import { toJid, isGroup, isPn } from '@botmesh/core'
+ * import { toJid, isGroup, isPn } from '@botmesh/baileys'
  *
  * const jid = toJid('573001234567')              // '573001234567@s.whatsapp.net'
  * const isGroupChat = isGroup(jid)              // false
