@@ -192,8 +192,10 @@ las etiquetas en español:
 
 ```ts
 toFlowJson(definicion, { lang: 'es' })
-provider.publishForm(definicion, { flowJson: { lang: 'es' } })
+new CloudAPIProvider({ ...config, lang: 'es' })   // todos los publishForm() de este provider
+provider.publishForm(definicion, { lang: 'es' })  // o un Flow
 ```
 
-Un `submitLabel` en la definición siempre manda. Los formularios que envía un bot
+El `lang` del provider es el idioma de tu bot (`BotConfig.lang`): un bot con
+`lang: 'es'` pone el mismo valor en su `CloudAPIProvider`. Un `submitLabel` en la definición siempre manda. Los formularios que envía un bot
 ya usan el `ctx.lang` del usuario para el botón y el cuerpo.

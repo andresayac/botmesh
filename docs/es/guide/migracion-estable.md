@@ -129,3 +129,25 @@ El contrato `LoggerLike` no cambia, y su convención de llamada queda
 documentada: los paquetes llaman `logger.warn('mensaje')` o
 `logger.warn({ err, ...contexto }, 'mensaje')`, como pino. Ver
 [Logger](./conceptos#logger).
+
+## Paquetes de canales y stores
+
+Los paquetes públicos de canales y stores siguen la misma regla: un nombre por
+concepto, con el antiguo como alias `@deprecated` hasta v3.
+
+| Paquete | Deprecado | Usa |
+| --- | --- | --- |
+| `@botmesh/telegram` | `pollTimeout` (segundos) | `pollTimeoutMs` |
+| `@botmesh/telegram` | `toProviderError` | `toTelegramError` |
+| `@botmesh/telegram`, `@botmesh/meta` | `debug: true` | `logger` (cualquier `LoggerLike`) |
+| `@botmesh/meta` | `toProviderError(chatId, err, retryAfterMs)` | `toGraphError(err, { chatId, retryAfterMs })` de `@botmesh/graph-core` |
+| `@botmesh/meta` | reexportaciones de `verifyChallenge`, `verifySignature` | `provider.verifyChallenge(query)` / `provider.ingest()`, o `@botmesh/graph-core` |
+| `@botmesh/meta` | `GraphClient` | los métodos del provider, o `graphRequest` de `@botmesh/graph-core` |
+| `@botmesh/sqlite-store` | `SCHEDULES_SCHEMA`, `DURABLE_SCHEMA` | nada: el store crea y migra sus tablas |
+
+El mapeador de errores de bajo nivel de cada provider se llama ahora
+`to<Canal>Error`; los canales privados tienen los mismos cambios de nombre
+(`toDiscordError`, `toMessengerError`, `toInstagramError`, `toTikTokError`,
+`toEmailError`). Los cambios de comportamiento de estos paquetes (votos de encuestas
+en Telegram, ediciones en Discord, versionado del esquema de SQLite) están en
+[Notas de actualización: canales y plugins](./actualizar-canales-plugins).

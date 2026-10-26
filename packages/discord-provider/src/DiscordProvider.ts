@@ -136,6 +136,8 @@ export class DiscordProvider implements IProvider<unknown> {
   private readonly interactions = new Map<string, { token: string; command: boolean; acked: boolean; at: number; timer?: ReturnType<typeof setTimeout> }>()
   /** ms before an unanswered interaction is deferred by the provider (`false` = never). */
   private readonly autoAckMs: number | false
+  /** Whether `MESSAGE_UPDATE` edits reach the bot (`editedMessages` config). */
+  private readonly deliverEdits: boolean
   /** Application id for interaction followups: `config.appId`, else learnt from READY or an interaction. */
   private appId: string | undefined
 
@@ -156,6 +158,11 @@ export class DiscordProvider implements IProvider<unknown> {
       throw new TypeError(`DiscordProvider: \`autoAcknowledgeMs\` must be false or a number of ms from 0 to 2999 (Discord fails an interaction after ~3 s), got ${String(autoAck)}`)
     }
     this.autoAckMs = autoAck
+    const edits = config.editedMessages ?? 'deliver'
+    if (edits !== 'deliver' && edits !== 'ignore') {
+      throw new TypeError(`DiscordProvider: editedMessages must be 'deliver' or 'ignore' (got ${JSON.stringify(edits)})`)
+    }
+    this.deliverEdits = edits === 'deliver'
     for (const field of ['requestTimeoutMs', 'uploadTimeoutMs'] as const) {
       const v = config[field]
       if (v !== undefined && !(typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= 2 ** 31 - 1)) {
@@ -243,6 +250,7 @@ export class DiscordProvider implements IProvider<unknown> {
       this.fan({ kind: 'connection', update: { state: 'ready' } })
     }
     if (t === 'INTERACTION_CREATE') this.learnAppId((d as { application_id?: unknown } | undefined)?.application_id)
+    if (t === 'MESSAGE_UPDATE' && !this.deliverEdits) return
     const event = parseDispatch(t, d, this._selfId)
     if (event?.kind === 'interaction') this.rememberInteraction(d)
     if (event) this.fan(event)

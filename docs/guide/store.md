@@ -76,7 +76,8 @@ const bot = new Bot({
 | `wal` | `boolean` | `true` | Enable WAL mode (better concurrent reads) |
 | `maxMessagesPerChat` | `number` | — (unbounded) | Keep only the newest N messages per chat; older rows are pruned on save |
 | `purgeBatchSize` | `number` | `1000` | Rows deleted per statement by `purgeExpiredUserData` (it loops until nothing expired is left) |
-| `logger` | `object` | — | Logger for errors (`{ error: fn }`) |
+| `busyTimeoutMs` | `number` | `5000` | How long a statement waits for another connection's lock before `SQLITE_BUSY` (`PRAGMA busy_timeout`) |
+| `logger` | `Partial<LoggerLike>` | — | Logger for close failures and schema migrations (pino or the bot's logger; every method optional) |
 
 ### What it stores
 
@@ -119,6 +120,8 @@ bot.use(
 If the process crashes mid-flow, the next message from that user **resumes at the exact step** where it left off. That message only wakes the flow: a pending `ask`/`choose` is sent again (`¿Tu email?` above), the flow goes on with the state it had, and the user's next reply is its answer (with [durability](./durability) the waking message is the answer instead). The checkpoint is written when a step completes, so a flow still waiting on its **first** question has nothing saved yet: after a restart, the user starts it again with its trigger.
 
 `bot.stop()` and a failed `bot.start()` close the database; the next `bot.start()` reopens it, so a bot can be stopped and started again with the same `SQLiteStore` (and the `schedules()` / `durability()` backends it handed out). An in-memory database (`file: ':memory:'`) is never closed by `stop()`: closing it would discard its data. Calling `schedules()` or `durability()` on a stopped store reopens it the same way.
+
+**Schema versioning.** The file records its layout in `PRAGMA user_version`. Opening it runs the pending migrations in order, each in its own transaction (a failed step leaves the file at the last completed version), so a database written by an earlier release is upgraded in place. A file written by a newer release is refused with `SQLiteSchemaVersionError` (`code: 'SQLITE_SCHEMA_TOO_NEW'`, with `found` and `supported`) and left untouched. `SQLITE_SCHEMA_VERSION` is the version this release writes. Downgrades are not supported: back up the file before an upgrade you may need to roll back.
 
 SQLite stores text as UTF-8, where a lone UTF-16 surrogate becomes U+FFFD, so two different ids could share a row. `saveMessage` and `setCursor` reject a message id, chat id, cursor key or cursor value with a lone surrogate (`TypeError`), and a lookup with one finds nothing.
 

@@ -24,7 +24,7 @@ interface SmtpErrorShape {
 }
 
 /** Translate anything an SMTP send can throw into a typed provider error. */
-export function toEmailProviderError(err: unknown, chatId: ChatId): ProviderError {
+export function toEmailError(err: unknown, chatId: ChatId): ProviderError {
   if (err instanceof ProviderError) return err
   const e = (typeof err === 'object' && err !== null ? err : {}) as SmtpErrorShape
   const message = typeof e.message === 'string' && e.message ? e.message : String(err)
@@ -52,3 +52,9 @@ export function toEmailProviderError(err: unknown, chatId: ChatId): ProviderErro
   if (code === 'EENVELOPE') return new RecipientUnreachableError(chatId, message)
   return new ProviderError(message)
 }
+
+/**
+ * @deprecated Use {@link toEmailError} (channel-prefixed like every provider's error
+ * mapper). Removal planned for v3.
+ */
+export const toEmailProviderError: typeof toEmailError = toEmailError

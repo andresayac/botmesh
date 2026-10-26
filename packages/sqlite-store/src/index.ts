@@ -1,5 +1,6 @@
 export { SQLiteStore } from './SQLiteStore.js'
 export type { SQLiteStoreOptions } from './SQLiteStore.js'
+export { SQLITE_SCHEMA_VERSION, SQLiteSchemaVersionError } from './schema.js'
 export { SQLiteScheduleStore, SCHEDULES_SCHEMA } from './schedules.js'
 export type { SQLiteDatabaseLike } from './schedules.js'
 export { SQLiteDurableKv, SQLiteDurability, DURABLE_SCHEMA } from './durability.js'

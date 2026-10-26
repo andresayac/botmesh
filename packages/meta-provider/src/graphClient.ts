@@ -31,8 +31,11 @@ export const DEFAULT_UPLOAD_TIMEOUT_MS = 300_000
 
 /**
  * Translate a Graph error into a typed provider error. Thin wrapper over the
- * shared {@link toGraphError} (kept for API compatibility + the chatId-first
- * signature callers expect).
+ * shared {@link toGraphError}.
+ *
+ * @deprecated Use `toGraphError(err, { chatId, retryAfterMs })` from
+ * `@botmesh/graph-core`, the one Graph error mapper shared by every Meta
+ * channel. Removal planned for v3.
  */
 export function toProviderError(chatId: ChatId, err: GraphError, retryAfterMs?: number): ProviderError {
   return toGraphError(err, { chatId, retryAfterMs })
@@ -66,6 +69,13 @@ async function secureFetchTyped(url: string, init: SecureFetchOptions): Promise<
   }
 }
 
+/**
+ * The Cloud API transport client `CloudAPIProvider` uses internally.
+ *
+ * @deprecated Transport internals: use the provider's methods, or
+ * `graphRequest`/`readGraphResponse` from `@botmesh/graph-core` for raw Graph
+ * calls. It leaves the main entry in v3.
+ */
 export class GraphClient {
   private readonly timeoutMs: number
   private readonly uploadTimeoutMs: number

@@ -124,3 +124,24 @@ The `LoggerLike` contract is unchanged, and its calling convention is now
 documented: the packages call `logger.warn('message')` or
 `logger.warn({ err, ...context }, 'message')`, as pino does. See
 [Logger](./concepts#logger).
+
+## Channel and store packages
+
+The public channel and store packages follow the same rule: one name per concept,
+the old one kept as a `@deprecated` alias until v3.
+
+| Package | Deprecated | Use |
+| --- | --- | --- |
+| `@botmesh/telegram` | `pollTimeout` (seconds) | `pollTimeoutMs` |
+| `@botmesh/telegram` | `toProviderError` | `toTelegramError` |
+| `@botmesh/telegram`, `@botmesh/meta` | `debug: true` | `logger` (any `LoggerLike`) |
+| `@botmesh/meta` | `toProviderError(chatId, err, retryAfterMs)` | `toGraphError(err, { chatId, retryAfterMs })` from `@botmesh/graph-core` |
+| `@botmesh/meta` | `verifyChallenge`, `verifySignature` re-exports | `provider.verifyChallenge(query)` / `provider.ingest()`, or `@botmesh/graph-core` |
+| `@botmesh/meta` | `GraphClient` | the provider's methods, or `graphRequest` from `@botmesh/graph-core` |
+| `@botmesh/sqlite-store` | `SCHEDULES_SCHEMA`, `DURABLE_SCHEMA` | nothing: the store creates and migrates its tables |
+
+Every provider's low-level error mapper is now named `to<Channel>Error`; the private
+channels got the same renames (`toDiscordError`, `toMessengerError`,
+`toInstagramError`, `toTikTokError`, `toEmailError`). The behaviour changes of these
+packages (Telegram poll votes, Discord edits, SQLite schema versioning) are in
+[Upgrade notes: channels & plugins](./upgrade-channels-plugins).

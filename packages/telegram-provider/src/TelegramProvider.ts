@@ -48,7 +48,8 @@ import {
   UnsupportedContentError,
 } from '@botmesh/core'
 import type { TelegramProviderConfig, TelegramResponse, TelegramUpdate, TelegramUser } from './types.js'
-import { parseUpdate } from './parseInbound.js'
+import { parsePollAnswer, parseUpdate } from './parseInbound.js'
+import { PollTracker } from './polls.js'
 import { replyParametersOf, targetOf } from './refs.js'
 import { toOutbound, type ResolvedTelegramMedia } from './toOutbound.js'
 
@@ -65,7 +66,7 @@ const sleep = (ms: number, signal?: AbortSignal): Promise<void> =>
     signal?.addEventListener('abort', done, { once: true })
   })
 
-/** Default per-request timeout (uploads included); long polls get `pollTimeout` + grace. */
+/** Default per-request timeout (uploads included); long polls get `pollTimeoutMs` + grace. */
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000
 /** Default timeout of a multipart (file upload) request. */
 const DEFAULT_UPLOAD_TIMEOUT_MS = 300_000
@@ -120,7 +121,7 @@ const TOO_LARGE_400 = /too long|too big|entity too large/i
 const MAX_RETRY_AFTER_SEC = 86_400
 
 /** Translate a Bot API error envelope into a typed provider error. */
-export function toProviderError(chatId: ChatId, errorCode: number | undefined, description: string | undefined, retryAfterSec?: number): ProviderError {
+export function toTelegramError(chatId: ChatId, errorCode: number | undefined, description: string | undefined, retryAfterSec?: number): ProviderError {
   const desc = description ?? `Telegram error ${errorCode ?? 'unknown'}`
   if (errorCode === 429) {
     // Clamp: a missing/invalid value waits 1 s; a huge one would overflow setTimeout (it fires at once).
@@ -135,6 +136,12 @@ export function toProviderError(chatId: ChatId, errorCode: number | undefined, d
   if (errorCode === 404) return new ProviderError(`${desc} — check the bot token and baseUrl`)
   return new ProviderError(desc)
 }
+
+/**
+ * @deprecated Use {@link toTelegramError} (channel-prefixed like every provider's error
+ * mapper). Removal planned for v3.
+ */
+export const toProviderError: typeof toTelegramError = toTelegramError
 
 export class TelegramProvider implements IProvider<unknown> {
   readonly id = 'telegram'
@@ -165,6 +172,10 @@ export class TelegramProvider implements IProvider<unknown> {
   private readonly webhookSecret?: string
   /** Whether `edited_message` updates reach the bot (`editedMessages` config). */
   private readonly deliverEdits: boolean
+  /** Whether polls are sent anonymous (`anonymousPolls`): their votes never reach the bot. */
+  private readonly anonymousPolls: boolean
+  /** Polls this process sent, so `poll_answer` updates can be tallied. */
+  private readonly polls = new PollTracker()
   /** Consecutive getUpdates failures — drives the exponential backoff; reset on success. */
   private pollErrors = 0
   private readonly logger: LoggerLike
@@ -197,6 +208,10 @@ export class TelegramProvider implements IProvider<unknown> {
       )
     }
     assertNumber('pollTimeout', config.pollTimeout, 0)
+    assertNumber('pollTimeoutMs', config.pollTimeoutMs, 0)
+    if (config.pollTimeout !== undefined && config.pollTimeoutMs !== undefined && config.pollTimeout * 1000 !== config.pollTimeoutMs) {
+      throw new TypeError('TelegramProvider: set `pollTimeoutMs` only (`pollTimeout`, in seconds, is its deprecated alias), not both with different values')
+    }
     assertNumber('errorBackoffMs', config.errorBackoffMs, 0)
     assertNumber('maxBackoffMs', config.maxBackoffMs, 0)
     assertNumber('pollIdleMs', config.pollIdleMs, 0)
@@ -209,7 +224,8 @@ export class TelegramProvider implements IProvider<unknown> {
       requestTimeoutMs,
       uploadTimeoutMs: config.uploadTimeoutMs ?? Math.max(DEFAULT_UPLOAD_TIMEOUT_MS, requestTimeoutMs),
       polling: config.polling ?? true,
-      pollTimeout: config.pollTimeout ?? 30,
+      // getUpdates takes whole seconds.
+      pollTimeout: config.pollTimeoutMs !== undefined ? Math.ceil(config.pollTimeoutMs / 1000) : config.pollTimeout ?? 30,
       errorBackoffMs: config.errorBackoffMs ?? 1000,
       maxBackoffMs: config.maxBackoffMs ?? 60_000,
       pollIdleMs: config.pollIdleMs ?? 250,
@@ -225,6 +241,10 @@ export class TelegramProvider implements IProvider<unknown> {
       throw new Error(`TelegramProvider: editedMessages must be 'deliver' or 'ignore' (got ${JSON.stringify(edits)})`)
     }
     this.deliverEdits = edits === 'deliver'
+    if (config.anonymousPolls !== undefined && typeof config.anonymousPolls !== 'boolean') {
+      throw new TypeError(`TelegramProvider: anonymousPolls must be a boolean (got ${JSON.stringify(config.anonymousPolls)})`)
+    }
+    this.anonymousPolls = config.anonymousPolls ?? false
     this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
     if (config.polling === false && !config.webhookSecret && !config.allowUnsignedWebhooks) {
       throw new Error(
@@ -332,8 +352,8 @@ export class TelegramProvider implements IProvider<unknown> {
    */
   private async pollLoop(): Promise<void> {
     const allowedUpdates = this.deliverEdits
-      ? ['message', 'edited_message', 'callback_query', 'stopped_message_generation']
-      : ['message', 'callback_query', 'stopped_message_generation']
+      ? ['message', 'edited_message', 'callback_query', 'poll_answer', 'stopped_message_generation']
+      : ['message', 'callback_query', 'poll_answer', 'stopped_message_generation']
     const stopSignal = this.lifecycle?.signal
     while (!this.stopped) {
       this.pollAbort = new AbortController()
@@ -438,6 +458,7 @@ export class TelegramProvider implements IProvider<unknown> {
   private dispatchUpdate(update: TelegramUpdate): void {
     if (!update || typeof update !== 'object') return
     if (!this.deliverEdits && update.edited_message && !update.message) return
+    if (update.poll_answer !== undefined) { this.dispatchPollAnswer(update); return }
     let ev: InboundEvent | undefined
     try {
       ev = parseUpdate(update, this._selfId ?? undefined, this.username)
@@ -447,6 +468,19 @@ export class TelegramProvider implements IProvider<unknown> {
       return
     }
     if (ev) this.fan(ev)
+  }
+
+  /** Tally a `poll_answer` against the poll this process sent and emit it as a poll vote. */
+  private dispatchPollAnswer(update: TelegramUpdate): void {
+    const answer = parsePollAnswer(update)
+    if (!answer) return
+    const vote = this.polls.record(answer.pollId, answer.voterId, answer.optionIds)
+    if (!vote) {
+      // Typically a poll sent before a restart, or evicted from the bounded cache.
+      this.logger.debug({ pollId: answer.pollId }, 'poll answer for a poll this process has not sent; dropped')
+      return
+    }
+    this.fan({ kind: 'poll-vote', vote })
   }
 
   /* Outbound -------------------------------------------------------------- */
@@ -502,8 +536,11 @@ export class TelegramProvider implements IProvider<unknown> {
       const reply = replyParametersOf(options.quoted)
       if (reply) params.reply_parameters = reply
     }
+    // Non-anonymous by default so votes arrive as poll_answer updates (anonymousPolls: true opts out).
+    if (content.kind === 'poll' && !this.anonymousPolls) params.is_anonymous = false
     if (options?.platformData) Object.assign(params, options.platformData)
     const result = await this.callApi(out.method, params, { media, mediaField: out.mediaField })
+    if (content.kind === 'poll') this.polls.remember(result, chatId)
     // setMessageReaction answers `true`: the meaningful ref is the reacted-to message.
     if (content.kind === 'reaction' && (typeof result !== 'object' || result === null)) {
       return { ref: content.target, raw: result }
@@ -592,7 +629,7 @@ export class TelegramProvider implements IProvider<unknown> {
     if (!body || typeof body !== 'object') body = { ok: false }
     if (!body.ok) {
       const chatId = typeof params.chat_id === 'string' ? params.chat_id : String(params.chat_id ?? '')
-      throw toProviderError(chatId, body.error_code ?? res.status, body.description, body.parameters?.retry_after)
+      throw toTelegramError(chatId, body.error_code ?? res.status, body.description, body.parameters?.retry_after)
     }
     return body.result as T
   }

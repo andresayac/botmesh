@@ -5,10 +5,10 @@
 
 export { DiscordProvider, DISCORD_MEDIA_HOSTS } from './DiscordProvider.js'
 export { GatewaySocket, defaultSocketFactory, gatewayConnectUrl } from './gateway.js'
-export { DiscordRestClient, toProviderError } from './restClient.js'
+export { DiscordRestClient, toDiscordError, toProviderError } from './restClient.js'
 export { toOutbound } from './toOutbound.js'
 export type { DiscordFile, DiscordOutboundPayload } from './toOutbound.js'
-export { parseDispatch, snowflakeTimestamp } from './parseInbound.js'
+export { parseDispatch, snowflakeTimestamp, isEditedMessage } from './parseInbound.js'
 export type {
   DiscordProviderConfig,
   SocketLike,

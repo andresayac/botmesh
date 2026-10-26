@@ -31,6 +31,9 @@ import {
 /**
  * Idempotent schema of the schedules table, plus `schedule_fences`: the last fencing token
  * of each deleted id, so a new registration of the id never reuses a token.
+ *
+ * @deprecated The DDL is an implementation detail (the tables are created and
+ * migrated by the store); it leaves the public entry in v3.
  */
 export const SCHEDULES_SCHEMA = `
   CREATE TABLE IF NOT EXISTS schedules (

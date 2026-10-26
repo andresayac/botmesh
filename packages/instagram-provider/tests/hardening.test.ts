@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { OutsideSessionWindowError, RecipientUnreachableError, UnsupportedContentError } from '@botmesh/core'
 import { InstagramProvider } from '../src/InstagramProvider.js'
-import { toProviderError } from '../src/graphClient.js'
+import { toInstagramError } from '../src/graphClient.js'
 import { toOutbound } from '../src/toOutbound.js'
 import { parseInbound } from '../src/parseInbound.js'
 
@@ -31,7 +31,7 @@ describe('Instagram error mapping', () => {
     const err = await new InstagramProvider(baseCfg).send('IGSID2', { kind: 'text', text: 'x' }).catch((e: unknown) => e)
     expect(err).toBeInstanceOf(RecipientUnreachableError)
     expect((err as RecipientUnreachableError).chatId).toBe('IGSID2')
-    expect(toProviderError({ code: 100, error_subcode: 2018001, message: 'No matching user found' }, undefined, 'X')).toBeInstanceOf(RecipientUnreachableError)
+    expect(toInstagramError({ code: 100, error_subcode: 2018001, message: 'No matching user found' }, undefined, 'X')).toBeInstanceOf(RecipientUnreachableError)
   })
 })
 

@@ -42,6 +42,14 @@ export interface DiscordProviderConfig {
   appId?: string
   /** The bot's own user id (for `fromMe`); auto-detected from gateway READY when omitted. */
   selfId?: string
+  /**
+   * What to do with message edits (`MESSAGE_UPDATE` with `edited_timestamp`):
+   *  - `'deliver'` (default): an edit reaches the bot as a message that keeps the
+   *    original `ref.id` (mark it with `isEditedMessage(ctx)`); the core dedupe
+   *    lets it through because its content changed.
+   *  - `'ignore'`: edits are dropped.
+   */
+  editedMessages?: 'deliver' | 'ignore'
   /** Gateway base URL. Default 'wss://gateway.discord.gg'. */
   gatewayUrl?: string
   /** REST base URL (without version). Default 'https://discord.com/api'. */
@@ -177,6 +185,8 @@ export interface DiscordMessagePayload {
   content?: string
   /** ISO 8601 timestamp. */
   timestamp?: string
+  /** ISO 8601 time of the last edit; `null` / absent when never edited. */
+  edited_timestamp?: string | null
   mentions?: DiscordUser[]
   attachments?: DiscordAttachment[]
   /** `type`: 0 DEFAULT (a reply), 1 FORWARD (the content lives in `message_snapshots`). */

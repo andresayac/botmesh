@@ -27,7 +27,11 @@ export interface ResolvedTelegramMedia {
   filename?: string
 }
 
-/** Sentinel placed in `params[mediaField]` when a multipart upload is required. */
+/**
+ * Sentinel placed in `params[mediaField]` when a multipart upload is required.
+ *
+ * @experimental Wire helper: may change with the Bot API.
+ */
 export const MEDIA_UPLOAD = Symbol('telegram-media-upload')
 
 export interface TelegramOutbound {
@@ -83,6 +87,8 @@ function inlineKeyboard(buttons: Array<{ id: string; title: string; url?: string
  * @returns the Bot API `{ method, params }` for this content. `chat_id` is NOT
  * included (the provider adds it), except for `reaction` which targets the
  * quoted message's own chat.
+ *
+ * @experimental Wire helper: its output follows the Bot API and may change with it.
  */
 export function toOutbound(content: OutboundContent, media?: ResolvedTelegramMedia): TelegramOutbound {
   switch (content.kind) {

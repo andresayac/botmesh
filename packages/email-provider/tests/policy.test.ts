@@ -3,7 +3,7 @@ import { PayloadTooLargeError, ProviderError, RateLimitedError, RecipientUnreach
 import { parseEmail } from '../src/mime.js'
 import { detectAutomated, SenderFloodGuard } from '../src/loop.js'
 import { detectBounce } from '../src/bounce.js'
-import { toEmailProviderError } from '../src/errors.js'
+import { toEmailError } from '../src/errors.js'
 
 const mail = (headers: string[], body = 'hi'): ReturnType<typeof parseEmail> =>
   parseEmail([...headers, '', body].join('\r\n'))
@@ -105,40 +105,40 @@ describe('detectBounce', () => {
   })
 })
 
-describe('toEmailProviderError', () => {
+describe('toEmailError', () => {
   it('maps SMTP replies to typed provider errors', () => {
-    const e550 = toEmailProviderError(Object.assign(new Error('550 5.1.1 user unknown'), { responseCode: 550, code: 'EENVELOPE' }), 'c1')
+    const e550 = toEmailError(Object.assign(new Error('550 5.1.1 user unknown'), { responseCode: 550, code: 'EENVELOPE' }), 'c1')
     expect(e550).toBeInstanceOf(RecipientUnreachableError)
     expect((e550 as RecipientUnreachableError).chatId).toBe('c1')
-    expect(toEmailProviderError(Object.assign(new Error('552 message size exceeds'), { responseCode: 552 }), 'c1')).toBeInstanceOf(PayloadTooLargeError)
-    expect(toEmailProviderError(Object.assign(new Error('554 5.3.4 too big'), { responseCode: 554, response: '554 5.3.4 Message too big' }), 'c1')).toBeInstanceOf(PayloadTooLargeError)
-    const e421 = toEmailProviderError(Object.assign(new Error('421 try later'), { responseCode: 421 }), 'c1')
+    expect(toEmailError(Object.assign(new Error('552 message size exceeds'), { responseCode: 552 }), 'c1')).toBeInstanceOf(PayloadTooLargeError)
+    expect(toEmailError(Object.assign(new Error('554 5.3.4 too big'), { responseCode: 554, response: '554 5.3.4 Message too big' }), 'c1')).toBeInstanceOf(PayloadTooLargeError)
+    const e421 = toEmailError(Object.assign(new Error('421 try later'), { responseCode: 421 }), 'c1')
     expect(e421).toBeInstanceOf(RateLimitedError)
     expect((e421 as RateLimitedError).retryAfterMs).toBe(60_000)
-    expect(toEmailProviderError(Object.assign(new Error('451 4.7.1 slow down'), { responseCode: 451 }), 'c1')).toBeInstanceOf(RateLimitedError)
+    expect(toEmailError(Object.assign(new Error('451 4.7.1 slow down'), { responseCode: 451 }), 'c1')).toBeInstanceOf(RateLimitedError)
   })
 
   it('keeps auth/connection failures as a generic ProviderError and passes ProviderErrors through', () => {
-    const auth = toEmailProviderError(Object.assign(new Error('Invalid login'), { code: 'EAUTH', responseCode: 535 }), 'c1')
+    const auth = toEmailError(Object.assign(new Error('Invalid login'), { code: 'EAUTH', responseCode: 535 }), 'c1')
     expect(auth).toBeInstanceOf(ProviderError)
     expect(auth).not.toBeInstanceOf(RecipientUnreachableError)
     expect(auth.message).toMatch(/authentication/i)
     const original = new RateLimitedError(5)
-    expect(toEmailProviderError(original, 'c1')).toBe(original)
-    expect(toEmailProviderError('boom', 'c1')).toBeInstanceOf(ProviderError)
+    expect(toEmailError(original, 'c1')).toBe(original)
+    expect(toEmailError('boom', 'c1')).toBeInstanceOf(ProviderError)
   })
 })
 
-describe('toEmailProviderError — 552 disambiguation', () => {
+describe('toEmailError — 552 disambiguation', () => {
   it('552 5.2.2 (mailbox full) is RecipientUnreachableError, not PayloadTooLargeError', () => {
-    const full = toEmailProviderError(Object.assign(new Error('552 5.2.2 Mailbox full'), { responseCode: 552, response: '552 5.2.2 Mailbox full' }), 'c9')
+    const full = toEmailError(Object.assign(new Error('552 5.2.2 Mailbox full'), { responseCode: 552, response: '552 5.2.2 Mailbox full' }), 'c9')
     expect(full).toBeInstanceOf(RecipientUnreachableError)
     expect(full).not.toBeInstanceOf(PayloadTooLargeError)
     expect((full as RecipientUnreachableError).chatId).toBe('c9')
   })
 
   it('552 5.3.4 (message too big) stays PayloadTooLargeError', () => {
-    const big = toEmailProviderError(Object.assign(new Error('552 5.3.4 too big'), { responseCode: 552, response: '552 5.3.4 Message size exceeds fixed limit' }), 'c9')
+    const big = toEmailError(Object.assign(new Error('552 5.3.4 too big'), { responseCode: 552, response: '552 5.3.4 Message size exceeds fixed limit' }), 'c9')
     expect(big).toBeInstanceOf(PayloadTooLargeError)
   })
 })

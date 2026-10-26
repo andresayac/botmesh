@@ -58,9 +58,10 @@ native form) and `submitLabel`. When omitted, they come from the `core.form.cta`
 formulario'` / `'Enviar'` in Spanish, `'Open form'` / `'Submit'` in English);
 a definition with neither `intro` nor `title` gets `core.form.body` as the
 message body. The submit label is part of the published WhatsApp Flow, so it
-is fixed when you publish it: `toFlowJson(def, { lang: 'es' })` /
-`publishForm(def, { flowJson: { lang: 'es' } })` (default `'en'`, the core default locale), or set
-`submitLabel`.
+is fixed when you publish it: `toFlowJson(def, { lang: 'es' })`, or for
+`publishForm()` the provider's `lang` option (`new CloudAPIProvider({ lang: 'es' })`,
+set it to your bot's `BotConfig.lang`) or `publishForm(def, { lang: 'es' })`
+(default `'en'`, the core default locale), or set `submitLabel`.
 
 In field-by-field mode, `select`/`multiselect` accept the menu number, the key or
 the label (several picks separated by commas, `;`, `and`/`y` or spaces between

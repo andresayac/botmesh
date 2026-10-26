@@ -315,6 +315,13 @@ creates still arrives as a `poll` message (`bot.onType('poll')`, the
 [`POLL` trigger](./triggers#message-type-triggers)); the encrypted vote no
 longer does. Details in the `@botmesh/baileys` README.
 
+On **Telegram**, polls are sent non-anonymous, so each vote arrives as a
+`poll_answer` update and the provider tallies it into the same `poll` event
+(empty selection = vote withdrawn). Telegram only reports votes on polls the
+bot sent, and the provider remembers the 500 most recent ones it sent from this
+process. Members of the chat can see who voted; `anonymousPolls: true` sends
+anonymous polls, whose votes never reach the bot.
+
 ## Access media content
 
 Inbound media is downloaded **lazily**: the context only carries a reference

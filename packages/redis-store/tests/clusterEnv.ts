@@ -22,19 +22,85 @@ import type { NodeRedisClient, NodeRedisCluster } from './nodeRedis.js'
 export const CLUSTER_URL = process.env.BOTWA_TEST_REDIS_CLUSTER_URL
 export const CHAOS = process.env.BOTWA_TEST_REDIS_CLUSTER_CHAOS === '1'
 
+/**
+ * Every node of `CLUSTER NODES` output as a root-node URL on the seed's host (Docker port
+ * mapping), seed first. Nodes without an address are skipped; unparseable output gives
+ * just the seed.
+ */
+export function rootNodesFromClusterNodes(output: string, seedUrl: string): string[] {
+  const seed = new URL(seedUrl)
+  const urls = [seedUrl]
+  for (const line of output.split(/\r?\n/)) {
+    const address = line.split(' ')[1]?.split('@')[0]
+    const port = Number(address?.slice(address.lastIndexOf(':') + 1))
+    if (!Number.isInteger(port) || port <= 0) continue
+    const url = `redis://${seed.hostname}:${port}`
+    if (!urls.includes(url) && Number(seed.port) !== port) urls.push(url)
+  }
+  return urls
+}
+
+/**
+ * The root nodes of the test cluster: every node, so node-redis's initial slot discovery
+ * tries another node when one is unreachable or slow (a failover in flight, a loaded
+ * machine), instead of failing with "All the root nodes are unavailable".
+ */
+const ROOT_NODES: string[] = CLUSTER_URL ? await discoverRootNodes(CLUSTER_URL) : []
+
+async function discoverRootNodes(url: string): Promise<string[]> {
+  try {
+    const node = await connectNode(url)
+    try { return rootNodesFromClusterNodes(String(await node.sendCommand(['CLUSTER', 'NODES'])), url) } finally { await node.quit() }
+  } catch {
+    return [url]
+  }
+}
+
 export function clusterOptions(url = CLUSTER_URL!): RedisClusterConnectOptions {
   const seed = new URL(url)
   return {
-    rootNodes: [url],
+    rootNodes: url === CLUSTER_URL && ROOT_NODES.length ? [...ROOT_NODES] : [url],
     nodeAddressMap: (address: string) => ({ host: seed.hostname, port: Number(address.slice(address.lastIndexOf(':') + 1)) }),
   }
 }
 
-/** A connected cluster client (caller closes it). */
+/**
+ * Connect a fresh client from `make()`, retrying a failed initial connect (`attempts` in
+ * all; `between(n)` runs before retry n). node-redis does not retry a failed initial
+ * cluster discovery, and a cluster client can be reconnected after one, but a fresh client
+ * is used per attempt to start from a clean state.
+ */
+export async function connectWithRetry<T extends { connect(): Promise<unknown> }>(
+  make: () => T,
+  { attempts = 4, between = defaultBetween }: { attempts?: number; between?: (retry: number) => Promise<void> } = {},
+): Promise<T> {
+  let last: unknown
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    if (attempt > 1) await between(attempt - 1)
+    const client = make()
+    try {
+      await client.connect()
+      return client
+    } catch (err) {
+      last = err
+      await (client as { destroy?: () => unknown }).destroy?.()
+    }
+  }
+  throw last
+}
+
+/** Before a retry: wait for `cluster_state:ok` (best effort) and back off a little. */
+async function defaultBetween(retry: number): Promise<void> {
+  try {
+    const node = await connectNode()
+    try { await waitClusterOk(node, 10_000) } finally { await node.quit() }
+  } catch { /* the next attempt reports the failure */ }
+  await new Promise((r) => setTimeout(r, 250 * retry))
+}
+
+/** A connected cluster client (caller closes it). Retries a failed initial discovery. */
 export async function connectCluster(url = CLUSTER_URL!): Promise<NodeRedisCluster> {
-  const client = createOwnRedisClient({ cluster: clusterOptions(url), onError: () => {} }) as unknown as NodeRedisCluster
-  await client.connect()
-  return client
+  return connectWithRetry(() => createOwnRedisClient({ cluster: clusterOptions(url), onError: () => {} }) as unknown as NodeRedisCluster)
 }
 
 /** A plain connection to one node (the seed by default), for CLUSTER commands. */

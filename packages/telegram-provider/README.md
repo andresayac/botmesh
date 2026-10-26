@@ -36,13 +36,15 @@ interface TelegramProviderConfig {
   allowUnsignedWebhooks?: boolean // webhook mode without a secret: isolated local development only
   selfId?: string      // bot's own user id; resolved via getMe() when omitted
   username?: string    // bot's @username; learned from getMe() when selfId is omitted (see "Group commands")
-  pollTimeout?: number // getUpdates server timeout (s), default 30
+  pollTimeoutMs?: number // getUpdates server timeout (ms, sent in whole seconds), default 30000
+  pollTimeout?: number   // deprecated: the same in seconds
+  anonymousPolls?: boolean // default false: polls are non-anonymous so votes reach the bot (see "Poll votes")
   errorBackoffMs?: number  // base backoff after a failed poll round (doubles per failure), default 1000
   maxBackoffMs?: number    // ceiling for that backoff, default 60000
   pollIdleMs?: number      // pause after an empty batch, default 250
   requestTimeoutMs?: number // client timeout per Bot API request, default 120000
   uploadTimeoutMs?: number  // client timeout of a file upload (multipart), default 300000
-  debug?: boolean
+  debug?: boolean      // deprecated: pass a logger
   logger?: LoggerLike  // pino, console or any { debug, info, warn, error }
 }
 ```
@@ -198,6 +200,27 @@ With `'ignore'` long-polling stops requesting `edited_message`; in webhook mode
 the update is acknowledged (200) and dropped (also leave it out of
 `setWebhook`'s `allowed_updates`).
 
+## Poll votes
+
+`ctx.poll(question, options)` sends a native poll with `is_anonymous: false`, so
+each vote arrives as a `poll_answer` update. The provider tallies it and emits a
+`'poll'` event with the same shape as `@botmesh/baileys`:
+
+```ts
+bot.on('poll', (vote) => {
+  // vote.ref      → the poll message ({ id, chatId })
+  // vote.senderId → the voter (`voter_chat.id` for a vote cast on behalf of a chat)
+  // vote.options  → [{ name, votes, voters }] for every option; an empty pick = vote withdrawn
+})
+```
+
+Telegram only sends answers for polls the bot created, and names the poll by id
+only, so the provider remembers the 500 most recent polls it sent (in memory): a
+vote on a poll sent before a restart is dropped with a `debug` log. Members of
+the chat can see who voted. `anonymousPolls: true` sends anonymous polls instead
+(no votes reach the bot); `platformData: { is_anonymous: true }` does it for one
+send. `parsePollAnswer(update)` reads a raw `poll_answer` (`@experimental`).
+
 ## Capabilities
 
 | Capability               | Value  | Notes                                             |
@@ -217,7 +240,8 @@ the update is acknowledged (200) and dropped (also leave it out of
 
 ## Error mapping
 
-Bot API errors become typed `@botmesh/core` errors:
+Bot API errors become typed `@botmesh/core` errors (`toTelegramError` does the
+mapping; `toProviderError` is its deprecated alias):
 
 | HTTP | Maps to                                              |
 | ---- | ---------------------------------------------------- |
@@ -233,7 +257,7 @@ Bot API errors become typed `@botmesh/core` errors:
 No error message, `cause` or log line carries the bot token, even when the
 underlying `fetch` error quotes the request URL. In the poll loop a 429 waits
 `retry_after` and other failures back off exponentially (`errorBackoffMs` up to
-`maxBackoffMs`); a long poll that hangs past `pollTimeout` + 15 s is abandoned
+`maxBackoffMs`); a long poll that hangs past `pollTimeoutMs` + 15 s is abandoned
 and retried, so a half-open connection never silences the bot.
 
 ## Group commands

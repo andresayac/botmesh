@@ -40,13 +40,13 @@ describe('capability contract', () => {
 
 describe('429 retry_after', () => {
   it('is clamped to a sane wait (a huge value would overflow setTimeout and spin the poll loop)', async () => {
-    const { toProviderError } = await import('../src/TelegramProvider.js')
+    const { toTelegramError } = await import('../src/TelegramProvider.js')
     const { RateLimitedError } = await import('@botmesh/core')
-    const huge = toProviderError('c', 429, 'Too Many Requests', 1e12)
+    const huge = toTelegramError('c', 429, 'Too Many Requests', 1e12)
     expect(huge).toBeInstanceOf(RateLimitedError)
     expect((huge as InstanceType<typeof RateLimitedError>).retryAfterMs).toBe(86_400_000)
-    expect((toProviderError('c', 429, 'x', Number.NaN) as InstanceType<typeof RateLimitedError>).retryAfterMs).toBe(1000)
-    expect((toProviderError('c', 429, 'x', -3) as InstanceType<typeof RateLimitedError>).retryAfterMs).toBe(1000)
-    expect((toProviderError('c', 429, 'x', 7) as InstanceType<typeof RateLimitedError>).retryAfterMs).toBe(7000)
+    expect((toTelegramError('c', 429, 'x', Number.NaN) as InstanceType<typeof RateLimitedError>).retryAfterMs).toBe(1000)
+    expect((toTelegramError('c', 429, 'x', -3) as InstanceType<typeof RateLimitedError>).retryAfterMs).toBe(1000)
+    expect((toTelegramError('c', 429, 'x', 7) as InstanceType<typeof RateLimitedError>).retryAfterMs).toBe(7000)
   })
 })

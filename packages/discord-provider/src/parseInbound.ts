@@ -4,6 +4,8 @@
  * `member.user.id`): stable, no member-vs-user aliasing leaks out.
  *
  *   MESSAGE_CREATE     → kind 'message'   (bots and system messages are ignored)
+ *   MESSAGE_UPDATE     → kind 'message' for an edit (`edited_timestamp` set), keeping
+ *                        the original `ref.id`; other updates (embed unfurls…) are ignored
  *   INTERACTION_CREATE → kind 'interaction' (button / select / slash command)
  *
  * Frames are read defensively: a field of the wrong type is ignored, so a
@@ -55,11 +57,28 @@ export function parseDispatch(t: string, d: unknown, selfId?: string | null): In
   switch (t) {
     case 'MESSAGE_CREATE':
       return parseMessageCreate(rec<DiscordMessagePayload>(d), selfId)
+    case 'MESSAGE_UPDATE': {
+      // Only a content edit carries `edited_timestamp`; embed unfurls and other
+      // partial updates do not, and are not new input.
+      const m = rec<DiscordMessagePayload>(d)
+      return m && typeof m.edited_timestamp === 'string' ? parseMessageCreate(m, selfId) : undefined
+    }
     case 'INTERACTION_CREATE':
       return parseInteractionCreate(rec<DiscordInteractionPayload>(d))
     default:
       return undefined
   }
+}
+
+/**
+ * Whether `message` (emitted by this provider) is an edit of an earlier message
+ * (a `MESSAGE_UPDATE` with `edited_timestamp`). An edit keeps the original
+ * `ref.id`, so `ctx.reply`/`ctx.react` target the edited message; its `body` is
+ * the new text and `raw.edited_timestamp` (ISO 8601) is when it was edited.
+ */
+export function isEditedMessage(message: { raw?: unknown }): boolean {
+  const raw = message.raw
+  return typeof raw === 'object' && raw !== null && typeof (raw as { edited_timestamp?: unknown }).edited_timestamp === 'string'
 }
 
 /* --- MESSAGE_CREATE -------------------------------------------------------- */

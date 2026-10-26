@@ -59,9 +59,15 @@ import { parseInbound, type PageWebhookBody } from './parseInbound.js'
  * Messenger Platform window/recipient codes. `chatId` (the PSID the call
  * targeted) is carried on window/unreachable errors.
  */
-export function toProviderError(err: GraphError, retryAfterMs?: number, chatId: ChatId = ''): ProviderError {
+export function toMessengerError(err: GraphError, retryAfterMs?: number, chatId: ChatId = ''): ProviderError {
   return toGraphError(err, { retryAfterMs, chatId })
 }
+
+/**
+ * @deprecated Use {@link toMessengerError} (channel-prefixed like every provider's error
+ * mapper). Removal planned for v3.
+ */
+export const toProviderError: typeof toMessengerError = toMessengerError
 
 export class MessengerProvider implements IProvider<unknown> {
   readonly id = 'messenger'

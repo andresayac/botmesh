@@ -66,6 +66,11 @@ rejects with a `ProviderError`. Media uploads (up to 100 MB) use `uploadTimeoutM
 const provider = new CloudAPIProvider({ /* ... */ requestTimeoutMs: 20_000 })
 ```
 
+**Deprecated exports** (kept until v3): `toProviderError` (use `toGraphError` from `@botmesh/graph-core`),
+`GraphClient` (transport internals), the re-exported `verifyChallenge` / `verifySignature` (use
+`provider.verifyChallenge(query)` and `provider.ingest()`, or import them from `@botmesh/graph-core`) and the `debug`
+option (pass a `logger`).
+
 **Graph API version.** `apiVersion` defaults to `DEFAULT_GRAPH_API_VERSION` from `@botmesh/graph-core`, currently
 `'v26.0'` (released 2026-07-29). Meta retires each Graph version about two years after its release, so the default
 follows the current version and moves in a minor release, after the webhook and send payloads are checked against
@@ -109,7 +114,7 @@ const { flowId } = await provider.publishForm(signup, { categories: ['SIGN_UP'] 
 writeFileSync('signup.flow.json', JSON.stringify(toFlowJson(signup), null, 2))
 ```
 
-If a form has no associated Flow (neither `config.flows` nor `.form(def, { nativeId })`), the step asks field by field like on any other channel. `flowJsonWarnings(def)` warns about labels WhatsApp will truncate. The button (`cta`) and the message body follow the user's `ctx.lang` (`core.form.*` catalogue); the submit label stays fixed in the published Flow, so pick its language with `toFlowJson(def, { lang: 'es' })` / `publishForm(def, { flowJson: { lang: 'es' } })` (default `'en'`, the core default locale) or define `submitLabel`. Flows with an endpoint (`data_exchange`, encrypted dynamic screens) are not supported yet.
+If a form has no associated Flow (neither `config.flows` nor `.form(def, { nativeId })`), the step asks field by field like on any other channel. `flowJsonWarnings(def)` warns about labels WhatsApp will truncate. The button (`cta`) and the message body follow the user's `ctx.lang` (`core.form.*` catalogue); the submit label stays fixed in the published Flow, so pick its language with `toFlowJson(def, { lang: 'es' })`, the provider's `lang` option for every `publishForm()` (`new CloudAPIProvider({ ..., lang: 'es' })`, the same value as your `BotConfig.lang`) or `publishForm(def, { lang: 'es' })` for one Flow (default `'en'`, the core default locale), or define `submitLabel`. Flows with an endpoint (`data_exchange`, encrypted dynamic screens) are not supported yet.
 
 ## 24-hour window
 

@@ -81,14 +81,14 @@ describe('config', () => {
   it('accepts a numeric phoneNumberId (a safe integer) and uses it as a string', async () => {
     const fetch = vi.fn(async (_url: string, _init?: RequestInit) => json({ messages: [{ id: 'wamid.X' }] }))
     vi.stubGlobal('fetch', fetch)
-    const p = new CloudAPIProvider({ ...baseCfg, phoneNumberId: 106540352242922 as unknown as string })
+    const p = new CloudAPIProvider({ ...baseCfg, phoneNumberId: 106540352242922 })
     await p.send('573001', { kind: 'text', text: 'hola' })
     expect(String(fetch.mock.calls[0]![0])).toContain('/106540352242922/messages')
   })
 
   it('still rejects a phoneNumberId that is not a safe positive integer', () => {
-    expect(() => new CloudAPIProvider({ ...baseCfg, phoneNumberId: 1.5 as unknown as string })).toThrow(/phoneNumberId/)
-    expect(() => new CloudAPIProvider({ ...baseCfg, phoneNumberId: 2 ** 60 as unknown as string })).toThrow(/phoneNumberId/)
+    expect(() => new CloudAPIProvider({ ...baseCfg, phoneNumberId: 1.5 })).toThrow(/phoneNumberId/)
+    expect(() => new CloudAPIProvider({ ...baseCfg, phoneNumberId: 2 ** 60 })).toThrow(/phoneNumberId/)
   })
 
   it('media uploads get their own, longer timeout (uploadTimeoutMs)', async () => {

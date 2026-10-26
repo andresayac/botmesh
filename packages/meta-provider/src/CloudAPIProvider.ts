@@ -162,7 +162,7 @@ export class CloudAPIProvider implements IProvider<unknown> {
     streaming: 'none', // no live preview: ctx.stream() sends sentence chunks with typing
   }
 
-  private readonly config: Required<Pick<CloudAPIProviderConfig, 'apiVersion' | 'graphUrl'>> & CloudAPIProviderConfig
+  private readonly config: Required<Pick<CloudAPIProviderConfig, 'apiVersion' | 'graphUrl'>> & Omit<CloudAPIProviderConfig, 'phoneNumberId'> & { phoneNumberId: string }
   private readonly logger: LoggerLike
   private readonly graph: GraphClient
   private listeners = new Set<(e: InboundEvent) => void | Promise<void>>()
@@ -180,6 +180,9 @@ export class CloudAPIProvider implements IProvider<unknown> {
 
   constructor(config: CloudAPIProviderConfig) {
     assertConfig(config)
+    if (config.lang !== undefined && (typeof config.lang !== 'string' || config.lang.trim() === '')) {
+      throw new TypeError(`CloudAPIProvider: lang must be a non-empty language tag such as 'en' or 'es' (got ${JSON.stringify(config.lang)})`)
+    }
     this.config = {
       apiVersion: DEFAULT_GRAPH_API_VERSION,
       graphUrl: 'https://graph.facebook.com',
@@ -441,7 +444,11 @@ export class CloudAPIProvider implements IProvider<unknown> {
    */
   async publishForm(
     definition: FormDefinition,
-    opts: { wabaId?: string; name?: string; categories?: string[]; publish?: boolean; flowJson?: FlowJsonOptions } = {},
+    opts: {
+      wabaId?: string; name?: string; categories?: string[]; publish?: boolean; flowJson?: FlowJsonOptions
+      /** Language of the default submit label; overrides `config.lang` (`flowJson.lang` wins over both). */
+      lang?: string
+    } = {},
   ): Promise<{ flowId: string; validationErrors: unknown[] }> {
     assertFormDefinition(definition)
     const wabaId = opts.wabaId ?? this.config.wabaId
@@ -449,7 +456,10 @@ export class CloudAPIProvider implements IProvider<unknown> {
     const res = await this.graph.postJson<{ id?: string; validation_errors?: unknown[] }>(`${wabaId}/flows`, {
       name: opts.name ?? definition.title ?? definition.id,
       categories: opts.categories ?? ['OTHER'],
-      flow_json: JSON.stringify(toFlowJson(definition, opts.flowJson)),
+      flow_json: JSON.stringify(toFlowJson(definition, {
+        ...opts.flowJson,
+        lang: opts.flowJson?.lang ?? opts.lang ?? this.config.lang,
+      })),
       publish: opts.publish ?? true,
     })
     if (!res.id) throw new ProviderError('Flows API returned no flow id')

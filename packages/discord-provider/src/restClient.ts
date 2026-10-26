@@ -42,7 +42,7 @@ export const DEFAULT_UPLOAD_TIMEOUT_MS = 300_000
 const UNREACHABLE_CODES = new Set([10_003, 10_013, 50_001, 50_007])
 
 /** Translate a Discord REST error into a typed provider error. */
-export function toProviderError(chatId: ChatId, status: number, body: DiscordApiErrorBody): ProviderError {
+export function toDiscordError(chatId: ChatId, status: number, body: DiscordApiErrorBody): ProviderError {
   const msg = body.message ?? 'Discord API error'
   const detail = `${msg}${body.code ? ` (code ${body.code})` : ''} (HTTP ${status})`
   if (status === 429) {
@@ -60,6 +60,12 @@ export function toProviderError(chatId: ChatId, status: number, body: DiscordApi
   if (status === 413 || body.code === 40_005) return new PayloadTooLargeError(detail)
   return new ProviderError(detail)
 }
+
+/**
+ * @deprecated Use {@link toDiscordError} (channel-prefixed like every provider's error
+ * mapper). Removal planned for v3.
+ */
+export const toProviderError: typeof toDiscordError = toDiscordError
 
 export class DiscordRestClient {
   constructor(private readonly cfg: DiscordRestClientConfig) {}
@@ -124,7 +130,7 @@ export class DiscordRestClient {
     } finally {
       clearTimeout(timer)
     }
-    if (!res.ok) throw toProviderError(opts.chatId ?? '', res.status, parsed)
+    if (!res.ok) throw toDiscordError(opts.chatId ?? '', res.status, parsed)
     return parsed
   }
 

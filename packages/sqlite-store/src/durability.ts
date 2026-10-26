@@ -22,7 +22,12 @@ import { type DurableKv } from '@botmesh/core'
 import { KvDurability, type DurableKvEntry, type DurableKvIndex, type DurableTable } from '@botmesh/core/spi'
 import type { SQLiteDatabaseLike } from './schedules.js'
 
-/** Idempotent schema of the durable-document table and its two partial indexes. */
+/**
+ * Idempotent schema of the durable-document table and its two partial indexes.
+ *
+ * @deprecated The DDL is an implementation detail (the table is created by the
+ * backend); it leaves the public entry in v3.
+ */
 export const DURABLE_SCHEMA = `
   CREATE TABLE IF NOT EXISTS durable (
     tbl TEXT NOT NULL, id TEXT NOT NULL, version INTEGER NOT NULL,

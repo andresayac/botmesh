@@ -40,6 +40,15 @@ export interface TelegramProviderConfig {
    */
   editedMessages?: 'deliver' | 'ignore'
   /**
+   * Send polls as anonymous Telegram polls. Default `false`: polls are sent
+   * with `is_anonymous: false` so each vote reaches the bot as a `poll_answer`
+   * update and becomes a `'poll'` event (`bot.on('poll')`), like on WhatsApp.
+   * Members of the chat can then see who voted. `true` sends anonymous polls,
+   * whose votes the bot never receives. A per-send
+   * `platformData: { is_anonymous }` overrides it.
+   */
+  anonymousPolls?: boolean
+  /**
    * true (default): start() runs a getUpdates long-poll loop.
    * false: webhook mode — the host POSTs Updates to `ingest()`.
    */
@@ -63,7 +72,17 @@ export interface TelegramProviderConfig {
   webhookSecret?: string
   /** Explicit local-development escape hatch for unsigned webhook mode. */
   allowUnsignedWebhooks?: boolean
-  /** Long-poll server timeout in seconds (getUpdates `timeout`). Default 30. */
+  /**
+   * Long-poll server timeout in ms (getUpdates `timeout`, sent in whole seconds,
+   * rounded up). Default 30000.
+   */
+  pollTimeoutMs?: number
+  /**
+   * Long-poll server timeout in seconds. Default 30.
+   *
+   * @deprecated Use `pollTimeoutMs` (milliseconds, like every other duration
+   * option). Removal planned for v3.
+   */
   pollTimeout?: number
   /** Base backoff (ms) after a failed getUpdates round. Grows exponentially per consecutive failure. Default 1000. */
   errorBackoffMs?: number
@@ -84,6 +103,10 @@ export interface TelegramProviderConfig {
    * large uploads to a self-hosted Bot API server.
    */
   uploadTimeoutMs?: number
+  /**
+   * @deprecated Pass a `logger` (any `LoggerLike`, e.g. `pino({ level: 'debug' })`)
+   * instead. Removal planned for v3.
+   */
   debug?: boolean
   logger?: LoggerLike
 }
@@ -232,5 +255,15 @@ export interface TelegramUpdate {
   business_message?: TelegramMessage
   edited_business_message?: TelegramMessage
   callback_query?: TelegramCallbackQuery
+  poll_answer?: TelegramPollAnswer
   [key: string]: unknown
+}
+
+/** A vote in a non-anonymous poll (`poll_answer` update). `option_ids` is empty when the vote was retracted. */
+export interface TelegramPollAnswer {
+  poll_id: string
+  /** Set when the vote was cast on behalf of a chat (anonymous admin). */
+  voter_chat?: TelegramChat
+  user?: TelegramUser
+  option_ids: number[]
 }

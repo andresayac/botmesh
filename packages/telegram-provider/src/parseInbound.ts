@@ -31,6 +31,7 @@ import type {
   TelegramCallbackQuery,
   TelegramChat,
   TelegramMessage,
+  TelegramPollAnswer,
   TelegramUpdate,
   TelegramUser,
 } from './types.js'
@@ -361,9 +362,12 @@ export function isEditedMessage(message: { raw?: unknown }): boolean {
  * not surface (channel_post / edited_channel_post, business_message /
  * edited_business_message (replying needs business_connection_id),
  * guest_message (answered via answerGuestQuery), my_chat_member,
- * pre_checkout, poll updates...) and for malformed payloads that lack the ids
+ * pre_checkout, `poll` updates; `poll_answer` is tallied by the provider,
+ * see {@link parsePollAnswer}) and for malformed payloads that lack the ids
  * needed to route them (no chat id; no callback id or sender). Never emits an
  * event with an empty chatId, senderId or ref.id.
+ *
+ * @experimental Wire helper: its output follows the Bot API and may change with it.
  */
 export function parseUpdate(update: TelegramUpdate, selfId?: string, botUsername?: string): InboundEvent | undefined {
   if (!isObj(update)) return undefined
@@ -377,4 +381,30 @@ export function parseUpdate(update: TelegramUpdate, selfId?: string, botUsername
     return interaction ? { kind: 'interaction', interaction } : undefined
   }
   return undefined
+}
+
+/** A normalized `poll_answer`: which poll, who voted, and the selected option indexes (empty = retracted). */
+export interface TelegramPollAnswerInfo {
+  pollId: string
+  /** The voter: `voter_chat.id` for a vote cast on behalf of a chat, else `user.id`. */
+  voterId: string
+  optionIds: number[]
+}
+
+/**
+ * Read a `poll_answer` update (sent for non-anonymous polls the bot created).
+ * Returns undefined for any other update and for malformed answers (no poll
+ * id, no voter). Invalid option indexes are dropped.
+ *
+ * @experimental Wire helper: its shape may change with the Bot API.
+ */
+export function parsePollAnswer(update: TelegramUpdate): TelegramPollAnswerInfo | undefined {
+  if (!isObj(update) || !isObj(update.poll_answer)) return undefined
+  const answer = update.poll_answer as Partial<TelegramPollAnswer> & Record<string, unknown>
+  const pollId = str(answer.poll_id)
+  if (!pollId) return undefined
+  const voter = chatOf(answer.voter_chat) ?? userOf(answer.user)
+  if (!voter) return undefined
+  const optionIds = arr(answer.option_ids).filter((i): i is number => typeof i === 'number' && Number.isSafeInteger(i) && i >= 0)
+  return { pollId, voterId: String(voter.id), optionIds }
 }

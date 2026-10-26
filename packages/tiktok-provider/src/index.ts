@@ -6,7 +6,7 @@
  */
 
 export { TikTokProvider } from './TikTokProvider.js'
-export { TikTokApiError, toProviderError } from './errors.js'
+export { TikTokApiError, toTikTokError, toProviderError } from './errors.js'
 export type { TikTokErrorInput } from './errors.js'
 export { parseWebhook } from './parseInbound.js'
 export type { TikTokInboundRaw, ParseWebhookOptions, ConversationChatInfo } from './parseInbound.js'

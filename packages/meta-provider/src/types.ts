@@ -12,8 +12,11 @@ import type { LoggerLike } from '@botmesh/core'
 export interface CloudAPIProviderConfig {
   /** Permanent (system-user) access token with whatsapp_business_messaging. */
   accessToken: string
-  /** The phone-number id of the sending number (from the Meta app dashboard). */
-  phoneNumberId: string
+  /**
+   * The phone-number id of the sending number (from the Meta app dashboard). A
+   * number (e.g. parsed from JSON) is accepted when it is a safe integer.
+   */
+  phoneNumberId: string | number
   /** Shared secret the host configured in the webhook subscription (GET verify). */
   verifyToken: string
   /**
@@ -79,6 +82,18 @@ export interface CloudAPIProviderConfig {
   flows?: Record<string, string | FlowRef>
   /** WhatsApp Business Account id — needed only by `publishForm()`. */
   wabaId?: string
+  /**
+   * Language of the built-in labels baked into a Flow by `publishForm()` (the
+   * default submit button, `core.form.submit`) when the form sets no
+   * `submitLabel`. A published Flow cannot follow each user's `ctx.lang`, so set
+   * it to the bot's language (`BotConfig.lang`). Default `'en'`, the core
+   * default; `publishForm(def, { lang })` overrides it per Flow.
+   */
+  lang?: string
+  /**
+   * @deprecated Pass a `logger` (any `LoggerLike`, e.g. `pino({ level: 'debug' })`)
+   * instead. Removal planned for v3.
+   */
   debug?: boolean
   logger?: LoggerLike
 }
