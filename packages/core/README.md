@@ -60,7 +60,7 @@ No camera? Set `pairingCode: '+57300XXXXXXX'` on `BaileysProvider` (full interna
 - **Declarative flows that compile to an async runtime** — `flow().say().ask().choose()` compiles to a real `bot.conversation`.
 - **Dispatcher by specificity** — commands (`/reset`) > active conversation > matchers (normalized `equals` by default, or `contains`/`startsWith`/`endsWith`) > catch-all.
 - **Async conversation runtime** — `c.ask`, `c.waitText`, `c.waitMedia`, `c.waitLocation`, `c.choose`, with validation, retries and per-wait timeouts.
-- **Projected interactions** — button/slash clicks arrive as a `type: 'buttons'` message with `ctx.acknowledge()` (no-op on WhatsApp).
+- **Projected interactions** — button/slash clicks arrive as a `type: 'buttons'` message with `ctx.acknowledge()` (no-op on WhatsApp); on transports with `interactionsRequireAck` (Discord) the core acks on its own.
 - **Runtime config validation** — the constructor throws `ConfigValidationError` with a clear message.
 - **Group mode** — `config.groupMode: 'all' | 'mentions' | 'commands'`.
 - **Graceful shutdown with drain** — `bot.stop({ drain: true })` waits for in-flight sends.

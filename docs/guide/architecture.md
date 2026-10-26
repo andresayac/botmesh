@@ -37,6 +37,7 @@ The engine lives in `packages/core/src/core/bot/`:
 | `inbound.ts` | The provider's event stream → access gates → dedupe → persistence → `groupMode` → Dispatcher; calls and provider events (reactions, receipts…) |
 | `outbound.ts` | Sends and edits through the `send` hooks, the message ledger, paced replies, typing and `ctx.stream()` |
 | `contextFactory.ts` | Builds the `MessageContext` (`ctx`) of a message, a projected call or a `bot.trigger()` |
+| `interactionAck.ts` | The single automatic ack of an interaction on a transport with `interactionsRequireAck` (Discord): before the first send, near `respondBy` or when routing ends |
 | `gates.ts` | Access lists and human handoff admission, with their drop counters and logs |
 | `lang.ts` | `ctx.lang` resolution and the Dispatcher's language seams |
 | `persistence.ts` | Chat / contact / handoff writes, ordered per chat |

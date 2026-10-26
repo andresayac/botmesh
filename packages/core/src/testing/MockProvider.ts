@@ -92,6 +92,8 @@ export interface MockIncomingOptions {
   media?: Partial<Omit<MediaRef, 'kind'>>
   /** Interaction kind for {@link MockProvider.interaction} (default `'button'`; `'list'` for list rows). */
   kind?: InboundInteraction['kind']
+  /** Ack deadline of {@link MockProvider.interaction} (`InboundInteraction.respondBy`, epoch ms). Default: unset. */
+  respondBy?: number
 }
 
 /** One entry of {@link MockProvider.journal}: what the "user" did or what the bot sent, in order. */
@@ -140,6 +142,11 @@ export interface MockProviderOptions {
    * `10000`, `Infinity` disables the cap). `outbox` is never capped.
    */
   maxJournal?: number
+  /**
+   * `capabilities.interactionsRequireAck` to simulate (Discord): the bot then acknowledges
+   * every interaction on its own (see `ctx.acknowledge()`). Default `false`.
+   */
+  interactionsRequireAck?: boolean
 }
 
 /** {@link MockProviderOptions.supports}. */
@@ -204,7 +211,7 @@ export class MockProvider implements IProvider {
       contentKinds: buttons ? kinds : kinds.filter((k) => k !== 'buttons'),
       buttons, lists: true, polls: true, reactions: true, edit,
       typing: true, presence: true, readReceipts: true, groups: true, templates: false,
-      interactionsRequireAck: false, pushIngress: false,
+      interactionsRequireAck: options.interactionsRequireAck ?? false, pushIngress: false,
       streaming,
       forms: 'degraded',
       ...(options.maxTextLength !== undefined ? { maxTextLength: options.maxTextLength } : {}),
@@ -383,6 +390,7 @@ export class MockProvider implements IProvider {
         senderInfo: senderInfoOf(senderId, opts),
         from, sender: senderId, chatId: from, senderId,
         isGroup, kind: opts.kind ?? 'button', data,
+        ...(opts.respondBy !== undefined ? { respondBy: opts.respondBy } : {}),
         timestamp: Math.floor(Date.now() / 1000),
         raw: {},
       },

@@ -172,11 +172,13 @@ plataforma. El provider debe entonces rechazar con la subclase tipada de `Provid
 El core reintenta en el sitio un `ctx.reply` que recibe un `Retry-After` corto (5 s como
 máximo), así que las suites de extremo a extremo usan `retryAfterSec: 30` para ver el error.
 
-::: warning Interacciones en Discord y Telegram
-El core no confirma las interacciones por su cuenta. Un handler de botón en Discord debe llamar a
-`ctx.acknowledge()`; si no, Discord muestra «Esta interacción ha fallado». En Telegram, sin la
-llamada el botón se queda con el indicador de carga. El sandbox registra cada confirmación como
-un registro `action`.
+::: tip Interacciones en Discord y Telegram
+En Discord (`interactionsRequireAck`) el core confirma cada interacción por su cuenta: una
+confirmación diferida (`interaction_callback:6`) antes de la primera respuesta del handler, poco
+antes del plazo de 3 s o al terminar el handler, salvo que el handler haya llamado antes a
+`ctx.acknowledge(texto)` (`interaction_callback:4`). En Telegram la confirmación es opcional, así
+que sin `ctx.acknowledge()` el botón se queda con el indicador de carga. El sandbox registra cada
+confirmación como un registro `action`.
 :::
 
 ## Plataformas autoalojadas en Docker

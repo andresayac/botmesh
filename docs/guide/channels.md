@@ -320,10 +320,14 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
   set (in memory, `reactionMemory`, default 1000 messages); an unknown one
   (set before a restart, or evicted) rejects with `UnsupportedContentError`.
 - Interactions have a hard acknowledgement deadline
-  (`interactionsRequireAck`): the core does not acknowledge them for you, so a
-  handler that answers a button, menu or slash command calls
-  `ctx.acknowledge()` (or `ctx.acknowledge('text')`) within ~3 s, or Discord
-  shows "This interaction failed".
+  (`interactionsRequireAck`), so the core acknowledges each one exactly once
+  for you: a deferred ack before the handler's first send, shortly before the
+  ~3 s deadline, or when the handler ends, whichever comes first. Call
+  `ctx.acknowledge('text')` before replying to answer with an immediate text
+  instead; once the automatic ack went out, `ctx.acknowledge('text')` sends
+  `text` as a normal reply and `ctx.acknowledge()` does nothing. (Up to
+  `2.0.0-alpha.2` the core did not ack on its own; handlers that already call
+  `ctx.acknowledge()` first keep working unchanged.)
 - System messages (member joins, pins, boosts...) and messages from bots are
   not routed.
 - A forwarded message carries the forwarded text and media (from its

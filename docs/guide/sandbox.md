@@ -166,11 +166,12 @@ provider must then reject with the typed `ProviderError` subclass:
 A `ctx.reply` that gets a short `Retry-After` (5 s at most) is retried in place by the core, so
 the end-to-end suites use `retryAfterSec: 30` to see the error.
 
-::: warning Discord and Telegram interactions
-The core does not acknowledge interactions on its own. A button handler on Discord must call
-`ctx.acknowledge()`, otherwise Discord shows "This interaction failed". On Telegram, without it
-the button keeps its loading spinner. The sandbox records each acknowledgement as an `action`
-record.
+::: tip Discord and Telegram interactions
+On Discord (`interactionsRequireAck`) the core acknowledges every interaction on its own: a
+deferred ack (`interaction_callback:6`) before the handler's first reply, shortly before the 3 s
+deadline or when the handler ends, unless the handler called `ctx.acknowledge(text)` first
+(`interaction_callback:4`). On Telegram the ack is optional, so without `ctx.acknowledge()` the
+button keeps its loading spinner. The sandbox records each acknowledgement as an `action` record.
 :::
 
 ## Self-hosted platforms in Docker

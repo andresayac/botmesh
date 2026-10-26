@@ -54,19 +54,22 @@ Discord requires an interaction to be answered within **~3 seconds**
 slash commands are routed like messages (the button `custom_id`, the
 selected option value or the command name is the body) and carry
 `ctx.interaction` (`id` = `"<id>:<token>"`, `respondBy` = deadline epoch ms).
-The core does **not** acknowledge them for you: answer each one once from
-the handler, or Discord shows "This interaction failed":
+The core acknowledges each one exactly once for you: a deferred update
+(type 6) before the handler's first send, shortly before the deadline, or
+when the handler ends, whichever comes first. To answer with an immediate
+text reply (type 4) instead, call `ctx.acknowledge(text)` before replying:
 
 ```ts
 bot.when('confirm', async (ctx) => {
-  await ctx.acknowledge?.()          // deferred update (type 6), before the deadline
-  // …or: await ctx.acknowledge?.('Done ✅') — an immediate text reply (type 4)
-  await ctx.reply('Order confirmed')
+  await ctx.acknowledge?.('Done ✅')  // optional: immediate text reply (type 4)
+  await ctx.reply('Order confirmed')  // without the line above, a deferred ack goes out first
 })
 ```
 
-Outside a handler, `provider.acknowledgeInteraction(interactionId, { text? })`
-does the same; acknowledge an interaction only once.
+Once the automatic ack went out, `ctx.acknowledge(text)` sends `text` as a
+normal message and `ctx.acknowledge()` is a no-op. Outside a handler,
+`provider.acknowledgeInteraction(interactionId, { text? })` acks directly;
+acknowledge an interaction only once.
 
 ### Gateway (technical note)
 

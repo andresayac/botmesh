@@ -55,6 +55,10 @@ También puedes manejar el mock directamente: `provider.incoming(text, { from, s
 e interacciones entrantes y los envíos (con su `ref`), acotado por `maxJournal`
 (10 000 por defecto).
 
+`provider.acks` registra cada confirmación de interacción. `new MockProvider({ interactionsRequireAck: true })`
+simula un transporte con plazo estricto de confirmación (Discord), en el que el core confirma
+cada interacción por su cuenta; pasa `provider.interaction(data, { respondBy })` para fijar el plazo.
+
 `editMessage`, `deleteMessage` y `sendDraft` son métodos de verdad (se
 registran en `edits`, `deleted` y `drafts`) que puedes sobrescribir en una
 subclase. Se exponen según `new MockProvider({ streaming, supports })`: `edit`

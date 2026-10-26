@@ -38,7 +38,15 @@ describe('Discord simulator (REST + Gateway) + DiscordProvider over real sockets
     expect(h.sim.issues()).toEqual([])
   })
 
-  it('ctx.acknowledge() answers the interaction callback (the core does not auto-ack)', async () => {
+  it('the core auto-acks (deferred) an interaction whose handler only replies', async () => {
+    await h.sim.send({ reply: { kind: 'button', id: 'cafe', title: 'Café' } })
+    const ack = await h.sim.waitForOutbound((r) => r.action?.startsWith('interaction_callback') === true)
+    expect(ack.action).toBe('interaction_callback:6')
+    expect((await h.sim.waitForOutbound((r) => r.text?.startsWith('elegiste') === true)).text).toBe('elegiste cafe')
+    expect(h.sim.issues()).toEqual([])
+  })
+
+  it('ctx.acknowledge(text) answers the interaction callback (no extra auto-ack)', async () => {
     await h.sim.send({ reply: { kind: 'button', id: 'confirmar', title: 'Confirmar' } })
     const ack = await h.sim.waitForOutbound((r) => r.action?.startsWith('interaction_callback') === true)
     expect(ack).toMatchObject({ action: 'interaction_callback:4', text: '¡Listo!' })

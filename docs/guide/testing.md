@@ -55,6 +55,10 @@ You can also drive the mock directly: `provider.incoming(text, { from, sender, .
 interactions and sends (with their `ref`) in order, bounded by `maxJournal`
 (10 000 by default).
 
+`provider.acks` records every interaction ack. `new MockProvider({ interactionsRequireAck: true })`
+simulates a transport with a hard ack deadline (Discord), where the core acks each
+interaction on its own; pass `provider.interaction(data, { respondBy })` to set the deadline.
+
 `editMessage`, `deleteMessage` and `sendDraft` are real methods (recorded in
 `edits`, `deleted` and `drafts`) that you can override in a subclass. They are
 exposed according to `new MockProvider({ streaming, supports })`: `edit` and

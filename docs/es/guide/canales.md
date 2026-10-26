@@ -336,10 +336,15 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
   (se puso antes de reiniciar o salió del LRU) rechaza con
   `UnsupportedContentError`.
 - Las interacciones tienen un plazo estricto de confirmación
-  (`interactionsRequireAck`): el core no las confirma por ti, así que un
-  handler que responde a un botón, menú o comando slash llama a
-  `ctx.acknowledge()` (o `ctx.acknowledge('texto')`) en menos de ~3 s; si no,
-  Discord muestra "This interaction failed".
+  (`interactionsRequireAck`), así que el core confirma cada una exactamente una
+  vez por ti: una confirmación diferida antes del primer envío del handler,
+  poco antes del plazo de ~3 s o al terminar el handler, lo que ocurra antes.
+  Llama a `ctx.acknowledge('texto')` antes de responder para contestar con un
+  texto inmediato; una vez enviada la confirmación automática,
+  `ctx.acknowledge('texto')` envía `texto` como respuesta normal y
+  `ctx.acknowledge()` no hace nada. (Hasta `2.0.0-alpha.2` el core no
+  confirmaba por su cuenta; los handlers que ya llaman primero a
+  `ctx.acknowledge()` siguen funcionando igual.)
 - Los mensajes de sistema (entradas al servidor, fijados, boosts...) y los de
   bots no se enrutan.
 - Un mensaje reenviado trae el texto y la media reenviados (de su snapshot),
