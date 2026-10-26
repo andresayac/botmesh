@@ -197,14 +197,21 @@ import { BaileysProvider } from '@botmesh/baileys'
 const provider = new BaileysProvider({ session: 'my-bot' })
 ```
 
-- Socket owned by the provider, with reconnection and backoff.
+- Socket owned by the provider, with reconnection and backoff
+  (`reconnect: { maxAttempts, baseMs, capMs }` tunes it, `false` turns it
+  off).
 - LID and phone-number forms of a user are merged into one stable
   `senderId`.
 - No native buttons or lists (WhatsApp Web dropped them): use `choose()`
   menus or `ctx.poll()`.
 - Anti-ban send rate limiting is on by default (`rateLimit`).
-- Reactions, deletes and edits arrive as events, never as messages, so a
-  catch-all handler or an open `ask` does not take them as text.
+- Reactions and deletes arrive as events, never as messages, so a
+  catch-all handler or an open `ask` does not take them as text. A **text
+  edit** arrives as a message with the new text and the original `ref.id`,
+  like on Telegram: `isEditedMessage(ctx)` (from `@botmesh/baileys`) tells it
+  apart, and `editedMessages: 'ignore'` drops edits. Only the author of a
+  message this process has seen can edit it: an edit of someone else's
+  message, of the bot's own or of an original no longer cached is dropped.
 - `ctx.voice()` and `ctx.sticker()` accept URLs and streams (downloaded with
   the same SSRF checks as other media); `ctx.poll()` needs 2 to 12 unique
   options.
@@ -231,10 +238,20 @@ const provider = new CloudAPIProvider({
   send a list instead), lists, templates and WhatsApp Flows forms. A button
   with `url` goes out as a `cta_url` link button (one per message: several
   links, or a link mixed with reply buttons, reject). A `card` keeps its
-  image (as the media or the interactive header) and its buttons.
+  image (as the media or the interactive header) and its buttons. Graph's
+  limits are checked before sending: no buttons, repeated button ids or
+  titles (compared after the 20-character cut), a list with no rows, more
+  than 10 rows in total or repeated row ids reject with
+  `UnsupportedContentError`. Labels are cut on grapheme boundaries, so an
+  emoji is kept whole or dropped, never split.
 - A missing `accessToken`, `phoneNumberId` or `verifyToken` fails at
-  construction with an error naming the field. Every Graph request has a
-  timeout (`requestTimeoutMs`, 60 s by default).
+  construction with an error naming the field (`phoneNumberId` may also be
+  a safe integer). Every Graph request has a timeout (`requestTimeoutMs`,
+  60 s by default); media uploads have their own (`uploadTimeoutMs`, 5 min
+  by default).
+- An interactive reply that is not a button or list press (for example
+  `call_permission_reply`) arrives as an `unknown` message with the raw
+  payload in `ctx.ref.native`.
 - **Graph API version:** `apiVersion` defaults to `DEFAULT_GRAPH_API_VERSION`
   from `@botmesh/graph-core` (`v26.0`, released 2026-07-29; Messenger and
   Instagram use the same default). Meta retires each version about two years
@@ -279,13 +296,17 @@ const hooked = new TelegramProvider({
 - In webhook mode `ingest(body, headers)` takes the raw bytes, the JSON
   string or the parsed object, and checks the `X-Telegram-Bot-Api-Secret-Token`
   header (any case, plain or Fetch `Headers`). `@botmesh/server` needs no
-  extra option.
+  extra option. After `stop()` it answers `503` and emits nothing, so
+  Telegram redelivers those Updates once the bot is back.
 - **Group commands** addressed to the bot (`/menu@MyBot`) reach
-  `bot.command('menu')`: the provider drops the suffix when it names this bot
-  (username from `getMe`, or the `username` option when you pass `selfId`).
+  `bot.command('menu')`, also in a media caption: the provider drops the
+  suffix when it names this bot (username from `getMe`, or the `username`
+  option when you pass `selfId`).
 - Every Bot API request has a client timeout (`requestTimeoutMs`, 120 s by
-  default; long polls get `pollTimeout` + 15 s), errors never carry the bot
-  token, and `bot.stop()` cuts the poll loop's retry waits at once.
+  default; long polls get `pollTimeout` + 15 s; file uploads get
+  `uploadTimeoutMs`, 5 min by default), errors never carry the bot token, a
+  429 `retry_after` is honoured up to 24 h, and `bot.stop()` cuts the poll
+  loop's retry waits at once.
 - **Edited messages** reach the bot as messages with the new text and the
   original `ref.id` (replies, reactions and edits target the edited message).
   `isEditedMessage(ctx)` tells them apart; the core deduper lets an edit
@@ -349,7 +370,9 @@ const provider = new InstagramProvider({
 })
 ```
 
-- Buttons go out as quick replies; lists degrade to numbered text.
+- Buttons go out as quick replies (at most 13; more reject with
+  `UnsupportedContentError`); lists degrade to numbered text. Every Send API
+  request times out after `requestTimeoutMs` (60 s).
 - DMs only (no groups); reactions arrive but cannot be sent.
 - Text is capped at 1000 UTF-8 bytes (`maxTextBytes`, plus `maxTextLength`
   1000), so non-ASCII text fits less: longer text is split into several
@@ -382,16 +405,19 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
 - Interactions have a hard acknowledgement deadline
   (`interactionsRequireAck`, ~3 s). Call `ctx.acknowledge()` (or
   `ctx.acknowledge('text')`) to answer a button, menu or slash command; when no
-  handler does within `autoAcknowledgeMs` (default 2000 ms), the provider
-  defers it on its own so Discord never shows "This interaction failed". A
-  later `ctx.acknowledge('text')` then posts the text as a followup, with
-  `appId` or else the application id Discord sends on READY and on each
-  interaction; if none is known the call rejects with `ProviderError` instead
-  of dropping the text. `autoAcknowledgeMs: false` turns this off.
+  handler does within `autoAcknowledgeMs` (default 2000 ms; `autoAckMs` is a
+  deprecated alias), the provider defers it on its own so Discord never shows
+  "This interaction failed". A later `ctx.acknowledge('text')` then posts the
+  text as a followup, with `appId` or else the application id Discord sends on
+  READY and on each interaction; if none is known the call rejects with
+  `ProviderError` instead of dropping the text. `autoAcknowledgeMs: false`
+  turns this off. `ctx.interaction.id` is the bare interaction id: its token
+  stays inside the provider (the alpha `"<id>:<token>"` form is still accepted).
 - More than 25 buttons (5 rows of 5), 25 select-menu options or 10 poll
   answers reject with `UnsupportedContentError` instead of dropping options;
   text over 2000 characters is split into several messages.
-- Each REST call times out after `requestTimeoutMs` (60 s by default).
+- Each REST call times out after `requestTimeoutMs` (60 s by default); file
+  uploads after `uploadTimeoutMs` (5 min).
 - System messages (member joins, pins, boosts...) and messages from bots are
   not routed.
 - A forwarded message carries the forwarded text and media (from its

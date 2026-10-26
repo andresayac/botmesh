@@ -136,21 +136,16 @@ if (CLUSTER_URL) {
   })
 
   const deps = { Bot, MemoryStore, MockProvider, CrashableProvider, crashable, flow } as unknown as CrashMatrixDeps
-  // Known liveness window (not a safety issue): a journal call the killed bot A had already
-  // started keeps writing after the crash (crashable() only stops it from returning). On a
-  // cluster the inbox and outbox sit on different nodes/connections, so such a late claim can
-  // land after B's start-up reclaim and take a fresh outbox lease; the record is then resent
-  // only when that lease (outboxLeaseMs, 60 s) expires, after the matrix's 5 s window. On one
-  // node the shared connection's FIFO hides it. Retried; the hermetic cluster-fake matrix
-  // (cluster-conformance.test.ts) runs without retries.
-  describe('crash matrix (retried, see above)', { retry: 2 }, () => {
-    runCrashRecoveryMatrix('RedisDurability (real cluster)', deps, {
-      async make() {
-        const client = await sharedClient()
-        const prefix = freshPrefix('crash')
-        return { backend: new RedisDurability({ client, prefix }), teardown: () => cleanupPrefix(client, prefix) }
-      },
-    })
+  // A journal call the killed bot A had already sent keeps writing after the crash (on a
+  // cluster the inbox and outbox sit on different connections, so it could land after B's
+  // start-up reclaim and hold a fresh 60 s outbox lease). The matrix now waits for those
+  // in-flight calls before it starts B, like a real restart, so it runs without retries.
+  runCrashRecoveryMatrix('RedisDurability (real cluster)', deps, {
+    async make() {
+      const client = await sharedClient()
+      const prefix = freshPrefix('crash')
+      return { backend: new RedisDurability({ client, prefix }), teardown: () => cleanupPrefix(client, prefix) }
+    },
   })
 }
 

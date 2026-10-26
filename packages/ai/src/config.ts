@@ -40,6 +40,21 @@ export function assertAIConfig(cfg: AIPluginConfig): void {
   timeoutMs('toolTimeoutMs', cfg.toolTimeoutMs)
   integer('maxTokens', cfg.maxTokens, 1)
   integer('context.maxMessages', cfg.context?.maxMessages, 0)
+  if (cfg.maxTokensField !== undefined && cfg.maxTokensField !== 'max_tokens' && cfg.maxTokensField !== 'max_completion_tokens') {
+    throw new RangeError(`aiPlugin: maxTokensField must be 'max_tokens' or 'max_completion_tokens', got ${show(cfg.maxTokensField)}`)
+  }
+  if (cfg.memory && typeof cfg.memory === 'object') {
+    integer('memory.maxFacts', cfg.memory.maxFacts, 1)
+    integer('memory.maxFactLength', cfg.memory.maxFactLength, 1)
+    const ttl = cfg.memory.ttl
+    if (ttl !== undefined) {
+      let ms: number
+      try { ms = parseDuration(ttl) } catch (err) {
+        throw new RangeError(`aiPlugin: memory.ttl ${show(ttl)} is not a duration (use '30d', '12h' or ms): ${err instanceof Error ? err.message : String(err)}`)
+      }
+      if (!Number.isFinite(ms) || ms <= 0) throw new RangeError(`aiPlugin: memory.ttl must be a positive duration, got ${show(ttl)}`)
+    }
+  }
   // `maxSteps` below 1 has always meant 1: only a value that is not a number at all is rejected.
   if (cfg.maxSteps !== undefined && (typeof cfg.maxSteps !== 'number' || !Number.isFinite(cfg.maxSteps))) {
     throw new RangeError(`aiPlugin: maxSteps must be a positive integer, got ${show(cfg.maxSteps)}`)

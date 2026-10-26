@@ -6,9 +6,10 @@
  *    Chatwoot (`https://bot.example.com/chatwoot?token=…`), or send it as
  *    `x-chatwoot-token: …` / `Authorization: Bearer …`.
  *  - **HMAC-SHA256** (`webhookSecret`): hex signature in `x-chatwoot-signature`
- *    (optionally `sha256=`-prefixed) computed over the RAW request body — or over
- *    `${timestamp}.${rawBody}` when an `x-chatwoot-timestamp` header (seconds) is sent,
- *    in which case the timestamp must be within the tolerance window.
+ *    (optionally `sha256=`-prefixed) computed over `${timestamp}.${rawBody}`, with the
+ *    `x-chatwoot-timestamp` header (seconds) inside the tolerance window. A signature
+ *    over the bare body has no expiry (a captured request could be replayed forever),
+ *    so it is accepted only with `allowUntimed` (`webhookAllowUntimedSignature`).
  *
  * Comparisons are constant-time. The signature is always computed on the raw bytes,
  * never on re-serialized JSON.
@@ -23,6 +24,8 @@ export interface WebhookAuthConfig {
   secret?: string
   /** Max clock skew for timestamped signatures, in seconds. Default 300. */
   toleranceSec?: number
+  /** Also accept a signature over the bare body, with no timestamp (replayable). */
+  allowUntimed?: boolean
   now: () => number
 }
 
@@ -66,7 +69,7 @@ function signatureOk(cfg: WebhookAuthConfig, secret: string, rawBody: Buffer, he
     if (Math.abs(cfg.now() / 1000 - sec) > (cfg.toleranceSec ?? 300)) return false
     if (safeEqual(provided, digest([`${ts}.`, rawBody]))) return true
   }
-  return safeEqual(provided, digest([rawBody]))
+  return cfg.allowUntimed === true && safeEqual(provided, digest([rawBody]))
 }
 
 /** True when the request carries a valid token or signature. */

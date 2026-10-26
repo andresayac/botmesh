@@ -53,6 +53,12 @@ export interface RestApiOptions {
   publicDocs?: boolean
   /** Max JSON body size in bytes. Default 1 MiB. */
   maxBodyBytes?: number
+  /**
+   * Time allowed to receive the whole request body, in ms. A client that sends the
+   * headers and then stalls (slowloris) gets `408 REQUEST_TIMEOUT` and the connection
+   * is closed. Default 30000.
+   */
+  bodyTimeoutMs?: number
   /** Token bucket options, a custom limiter, or `false` to disable. Default 60 burst, 1 req/s. */
   rateLimit?: TokenBucketOptions | RateLimiter | false
   /** Idempotency options, a custom store, or `false` to disable. Default in-memory, 24 h. */
@@ -133,6 +139,10 @@ export function createRestApi(manager: BotManager, options: RestApiOptions): Res
   const prefix = normalizePrefix(options.prefix ?? '/v1')
   const publicDocs = options.publicDocs !== false
   const maxBodyBytes = options.maxBodyBytes ?? 1024 * 1024
+  const bodyTimeoutMs = options.bodyTimeoutMs ?? 30_000
+  if (!(Number.isFinite(bodyTimeoutMs) && bodyTimeoutMs > 0 && bodyTimeoutMs <= 2 ** 31 - 1)) {
+    throw new RangeError('createRestApi(): bodyTimeoutMs must be a positive number of milliseconds')
+  }
   const defaultTenant = options.defaultTenantId ?? 'default'
   const limiter: RateLimiter | undefined = options.rateLimit === false ? undefined
     : isRateLimiter(options.rateLimit) ? options.rateLimit : new TokenBucketRateLimiter(options.rateLimit ?? {})
@@ -414,7 +424,7 @@ export function createRestApi(manager: BotManager, options: RestApiOptions): Res
       let raw: Buffer | undefined
       let body: unknown
       if (spec.body) {
-        raw = await readBody(req, maxBodyBytes)
+        raw = await readBody(req, maxBodyBytes, bodyTimeoutMs)
         if (raw.length === 0) throw invalid('a JSON body is required')
         const type = header(req, 'content-type') ?? ''
         if (!/^application\/(?:[\w.+-]+\+)?json\b/i.test(type)) throw new HttpError(415, 'UNSUPPORTED_MEDIA_TYPE', 'body must be application/json')
@@ -646,7 +656,7 @@ function isEnvelopeLess(body: unknown): boolean {
   return isObject(body) && (typeof body.openapi === 'string' || typeof body.$schema === 'string')
 }
 
-function readBody(req: IncomingMessage, limit: number): Promise<Buffer> {
+function readBody(req: IncomingMessage, limit: number, timeoutMs: number): Promise<Buffer> {
   const declared = Number(header(req, 'content-length'))
   if (Number.isFinite(declared) && declared > limit) {
     return Promise.reject(new HttpError(413, 'PAYLOAD_TOO_LARGE', `body exceeds ${limit} bytes`))
@@ -655,20 +665,30 @@ function readBody(req: IncomingMessage, limit: number): Promise<Buffer> {
     const chunks: Buffer[] = []
     let size = 0
     let done = false
+    // A stalled body (slowloris) must not hold the connection and a handler forever.
+    const timer = setTimeout(() => {
+      if (done) return
+      done = true
+      reject(new HttpError(408, 'REQUEST_TIMEOUT', `request body not received within ${timeoutMs} ms`, undefined, { connection: 'close' }))
+      req.pause?.()
+    }, timeoutMs)
+    timer.unref?.()
+    const finish = () => clearTimeout(timer)
     req.on('data', (chunk: Buffer | string) => {
       if (done) return
       const buf = typeof chunk === 'string' ? Buffer.from(chunk) : chunk
       size += buf.length
       if (size > limit) {
         done = true
+        finish()
         reject(new HttpError(413, 'PAYLOAD_TOO_LARGE', `body exceeds ${limit} bytes`))
         req.resume?.()
         return
       }
       chunks.push(buf)
     })
-    req.on('end', () => { if (!done) { done = true; resolve(Buffer.concat(chunks)) } })
-    req.on('error', (error) => { if (!done) { done = true; reject(error) } })
+    req.on('end', () => { finish(); if (!done) { done = true; resolve(Buffer.concat(chunks)) } })
+    req.on('error', (error) => { finish(); if (!done) { done = true; reject(error) } })
   })
 }
 

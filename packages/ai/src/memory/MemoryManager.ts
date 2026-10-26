@@ -125,6 +125,7 @@ export class MemoryManager {
     this.namespace = config.namespace ?? DEFAULT_MEMORY_NAMESPACE
     this.ttlMs = toMs(config.ttl)
     if (!Number.isSafeInteger(this.maxFacts) || this.maxFacts < 1) throw new RangeError('memory.maxFacts must be a positive integer')
+    if (!Number.isSafeInteger(this.maxFactLength) || this.maxFactLength < 1) throw new RangeError('memory.maxFactLength must be a positive integer')
   }
 
   /** Whether facts are injected into the system prompt. */

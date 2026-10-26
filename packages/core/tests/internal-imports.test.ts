@@ -8,6 +8,7 @@
  * namespace, dynamic and `require` imports of them. `packages/core/tests` is exempt: its
  * compatibility tests import the deprecated aliases on purpose (see internal-entry.test.ts).
  */
+import { execFileSync } from 'node:child_process'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -87,11 +88,40 @@ function walk(dir: string, out: string[] = []): string[] {
   for (const name of entries) {
     if (isSkipped(relative(repo, join(dir, name)).split(sep).join('/'))) continue
     const path = join(dir, name)
-    const st = statSync(path)
-    if (st.isDirectory()) walk(path, out)
+    let isDir: boolean
+    // Other suites create and delete temp files while this one runs: a vanished entry is skipped.
+    try { isDir = statSync(path).isDirectory() } catch { continue }
+    if (isDir) walk(path, out)
     else if (EXTENSIONS.test(name)) out.push(path)
   }
   return out
+}
+
+/** True when `rel` or one of its parent folders is left out of the scan. */
+function skippedPath(rel: string): boolean {
+  const parts = rel.split('/')
+  return parts.some((_, i) => isSkipped(parts.slice(0, i + 1).join('/')))
+}
+
+/**
+ * The files to scan. From git when available (tracked plus untracked-but-not-ignored: what
+ * the project would commit), which is fast and never trips over the ignored output other
+ * suites write while this one runs; a plain walk otherwise (an exported tree, no git).
+ */
+function listFiles(): string[] {
+  try {
+    const listed = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
+      cwd: repo, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    const files = listed.split('\0').filter((rel) => rel && EXTENSIONS.test(rel) && !skippedPath(rel)).map((rel) => join(repo, rel))
+    if (files.length > 0) return files
+  } catch { /* not a git checkout */ }
+  return walk(repo)
+}
+
+/** A file's text, or `undefined` when it vanished since it was listed. */
+function readIfPresent(file: string): string | undefined {
+  try { return readFileSync(file, 'utf8') } catch { return undefined }
 }
 
 /** Exactly the main entry, quoted (not a subpath such as `@botmesh/core/internal`). */
@@ -174,7 +204,7 @@ export function deepCoreImports(source: string, dir: string): string[] {
 let scanned: string[] | undefined
 /** The repo walk is slow on a loaded machine; do it once per file and give the suite room. */
 function scannedFiles(): string[] {
-  return (scanned ??= walk(repo))
+  return (scanned ??= listFiles())
 }
 
 describe('internal, SPI and deprecated names are not imported from the main entry', { timeout: 60_000 }, () => {
@@ -263,7 +293,9 @@ describe('internal, SPI and deprecated names are not imported from the main entr
     const files = scannedFiles()
     expect(files.length).toBeGreaterThan(100)
     for (const file of files) {
-      const used = mainEntryNames(readFileSync(file, 'utf8')).filter(isOffending)
+      const source = readIfPresent(file)
+      if (source === undefined) continue
+      const used = mainEntryNames(source).filter(isOffending)
       if (used.length) offenders.push(`${relative(repo, file)}: ${used.join(', ')}`)
     }
     expect(offenders).toEqual([])
@@ -289,7 +321,9 @@ describe('internal, SPI and deprecated names are not imported from the main entr
     const offenders: string[] = []
     for (const file of scannedFiles()) {
       if (file.startsWith(join(repo, 'packages', 'core') + sep)) continue
-      const deep = deepCoreImports(readFileSync(file, 'utf8'), dirname(file))
+      const source = readIfPresent(file)
+      if (source === undefined) continue
+      const deep = deepCoreImports(source, dirname(file))
       if (deep.length) offenders.push(`${relative(repo, file)}: ${deep.join(', ')}`)
     }
     expect(offenders).toEqual([])

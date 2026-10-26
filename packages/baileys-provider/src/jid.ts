@@ -45,22 +45,32 @@ export {
   areJidsSameUser as sameUser,
 }
 
-/** Format a raw phone number/string into a valid JID. */
+/**
+ * Format a raw phone number/string into a valid JID. A full JID (with `@`) is returned
+ * as is; `{ groupId }` is the group's JID. Throws a `TypeError` for input without
+ * digits, and for `{ groupId, userId }` (a group participant has no JID of its own:
+ * use the group JID for the chat and `toJid(userId)` for the person).
+ */
 export function toJid(input: JidInput, kind: 'user' | 'group' | 'broadcast' = 'user'): JID {
-  if (typeof input === 'object') {
-    if (kind === 'group' || input.userId) {
-      const num = sanitizeNumber(input.groupId)
-      const uid = input.userId ? sanitizeNumber(input.userId) : ''
-      return uid ? `${num}@g.us:${uid}` : `${num}@g.us`
+  if (typeof input === 'object' && input !== null) {
+    if (input.userId) {
+      throw new TypeError('toJid({ groupId, userId }): a group participant has no JID of its own; use toJid({ groupId }) for the group chat and toJid(userId) for the user')
     }
+    return `${groupDigits(input.groupId)}@g.us`
   }
   const raw = String(input)
   if (raw.includes('@')) return raw
-  return kind === 'group'
-    ? `${sanitizeNumber(raw)}@g.us`
-    : kind === 'broadcast'
-      ? `${sanitizeNumber(raw)}@broadcast`
-      : `${sanitizeNumber(raw)}@s.whatsapp.net`
+  if (kind === 'group') return `${groupDigits(raw)}@g.us`
+  const digits = sanitizeNumber(raw)
+  if (!digits) throw new TypeError(`toJid: ${JSON.stringify(raw)} has no digits; pass a phone number or a full JID`)
+  return kind === 'broadcast' ? `${digits}@broadcast` : `${digits}@s.whatsapp.net`
+}
+
+/** Digits of a group id, keeping the hyphen of old-style ids (`<creator>-<timestamp>`). */
+function groupDigits(value: string | number): string {
+  const id = String(value).replace(/[^\d-]/g, '').replace(/^-+|-+$/g, '')
+  if (!/\d/.test(id)) throw new TypeError(`toJid: group id ${JSON.stringify(String(value))} has no digits`)
+  return id
 }
 
 /** Extract just the digits (no '+', '-', spaces, '@...'). */

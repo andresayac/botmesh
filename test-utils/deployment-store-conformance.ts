@@ -173,5 +173,29 @@ export function runDeploymentStoreConformance(name: string, harness: DeploymentS
       await expect(store.reserve('a', 'bot', '', 1)).rejects.toThrow(TypeError)
       await expect(store.list('a', 'bot', { limit: -1 })).rejects.toThrow(RangeError)
     })
+
+    it('pages versions with an after cursor (the last version seen), in publish order', async () => {
+      for (const v of ['1', '2', '3', '4', '5']) { await store.commit({ tenantId: 'a', botId: 'bot', version: v, artifact: `h${v}` }); now += 1 }
+      const page1 = await store.list('a', 'bot', { limit: 2 })
+      expect(page1.map((d) => d.version)).toEqual(['1', '2'])
+      expect((await store.list('a', 'bot', { limit: 2, after: '2' })).map((d) => d.version)).toEqual(['3', '4'])
+      expect(await store.list('a', 'bot', { after: '5' })).toEqual([])
+      expect(await store.list('a', 'bot', { after: 'missing' })).toEqual([])
+    })
+
+    it('prune keeps the newest versions and never the active one', async () => {
+      for (const v of ['1', '2', '3', '4', '5']) { await store.commit({ tenantId: 'a', botId: 'bot', version: v, artifact: `h${v}` }); now += 1 }
+      await store.activate('a', 'bot', '1') // rollback to the oldest
+      expect(await store.prune('a', 'bot', 2)).toBe(2)
+      expect((await store.list('a', 'bot')).map((d) => d.version)).toEqual(['1', '4', '5'])
+      expect(await store.get('a', 'bot', '2')).toBeUndefined()
+      expect((await store.active('a', 'bot'))?.version).toBe('1')
+      expect(await store.prune('a', 'bot', 2)).toBe(0)
+      // A pruned version can be published again.
+      await store.commit({ tenantId: 'a', botId: 'bot', version: '2', artifact: 'again' })
+      expect((await store.get('a', 'bot', '2'))?.artifact).toBe('again')
+      await expect(store.prune('a', 'bot', 0)).rejects.toThrow(RangeError)
+      expect(await store.prune('a', 'missing', 3)).toBe(0)
+    })
   })
 }

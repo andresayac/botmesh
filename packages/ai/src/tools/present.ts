@@ -30,7 +30,16 @@ const MAX_KEY = 40
  * the confirmation prompt.
  */
 function keyLabel(key: string): string {
-  return clip(humanizeName(key.replace(/\s+/g, ' ')), MAX_KEY)
+  return clip(humanizeName(oneLine(key)), MAX_KEY)
+}
+
+/**
+ * Text that renders on one line: whitespace, control characters (including NEL) and
+ * line/paragraph separators become one space, and bidi controls (which can reorder
+ * what the user reads) are dropped.
+ */
+function oneLine(s: string): string {
+  return s.replace(/\p{Bidi_Control}/gu, '').replace(/[\s\p{Cc}\p{Zl}\p{Zp}]+/gu, ' ')
 }
 
 /** The label shown to the user for a tool: its `title`, else the humanized name. */
@@ -39,7 +48,7 @@ export function toolTitle(name: string, tool: Pick<AITool<unknown>, 'title'>): s
 }
 
 function clip(s: string, max = MAX_VALUE): string {
-  const one = s.replace(/\s+/g, ' ').trim()
+  const one = oneLine(s).trim()
   return one.length > max ? `${one.slice(0, max - 1)}…` : one
 }
 

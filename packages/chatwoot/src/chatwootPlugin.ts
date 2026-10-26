@@ -68,10 +68,16 @@ export interface ChatwootPluginConfig {
   inboxId: number
   /** Shared webhook token (query `?token=`, `x-chatwoot-token` or `Authorization: Bearer`). */
   webhookToken?: string
-  /** HMAC-SHA256 secret for `x-chatwoot-signature` (raw body, optional `x-chatwoot-timestamp`). */
+  /** HMAC-SHA256 secret for `x-chatwoot-signature` over `${x-chatwoot-timestamp}.${rawBody}`. */
   webhookSecret?: string
   /** Allowed clock skew for timestamped signatures, seconds. Default 300. */
   webhookToleranceSec?: number
+  /**
+   * Also accept a signature over the bare body, without `x-chatwoot-timestamp`. Off by
+   * default: such a signature never expires, so a captured request can be replayed.
+   * Turn it on only for a sender that cannot add the timestamp.
+   */
+  webhookAllowUntimedSignature?: boolean
   /** Accept unauthenticated webhooks. Only for a webhook endpoint that is not reachable from outside. */
   insecureNoWebhookAuth?: boolean
   /** Hand the chat off when an agent replies in Chatwoot. Default `true`. */
@@ -188,6 +194,7 @@ export function chatwootPlugin(config: ChatwootPluginConfig): ChatwootPlugin {
     token: hasToken ? config.webhookToken : undefined,
     secret: hasSecret ? config.webhookSecret : undefined,
     toleranceSec: config.webhookToleranceSec,
+    allowUntimed: config.webhookAllowUntimedSignature === true,
     now,
   }
 

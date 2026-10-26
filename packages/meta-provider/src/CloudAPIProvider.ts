@@ -118,14 +118,18 @@ function assertConfig(config: CloudAPIProviderConfig): void {
     ['verifyToken', 'the verify token you set in the Meta webhook subscription'],
   ]
   for (const [field, what] of required) {
-    const value = config[field]
+    const value: unknown = config[field]
+    // A phone number id given as a number is fine when it is exact (Graph ids fit a safe integer).
+    if (field === 'phoneNumberId' && typeof value === 'number' && Number.isSafeInteger(value) && value > 0) continue
     if (typeof value !== 'string' || value.trim() === '') {
       throw new TypeError(`CloudAPIProvider: \`${field}\` is required (${what}); got ${value === undefined ? 'undefined' : `an empty or non-string value`}. Check the environment variable that feeds it.`)
     }
   }
-  const timeout = config.requestTimeoutMs
-  if (timeout !== undefined && !(Number.isFinite(timeout) && timeout > 0)) {
-    throw new TypeError('CloudAPIProvider: `requestTimeoutMs` must be a positive number of milliseconds')
+  for (const field of ['requestTimeoutMs', 'uploadTimeoutMs'] as const) {
+    const timeout = config[field]
+    if (timeout !== undefined && !(Number.isFinite(timeout) && timeout > 0 && timeout <= 2 ** 31 - 1)) {
+      throw new TypeError(`CloudAPIProvider: \`${field}\` must be a positive number of milliseconds (at most 2^31-1)`)
+    }
   }
 }
 
@@ -176,7 +180,13 @@ export class CloudAPIProvider implements IProvider<unknown> {
 
   constructor(config: CloudAPIProviderConfig) {
     assertConfig(config)
-    this.config = { apiVersion: DEFAULT_GRAPH_API_VERSION, graphUrl: 'https://graph.facebook.com', ...config }
+    this.config = {
+      apiVersion: DEFAULT_GRAPH_API_VERSION,
+      graphUrl: 'https://graph.facebook.com',
+      ...config,
+      // A numeric id (e.g. parsed from JSON) is accepted when it is exact (a safe integer).
+      phoneNumberId: String(config.phoneNumberId),
+    }
     this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
     this.graph = new GraphClient({
       accessToken: this.config.accessToken,
@@ -185,6 +195,7 @@ export class CloudAPIProvider implements IProvider<unknown> {
       graphUrl: this.config.graphUrl,
       mediaDownload: this.config.mediaDownload,
       ...(this.config.requestTimeoutMs !== undefined ? { timeoutMs: this.config.requestTimeoutMs } : {}),
+      ...(this.config.uploadTimeoutMs !== undefined ? { uploadTimeoutMs: this.config.uploadTimeoutMs } : {}),
     })
     this.identity = new IdentityResolver(config.identityMap ?? new MemoryIdentityMap(), this.logger)
     // The 24 h window belongs to a business number + user pair: scope it by phone number id.

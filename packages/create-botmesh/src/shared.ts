@@ -151,7 +151,7 @@ export function readme(name: string, label: string, description: string, notes: 
     '',
     fence + 'bash',
     'npm install          # or: pnpm install (Node >= 22.12)',
-    'cp .env.example .env # optional: fill in your credentials (`dev` runs without it)',
+    'cp .env.example .env # optional: fill in your credentials (`dev` runs without it); Windows cmd: copy .env.example .env',
     'npm run dev          # chat with your bot in the terminal (no phone, hot reload)',
     'npm start            # connect the real provider',
     fence,

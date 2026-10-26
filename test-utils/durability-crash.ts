@@ -115,6 +115,42 @@ async function until(cond: () => Promise<boolean> | boolean, what: string, timeo
 }
 
 const never = () => new Promise<never>(() => {})
+
+/**
+ * A view of `inner` that remembers every journal call still running (in `pending`). Bot A
+ * gets its crashable view on top of this one, so the matrix can wait for the calls A had
+ * ALREADY sent to the backend before it died: a killed process sends nothing new, but a
+ * command already on the wire still lands. Letting B start first raced that late write
+ * against B's start-up reclaim (a claim landing after it holds its lease until it expires).
+ */
+function tracked(inner: Backend, pending: Set<Promise<unknown>>): Backend {
+  const wrap = <J extends object>(journal: J): J => new Proxy(journal, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver) as unknown
+      if (typeof value !== 'function') return value
+      return (...args: unknown[]) => {
+        const out = (value as (...a: unknown[]) => unknown).apply(target, args)
+        if (out instanceof Promise) {
+          pending.add(out)
+          const done = () => { pending.delete(out) }
+          out.then(done, done)
+        }
+        return out
+      }
+    },
+  })
+  // Only the DurabilityBackend surface (a class instance's methods live on its prototype).
+  const exclusive = (inner as { exclusive?: boolean }).exclusive
+  const view: Backend = {
+    inbox: wrap(inner.inbox),
+    outbox: wrap(inner.outbox),
+    ...(exclusive !== undefined ? { exclusive } : {}),
+    ...(inner.start ? { start: () => inner.start!() } : {}),
+    ...(inner.stop ? { stop: () => inner.stop!() } : {}),
+  } as Backend
+  if (inner.scope) view.scope = (name: string) => tracked(inner.scope!(name), pending)
+  return view
+}
 const textsOf = (p: ProviderLike) => p.outbox.filter((m) => m.chatId === CHAT).map((m) => m.content.text ?? m.content.kind)
 
 /** Run one crash scenario; resolves with the delivered texts (A ∪ B) and the ambiguous count. */
@@ -134,7 +170,8 @@ export async function runCrashScenario(
   })
   let ambiguous = 0
 
-  const a = deps.crashable(shared)
+  const aPending = new Set<Promise<unknown>>()
+  const a = deps.crashable(tracked(shared, aPending))
   if (point.arm) (point.arm.when === 'before' ? a.crashBefore : a.crashAfter).call(a, point.arm.op, point.arm.nth)
   const pa = new deps.CrashableProvider(a)
   const define = (bot: BotLike, isA: boolean) => {
@@ -168,6 +205,8 @@ export async function runCrashScenario(
     if (a.crashed) { inFlight = i; break }
   }
   expect(a.crashed, `the crash point "${point.name}" never fired`).toBe(true)
+  // The dead process's commands already on the wire land before the restart (bounded).
+  await Promise.race([Promise.allSettled([...aPending]), new Promise((r) => setTimeout(r, waitMs))])
 
   // Restart: B on the same backend + store, same instanceId; the transport redelivers.
   const pb = new deps.MockProvider()

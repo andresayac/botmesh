@@ -169,7 +169,11 @@ bot.plug(aiPlugin({
 }))
 ```
 
-`baseUrl` es opcional (endpoints compatibles con la API de OpenAI).
+`baseUrl` es opcional (endpoints compatibles con la API de OpenAI). El tope de
+tokens de salida va en `max_completion_tokens` para OpenAI (sin `baseUrl`,
+`api.openai.com` o `*.openai.azure.com`) y en `max_tokens` para cualquier otro
+`baseUrl` (vLLM, LM Studio, gateways), que es lo que esos servidores esperan.
+`maxTokensField` lo fuerza.
 
 ### Gemini
 
@@ -302,7 +306,8 @@ tus propios handlers con `ctx.tools.ai` (`ask`, `generate`, `stream`,
 | `maxTokens` | `number` | `4096` (anthropic) / `1024` (openai, presets, gemini) | límite de tokens de salida (en ollama solo si lo fijas, como `options.num_predict`; el tope de 1024 de la extracción de memoria no se aplica ahí). En modelos de razonamiento incluye los tokens de pensamiento |
 | `effort` | `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'` | — | esfuerzo de razonamiento (solo Anthropic; no se envía a modelos que lo rechazan, como Claude Haiku 4.5 / Sonnet 4.5) |
 | `thinking` | `'auto' \| 'adaptive' \| 'off' \| { budgetTokens }` | `'auto'` | pensamiento extendido de Anthropic, ver [Pensamiento (Anthropic)](#pensamiento-anthropic) |
-| `timeoutMs` | `number` | `60000` | timeout por llamada no-streaming; al vencer aborta la petición y rechaza, para que un proveedor colgado no bloquee la cola del chat (`0` lo desactiva, no recomendado) |
+| `timeoutMs` | `number` | `60000` | timeout de cada llamada al modelo. Sin streaming: plazo total; al vencer aborta la petición y rechaza, para que un proveedor colgado no bloquee la cola del chat. Con streaming: timeout de inactividad que se reinicia con cada fragmento, así que una respuesta larga nunca se corta. `0` lo desactiva (no recomendado) |
+| `maxTokensField` | `'max_tokens' \| 'max_completion_tokens'` | según `baseUrl` | proveedores compatibles con OpenAI: el campo del tope de tokens de salida (ver OpenAI arriba) |
 | `context.maxMessages` | `number` | `20` | ventana de historial guardada por chat (siempre empieza por un turno del usuario; las respuestas vacías no se guardan) |
 | `autoReply` | `boolean` | `true` | registra el autoresponder catch-all |
 | `resetCommand` | `boolean` | `true` | registra `/reset` |

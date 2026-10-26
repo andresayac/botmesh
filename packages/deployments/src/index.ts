@@ -34,7 +34,7 @@ export { MemoryDeploymentStore } from './memory.js'
 export type { MemoryDeploymentStoreOptions } from './memory.js'
 export { KvDeploymentStore } from './kv.js'
 export type { KvDeploymentStoreOptions } from './kv.js'
-export type { DeploymentStore, CommitInput } from './store.js'
+export type { DeploymentStore, CommitInput, DeploymentListOptions } from './store.js'
 export { DeploymentExistsError, DeploymentNotFoundError } from './types.js'
 export type { Deployment, GateRecord, GateRun } from './types.js'
 export {

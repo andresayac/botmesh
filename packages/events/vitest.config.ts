@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config'
 
-// The file-journal suites rewrite real files under a cross-process mutex (and fork child
-// processes); on a loaded Windows machine a test can take several seconds.
-export default defineConfig({ test: { include: ['tests/**/*.test.ts'], testTimeout: 30_000 } })
+// The repo convention (AGENTS.md): a 10 s default per test. The shared-file journal tests
+// rewrite one file under a cross-process mutex; on a loaded machine the vitest 5 s default
+// was too tight for them.
+export default defineConfig({ test: { include: ['tests/**/*.test.ts'], testTimeout: 10_000 } })

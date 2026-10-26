@@ -417,9 +417,10 @@ export class FakePool implements PoolLike {
     }
     if (s === `DELETE FROM \`${messages}\` WHERE chat_id = ?`) {
       let n = 0
-      for (const [k, r] of this.table(messages)) {
+      for (const [k, r] of [...this.table(messages)]) {
         if (r.chat_id === key(p[0])) {
-          this.table(messages).delete(k)
+          // Through write(): inside a transaction, ROLLBACK restores the rows.
+          this.write(conn, messages, k, undefined)
           n++
         }
       }

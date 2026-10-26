@@ -219,6 +219,7 @@ const store = new RedisStore({ client: cluster, prefix: 'mybot' })            //
 - Checkpoint compare-and-set (`setCheckpointIf` / `clearCheckpointIf`, used with `BotConfig.coordination`) reads the stored `revision` in a Lua script. When Redis' cjson cannot decode a checkpoint (a `c.state` holding a lone UTF-16 surrogate, e.g. a message cut in the middle of an emoji), the store reads the revision in JS and writes only while the key still holds the exact string it read, so such a conversation is not fenced off.
 - Lifecycle of a **self-created** client (an injected one is never connected, quit or listened to):
   - `start()` is idempotent (concurrent calls share one connect) and rejects promptly with the socket error (e.g. `ECONNREFUSED`) if the server is unreachable; call it again to retry.
+  - Using the store before `start()` (or after `stop()`) fails with an error that says to call `start()`, not node-redis' bare `The client is closed`.
   - Once connected, a dropped connection is logged through `logger.error` and retried with backoff (0–500 ms) instead of crashing the process.
   - `stop()` is idempotent and never hangs: it sends `QUIT` (pending replies still arrive), disconnects immediately if the client is offline, and gives up waiting for the `QUIT` reply after 2 s.
 

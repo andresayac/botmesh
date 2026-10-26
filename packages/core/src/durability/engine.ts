@@ -235,6 +235,8 @@ export class DurableEngine implements DurabilityControl {
   private timer: ReturnType<typeof setInterval> | undefined
   private sweeping: Promise<void> | undefined
   private lastPurge = 0
+  /** When {@link recover} ran: own leases ending before `recoveredAt + leaseMs` are a dead incarnation's. */
+  private recoveredAt = 0
   /** Records this process is working on (the sweeper never re-claims them). */
   private readonly inFlight = new Set<string>()
   /** Background deliveries in progress, by key (a live send of the same key waits for it). */
@@ -313,6 +315,7 @@ export class DurableEngine implements DurabilityControl {
   async recover(): Promise<void> {
     await this.backend.start?.()
     const now = this.now()
+    this.recoveredAt = now
     // Sends a previous incarnation of this instance left `sending` are ambiguous: settle them
     // before anything is replayed, so a replayed handler finds them resolved.
     const leftovers = await this.outbox.claimDue({ owner: this.instanceId, leaseMs: this.outboxLeaseMs, now, limit: 10_000, reclaimOwn: this.reclaimOwn })
@@ -923,7 +926,12 @@ export class DurableEngine implements DurabilityControl {
         }
       } catch (error) { this.deps.logger.warn({ err: error }, 'inbox sweep failed') }
       try {
-        const sends = await this.outbox.claimDue({ owner: this.instanceId, leaseMs: this.outboxLeaseMs, now, limit: 100, reclaimOwn })
+        // The first pass of a restart also takes this instance's own leases (a dead incarnation's
+        // late writes), but only those taken before recover(): never a send this one is making.
+        const sends = await this.outbox.claimDue({
+          owner: this.instanceId, leaseMs: this.outboxLeaseMs, now, limit: 100, reclaimOwn,
+          ...(reclaimOwn ? { reclaimOwnBefore: this.recoveredAt + this.outboxLeaseMs } : {}),
+        })
         for (const c of sends) {
           if (!notMine(c.record.key)) continue
           void this.deliverClaimed(c)

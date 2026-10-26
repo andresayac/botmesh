@@ -93,6 +93,14 @@ BOTWA_TEST_OLLAMA_URL=http://127.0.0.1:11434 BOTWA_TEST_OLLAMA_MODEL=qwen2.5:0.5
   pnpm --filter @botmesh/ai exec vitest run tests/ollama-live.test.ts
 ```
 
+The repo installs the **oldest** SDK version each peer range accepts. `packages/ai/tests/sdk-wire-upper.test.ts` runs the same wire round trip (text, tool call and result, streaming) against the **newest** ones, installed in a scratch folder. Run it when you widen a peer range:
+
+```bash
+mkdir sdk-upper && cd sdk-upper && npm init -y
+npm install --ignore-scripts @anthropic-ai/sdk@^1 openai@^7 @google/generative-ai@0.24
+BOTWA_TEST_SDK_UPPER_DIR=$PWD pnpm --filter @botmesh/ai exec vitest run tests/sdk-wire-upper.test.ts
+```
+
 ## Load, soak and leaks (`pnpm bench:soak`)
 
 `scripts/soak/soak.mjs` drives the `@botmesh/core` runtime (and `@botmesh/ai` with `MockAIProvider`) through `MockProvider`: thousands of chats and group participants running flows (`ask`/validation/retries/timeouts/`delay`), conversations with `c.idle`, `bot.onIdle`, inbound dedupe, handoff, sticky language, `ctx.user`, broadcast, metrics, the typing pacer, streaming and AI tool confirmations (buttons, typed answers, timeouts, `/reset`, stale presses). After every round it waits for the bots to go idle, forces GC and measures heap, active handles (`process.getActiveResourcesInfo()`), internal map sizes, event-loop lag and throughput. At the end it calls `stop({ drain: true })` **under load** and fails (exit code 2) if any timer is still alive. It is not part of `pnpm test`.

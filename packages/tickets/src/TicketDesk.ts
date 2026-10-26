@@ -9,13 +9,24 @@
  * and never fail the operation.
  *
  * Storage layout (keys under `keyPrefix`, default `tickets:`): `seq` (last id),
- * `index` (JSON array of the ids of NON-closed tickets) and `t:<id>` (one JSON ticket
- * each). Only active tickets live in memory and in the index, so both stay bounded by
+ * `index` (JSON array of the ids of NON-closed tickets), `t:<id>` (one JSON ticket
+ * each) and, in shared mode with `reuseOpen`, `open:<chatId>` (the chat's claimed ticket). Only active tickets live in memory and in the index, so both stay bounded by
  * the live workload; closed tickets stay in `t:<id>` and are read on demand (`get`, and
  * `list` when the filter can match `closed`, which scans `1..seq`).
  *
  * Memory changes only after the store writes succeed, so a failed write rejects the
  * call and leaves the desk as it was.
+ *
+ * Shared mode: when the storage has an atomic `setIf` (compare-and-set by value, e.g.
+ * `memoryTicketStorage()` or `durableKvTicketStorage(kv)`), several desks (bot
+ * replicas) can share it. Every call then re-reads the index from storage, a new id is
+ * claimed with a compare-and-set on `seq`, and ticket and index writes are
+ * compare-and-set with a bounded retry (`maxRetries`, then `TicketContentionError`).
+ * With `reuseOpen` (the default) the chat's open ticket is also claimed with a
+ * compare-and-set on `open:<chatId>`, so replicas creating for one chat at the same
+ * time (in a handler, the API or the manager) end up with one open ticket; a replica
+ * that finds a claimed ticket not yet written finishes writing it.
+ * Without `setIf` the desk assumes it is the only writer (one replica).
  */
 
 import type {
@@ -40,6 +51,19 @@ export class TicketNotFoundError extends Error {
   }
 }
 
+/**
+ * Thrown when a shared-mode write keeps losing its compare-and-set to other replicas
+ * after `maxRetries` attempts. No active ticket is left outside the index: a claimed id
+ * is just skipped, and a new ticket's id is listed before the ticket is written, so a
+ * failed create leaves at most an index entry with no ticket, which reads skip.
+ */
+export class TicketContentionError extends Error {
+  constructor(readonly operation: string) {
+    super(`tickets.${operation}: too much contention on the shared ticket storage`)
+    this.name = 'TicketContentionError'
+  }
+}
+
 /** Where a callback error came from (second argument of `onError`). */
 export type TicketCallbackName = 'onCreate' | 'onAssign' | 'onClose' | 'onUpdate'
 
@@ -55,6 +79,11 @@ export interface TicketDeskOptions {
   reuseOpen?: boolean
   /** Storage key prefix. Default `'tickets:'`. */
   keyPrefix?: string
+  /**
+   * Shared mode only (storage with `setIf`): compare-and-set attempts per write before
+   * rejecting with `TicketContentionError`. Default `20`.
+   */
+  maxRetries?: number
   onCreate?: (ticket: CreatedTicket) => void | Promise<void>
   onAssign?: (ticket: Ticket) => void | Promise<void>
   onClose?: (ticket: Ticket) => void | Promise<void>
@@ -64,9 +93,28 @@ export interface TicketDeskOptions {
 
 const READ_BATCH = 50
 
+/** Returned by a shared-mode step that lost a compare-and-set: re-run it on fresh state. */
+const RETRY: unique symbol = Symbol('retry')
+
 const PRIORITY_RANK: Record<TicketPriority, number> = { urgent: 0, high: 1, normal: 2, low: 3 }
 
 function clone<T>(v: T): T { return structuredClone(v) }
+
+function parseIndex(raw: string | undefined): string[] {
+  const parsed: unknown = raw ? JSON.parse(raw) : []
+  return Array.isArray(parsed) ? parsed.map(String) : []
+}
+
+/** The ticket a chat's `open:<chatId>` claim names (`''` or garbage = no claim). */
+function parseClaim(raw: string | undefined): Ticket | undefined {
+  if (!raw) return undefined
+  try {
+    const t = JSON.parse(raw) as Partial<Ticket> | null
+    return t && typeof t.id === 'string' && typeof t.chatId === 'string' ? t as Ticket : undefined
+  } catch {
+    return undefined
+  }
+}
 
 function assertPriority(p: unknown): asserts p is TicketPriority {
   if (!TICKET_PRIORITIES.includes(p as TicketPriority)) {
@@ -84,9 +132,15 @@ export class TicketDesk implements TicketsApi {
   private readonly now: () => number
   private readonly hours?: WorkingHours
   private readonly prefix: string
+  private readonly shared: boolean
+  private readonly maxRetries: number
   /** Active (non-closed) tickets only. */
   private tickets = new Map<string, Ticket>()
+  /** Raw JSON of each active ticket as last read or written (the compare-and-set witness). */
+  private raws = new Map<string, string>()
   private seq = 0
+  /** Raw `seq` value as last read (shared mode claims ids against it). */
+  private seqRaw: string | undefined
   private loaded?: Promise<void>
   private lock: Promise<unknown> = Promise.resolve()
 
@@ -94,6 +148,9 @@ export class TicketDesk implements TicketsApi {
     this.storage = opts.storage
     this.now = opts.now ?? Date.now
     this.prefix = opts.keyPrefix ?? 'tickets:'
+    this.shared = typeof opts.storage.setIf === 'function'
+    this.maxRetries = opts.maxRetries ?? 20
+    if (!Number.isInteger(this.maxRetries) || this.maxRetries < 1) throw new Error('TicketDesk: maxRetries must be a positive integer')
     if (opts.workingHours !== undefined) this.hours = parseWorkingHours(opts.workingHours)
     if (opts.timezone !== undefined) new Intl.DateTimeFormat('en-US', { timeZone: opts.timezone }) // throws on an unknown zone
   }
@@ -101,19 +158,19 @@ export class TicketDesk implements TicketsApi {
   /* ---------------------------------------------------------------- reads */
 
   async get(id: string): Promise<Ticket | undefined> {
-    await this.load()
-    const t = this.tickets.get(String(id)) ?? await this.readClosed(String(id))
+    await this.fresh()
+    const t = this.tickets.get(String(id)) ?? (await this.readClosed(String(id)))?.[0]
     return t ? clone(t) : undefined
   }
 
   async list(filter: TicketFilter = {}): Promise<Ticket[]> {
-    await this.load()
+    await this.fresh()
     const statuses = filter.status === undefined ? undefined : ([] as TicketStatus[]).concat(filter.status)
     const all = [...this.tickets.values()]
     if (statuses === undefined || statuses.includes('closed')) {
       const ids: string[] = []
       for (let i = 1; i <= this.seq; i++) if (!this.tickets.has(String(i))) ids.push(String(i))
-      for (const t of await this.readMany(ids)) if (t.status === 'closed') all.push(t)
+      for (const [t] of await this.readMany(ids)) if (t.status === 'closed') all.push(t)
     }
     return all
       .filter((t) =>
@@ -126,12 +183,12 @@ export class TicketDesk implements TicketsApi {
   }
 
   async queue(): Promise<Ticket[]> {
-    await this.load()
+    await this.fresh()
     return this.queued().map(clone)
   }
 
   async position(id: string): Promise<number | null> {
-    await this.load()
+    await this.fresh()
     const i = this.queued().findIndex((t) => t.id === String(id))
     return i === -1 ? null : i + 1
   }
@@ -148,10 +205,28 @@ export class TicketDesk implements TicketsApi {
     const priority = input.priority ?? 'normal'
     assertPriority(priority)
 
-    const { result, created } = await this.serial(async () => {
-      if (this.opts.reuseOpen !== false) {
+    const { result, created } = await this.serial('create', async () => {
+      const reuse = this.opts.reuseOpen !== false
+      if (reuse) {
         const existing = [...this.tickets.values()].find((t) => t.chatId === input.chatId && t.status !== 'closed')
         if (existing) return { result: existing, created: false }
+      }
+      // Shared mode: the chat's open ticket is claimed with a compare-and-set on
+      // `open:<chatId>`, so two replicas creating for one chat at once agree on one.
+      const claimKey = this.shared && reuse ? `${this.prefix}open:${input.chatId}` : undefined
+      const claimRaw = claimKey ? await this.storage.get(claimKey) : undefined
+      const claimed = parseClaim(claimRaw)
+      if (claimed && claimed.chatId === input.chatId) {
+        const storedRaw = await this.storage.get(`${this.prefix}t:${claimed.id}`)
+        const stored = storedRaw ? JSON.parse(storedRaw) as Ticket : undefined
+        if (stored?.status !== 'closed') {
+          // Open, or still being written by the replica that claimed it: finish that write.
+          const entry = await this.materialize(claimed)
+          // Closed meanwhile: start over, the claim is now stale.
+          if (entry === RETRY || entry[0].status === 'closed') return RETRY
+          this.remember(entry)
+          return { result: entry[0], created: false }
+        }
       }
       const at = this.now()
       const id = String(this.seq + 1)
@@ -166,13 +241,22 @@ export class TicketDesk implements TicketsApi {
         updatedAt: at,
       }
       // seq first: if a later write fails the id is just skipped (never reused for
-      // a ticket that might already sit in t:<id>).
-      await this.storage.set(`${this.prefix}seq`, id)
+      // a ticket that might already sit in t:<id>). In shared mode this is the claim.
+      if (!await this.write(`${this.prefix}seq`, this.seqRaw, id)) return RETRY
       this.seq = Number(id)
-      await this.writeTicket(ticket)
-      await this.writeIndex([...this.tickets.keys(), id])
-      this.tickets.set(id, ticket)
-      return { result: ticket, created: true }
+      this.seqRaw = id
+      if (claimKey && !await this.storage.setIf!(claimKey, claimRaw, JSON.stringify(ticket))) return RETRY
+      let entry: [Ticket, string] | typeof RETRY
+      try {
+        entry = await this.materialize(ticket)
+      } catch (error) {
+        // Best effort: release the chat's claim so the next create does not finish this one.
+        if (claimKey) await this.storage.setIf!(claimKey, JSON.stringify(ticket), claimRaw ?? '').catch(() => undefined)
+        throw error
+      }
+      if (entry === RETRY) return RETRY
+      this.remember(entry)
+      return { result: entry[0], created: true }
     })
 
     const pos = this.queued().findIndex((t) => t.id === result.id)
@@ -200,9 +284,10 @@ export class TicketDesk implements TicketsApi {
     if (patch.assignee !== undefined && patch.assignee !== null && (typeof patch.assignee !== 'string' || patch.assignee === '')) {
       throw new Error('tickets.update: assignee must be a non-empty string or null')
     }
-    const { next, previous } = await this.serial(async () => {
-      const cur = this.tickets.get(String(id)) ?? await this.readClosed(String(id))
-      if (!cur) throw new TicketNotFoundError(String(id))
+    const { next, previous } = await this.serial('update', async () => {
+      const found = this.activeEntry(String(id)) ?? await this.readClosed(String(id))
+      if (!found) throw new TicketNotFoundError(String(id))
+      const [cur, curRaw] = found
       const previous = clone(cur)
       const next: Ticket = { ...cur }
       if (patch.subject !== undefined) next.subject = patch.subject
@@ -222,22 +307,24 @@ export class TicketDesk implements TicketsApi {
       if (next.status !== 'closed') { delete next.closedAt; delete next.closeReason }
       else if (closeReason !== undefined) next.closeReason = closeReason
       next.updatedAt = Math.max(this.now(), previous.updatedAt + 1)
-      await this.writeTicket(next)
+      const nextRaw = JSON.stringify(next)
       const wasActive = previous.status !== 'closed'
       const isActive = next.status !== 'closed'
-      if (wasActive !== isActive) {
-        const ids = [...this.tickets.keys()].filter((k) => k !== next.id)
-        if (isActive) ids.push(next.id)
+      // Reopening: list the id before the ticket turns active, so an active ticket is
+      // never left outside the index (a closed id in the index is harmless).
+      if (!wasActive && isActive) await this.editIndex('update', (ids) => [...ids.filter((k) => k !== next.id), next.id])
+      if (!await this.write(`${this.prefix}t:${next.id}`, curRaw, nextRaw)) return RETRY
+      if (wasActive && !isActive) {
         try {
-          await this.writeIndex(ids)
+          await this.editIndex('update', (ids) => ids.filter((k) => k !== next.id))
         } catch (error) {
           // Best effort: put the previous ticket back so storage matches memory.
-          await this.writeTicket(previous).catch(() => undefined)
+          if (curRaw !== undefined) await this.write(`${this.prefix}t:${next.id}`, nextRaw, curRaw).catch(() => undefined)
           throw error
         }
       }
-      if (isActive) this.tickets.set(next.id, next)
-      else this.tickets.delete(next.id)
+      if (isActive) { this.tickets.set(next.id, next); this.raws.set(next.id, nextRaw) }
+      else { this.tickets.delete(next.id); this.raws.delete(next.id) }
       return { next, previous }
     })
 
@@ -262,51 +349,114 @@ export class TicketDesk implements TicketsApi {
 
   private load(): Promise<void> {
     this.loaded ??= (async () => {
-      const seq = Number(await this.storage.get(`${this.prefix}seq`))
-      const rawIndex = await this.storage.get(`${this.prefix}index`)
-      const parsed: unknown = rawIndex ? JSON.parse(rawIndex) : []
-      const ids = Array.isArray(parsed) ? parsed.map(String) : []
+      const seqRaw = await this.storage.get(`${this.prefix}seq`)
+      const seq = Number(seqRaw)
+      const ids = parseIndex(await this.storage.get(`${this.prefix}index`))
       const map = new Map<string, Ticket>()
+      const raws = new Map<string, string>()
       // Older indexes may still list closed tickets: they are simply not kept in memory.
-      for (const t of await this.readMany(ids)) if (t.status !== 'closed') map.set(t.id, t)
+      for (const [t, raw] of await this.readMany(ids)) {
+        if (t.status !== 'closed') { map.set(t.id, t); raws.set(t.id, raw) }
+      }
       this.tickets = map
+      this.raws = raws
       const maxId = Math.max(0, ...ids.map(Number).filter(Number.isFinite))
       this.seq = Math.max(Number.isFinite(seq) ? seq : 0, maxId)
+      this.seqRaw = seqRaw
     })()
     // A failed load is retried on the next call instead of poisoning the desk.
     this.loaded.catch(() => { this.loaded = undefined })
     return this.loaded
   }
 
-  private serial<T>(fn: () => Promise<T>): Promise<T> {
-    const run = this.lock.then(() => this.load()).then(fn)
+  /** Load once (single writer), or re-read storage (shared mode: other replicas write too). */
+  private fresh(): Promise<void> {
+    if (this.shared) this.loaded = undefined
+    return this.load()
+  }
+
+  /**
+   * Run a mutation under the local lock on fresh state. In shared mode a step that lost
+   * a compare-and-set returns `RETRY` and runs again on re-read state, up to
+   * `maxRetries` times.
+   */
+  private serial<T>(operation: string, fn: () => Promise<T | typeof RETRY>): Promise<T> {
+    const run = this.lock.then(async () => {
+      for (let attempt = 0; attempt < this.maxRetries; attempt++) {
+        await this.fresh()
+        const out = await fn()
+        if (out !== RETRY) return out
+      }
+      throw new TicketContentionError(operation)
+    })
     this.lock = run.catch(() => undefined)
     return run
   }
 
-  private writeTicket(ticket: Ticket): Promise<void> {
-    return this.storage.set(`${this.prefix}t:${ticket.id}`, JSON.stringify(ticket))
+  /** Plain `set`, or compare-and-set against `expected` (by value) in shared mode. */
+  private async write(key: string, expected: string | undefined, value: string): Promise<boolean> {
+    if (!this.shared) { await this.storage.set(key, value); return true }
+    return this.storage.setIf!(key, expected, value)
   }
 
-  private writeIndex(activeIds: string[]): Promise<void> {
-    return this.storage.set(`${this.prefix}index`, JSON.stringify(activeIds))
+  /** Rewrite the active-id index; shared mode re-reads it and retries on conflict. */
+  private async editIndex(operation: string, edit: (ids: string[]) => string[]): Promise<void> {
+    const key = `${this.prefix}index`
+    if (!this.shared) {
+      await this.storage.set(key, JSON.stringify(edit([...this.tickets.keys()])))
+      return
+    }
+    for (let attempt = 0; attempt < this.maxRetries; attempt++) {
+      const raw = await this.storage.get(key)
+      const next = [...new Set(edit(parseIndex(raw)))]
+      if (await this.storage.setIf!(key, raw, JSON.stringify(next))) return
+    }
+    throw new TicketContentionError(operation)
+  }
+
+  /**
+   * Store a new ticket: list its id in the index first, then write `t:<id>`. A create
+   * that fails or dies in between leaves at most an index entry with no ticket (skipped
+   * on read), never an active ticket outside the index. In shared mode another replica
+   * may have written the same ticket already (finishing a claimed create): the stored
+   * version wins. `RETRY` when `t:<id>` is gone after a lost compare-and-set.
+   */
+  private async materialize(ticket: Ticket): Promise<[Ticket, string] | typeof RETRY> {
+    const key = `${this.prefix}t:${ticket.id}`
+    const raw = JSON.stringify(ticket)
+    await this.editIndex('create', (ids) => [...ids, ticket.id])
+    if (await this.write(key, undefined, raw)) return [ticket, raw]
+    const current = await this.storage.get(key)
+    return current ? [JSON.parse(current) as Ticket, current] : RETRY
+  }
+
+  /** Keep an active ticket (and its raw witness) in memory. */
+  private remember([ticket, raw]: [Ticket, string]): void {
+    if (ticket.status === 'closed') return
+    this.tickets.set(ticket.id, ticket)
+    this.raws.set(ticket.id, raw)
+  }
+
+  private activeEntry(id: string): [Ticket, string | undefined] | undefined {
+    const t = this.tickets.get(id)
+    return t ? [t, this.raws.get(id)] : undefined
   }
 
   /** Read tickets by id, `READ_BATCH` reads at a time; missing ids are skipped. */
-  private async readMany(ids: string[]): Promise<Ticket[]> {
-    const out: Ticket[] = []
+  private async readMany(ids: string[]): Promise<Array<[Ticket, string]>> {
+    const out: Array<[Ticket, string]> = []
     for (let i = 0; i < ids.length; i += READ_BATCH) {
       const raws = await Promise.all(ids.slice(i, i + READ_BATCH).map((id) => this.storage.get(`${this.prefix}t:${id}`)))
-      for (const raw of raws) if (raw) out.push(JSON.parse(raw) as Ticket)
+      for (const raw of raws) if (raw) out.push([JSON.parse(raw) as Ticket, raw])
     }
     return out
   }
 
   /** A closed ticket from storage (active ones always live in memory). */
-  private async readClosed(id: string): Promise<Ticket | undefined> {
+  private async readClosed(id: string): Promise<[Ticket, string] | undefined> {
     if (this.tickets.has(id)) return undefined
-    const [t] = await this.readMany([id])
-    return t?.status === 'closed' ? t : undefined
+    const [entry] = await this.readMany([id])
+    return entry?.[0].status === 'closed' ? entry : undefined
   }
 
   private async fire(source: TicketCallbackName, fn: () => void | Promise<void>): Promise<void> {

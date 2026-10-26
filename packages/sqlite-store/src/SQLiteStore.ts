@@ -286,6 +286,9 @@ export class SQLiteStore implements IStore {
    */
   async saveMessage(msg: StoredMessage): Promise<void> {
     if (!msg.ref?.id || !msg.chatId) return
+    assertWellFormed('message id', msg.ref.id)
+    assertWellFormed('chat id', msg.chatId)
+    if (msg.ref.chatId) assertWellFormed('chat id', msg.ref.chatId)
     this.saveMessageTx(msg)
     this.trimChat(msg.chatId)
   }
@@ -298,6 +301,8 @@ export class SQLiteStore implements IStore {
 
   async getMessage(ref: MessageRef): Promise<StoredMessage | undefined> {
     if (!ref.id || !ref.chatId) return undefined
+    // An ill-formed id can never have been stored (saveMessage rejects it).
+    if (!isWellFormed(ref.id) || !isWellFormed(ref.chatId)) return undefined
     const key = messageKey(ref)
     const found = this.messageRow(key, ref)
     if (found) return found
@@ -375,10 +380,13 @@ export class SQLiteStore implements IStore {
   /* Delivery cursor ------------------------------------------------------- */
 
   async getCursor(key: string): Promise<string | undefined> {
+    if (!isWellFormed(key)) return undefined
     const row = this.stmts.getCursor.get(key) as { value: string } | undefined
     return row?.value
   }
   async setCursor(key: string, value: string): Promise<void> {
+    assertWellFormed('cursor key', key)
+    assertWellFormed('cursor value', value)
     this.stmts.setCursor.run(key, value)
   }
 
@@ -464,6 +472,7 @@ export class SQLiteStore implements IStore {
    * Always the same instance.
    */
   schedules(): SQLiteScheduleStore {
+    this.ensureOpen()
     return (this.scheduleStore ??= new SQLiteScheduleStore(this.db))
   }
 
@@ -476,6 +485,7 @@ export class SQLiteStore implements IStore {
    * Always the same instance.
    */
   durability(): SQLiteDurability {
+    this.ensureOpen()
     return (this.durabilityBackend ??= new SQLiteDurability(this.db))
   }
 
@@ -486,6 +496,15 @@ export class SQLiteStore implements IStore {
    * A no-op while open.
    */
   async start(): Promise<void> {
+    this.ensureOpen()
+  }
+
+  /**
+   * Reopen a database closed by `stop()` and re-point the backends handed out
+   * (`schedules()`, `durability()`) at the new connection. Also run when one of those
+   * accessors is called on a stopped store, so it never binds to a closed connection.
+   */
+  private ensureOpen(): void {
     if (this.db.open) return
     this.open()
     if (this.scheduleStore) rebindScheduleStore(this.scheduleStore, this.db)
@@ -501,5 +520,21 @@ export class SQLiteStore implements IStore {
   async stop(): Promise<void> {
     if (!this.db.open || isInMemory(this.file)) return
     try { this.db.close() } catch (err) { this.logger?.error?.({ err }, 'SQLiteStore failed to close') }
+  }
+}
+
+/** Whether `value` is well-formed UTF-16 (no lone surrogate). */
+function isWellFormed(value: string): boolean {
+  // With the u flag a well-formed pair is one astral code point: only a LONE surrogate is Cs.
+  return !/\p{Cs}/u.test(value)
+}
+
+/**
+ * SQLite stores TEXT as UTF-8, where a lone surrogate becomes U+FFFD: two different ids
+ * would then share one row. Such a key (or cursor value) is rejected instead.
+ */
+function assertWellFormed(field: string, value: string): void {
+  if (typeof value === 'string' && !isWellFormed(value)) {
+    throw new TypeError(`SQLiteStore: the ${field} contains a lone UTF-16 surrogate; SQLite would store it as U+FFFD and it could collide with another one`)
   }
 }

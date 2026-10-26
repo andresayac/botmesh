@@ -62,3 +62,33 @@ export function backoffDelay(attempt: number, base = 1000, cap = 30_000): number
 
 /** Max consecutive backoff reconnect attempts before giving up. */
 export const MAX_RECONNECT_ATTEMPTS = 10
+
+/** `BaileysProviderConfig.reconnect` as an object: the backoff reconnect policy. */
+export interface ReconnectPolicy {
+  /** Consecutive backoff attempts before giving up (`closed` with "reconnect exhausted"). Default 10. */
+  maxAttempts?: number
+  /** First backoff delay in ms, doubled per attempt. Default 1000. */
+  baseMs?: number
+  /** Longest backoff delay in ms. Default 30000. */
+  capMs?: number
+}
+
+/** A validated policy with every field set (`undefined` / `true` = the defaults). */
+export function resolveReconnectPolicy(input: boolean | ReconnectPolicy | undefined): Required<ReconnectPolicy> {
+  const policy = typeof input === 'object' && input !== null ? input : {}
+  const out = {
+    maxAttempts: policy.maxAttempts ?? MAX_RECONNECT_ATTEMPTS,
+    baseMs: policy.baseMs ?? 1000,
+    capMs: policy.capMs ?? Math.max(30_000, policy.baseMs ?? 0),
+  }
+  if (!Number.isSafeInteger(out.maxAttempts) || out.maxAttempts < 1) {
+    throw new RangeError(`BaileysProvider: reconnect.maxAttempts must be a positive integer, got ${String(policy.maxAttempts)}`)
+  }
+  for (const field of ['baseMs', 'capMs'] as const) {
+    if (!Number.isFinite(out[field]) || out[field] < 0 || out[field] > 2 ** 31 - 1) {
+      throw new RangeError(`BaileysProvider: reconnect.${field} must be a number of milliseconds between 0 and 2^31-1, got ${String(policy[field])}`)
+    }
+  }
+  if (out.capMs < out.baseMs) throw new RangeError(`BaileysProvider: reconnect.capMs (${out.capMs}) must be >= reconnect.baseMs (${out.baseMs})`)
+  return out
+}

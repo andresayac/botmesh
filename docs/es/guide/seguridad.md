@@ -28,7 +28,7 @@ Cada problema corregido en la auditoría tiene su test de regresión (busca
 | HighLevel | Ed25519 `X-GHL-Signature` (RSA heredado `X-WH-Signature` solo si configuras su clave) | sí | n/a (verificación de firma) | no se aplica; ver riesgos residuales |
 | Gupshup, WPPConnect | token compartido en la URL del callback o en una cabecera (no firman) | n/a | sí | ninguna |
 | Evolution | secreto en cabecera o JWT HS256 (`exp` obligatorio, ±30 s de desfase) | n/a | sí | el `exp` del JWT |
-| Chatwoot | token compartido y/o HMAC-SHA256 (`x-chatwoot-signature`, `x-chatwoot-timestamp` opcional ±300 s) | sí | sí | solo si llega la cabecera de timestamp |
+| Chatwoot | token compartido y/o HMAC-SHA256 (`x-chatwoot-signature` sobre `x-chatwoot-timestamp` + body, ±300 s) | sí | sí | **sí**, ±300 s; la forma sin timestamp exige `webhookAllowUntimedSignature` |
 
 Ningún provider arranca sin credenciales salvo que pongas
 `allowUnsignedWebhooks: true` (o `insecureNoWebhookAuth` en Chatwoot), y en ese

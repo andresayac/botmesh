@@ -436,7 +436,7 @@ export class TikTokProvider implements IProvider<unknown> {
       filename = basename(new URL(source.url).pathname) || filename
     } else if ('buffer' in source) bytes = source.buffer
     else if ('path' in source) {
-      bytes = await readFile(source.path)
+      bytes = await readLocalImage(source.path)
       filename = basename(source.path)
     } else if ('stream' in source) {
       const chunks: Buffer[] = []
@@ -585,5 +585,23 @@ export class TikTokProvider implements IProvider<unknown> {
       return (await this.download((token as { url: string }).url)).bytes
     }
     throw new ProviderError('downloadMedia: not a TikTok media reference')
+  }
+}
+
+/**
+ * Read a local image. A path that cannot be read rejects with an
+ * `UnsupportedContentError` naming the cause (`ENOENT`, `EACCES`…), the original error as
+ * `cause`, instead of a raw filesystem error.
+ */
+async function readLocalImage(path: string): Promise<Buffer> {
+  try {
+    return await readFile(path)
+  } catch (err) {
+    const code = (err as { code?: string }).code
+    const shown = path.length > 80 ? `${path.slice(0, 80)}…` : path
+    throw Object.assign(
+      new UnsupportedContentError('image', `TikTok image: ${JSON.stringify(shown)} is not a readable file (${code ?? 'read failed'}). Pass a URL, a Buffer or { buffer }.`),
+      { cause: err },
+    )
   }
 }

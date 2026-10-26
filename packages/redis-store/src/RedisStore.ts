@@ -55,7 +55,7 @@ import {
 import { LAYOUT_MARKER, storeKeys, type IndexedKind, type RedisKeyLayout, type StoreKeys } from './layout.js'
 import { assertOneSlot } from './slot.js'
 import {
-  createOwnRedisClient, isRedisClusterClient, resolveLayout, withClusterRetry,
+  createOwnRedisClient, guardNotStarted, isRedisClusterClient, resolveLayout, withClusterRetry,
   type NativeRedisClusterClient, type RedisClusterConnectOptions,
 } from './client.js'
 import { RedisCoordinator, type RedisCoordinatorOptions } from './RedisCoordinator.js'
@@ -344,7 +344,10 @@ export class RedisStore implements IStore {
     // node-redis' generated command signatures aren't directly assignable to a
     // plain interface (union-rest + MaximumOneOf option types); the command
     // subset used here matches at runtime, so narrow at the boundary.
-    const raw = (opts.client ?? (opts.cluster ? this.createOwnClusterClient(opts.cluster) : this.createOwnClient(opts.url ?? 'redis://localhost:6379'))) as RedisLikeClient
+    const own = opts.client
+      ? undefined
+      : guardNotStarted((opts.cluster ? this.createOwnClusterClient(opts.cluster) : this.createOwnClient(opts.url ?? 'redis://localhost:6379')) as RedisLikeClient)
+    const raw = (opts.client ?? own) as RedisLikeClient
     // Cluster layout: TRYAGAIN/CLUSTERDOWN (replied before anything runs) are retried.
     this.client = this.cluster ? withClusterRetry(raw) : raw
     this.ownsClient = !opts.client

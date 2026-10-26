@@ -90,4 +90,4 @@ export {
   publishFlow,
   sameFlow,
 } from './deployments.js'
-export type { FlowDifference, FlowDocumentDiff, PublishFlowOptions } from './deployments.js'
+export type { FlowDifference, FlowDocumentDiff, PublishFlowOptions, FlowDeploymentCandidate, FlowGateResult, FlowDeploymentGate, FlowDeploymentRegistry } from './deployments.js'

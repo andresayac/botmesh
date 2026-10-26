@@ -99,16 +99,30 @@ export interface AIConfig {
   model?: string
   apiKey?: string
   baseUrl?: string
+  /**
+   * OpenAI-compatible providers (`'openai'` and the presets): the request field that
+   * carries the output-token cap. Current OpenAI models need `'max_completion_tokens'`;
+   * most compatible servers (vLLM, LM Studio, gateways, the presets) want `'max_tokens'`.
+   * Default: `'max_completion_tokens'` for OpenAI itself (no `baseUrl`, `api.openai.com`
+   * or `*.openai.azure.com`), `'max_tokens'` for any other `baseUrl` and the presets.
+   */
+  maxTokensField?: 'max_tokens' | 'max_completion_tokens'
   persona?: string
   maxTokens?: number
   effort?: Effort
   /** Anthropic extended thinking (see {@link AIThinking}). Default `'auto'`. */
   thinking?: AIThinking
   /**
-   * Hard timeout (ms) for a single non-streaming AI call. On expiry the request
-   * is aborted (via AbortSignal where the SDK honors it) AND the promise rejects,
-   * so a hung provider can never block the per-chat FIFO queue forever.
-   * Default 60000. Set 0 to disable (not recommended for the autoresponder).
+   * Timeout (ms) of each model call. Default 60000; `0` disables it (not recommended
+   * for the autoresponder).
+   *
+   * - Non-streaming calls (`ask`, `generate`, `replyInChat`, each step of the tool
+   *   loop): a **total** deadline. On expiry the request is aborted (via AbortSignal
+   *   where the SDK honors it) AND the promise rejects with `AITimeoutError`, so a hung
+   *   provider can never block the per-chat FIFO queue forever.
+   * - Streaming (`stream`, `streamReplyInChat`, the streamed autoreply): an **idle**
+   *   timeout. It restarts on every chunk, so a long answer that keeps streaming is
+   *   never cut; only a stream with no chunk for `timeoutMs` fails.
    */
   timeoutMs?: number
   context?: { maxMessages?: number }

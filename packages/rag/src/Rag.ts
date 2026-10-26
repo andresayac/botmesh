@@ -236,8 +236,17 @@ export class Rag {
       const valid = await this.loadDocuments(docs)
       const entries = (await this.embedDocuments(valid)).entries.map((e): IndexEntry => ({ ...e, runtime: true }))
       const ids = new Set(valid.map((d) => d.id))
+      const replaced = this.index.all().filter((e) => ids.has(e.docId))
       this.index.removeWhere((e) => ids.has(e.docId))
-      this.index.upsert(entries)
+      try {
+        this.index.upsert(entries)
+      } catch (error) {
+        // All-or-nothing: a rejected batch (e.g. the embedder now returns another
+        // dimension) must not lose the documents it was replacing.
+        this.index.upsert(replaced)
+        this.pruneCache()
+        throw error
+      }
       this.pruneCache()
       await this.persist()
       return entries.length

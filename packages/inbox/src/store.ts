@@ -9,7 +9,7 @@
  */
 
 import type { StoredMessage } from '@botmesh/core'
-import type { InboxConversation, InboxListOptions, InboxNote, InboxPatch, InboxUpsert } from './types.js'
+import type { InboxConversation, InboxListOptions, InboxNote, InboxNoteListOptions, InboxPatch, InboxUpsert } from './types.js'
 
 export interface InboxStore {
   /**
@@ -39,6 +39,14 @@ export interface InboxStore {
    * @throws {InboxNotFoundError} when the conversation does not exist in the tenant; `Error` when `body` is blank.
    */
   addNote(tenantId: string, conversationId: string, authorId: string, body: string): Promise<InboxNote>
-  /** Notes of a conversation in creation order (at most `limit`, default 100). */
-  listNotes(tenantId: string, conversationId: string, options?: { limit?: number }): Promise<InboxNote[]>
+  /**
+   * Notes of a conversation in creation order (at most `limit`, default 100). `after` (the id
+   * of the last note of the previous page) continues from the next one; an unknown id gives `[]`.
+   */
+  listNotes(tenantId: string, conversationId: string, options?: InboxNoteListOptions): Promise<InboxNote[]>
+  /**
+   * Delete a conversation and all its notes (right to erasure). `true` when there was a
+   * conversation or a note to delete.
+   */
+  erase(tenantId: string, conversationId: string): Promise<boolean>
 }

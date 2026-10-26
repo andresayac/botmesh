@@ -292,6 +292,7 @@ const FAQ = {
   3: { label: 'Devoluciones', answer: '↩️ Tienes 30 días para devolver un producto sin uso.' },
 }
 
+/** @typedef {{ id: string, category: string, description: string, status: string, createdAt: string }} Ticket */
 const newTicketId = () => 'T-' + Date.now().toString(36).toUpperCase()
 `,
   handlers: code`
@@ -315,7 +316,7 @@ bot.use(
         status: 'abierto',
         createdAt: new Date().toISOString(),
       }
-      const tickets = (await support.get('tickets')) ?? []
+      const tickets = /** @type {Ticket[]} */ ((await support.get('tickets')) ?? [])
       await support.set('tickets', [...tickets, ticket].slice(-20))
       c.state.ticketId = ticket.id
       // Log ids only — never message bodies or personal data.
@@ -326,7 +327,7 @@ bot.use(
 )
 
 bot.when('mis tickets', async (ctx) => {
-  const tickets = (await ctx.user.ns('support').get('tickets')) ?? []
+  const tickets = /** @type {Ticket[]} */ ((await ctx.user.ns('support').get('tickets')) ?? [])
   if (tickets.length === 0) return await ctx.reply('No tienes tickets. Escribe *ticket* para abrir uno.')
   await ctx.reply(['📋 *Tus tickets*', ...tickets.map((t) => '• ' + t.id + ' — ' + t.category + ' (' + t.status + ')')].join('\n'))
 })
@@ -390,6 +391,8 @@ const HELP = [
 ].join('\n')
 
 /** The cart lives in the user's profile and expires after 7 days without changes. */
+/** @typedef {{ sku: string, qty: number }} CartItem */
+/** @typedef {{ id: string, items: CartItem[], total: number, payment: string, createdAt: string }} Order */
 const cartOf = (ctx) => userOf(ctx).ns('shop')
 const CART_TTL = '7d'
 const cartTotal = (cart) => cart.reduce((sum, item) => sum + (bySku(item.sku)?.price ?? 0) * item.qty, 0)
@@ -412,7 +415,7 @@ bot.use(
     })
     .do(async (ctx, c) => {
       const product = CATALOG[Number(c.state.product) - 1]
-      const cart = (await cartOf(ctx).get('cart')) ?? []
+      const cart = /** @type {CartItem[]} */ ((await cartOf(ctx).get('cart')) ?? [])
       const existing = cart.find((item) => item.sku === product.sku)
       if (existing) existing.qty += Number(c.state.qty)
       else cart.push({ sku: product.sku, qty: Number(c.state.qty) })
@@ -424,7 +427,7 @@ bot.use(
 )
 
 bot.when('carrito', async (ctx) => {
-  const cart = (await cartOf(ctx).get('cart')) ?? []
+  const cart = /** @type {CartItem[]} */ ((await cartOf(ctx).get('cart')) ?? [])
   if (cart.length === 0) return await ctx.reply('Tu carrito está vacío. Escribe *comprar*.')
   await ctx.reply(['🛒 *Tu carrito*', ...cartLines(cart), 'Total: ' + money(cartTotal(cart))].join('\n'))
 })
@@ -437,7 +440,7 @@ bot.when('vaciar', async (ctx) => {
 bot.use(
   flow('pagar')
     .do(async (ctx, c) => {
-      const cart = (await cartOf(ctx).get('cart')) ?? []
+      const cart = /** @type {CartItem[]} */ ((await cartOf(ctx).get('cart')) ?? [])
       if (cart.length === 0) c.end('Tu carrito está vacío. Escribe *comprar*.')
       c.state.cart = cart
     })
@@ -455,13 +458,16 @@ bot.use(
         payment: c.state.payment === '1' ? 'transferencia' : 'contraentrega',
         createdAt: new Date().toISOString(),
       }
-      const orders = (await cartOf(ctx).get('orders')) ?? []
+      const orders = /** @type {Order[]} */ ((await cartOf(ctx).get('orders')) ?? [])
       await cartOf(ctx).set('orders', [...orders, order].slice(-20))
       await cartOf(ctx).delete('cart')
       c.state.order = order
       bot.logger.info({ order: order.id }, 'order placed')
     })
-    .say((_ctx, c) => '✅ Pedido *' + c.state.order.id + '* recibido por ' + money(c.state.order.total) + '. ¡Gracias, ' + c.state.name + '!')
+    .say((_ctx, c) => {
+      const order = /** @type {Order} */ (c.state.order)
+      return '✅ Pedido *' + order.id + '* recibido por ' + money(order.total) + '. ¡Gracias, ' + c.state.name + '!'
+    })
     .timeout('15m'),
 )
 `,
@@ -537,7 +543,8 @@ bot.use(
     .do(async (ctx, c) => {
       if (c.state.confirm !== '1') c.end('Pedido cancelado. Escribe *pedir* cuando quieras.')
       await userOf(ctx).set('lastOrder', c.state.order)
-      bot.logger.info({ dish: c.state.order.dish, qty: c.state.order.qty }, 'order placed')
+      const order = /** @type {{ dish: string, qty: number }} */ (c.state.order)
+      bot.logger.info({ dish: order.dish, qty: order.qty }, 'order placed')
     })
     .say('✅ ¡Pedido confirmado! Te avisamos cuando salga de cocina.')
     .timeout('15m'),
@@ -612,6 +619,8 @@ function nextWorkingDays(count, from = new Date()) {
   }
   return days
 }
+/** @typedef {{ id: string, specialty: string, date: string, time: string }} Appointment */
+/** @param {Appointment} a */
 const apptLine = (a) => a.id + ' — ' + a.specialty + ', ' + a.date + ' ' + a.time
 `,
   handlers: code`
@@ -650,7 +659,7 @@ bot.conversation('cita', async (c, ctx) => {
   const appt = { id: 'C-' + Date.now().toString(36).toUpperCase(), specialty: SPECIALTIES[specialty], date: day.iso, time: HOURS[hourKey] }
   const confirm = await c.choose('Confirma la cita de ' + patient + ': ' + appt.specialty + ', ' + day.label + ' a las ' + appt.time, { 1: 'Sí, agendar', 2: 'No' }, { timeout: '5m' })
   if (confirm !== '1') return await ctx.reply('Cita no agendada. Escribe *cita* para empezar de nuevo.')
-  const appointments = (await clinic.get('appointments')) ?? []
+  const appointments = /** @type {Appointment[]} */ ((await clinic.get('appointments')) ?? [])
   await clinic.set('appointments', [...appointments, appt])
   // Log ids only: health data is sensitive personal data.
   bot.logger.info({ appointment: appt.id }, 'appointment booked')
@@ -658,14 +667,14 @@ bot.conversation('cita', async (c, ctx) => {
 }, { trigger: 'cita' })
 
 bot.when('mis citas', async (ctx) => {
-  const appointments = (await ctx.user.ns('clinic').get('appointments')) ?? []
+  const appointments = /** @type {Appointment[]} */ ((await ctx.user.ns('clinic').get('appointments')) ?? [])
   if (appointments.length === 0) return await ctx.reply('No tienes citas. Escribe *cita* para agendar una.')
   await ctx.reply(['📅 *Tus citas*', ...appointments.map((a) => '• ' + apptLine(a))].join('\n'))
 })
 
 bot.conversation('cancelar-cita', async (c, ctx) => {
   const clinic = ctx.user.ns('clinic')
-  const appointments = (await clinic.get('appointments')) ?? []
+  const appointments = /** @type {Appointment[]} */ ((await clinic.get('appointments')) ?? [])
   if (appointments.length === 0) return await ctx.reply('No tienes citas para cancelar.')
   const pick = await c.choose('¿Cuál cita quieres cancelar?', Object.fromEntries(appointments.map((a, i) => [String(i + 1), apptLine(a)])), { timeout: '5m' })
   const removed = appointments[Number(pick) - 1]
@@ -809,7 +818,7 @@ const TOOLS = {
     confirm: true,
     labels: LABELS,
     confirmLines: ({ items }) => quoteLines(items),
-    dedupe: 'args',
+    dedupe: /** @type {'args'} */ ('args'),
     handler: async ({ items }, tctx) => {
       const orders = await loadOrders(tctx)
       const order = { id: 'P-' + Date.now().toString(36).toUpperCase(), ...quote(items), estado: 'confirmado' }
@@ -860,7 +869,7 @@ const INTENTS = {
 `,
         // `store` is undefined under `npm run dev` (the simulator passes only the provider),
         // so the bot falls back to the in-memory store there.
-        params: 'provider, store',
+        params: 'provider, store = undefined',
         config: aiBotConfig("provider, store, handoff: { allowCommands: ['bot'] }"),
         setup: [
           AI_KEY_WARNING,

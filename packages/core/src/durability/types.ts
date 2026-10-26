@@ -95,6 +95,18 @@ export interface ClaimOptions extends LeaseOptions {
   partitions?: (key: string) => boolean
 }
 
+/** Options of {@link OutboxJournal.claimDue}. */
+export interface OutboxClaimOptions extends ClaimOptions {
+  /**
+   * With `reclaimOwn`: re-claim an own `sending` record only when its lease ends before
+   * this time (epoch ms). A restarted replica's first sweep passes `recoveredAt + leaseMs`:
+   * the leases its dead incarnation took end earlier, the ones it took itself since then end
+   * later, so it never steals a send it is making (which would leave that send's completion
+   * with a superseded fencing token). A journal that ignores it re-claims every own lease.
+   */
+  reclaimOwnBefore?: number
+}
+
 /** Persistence contract of the inbound journal. */
 export interface InboxJournal {
   /**
@@ -222,7 +234,7 @@ export interface OutboxJournal {
    * (returned with `ambiguous: true`), oldest `createdAt` first. Claimed records come back
    * `sending` under a fresh token.
    */
-  claimDue(options: ClaimOptions): Promise<ClaimedSend[]>
+  claimDue(options: OutboxClaimOptions): Promise<ClaimedSend[]>
   /** Settle an ambiguous claim: `'unknown'` (terminal) or `'pending'` (send again). @throws {StaleLeaseError} */
   resolveAmbiguous(key: string, token: number, to: 'unknown' | 'pending', now: number): Promise<void>
   get(key: string): Promise<OutboxRecord | undefined>

@@ -23,7 +23,7 @@ describe('toOutbound', () => {
     expect(() => toOutbound({ kind: 'image', media: Buffer.from('x') })).toThrow(UnsupportedContentError)
   })
 
-  it('maps buttons to a button template (max 3, title ≤20, payload=id)', () => {
+  it('maps buttons to a button template (title ≤20, payload=id; more than 3 reject, see open-defects)', () => {
     const msg = toOutbound({
       kind: 'buttons',
       text: 'Choose',

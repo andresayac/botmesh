@@ -31,7 +31,8 @@ describe('generated projects follow the defineBot factory pattern', () => {
 
     const bot = await readFile(join(target, 'src/bot.js'), 'utf8')
     expect(bot).toMatch(/^import \{ Bot, defineBot, flow, isMainModule(, \w+)* \} from '@botmesh\/core'$/m)
-    expect(bot).toMatch(/^const createBot = defineBot\(\(provider(, store)?\) => \{$/m)
+    // `store = undefined`: optional, so the factory still matches `BotFactory` (dev passes only the provider).
+    expect(bot).toMatch(/^const createBot = defineBot\(\(provider(, store = undefined)?\) => \{$/m)
     expect(bot).toMatch(/^ {2}const bot = new Bot\(\{\s*provider(,| \})/m)
     expect(bot).toContain('  return bot\n})')
     expect(bot).toContain('export default createBot')

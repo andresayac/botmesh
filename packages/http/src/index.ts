@@ -47,7 +47,7 @@ export interface SecureFetchOptions extends RequestInit {
   allowHttp?: boolean
   /** Permit loopback/private/link-local destinations. Intended only for tests or controlled networks. */
   allowPrivateHosts?: boolean
-  /** Total time allowed for one request, including body consumption. Defaults to 15 seconds. */
+  /** Total time allowed for one request: DNS resolution, every redirect hop, the response headers and body consumption, even with a custom `fetch` or `resolver` that ignores the abort signal. Defaults to 15 seconds. */
   timeoutMs?: number
   /** Maximum accepted body size in bytes. Defaults to 16 MiB. */
   maxBytes?: number
@@ -106,7 +106,8 @@ export async function secureFetch(input: string | URL, options: SecureFetchOptio
 
   try {
     for (let redirects = 0; ; redirects += 1) {
-      const addresses = await assertSafeTarget(url, { allowHttp, allowPrivateHosts, resolver })
+      // DNS (the default lookup or a custom resolver) counts against the deadline too.
+      const addresses = await untilAborted(assertSafeTarget(url, { allowHttp, allowPrivateHosts, resolver }), controller.signal)
       // Pin the socket to the exact address we just validated so undici cannot
       // re-resolve the hostname to a different (private) IP between check and
       // connect — the DNS-rebinding SSRF hole. Skipped for a caller-supplied
@@ -116,7 +117,7 @@ export async function secureFetch(input: string | URL, options: SecureFetchOptio
       if (dispatcher) dispatchers.push(dispatcher)
       let response: Response
       try {
-        response = await fetchImpl(url.href, {
+        const pending = fetchImpl(url.href, {
           ...init,
           method,
           body,
@@ -125,6 +126,12 @@ export async function secureFetch(input: string | URL, options: SecureFetchOptio
           signal: controller.signal,
           ...(dispatcher ? { dispatcher } : {}),
         } as RequestInit)
+        // A caller-supplied fetch may ignore the signal: the deadline holds anyway,
+        // and a response that shows up after it is released, never read.
+        response = await untilAborted(pending, controller.signal).catch((error: unknown) => {
+          if (controller.signal.aborted) void pending.then((late) => late.body?.cancel().catch(() => {}), () => {})
+          throw error
+        })
       } catch (error) {
         if (controller.signal.aborted && controller.signal.reason instanceof SecureHttpError) throw controller.signal.reason
         throw error
@@ -132,10 +139,10 @@ export async function secureFetch(input: string | URL, options: SecureFetchOptio
 
       if (isRedirect(response.status)) {
         const location = response.headers.get('location')
-        if (!location) return { url, response, body: await readBody(response, maxBytes) }
+        if (!location) return { url, response, body: await readBody(response, maxBytes, controller.signal) }
         // A followed redirect's body is never read: release it now, or its
         // connection stays busy (a server that never ends it would stall us).
-        await response.body?.cancel().catch(() => {})
+        await untilAborted(response.body?.cancel() ?? Promise.resolve(), controller.signal).catch(() => {})
         if (redirects >= maxRedirects) throw new SecureHttpError('too many redirects', 'TOO_MANY_REDIRECTS')
         const previousOrigin = url.origin
         url = parseUrl(location, url)
@@ -152,7 +159,7 @@ export async function secureFetch(input: string | URL, options: SecureFetchOptio
         continue
       }
 
-      return { url, response, body: await readBody(response, maxBytes) }
+      return { url, response, body: await readBody(response, maxBytes, controller.signal) }
     }
   } finally {
     clearTimeout(timeout)
@@ -339,6 +346,8 @@ function isPrivateIpv6(address: string): boolean {
   if (zeroUntil(6)) return w[6] === 0 ? w[7]! <= 1 || isPrivateIpv4(ipv4Of(w[6]!, w[7]!)) : isPrivateIpv4(ipv4Of(w[6]!, w[7]!))
   // ::ffff:0:0/96 IPv4-mapped.
   if (zeroUntil(5) && w[5] === 0xffff) return isPrivateIpv4(ipv4Of(w[6]!, w[7]!))
+  // ::ffff:0:0:0/96 IPv4-translated (RFC 2765 SIIT): judge the embedded IPv4.
+  if (zeroUntil(4) && w[4] === 0xffff && w[5] === 0) return isPrivateIpv4(ipv4Of(w[6]!, w[7]!))
   // 64:ff9b::/96 NAT64 well-known prefix and 64:ff9b:1::/48 local-use NAT64: judge the embedded IPv4.
   if (w[0] === 0x64 && w[1] === 0xff9b && w.slice(2, 6).every((x) => x === 0)) return isPrivateIpv4(ipv4Of(w[6]!, w[7]!))
   if (w[0] === 0x64 && w[1] === 0xff9b && w[2] === 1) return true
@@ -357,13 +366,31 @@ function isRedirect(status: number): boolean {
   return status === 301 || status === 302 || status === 303 || status === 307 || status === 308
 }
 
-async function readBody(response: Response, maxBytes: number): Promise<Buffer> {
+/**
+ * Settle with `work`, or reject with the abort reason as soon as `signal` aborts (the
+ * `TIMEOUT` error, or the caller's reason). A caller-supplied fetch may ignore the signal,
+ * and its body stream would then never end: the deadline must still hold.
+ */
+function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) {
+    work.catch(() => {})
+    return Promise.reject(signal.reason)
+  }
+  let onAbort: (() => void) | undefined
+  const aborted = new Promise<never>((_, reject) => {
+    onAbort = () => reject(signal.reason)
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
+  return Promise.race([work, aborted]).finally(() => { if (onAbort) signal.removeEventListener('abort', onAbort) })
+}
+
+async function readBody(response: Response, maxBytes: number, signal: AbortSignal): Promise<Buffer> {
   const contentLength = response.headers.get('content-length')
   if (contentLength && Number(contentLength) > maxBytes) {
     throw new SecureHttpError(`response exceeds ${maxBytes} bytes`, 'RESPONSE_TOO_LARGE')
   }
   if (!response.body) {
-    const buffer = Buffer.from(await response.arrayBuffer())
+    const buffer = Buffer.from(await untilAborted(response.arrayBuffer(), signal))
     if (buffer.byteLength > maxBytes) throw new SecureHttpError(`response exceeds ${maxBytes} bytes`, 'RESPONSE_TOO_LARGE')
     return buffer
   }
@@ -373,7 +400,18 @@ async function readBody(response: Response, maxBytes: number): Promise<Buffer> {
   let size = 0
   try {
     for (;;) {
-      const { done, value } = await reader.read()
+      let step: Awaited<ReturnType<typeof reader.read>>
+      try {
+        step = await untilAborted(reader.read(), signal)
+      } catch (error) {
+        // The deadline (or the caller) won: release the stream, report the real cause.
+        if (signal.aborted) {
+          void reader.cancel(signal.reason).catch(() => {})
+          throw signal.reason
+        }
+        throw error
+      }
+      const { done, value } = step
       if (done) break
       size += value.byteLength
       if (size > maxBytes) {

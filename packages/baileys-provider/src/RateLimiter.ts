@@ -112,6 +112,8 @@ export class RateLimiter {
   private lastSendAt = 0
   /** Bumped by reset() so an in-flight drain from a previous cycle bails out. */
   private generation = 0
+  /** Pending sleeps of the drain loop: reset() cancels them so no timer outlives it. */
+  private readonly sleeps = new Map<ReturnType<typeof setTimeout>, () => void>()
   private readonly perChatMax: number
   private readonly perChatWindowMs: number
   private readonly maxChats: number
@@ -213,6 +215,11 @@ export class RateLimiter {
           const item = this.queue.splice(i, 1)[0]!
           const jitter = this.computeJitter()
           if (jitter > 0) await this.sleep(jitter)
+          // reset() during the jitter: this send was out of the queue, so reject it here.
+          if (this.generation !== gen) {
+            item.reject(new ProviderError('RateLimiter reset'))
+            return
+          }
           this.lastSendAt = Date.now()
           item.resolve()
           sent = true
@@ -310,12 +317,18 @@ export class RateLimiter {
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms))
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => { this.sleeps.delete(timer); resolve() }, ms)
+      this.sleeps.set(timer, resolve)
+    })
   }
 
   /** Clear all buckets and the queue (e.g. on bot stop). */
   reset(): void {
     this.generation++
+    // Wake the drain loop now (it sees the new generation and stops) and free its timer.
+    for (const [timer, wake] of this.sleeps) { clearTimeout(timer); wake() }
+    this.sleeps.clear()
     this.perChatBuckets.clear()
     this.globalBucket.tokens = this.globalBucket.max
     this.globalBucket.lastRefill = Date.now()

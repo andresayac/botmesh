@@ -41,6 +41,10 @@ export type Verdict =
 export const DEFAULT_MUTE_MS = 10 * 60_000
 /** Default TTL of a provider admin list: 5 minutes. */
 export const DEFAULT_ADMIN_CACHE_MS = 5 * 60_000
+/** Default cap of users with a warning counter (see `ModerationConfig.maxTrackedUsers`). */
+export const DEFAULT_MAX_TRACKED_USERS = 10_000
+/** Mutes and admin lists are swept for expired entries once their map passes this size. */
+const SWEEP_FLOOR = 10_000
 const DEFAULT_WARNINGS: WarningPolicy = { max: 3, then: 'kick' }
 const DEFAULT_WARN_TEXT = '⚠️ {name}: {reason}. Advertencia {count}/{max}.'
 const DEFAULT_REASONS: Record<ModerationRule, string> = {
@@ -76,6 +80,10 @@ export class Moderator implements ModerationController {
   private baseResolved: Resolved | false | undefined
   private readonly warnedUnsupported = new Set<string>()
   private readonly now: () => number
+  private readonly maxTracked: number
+  /** Size at which the next sweep of expired mutes / stale admin lists runs (amortized). */
+  private muteSweepAt = SWEEP_FLOOR
+  private adminSweepAt = SWEEP_FLOOR
 
   constructor(
     private readonly config: ModerationConfig,
@@ -83,6 +91,10 @@ export class Moderator implements ModerationController {
     private readonly sendWarning: WarnSender,
   ) {
     this.now = config.now ?? Date.now
+    this.maxTracked = config.maxTrackedUsers ?? DEFAULT_MAX_TRACKED_USERS
+    if (!Number.isInteger(this.maxTracked) || this.maxTracked < 1) {
+      throw new RangeError(`moderation: maxTrackedUsers must be a positive integer, got ${String(config.maxTrackedUsers)}`)
+    }
     for (const [chatId, rules] of Object.entries(config.groups ?? {})) this.groupOverrides.set(chatId, rules)
   }
 
@@ -108,6 +120,7 @@ export class Moderator implements ModerationController {
     const {
       groups: _groups, provider: _provider, isAdmin: _isAdmin, onViolation: _onViolation, now: _now,
       applyTo: _applyTo, adminCacheMs: _adminCacheMs, kickFallback: _kickFallback, priority: _priority,
+      maxTrackedUsers: _maxTrackedUsers,
       ...base
     } = this.config
     const rules: ModerationRules = { ...base, ...(override ?? {}) }
@@ -128,7 +141,14 @@ export class Moderator implements ModerationController {
   mute(chatId: ChatId, userId: UserId, ms?: number): void {
     const resolved = this.resolve(chatId)
     const duration = ms ?? (resolved ? resolved.rules.muteMs : undefined) ?? this.config.muteMs ?? DEFAULT_MUTE_MS
-    this.mutes.set(keyOf(chatId, userId), this.now() + duration)
+    const key = keyOf(chatId, userId)
+    this.mutes.delete(key)
+    this.mutes.set(key, this.now() + duration)
+    if (this.mutes.size > this.muteSweepAt) {
+      const now = this.now()
+      for (const [k, until] of this.mutes) if (until <= now) this.mutes.delete(k)
+      this.muteSweepAt = Math.max(SWEEP_FLOOR, this.mutes.size * 2)
+    }
   }
 
   unmute(chatId: ChatId, userId: UserId): boolean {
@@ -200,7 +220,13 @@ export class Moderator implements ModerationController {
       try {
         const admins = await groups.getAdmins(chatId)
         entry = { at: this.now(), admins: new Set(admins) }
+        this.adminCache.delete(chatId)
         this.adminCache.set(chatId, entry)
+        if (this.adminCache.size > this.adminSweepAt) {
+          const now = this.now()
+          for (const [k, e] of this.adminCache) if (now - e.at > ttl) this.adminCache.delete(k)
+          this.adminSweepAt = Math.max(SWEEP_FLOOR, this.adminCache.size * 2)
+        }
       } catch (err) {
         this.logger.warn({ err }, 'moderation: could not fetch group admins; treating sender as non-admin')
         return false
@@ -367,13 +393,28 @@ export class Moderator implements ModerationController {
     }
   }
 
+  /**
+   * Count one more warning for `key` and return the new count. The map keeps users in
+   * least-to-most recently warned order and drops the least recent past `maxTrackedUsers`.
+   */
+  private bumpWarning(key: string): number {
+    const count = (this.warnCounts.get(key) ?? 0) + 1
+    this.warnCounts.delete(key)
+    this.warnCounts.set(key, count)
+    while (this.warnCounts.size > this.maxTracked) {
+      const oldest = this.warnCounts.keys().next().value
+      if (oldest === undefined) break
+      this.warnCounts.delete(oldest)
+    }
+    return count
+  }
+
   private async runWarn(ctx: MessageContext, rules: ModerationRules, rule: ModerationRule): Promise<InternalResult> {
     const policy = rules.warnings === undefined ? DEFAULT_WARNINGS : rules.warnings
     const key = keyOf(ctx.from, ctx.sender)
-    const count = (this.warnCounts.get(key) ?? 0) + 1
+    const count = this.bumpWarning(key)
     const escalate = policy && count >= policy.max ? policy.then : undefined
     if (escalate) this.warnCounts.delete(key)
-    else this.warnCounts.set(key, count)
 
     const reason = rules.messages?.reasons?.[rule] ?? DEFAULT_REASONS[rule]
     // One pass: a display name such as '{reason}' is user input and must stay literal.

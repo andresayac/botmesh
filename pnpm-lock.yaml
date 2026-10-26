@@ -500,9 +500,6 @@ importers:
       '@botmesh/core':
         specifier: workspace:*
         version: link:../core
-      '@botmesh/deployments':
-        specifier: workspace:*
-        version: link:../deployments
       '@botmesh/http':
         specifier: workspace:*
         version: link:../http
@@ -510,6 +507,9 @@ importers:
       '@botmesh/ai':
         specifier: workspace:*
         version: link:../ai
+      '@botmesh/deployments':
+        specifier: workspace:*
+        version: link:../deployments
       '@types/node':
         specifier: ^26.1.1
         version: 26.1.1

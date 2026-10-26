@@ -247,7 +247,11 @@ config-backed bots the documents are persisted with the config and registered
 again on every rebuild. `subflow` steps resolve against the bot's other stored
 flows (also in `createBot({ flows })`, `updateBot()` and `restore()`), and
 `removeFlow()` answers `CONFLICT` (`409` over REST) while another stored flow
-still uses the one being removed as a subflow.
+still uses the one being removed as a subflow. A subflow is inlined when a flow
+is compiled, so `putFlow()` also recompiles every stored flow that uses the
+changed one (directly or through another subflow); all of them compile before
+anything changes. The config is saved **before** the live bot changes: if the
+save fails, the call rejects and the bot keeps running the previous flows.
 
 ## REST API `/v1` (`createRestApi`)
 
@@ -261,6 +265,7 @@ mounted inside another server), or get `404`.
 | `prefix` | `'/v1'` |
 | `publicDocs` | `true`: `openapi.json` and `flows/schema` need no token (with `false` they need `bots:read`) |
 | `maxBodyBytes` | 1 MiB |
+| `bodyTimeoutMs` | `30000`: time to receive the whole body. A client that sends the headers and stalls gets `408 REQUEST_TIMEOUT` and the connection is closed. |
 | `rateLimit` | Token bucket per token (per client address for anonymous calls): 60 burst, 1 request/s. Pass options, your own `RateLimiter`, or `false`. |
 | `idempotency` | In memory, 24 h replay. Pass options, your own `IdempotencyStore`, or `false`. |
 | `defaultTenantId` | `'default'` (tenant of bots added without one) |
@@ -346,6 +351,7 @@ every route, public ones included, is limited and adds `RateLimit-Limit` and
 | `403` | `FORBIDDEN` | Missing scope, or cross-tenant `tenantId` |
 | `404` | `NOT_FOUND` | Unknown route, bot (or a bot of another tenant), flow or conversation |
 | `405` | `METHOD_NOT_ALLOWED` | Known path, wrong method (`Allow` header) |
+| `408` | `REQUEST_TIMEOUT` | The body did not arrive within `bodyTimeoutMs` |
 | `409` | `CONFLICT`, `BOT_NOT_RUNNING` | Duplicate id or flow, version mismatch, trigger on a stopped bot |
 | `413` | `PAYLOAD_TOO_LARGE` | Body over `maxBodyBytes`, or content over a provider limit |
 | `415` | `UNSUPPORTED_MEDIA_TYPE` | Body is not `application/json` |

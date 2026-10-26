@@ -53,15 +53,13 @@ Discord requires an interaction to be answered within **~3 seconds**
 (`interactionsRequireAck: true`). Button clicks / menu selections /
 slash commands are routed like messages (the button `custom_id`, the
 selected option value or the command name is the body) and carry
-`ctx.interaction` (`id` = `"<id>:<token>"`, `respondBy` = deadline epoch ms).
-Answer each one once from the handler. If no handler does within
-`autoAcknowledgeMs` (default `2000`), the provider defers it on its own
-(type 6 for components, type 5 for commands and modals), so Discord never
-shows "This interaction failed"; a later `ctx.acknowledge('text')` is then
-posted as a followup. The followup needs the application id: `appId`, or else
-the one Discord sends on READY and on each interaction; when none is known,
-`ctx.acknowledge('text')` rejects with `ProviderError` instead of dropping the
-text. `autoAcknowledgeMs: false` turns it off.
+`ctx.interaction` (`id` = the interaction id, `respondBy` = deadline epoch ms).
+The interaction token never leaves the provider (it remembers it by id for its
+15-minute lifetime). Answer each one once from the handler. If no handler does
+within `autoAcknowledgeMs` (default `2000`; `autoAckMs` is a deprecated alias),
+the provider defers it on its own (type 6 for components, type 5 for commands
+and modals; autocomplete is never deferred), so Discord never shows "This
+interaction failed"; `autoAcknowledgeMs: false` turns it off:
 
 ```ts
 bot.when('confirm', async (ctx) => {
@@ -72,7 +70,16 @@ bot.when('confirm', async (ctx) => {
 ```
 
 Outside a handler, `provider.acknowledgeInteraction(interactionId, { text? })`
-does the same; acknowledge an interaction only once.
+does the same. Once an interaction is acknowledged (by the bot or automatically),
+a later call with `text` sends it as a followup and a call without text is a
+no-op. The followup needs the application id: `appId`, or else the one Discord
+sends on READY and on each interaction; when none is known, the call rejects
+with `ProviderError` instead of dropping the text. The old `"<id>:<token>"`
+form is still accepted.
+
+REST requests time out after `requestTimeoutMs` (default 60000) and file uploads
+after `uploadTimeoutMs` (default 300000). More than 25 buttons or 25 select
+options reject with `UnsupportedContentError` instead of being cut.
 
 ### Gateway (technical note)
 

@@ -405,7 +405,7 @@ describe('chatwootPlugin — webhook authentication', () => {
   it('HMAC: signature over the raw body (optionally timestamp-bound) with tolerance', async () => {
     const { bot } = await createTestBot()
     const now = 1_800_000_000_000
-    const { plugin } = setup({ webhookToken: undefined, webhookSecret: 'shh', now: () => now })
+    const { plugin } = setup({ webhookToken: undefined, webhookSecret: 'shh', webhookAllowUntimedSignature: true, now: () => now })
     bot.plug(plugin)
     const raw = Buffer.from(JSON.stringify({ event: 'conversation_created', id: 1 }))
     const sig = (msg: string | Buffer) => createHmac('sha256', 'shh').update(msg).digest('hex')

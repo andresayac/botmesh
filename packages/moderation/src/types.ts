@@ -138,6 +138,12 @@ export interface ModerationConfig extends ModerationRules {
   isAdmin?: (chatId: ChatId, userId: UserId) => boolean | Promise<boolean>
   /** How long provider admin lists are cached (default 5 minutes). */
   adminCacheMs?: number
+  /**
+   * Most users with a warning counter kept in memory (default `10000`). Past it, the
+   * least recently warned user's counter is dropped (it starts again at 0). Expired
+   * mutes and stale admin lists are swept automatically.
+   */
+  maxTrackedUsers?: number
   /** When `'kick'` is unsupported, fall back to `'mute'` (default) or do nothing. */
   kickFallback?: 'mute' | 'none'
   /** Before-hook priority (default `100`, so moderation runs before other hooks). */

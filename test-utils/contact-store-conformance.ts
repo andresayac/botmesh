@@ -149,5 +149,15 @@ export function runContactStoreConformance(name: string, harness: ContactStoreHa
       expect(await store.get('tenant-ñ', '🦜/1:{x}')).toEqual(created)
       expect(await store.segment('tenant-ñ', { tagsAll: ['🦜'], attributes: { ciudad: 'Bogotá 🇨🇴' } })).toEqual([created])
     })
+
+    it('erase removes a contact (right to erasure), only in that tenant', async () => {
+      await store.upsert(input({ tenantId: 'a', id: 'u' }))
+      await store.upsert(input({ tenantId: 'b', id: 'u' }))
+      expect(await store.erase('a', 'u')).toBe(true)
+      expect(await store.get('a', 'u')).toBeUndefined()
+      expect(await store.segment('a', {})).toEqual([])
+      expect(await store.erase('a', 'u')).toBe(false)
+      expect(await store.get('b', 'u')).toBeDefined()
+    })
   })
 }

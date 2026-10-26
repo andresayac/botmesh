@@ -21,21 +21,18 @@ export interface DiscordRestClientConfig {
   /** E.g. 'v10'. */
   apiVersion: string
   mediaDownload?: Omit<SecureFetchOptions, 'fetch'>
-  /** Time allowed for each REST request, body included, in ms. Default {@link DEFAULT_REST_TIMEOUT_MS}. */
+  /** Time allowed for each request, body included, in ms. Default {@link DEFAULT_REST_TIMEOUT_MS}. */
+  requestTimeoutMs?: number
+  /** @deprecated Use `requestTimeoutMs`. */
   timeoutMs?: number
+  /** Time allowed for a multipart (file upload) request, in ms. Default {@link DEFAULT_UPLOAD_TIMEOUT_MS}. */
+  uploadTimeoutMs?: number
 }
 
 /** Default time allowed for one REST request: 60 s. */
 export const DEFAULT_REST_TIMEOUT_MS = 60_000
-
-/** Wrap a transport failure or timeout in a typed {@link ProviderError} (original as `cause`; no URL, no token). */
-function transportError(err: unknown, timeoutMs: number, timedOut: boolean): ProviderError {
-  const wrapped = new ProviderError(timedOut
-    ? `Discord API request timed out after ${timeoutMs}ms`
-    : `Discord API request failed: ${err instanceof Error ? err.message : String(err)}`)
-  ;(wrapped as { cause?: unknown }).cause = err
-  return wrapped
-}
+/** Default time allowed for one file upload: 5 minutes. */
+export const DEFAULT_UPLOAD_TIMEOUT_MS = 300_000
 
 /**
  * JSON error codes meaning the target cannot be reached: Unknown Channel
@@ -99,25 +96,33 @@ export class DiscordRestClient {
       headers['Content-Type'] = 'application/json'
       body = JSON.stringify(opts.json)
     }
-    const timeoutMs = this.cfg.timeoutMs ?? DEFAULT_REST_TIMEOUT_MS
+    // Every request is bounded: a hung connection must not stall a send forever.
+    const timeoutMs = opts.form
+      ? (this.cfg.uploadTimeoutMs ?? DEFAULT_UPLOAD_TIMEOUT_MS)
+      : (this.cfg.requestTimeoutMs ?? this.cfg.timeoutMs ?? DEFAULT_REST_TIMEOUT_MS)
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     timer.unref?.()
+    let res: Response
+    let parsed: DiscordApiErrorBody & Record<string, unknown>
     try {
-      let res: Response
-      try {
-        res = await fetch(this.base(path), { method, headers, body, signal: controller.signal })
-      } catch (err) {
-        throw transportError(err, timeoutMs, controller.signal.aborted)
-      }
-      const parsed = (await res.json().catch(() => ({}))) as DiscordApiErrorBody & Record<string, unknown>
-      // An abort mid-body reads as `{}`: it must not pass as success.
-      if (controller.signal.aborted) throw transportError(controller.signal.reason, timeoutMs, true)
-      if (!res.ok) throw toProviderError(opts.chatId ?? '', res.status, parsed)
-      return parsed
+      res = await fetch(this.base(path), { method, headers, body, signal: controller.signal })
+      parsed = (await res.json().catch((err: unknown) => {
+        if (controller.signal.aborted) throw err
+        return {}
+      })) as DiscordApiErrorBody & Record<string, unknown>
+    } catch (err) {
+      // Never the URL (an interaction route carries its token) nor the bot token.
+      const wrapped = new ProviderError(controller.signal.aborted
+        ? `Discord API request timed out after ${timeoutMs}ms (${method})`
+        : `Discord API request failed (${method}): ${err instanceof Error ? err.name : 'network error'}`)
+      ;(wrapped as { cause?: unknown }).cause = err
+      throw wrapped
     } finally {
       clearTimeout(timer)
     }
+    if (!res.ok) throw toProviderError(opts.chatId ?? '', res.status, parsed)
+    return parsed
   }
 
   /** POST /channels/{channelId}/messages (JSON or multipart when files). */

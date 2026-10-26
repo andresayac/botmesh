@@ -167,7 +167,10 @@ bot.plug(aiPlugin({
 }))
 ```
 
-`baseUrl` is optional (OpenAI-compatible endpoints).
+`baseUrl` is optional (OpenAI-compatible endpoints). The output-token cap goes in
+`max_completion_tokens` for OpenAI itself (no `baseUrl`, `api.openai.com` or
+`*.openai.azure.com`) and in `max_tokens` for any other `baseUrl` (vLLM, LM Studio,
+gateways), which is what those servers expect. Set `maxTokensField` to override it.
 
 ### Gemini
 
@@ -297,7 +300,8 @@ process alive, even with `timeoutMs: 0`.
 | `maxTokens` | `number` | `4096` (anthropic) / `1024` (openai, presets, gemini) | output token limit (ollama: only when set, as `options.num_predict`; memory extraction's 1024 default does not apply there). It includes thinking tokens on reasoning models |
 | `effort` | `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'` | — | reasoning effort (Anthropic only; not sent to models that reject it, such as Claude Haiku 4.5 / Sonnet 4.5) |
 | `thinking` | `'auto' \| 'adaptive' \| 'off' \| { budgetTokens }` | `'auto'` | Anthropic extended thinking, see [Thinking (Anthropic)](#thinking-anthropic) |
-| `timeoutMs` | `number` | `60000` | per-call timeout for non-streaming calls; on expiry the request is aborted and rejects, so a hung provider can't block the chat's queue (`0` disables it — not recommended) |
+| `timeoutMs` | `number` | `60000` | timeout of each model call. Non-streaming calls: a total deadline; on expiry the request is aborted and rejects, so a hung provider can't block the chat's queue. Streaming: an idle timeout that restarts on every chunk, so a long answer is never cut. `0` disables it (not recommended) |
+| `maxTokensField` | `'max_tokens' \| 'max_completion_tokens'` | by `baseUrl` | OpenAI-compatible providers: the field of the output-token cap (see OpenAI above) |
 | `context.maxMessages` | `number` | `20` | history window kept per chat (always starts with a user turn; empty answers are not stored) |
 | `autoReply` | `boolean` | `true` | registers the catch-all autoresponder |
 | `resetCommand` | `boolean` | `true` | registers `/reset` |

@@ -10,6 +10,38 @@
 
 import type { Deployment, GateRecord, GateRun } from './types.js'
 
+/** Options of {@link DeploymentStore.list}. */
+export interface DeploymentListOptions {
+  limit?: number
+  /** Continue after this version (the last one of the previous page). */
+  after?: string
+}
+
+/**
+ * The versions {@link DeploymentStore.prune} deletes from `versions` (publish order): every
+ * one outside the newest `keep`, except `active` (an older active version is kept too).
+ * @internal
+ */
+export function versionsToPrune(versions: readonly string[], active: string | null, keep: number): string[] {
+  if (!Number.isInteger(keep) || keep < 1) throw new RangeError('prune(): keep must be a positive integer')
+  const newest = new Set(versions.slice(Math.max(0, versions.length - keep)))
+  return versions.filter((v) => !newest.has(v) && v !== active)
+}
+
+/**
+ * The slice of `versions` a {@link DeploymentStore.list} page returns.
+ * @internal
+ */
+export function versionsPage(versions: readonly string[], limit: number, after: string | undefined): string[] {
+  let start = 0
+  if (after !== undefined) {
+    const i = versions.indexOf(after)
+    if (i === -1) return []
+    start = i + 1
+  }
+  return versions.slice(start, start + limit)
+}
+
 /** Input of {@link DeploymentStore.commit}. */
 export interface CommitInput {
   tenantId: string
@@ -66,8 +98,17 @@ export interface DeploymentStore {
   active(tenantId: string, botId: string): Promise<Deployment | undefined>
   /** One version, or `undefined`. */
   get(tenantId: string, botId: string, version: string): Promise<Deployment | undefined>
-  /** Versions in publish order (at most `limit`, default 1000). */
-  list(tenantId: string, botId: string, options?: { limit?: number }): Promise<Deployment[]>
+  /**
+   * Versions in publish order (at most `limit`, default 1000). `after` (the last version
+   * of the previous page) continues from the next one; an unknown `after` gives `[]`.
+   */
+  list(tenantId: string, botId: string, options?: DeploymentListOptions): Promise<Deployment[]>
+  /**
+   * Delete the versions older than the newest `keep` (`keep` >= 1), except the active one
+   * (kept on top of them when it is older, e.g. after a rollback). Returns how many were deleted; a deleted version
+   * can be published again. Gate runs stay as an audit trail.
+   */
+  prune(tenantId: string, botId: string, keep: number): Promise<number>
   /** Persist the outcome of a gate run (pass or fail) and return it with its id. */
   recordGateRun(run: Omit<GateRun, 'id'>): Promise<GateRun>
   /** Gate runs of one version, oldest first (at most `limit`, default 100). */

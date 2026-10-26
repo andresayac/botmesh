@@ -83,7 +83,7 @@ const store = new MongoStore({ client: fake })
 | `{prefix}conversations` | key                | `{ messages: AIMessage[] }` |
 | `{prefix}cursors`       | key                | `{ value: string }` (delivery cursor, e.g. Telegram `update_id`) |
 
-`deleteChat(chatId)` removes the chat document **and** purges that chat's message log (same semantics as `MemoryStore` and the other stores). `upsertChat` / `upsertContact` shallow-merge over the existing document: fields you pass replace the stored ones, omitted fields are kept, and a field passed explicitly as `undefined` is removed.
+`deleteChat(chatId)` removes the chat document **and** purges that chat's message log (same semantics as `MemoryStore` and the other stores). On a replica set or `mongos` both deletes run in one transaction; a standalone server cannot run transactions, so there the store deletes the messages first and then the chat (a retry finishes an interrupted delete). `upsertChat` / `upsertContact` shallow-merge over the existing document: fields you pass replace the stored ones, omitted fields are kept, and a field passed explicitly as `undefined` is removed.
 
 `getMessagesByChat` and the `maxMessagesPerChat` trim sort by `timestamp`, then `_id` (the message key), like the SQL stores, so several messages with the same timestamp always produce the same window and the trim keeps exactly the messages the window shows. `start()` creates the `{chatId: 1, timestamp: 1, _id: 1}` index idempotently; databases created by an earlier version also keep the old `chatId_1_timestamp_1` index, which is now redundant and can be dropped (`db.messages.dropIndex('chatId_1_timestamp_1')`).
 

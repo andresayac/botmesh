@@ -31,6 +31,11 @@ export class ContactDirectory {
   }
 
   /** Contacts of a tenant matching every criterion of `rule`. */
+  /** Delete a contact (right to erasure). `true` when it existed in that tenant. */
+  erase(tenantId: string, id: string): Promise<boolean> {
+    return this.store.erase(tenantId, id)
+  }
+
   segment(tenantId: string, rule: ContactSegment, options?: ContactListOptions): Promise<Contact[]> {
     return this.store.segment(tenantId, rule, options)
   }

@@ -40,7 +40,8 @@ interface TelegramProviderConfig {
   errorBackoffMs?: number  // base backoff after a failed poll round (doubles per failure), default 1000
   maxBackoffMs?: number    // ceiling for that backoff, default 60000
   pollIdleMs?: number      // pause after an empty batch, default 250
-  requestTimeoutMs?: number // client timeout per Bot API request (uploads included), default 120000
+  requestTimeoutMs?: number // client timeout per Bot API request, default 120000
+  uploadTimeoutMs?: number  // client timeout of a file upload (multipart), default 300000
   debug?: boolean
   logger?: LoggerLike  // pino, console or any { debug, info, warn, error }
 }
@@ -220,7 +221,7 @@ Bot API errors become typed `@botmesh/core` errors:
 
 | HTTP | Maps to                                              |
 | ---- | ---------------------------------------------------- |
-| 429  | `RateLimitedError` (`retryAfterMs` from `retry_after`) |
+| 429  | `RateLimitedError` (`retryAfterMs` from `retry_after`, at most 24 h) |
 | 403  | `RecipientUnreachableError` (bot blocked / kicked)   |
 | 400 *chat not found*, *user not found*, *bot is not a member*… | `RecipientUnreachableError` |
 | 400 *message is too long* / *file is too big*, 413 | `PayloadTooLargeError` |

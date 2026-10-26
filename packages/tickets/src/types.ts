@@ -95,8 +95,16 @@ export interface TicketsApi {
 /**
  * Minimal string key/value the ticket desk persists to. The plugin's default maps it
  * to the bot store's cursor API (`IStore.getCursor`/`setCursor`, namespaced per bot).
+ * Implement `setIf` when several bot replicas share the storage.
  */
 export interface TicketKeyValue {
   get(key: string): Promise<string | undefined>
   set(key: string, value: string): Promise<void>
+  /**
+   * Optional atomic compare-and-set: write `value` only when the stored value equals
+   * `expected` (`undefined` = the key is absent) and resolve `true`, else resolve
+   * `false` and write nothing. When present the desk runs in shared mode, safe for
+   * several bot replicas over the same storage.
+   */
+  setIf?(key: string, expected: string | undefined, value: string): Promise<boolean>
 }

@@ -57,6 +57,53 @@ export function isSystemMessage(message: WAMessage): boolean {
   return parts.length === 0 || parts.every((name) => SYSTEM_PARTS.has(name))
 }
 
+/** `proto.Message.ProtocolMessage.Type.MESSAGE_EDIT`. */
+const MESSAGE_EDIT = 14
+
+/** The MESSAGE_EDIT protocol message of `message` (bare or in an `editedMessage` wrapper). */
+function editProtocolOf(message: WAMessage | null | undefined): proto.Message.IProtocolMessage | undefined {
+  let content = normalizeMessageContent(message?.message)
+  // `editedMessage: { message: { protocolMessage } }` (FutureProof wrapper), if not unwrapped above.
+  const wrapped = (content as { editedMessage?: { message?: proto.IMessage | null } | null } | undefined)?.editedMessage?.message
+  if (wrapped) content = normalizeMessageContent(wrapped)
+  const pm = content?.protocolMessage
+  return pm && pm.type === MESSAGE_EDIT ? pm : undefined
+}
+
+/** The key an edit names (the sender's claim about the original message), if `message` is an edit. */
+export function editProtocolKey(message: WAMessage | null | undefined): proto.IMessageKey | undefined {
+  return editProtocolOf(message)?.key ?? undefined
+}
+
+/**
+ * The edited version of `message` when it is an edit (a `protocolMessage` of type
+ * MESSAGE_EDIT, bare or inside an `editedMessage` wrapper) that names the message it
+ * edits: a `WAMessage` with the ORIGINAL message id and the new content. `undefined`
+ * for anything else.
+ */
+export function editedMessageOf(message: WAMessage | null | undefined): WAMessage | undefined {
+  const pm = editProtocolOf(message)
+  if (!pm?.editedMessage) return undefined
+  const originalId = pm.key?.id
+  if (typeof originalId !== 'string' || originalId === '' || !message?.key) return undefined
+  return { ...message, key: { ...message.key, id: originalId }, message: pm.editedMessage } as WAMessage
+}
+
+/**
+ * Whether `message` (emitted by this provider) is an edit of an earlier message. An edit
+ * keeps the original `ref.id`, so `ctx.reply`/`ctx.react` target the edited message; its
+ * `body` is the new text and `raw` is the edit stanza.
+ *
+ * @example
+ * ```ts
+ * bot.on('message', (m) => { if (isEditedMessage(m)) audit.log('edited', m.ref.id) })
+ * ```
+ */
+export function isEditedMessage(message: { raw?: unknown }): boolean {
+  const raw = message.raw
+  return typeof raw === 'object' && raw !== null && editedMessageOf(raw as WAMessage) !== undefined
+}
+
 /** Plain text of a (quoted) message: its text, or the caption of its media. */
 function textOf(content: proto.IMessage | null | undefined): string {
   const m = normalizeMessageContent(content)

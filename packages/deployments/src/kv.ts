@@ -25,7 +25,7 @@ import { randomUUID } from 'node:crypto'
 import type { DurableKv, JsonValue } from '@botmesh/core'
 import { TenantDocs } from '@botmesh/tenant-kv'
 import { assertDeploymentIds, assertListLimit } from './memory.js'
-import { heldByOther, type CommitInput, type DeploymentStore } from './store.js'
+import { heldByOther, type CommitInput, type DeploymentStore, versionsPage, versionsToPrune, type DeploymentListOptions } from './store.js'
 import { DeploymentExistsError, DeploymentNotFoundError, gateRunId, type Deployment, type GateRecord, type GateRun } from './types.js'
 
 interface BotDoc {
@@ -235,17 +235,44 @@ export class KvDeploymentStore implements DeploymentStore {
     return bot?.versions.includes(version) ? this.deployment(tenantId, botId, version, bot) : undefined
   }
 
-  async list(tenantId: string, botId: string, options: { limit?: number } = {}): Promise<Deployment[]> {
+  async list(tenantId: string, botId: string, options: DeploymentListOptions = {}): Promise<Deployment[]> {
     assertDeploymentIds(tenantId, botId)
     const limit = assertListLimit(options.limit, DEFAULT_LIST_LIMIT)
     const bot = await this.bot(tenantId, botId)
     if (!bot) return []
     const out: Deployment[] = []
-    for (const version of bot.versions.slice(0, limit)) {
+    for (const version of versionsPage(bot.versions, limit, options.after)) {
       const deployment = await this.deployment(tenantId, botId, version, bot)
       if (deployment) out.push(deployment)
     }
     return out
+  }
+
+  /**
+   * Drop the versions from the bot document first (one compare-and-set), then their
+   * version documents: a crash in between only leaves unreferenced documents, never a
+   * listed version without its document.
+   */
+  async prune(tenantId: string, botId: string, keep: number): Promise<number> {
+    assertDeploymentIds(tenantId, botId)
+    versionsToPrune([], null, keep) // validates keep even when the bot does not exist
+    let doomed: string[] = []
+    let docs: Record<string, string> = {}
+    await this.bots.in(tenantId).update(botId, (cur) => {
+      doomed = cur ? versionsToPrune(cur.versions, cur.activeVersion, keep) : []
+      if (!cur || doomed.length === 0) return undefined
+      const gone = new Set(doomed)
+      docs = { ...cur.docs }
+      const keptDocs: Record<string, string> = {}
+      for (const [version, id] of Object.entries(cur.docs ?? {})) if (!gone.has(version)) keptDocs[version] = id
+      return { ...cur, versions: cur.versions.filter((v) => !gone.has(v)), docs: keptDocs, updatedAt: this.clock() }
+    })
+    for (const version of doomed) {
+      const docId = docs[version]
+      if (docId !== undefined) await this.versions.in(tenantId, botId, version).delete(docId).catch(() => undefined)
+      else await this.versions.in(tenantId, botId).delete(version).catch(() => undefined) // previous layout
+    }
+    return doomed.length
   }
 
   async recordGateRun(run: Omit<GateRun, 'id'>): Promise<GateRun> {

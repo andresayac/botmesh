@@ -69,8 +69,9 @@ Ignored: private notes, `incoming` messages, *agent bot* messages, other inboxes
 | Option | Default | Description |
 | --- | --- | --- |
 | `baseUrl`, `apiKey`, `accountId`, `inboxId` | — | Chatwoot connection (required). |
-| `webhookToken` / `webhookSecret` | — | At least one (or `insecureNoWebhookAuth: true`). Token in `?token=`, `x-chatwoot-token` or `Authorization: Bearer`. HMAC in `x-chatwoot-signature` (hex, accepts `sha256=`), over the raw body or over `${timestamp}.${body}` when `x-chatwoot-timestamp` is present. |
+| `webhookToken` / `webhookSecret` | — | At least one (or `insecureNoWebhookAuth: true`). Token in `?token=`, `x-chatwoot-token` or `Authorization: Bearer`. HMAC in `x-chatwoot-signature` (hex, accepts `sha256=`), over `${timestamp}.${body}` with `x-chatwoot-timestamp` within `webhookToleranceSec` (300 s). A signature over the bare body is replayable, so it is rejected unless `webhookAllowUntimedSignature: true`. |
 | `webhookToleranceSec` | `300` | Allowed clock skew of the signed timestamp. |
+| `webhookAllowUntimedSignature` | `false` | Also accept a signature without `x-chatwoot-timestamp`. It never expires, so a captured request can be replayed. |
 | `autoHandoff` | `true` | Pause the bot when an agent replies. |
 | `resumeOnResolve` | `true` | Resume the bot when the conversation is resolved. |
 | `resolveOnResume` | `true` | Resolve the conversation when the bot resumes another way. |

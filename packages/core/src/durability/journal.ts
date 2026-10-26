@@ -9,7 +9,7 @@
 import { StaleLeaseError } from './errors.js'
 import type { DurableKv, DurableKvIndex, DurableTable } from './kv.js'
 import type {
-  ClaimedSend, ClaimOptions, DurabilityBackend, InboxAppend, InboxJournal, InboxRecord, InboxState,
+  ClaimedSend, ClaimOptions, OutboxClaimOptions, DurabilityBackend, InboxAppend, InboxJournal, InboxRecord, InboxState,
   LeaseOptions, OutboxError, OutboxJournal, OutboxPut, OutboxRecord, OutboxState,
 } from './types.js'
 import type { MessageRef } from '../core/provider.js'
@@ -211,9 +211,12 @@ function outboxIndex(r: OutboxRecord): DurableKvIndex {
   return { due: r.nextAttemptAt, done: null }
 }
 
-function outboxClaimable(r: OutboxRecord, now: number, owner: string, reclaimOwn: boolean): boolean {
+function outboxClaimable(r: OutboxRecord, now: number, owner: string, reclaimOwn: boolean, ownBefore?: number): boolean {
   if (r.state === 'pending' || r.state === 'failed') return r.nextAttemptAt <= now
-  if (r.state === 'sending') return (r.leaseUntil ?? 0) <= now || (reclaimOwn && r.owner === owner)
+  if (r.state === 'sending') {
+    return (r.leaseUntil ?? 0) <= now ||
+      (reclaimOwn && r.owner === owner && (ownBefore === undefined || (r.leaseUntil ?? 0) < ownBefore))
+  }
   return false
 }
 
@@ -275,7 +278,7 @@ export class KvOutbox implements OutboxJournal {
       : { ...clearLease(r), state: 'failed', lastError: error, nextAttemptAt: o.retryAt ?? o.now })
   }
 
-  async claimDue(o: ClaimOptions): Promise<ClaimedSend[]> {
+  async claimDue(o: OutboxClaimOptions): Promise<ClaimedSend[]> {
     const reclaimOwn = o.reclaimOwn === true
     const max = reclaimOwn ? Number.POSITIVE_INFINITY : o.now
     const ids = await this.kv.range(this.table, 'due', max, reclaimOwn ? SCAN_LIMIT : Math.max(o.limit * 4, 64))
@@ -284,7 +287,7 @@ export class KvOutbox implements OutboxJournal {
       const entry = await this.kv.get(this.table, id)
       if (!entry) continue
       const r = JSON.parse(entry.value) as OutboxRecord
-      if (!outboxClaimable(r, o.now, o.owner, reclaimOwn)) continue
+      if (!outboxClaimable(r, o.now, o.owner, reclaimOwn, o.reclaimOwnBefore)) continue
       if (o.partitions && !o.partitions(r.chatId)) continue
       candidates.push(r)
     }
@@ -293,7 +296,7 @@ export class KvOutbox implements OutboxJournal {
     for (const c of candidates) {
       if (claimed.length >= o.limit) break
       const got = await this.mutate<ClaimedSend | null>(c.key, (r) => {
-        if (!r || !outboxClaimable(r, o.now, o.owner, reclaimOwn)) return { result: null }
+        if (!r || !outboxClaimable(r, o.now, o.owner, reclaimOwn, o.reclaimOwnBefore)) return { result: null }
         const record: OutboxRecord = { ...leased(r, o), state: 'sending' }
         return { write: record, result: { record, ambiguous: r.state === 'sending' } }
       })

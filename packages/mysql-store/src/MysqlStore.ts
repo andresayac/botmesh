@@ -404,10 +404,44 @@ export class MysqlStore implements IStore {
     const [rows] = await this.query(`SELECT data FROM \`${this.t.chats}\``)
     return rows.map((r) => fromJson<StoredChat>(r.data)).filter((c): c is StoredChat => c != null)
   }
-  /** Removes the chat record AND purges its message log (consistent with MemoryStore). */
+  /**
+   * Removes the chat record AND purges its message log (consistent with MemoryStore).
+   * Both go in ONE transaction on a dedicated connection,
+   * so a failure (or a crash) in the middle leaves both in place. A deadlock victim is
+   * retried, bounded.
+   */
   async deleteChat(chatId: string): Promise<void> {
-    await this.query(`DELETE FROM \`${this.t.messages}\` WHERE chat_id = ?`, [chatId])
-    await this.query(`DELETE FROM \`${this.t.chats}\` WHERE id = ?`, [chatId])
+    if (this.pool == null) {
+      throw new Error('MysqlStore: pool is not available — call start() first')
+    }
+    const conn = await this.pool.getConnection()
+    let reusable = true
+    try {
+      for (let attempt = 1; ; attempt++) {
+        let inTransaction = false
+        try {
+          await conn.query('START TRANSACTION')
+          inTransaction = true
+          await conn.query(`DELETE FROM \`${this.t.messages}\` WHERE chat_id = ?`, [chatId])
+          await conn.query(`DELETE FROM \`${this.t.chats}\` WHERE id = ?`, [chatId])
+          await conn.query('COMMIT')
+          return
+        } catch (err) {
+          if (inTransaction) {
+            try {
+              await conn.query('ROLLBACK')
+            } catch {
+              reusable = false // never hand a connection with an open transaction back to the pool
+            }
+          }
+          if (reusable && isDeadlock(err) && attempt < MAX_MERGE_ATTEMPTS) continue
+          throw err
+        }
+      }
+    } finally {
+      if (!reusable && conn.destroy) conn.destroy()
+      else conn.release()
+    }
   }
 
   /* Contacts -------------------------------------------------------------- */

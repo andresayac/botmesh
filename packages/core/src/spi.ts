@@ -56,7 +56,7 @@ export { computeBackoff, DEFAULT_BACKOFF } from './durability/backoff.js'
 export type {
   InboxJournal, InboxRecord, InboxState, InboxAppend,
   OutboxJournal, OutboxRecord, OutboxState, OutboxPut, OutboxError, ClaimedSend,
-  ClaimOptions, LeaseOptions,
+  ClaimOptions, OutboxClaimOptions, LeaseOptions,
 } from './durability/types.js'
 
 // Schedule stores

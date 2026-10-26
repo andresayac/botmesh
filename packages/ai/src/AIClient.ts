@@ -241,9 +241,20 @@ export class AIClient {
    */
   private async withTimeout<T>(op: (signal: AbortSignal) => Promise<T>, userSignal?: AbortSignal, ms = this.timeoutMs): Promise<T> {
     const ctrl = new AbortController()
-    const onUserAbort = () => ctrl.abort()
+    // The caller's abort cancels the request; a provider that honours its signal settles
+    // with its own error. One that ignores it is cut loose a macrotask later, so a `/reset`
+    // or a handler's abort never waits for `timeoutMs` (or forever with `0`).
+    let releaseTimer: ReturnType<typeof setTimeout> | undefined
+    let rejectUser: ((reason: unknown) => void) | undefined
+    const userAborted = new Promise<never>((_, reject) => { rejectUser = reject })
+    userAborted.catch(() => undefined)
+    const onUserAbort = () => {
+      ctrl.abort()
+      const reason: unknown = userSignal?.reason ?? new DOMException('This operation was aborted', 'AbortError')
+      releaseTimer = setTimeout(() => rejectUser?.(reason), 0)
+    }
     if (userSignal) {
-      if (userSignal.aborted) ctrl.abort()
+      if (userSignal.aborted) onUserAbort()
       else userSignal.addEventListener('abort', onUserAbort, { once: true })
     }
     // `abortInFlight()` (the bot stopped) cancels the request AND releases the caller,
@@ -259,9 +270,10 @@ export class AIClient {
     const cleanup = (): void => {
       if (userSignal) userSignal.removeEventListener('abort', onUserAbort)
       if (onStop) stop.removeEventListener('abort', onStop)
+      if (releaseTimer) clearTimeout(releaseTimer)
     }
     if (ms <= 0) {
-      try { return await Promise.race([op(ctrl.signal), stopped]) }
+      try { return await Promise.race([op(ctrl.signal), stopped, userAborted]) }
       finally { cleanup() }
     }
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -273,7 +285,7 @@ export class AIClient {
       timer = setTimeout(() => { const err = new AITimeoutError(ms); reject(err); ctrl.abort(err) }, ms)
     })
     try {
-      return await Promise.race([op(ctrl.signal), timeout, stopped])
+      return await Promise.race([op(ctrl.signal), timeout, stopped, userAborted])
     } finally {
       if (timer) clearTimeout(timer)
       cleanup()

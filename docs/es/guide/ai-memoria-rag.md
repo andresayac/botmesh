@@ -82,7 +82,7 @@ descartan: los datos borrados nunca vuelven.
 | `type` | `'per-user'` | `'per-user'` | Solo existe memoria por usuario (por `ctx.sender`). |
 | `maxFacts` | `number` | `50` | Hechos guardados por usuario; se descartan los más antiguos. |
 | `ttl` | `string \| number` | permanente | Vida de cada hecho (`'30d'`, `'12h'`, ms). Re-afirmarlo lo renueva. |
-| `maxFactLength` | `number` | `300` | Los hechos más largos se rechazan. |
+| `maxFactLength` | `number` | `300` | Los hechos más largos se rechazan. `aiPlugin()` lanza `RangeError` si no es un entero positivo, y también con un `ttl` o un `maxFacts` que no pueden funcionar. |
 | `inject` | `boolean` | `true` | Inyecta los hechos en el prompt de sistema. |
 | `injectInGroups` | `boolean` | `false` | También los inyecta cuando el usuario escribe en un grupo. |
 | `autoExtract` | `boolean \| object` | `false` | Extracción en segundo plano (ver arriba). |

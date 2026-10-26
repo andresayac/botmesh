@@ -122,7 +122,7 @@ async function readLocalMedia(path: string, kind: OutboundContent['kind']): Prom
     const code = (err as { code?: string }).code
     const shown = path.length > 80 ? `${path.slice(0, 80)}…` : path
     throw Object.assign(
-      new UnsupportedContentError(kind, `Email ${kind}: ${JSON.stringify(shown)} is neither an http(s) URL nor a readable file (${code ?? 'read failed'}).`),
+      new UnsupportedContentError(kind, `Email ${kind}: ${JSON.stringify(shown)} is neither an http(s) URL nor a readable file (${code ?? 'read failed'}). Pass a URL, a Buffer or { buffer }.`),
       { cause: err },
     )
   }

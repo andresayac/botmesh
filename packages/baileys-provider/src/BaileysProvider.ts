@@ -46,7 +46,7 @@ import {
   RecipientUnreachableError,
   PayloadTooLargeError,
 } from '@botmesh/core'
-import { classifyDisconnect, backoffDelay, MAX_RECONNECT_ATTEMPTS } from './reconnect.js'
+import { classifyDisconnect, backoffDelay, resolveReconnectPolicy, type ReconnectPolicy } from './reconnect.js'
 import { putBounded } from './boundedMap.js'
 import { assertBrowserConfig, resolveBrowser, type BrowserConfig } from './browser.js'
 import { IdentityStore, canonicalKey, type IdentityKey } from './identity.js'
@@ -55,7 +55,7 @@ import {
   PollTracker, POLL_CACHE_MAX, decryptVote, fromStoredPoll, pollCreationOf, pollUpdateOf, recordVote, tally, toStoredPoll,
   type PollStore, type TrackedPoll,
 } from './polls.js'
-import { contextInfoOf, isSystemMessage, toInbound } from './toInbound.js'
+import { contextInfoOf, editedMessageOf, editProtocolKey, isSystemMessage, toInbound } from './toInbound.js'
 import { parseBaileysMediaRef, serializeBaileysMediaRef } from './mediaRef.js'
 import { toCallEvent } from './toCallEvent.js'
 import { toOutbound } from './toOutbound.js'
@@ -102,7 +102,20 @@ export interface BaileysProviderConfig {
   syncFullHistory?: boolean
   ignoreNewsletters?: boolean
   ignoreBroadcasts?: boolean
-  reconnect?: boolean
+  /**
+   * Reconnect after a transient close. `false` never reconnects; `true` (default) uses
+   * the default policy; an object tunes it: `{ maxAttempts (10), baseMs (1000), capMs (30000) }`
+   * (exponential backoff from `baseMs`, capped at `capMs`, giving up after `maxAttempts`).
+   */
+  reconnect?: boolean | ReconnectPolicy
+  /**
+   * Message edits (a user editing a message they sent): `'deliver'` (default) emits them
+   * as messages that keep the ORIGINAL `ref.id` with the new text (`isEditedMessage()`
+   * tells them apart); `'ignore'` drops them. Only text edits are delivered, and only of a
+   * message this process has seen (its message cache), sent in the same chat by the user who
+   * sends the edit; any other edit is dropped.
+   */
+  editedMessages?: 'deliver' | 'ignore'
   qr?: QrConfig
   /**
    * Phone number (international format) for pairing-code login instead of QR.
@@ -240,6 +253,8 @@ export class BaileysProvider implements IProvider<WAMessage> {
   private retired = new WeakSet<object>()
   /** Digits of `config.pairingCode`, or undefined for QR mode. */
   private readonly pairingPhone: string | undefined
+  /** The validated reconnect policy (`config.reconnect`). */
+  private readonly reconnectPolicy: Required<ReconnectPolicy>
 
   constructor(config: BaileysProviderConfig = {}) {
     this.config = config
@@ -252,6 +267,10 @@ export class BaileysProvider implements IProvider<WAMessage> {
     resolveSessionDirectory(this.config.sessionsDir, this.config.session)
     assertBrowserConfig(config.browser)
     this.pairingPhone = pairingNumber(config.pairingCode)
+    this.reconnectPolicy = resolveReconnectPolicy(config.reconnect)
+    if (config.editedMessages !== undefined && config.editedMessages !== 'deliver' && config.editedMessages !== 'ignore') {
+      throw new TypeError(`BaileysProvider: editedMessages must be 'deliver' or 'ignore', got ${JSON.stringify(config.editedMessages)}`)
+    }
     if (Array.isArray(config.browser)) {
       this.logger.warn(
         { browser: config.browser },
@@ -581,6 +600,20 @@ export class BaileysProvider implements IProvider<WAMessage> {
     // An encrypted vote is a poll-vote event, never a message.
     if (pollUpdateOf(message)) { await this.onPollVote(message); return }
     if (type !== 'notify' || message.key?.fromMe) return
+    // A text edit: delivered as the original message (same ref.id) with the new text.
+    const edited = editedMessageOf(message)
+    if (edited) {
+      if (this.config.editedMessages === 'ignore') return
+      await this.seedIdentity(message.key)
+      if (!this.isAuthenticEdit(message, edited.key.id!)) {
+        this.logger.debug({ editedId: edited.key.id }, 'edit of a message this sender did not send in this chat (or one this process has not seen); dropped')
+        return
+      }
+      const inbound = toInbound(edited, this.identity)
+      if (inbound.type !== 'text' || !inbound.ref.id) return
+      this.fan({ kind: 'message', message: { ...inbound, raw: message, ref: { ...inbound.ref, native: edited } } })
+      return
+    }
     // Reactions, deletes, edits, stubs: not user messages (reactions arrive as `messages.reaction`).
     if (isSystemMessage(message)) return
     // Seed identity from the authoritative mapping for bare-LID keys.
@@ -878,6 +911,35 @@ export class BaileysProvider implements IProvider<WAMessage> {
       : this.jidCandidates(key.remoteJid, key.remoteJidAlt)
   }
 
+  /**
+   * Whether an edit stanza may rewrite the message it names. The protocol key is
+   * chosen by the sending client, so it is only a claim: the edit must name this
+   * chat and the original must be a message this process has seen in this chat,
+   * sent by the same user who sends the edit (never one of the bot's own). An edit
+   * of another participant's message, of a message from another chat or of an
+   * original that is no longer cached is dropped, as WhatsApp clients do.
+   */
+  private isAuthenticEdit(message: WAMessage, originalId: string): boolean {
+    const key = message.key as IdentityKey
+    const pm = editProtocolKey(message)
+    const chat = this.jidCandidates(key.remoteJid, key.remoteJidAlt)
+    const isGroup = (key.remoteJid ?? '').endsWith('@g.us')
+    const named = this.jidCandidates(pm?.remoteJid, (pm as IdentityKey | undefined)?.remoteJidAlt)
+    // A 1:1 edit names the chat from the sender's side (the bot) or from ours (the sender).
+    if (!this.overlaps(named, isGroup ? chat : [...chat, ...this.self().jids])) return false
+    const sender = isGroup ? this.jidCandidates(key.participant, key.participantAlt, message.participant) : chat
+    for (const jid of chat) {
+      const cached = this.msgCache.get(`${jid}:${originalId}`)
+      if (!cached?.key) continue
+      if (cached.key.fromMe) return false
+      const author = isGroup
+        ? this.jidCandidates(cached.key.participant, (cached.key as IdentityKey).participantAlt, cached.participant)
+        : this.jidCandidates(cached.key.remoteJid, (cached.key as IdentityKey).remoteJidAlt)
+      return this.overlaps(author, sender)
+    }
+    return false
+  }
+
   /** Whether two JID-form lists name the same user or chat. */
   private overlaps(a: string[], b: string[]): boolean {
     return a.some((jid) => b.includes(jid))
@@ -945,12 +1007,12 @@ export class BaileysProvider implements IProvider<WAMessage> {
         return
       }
       if (action === 'reconnect-now') { this.scheduleReconnect(0); return }
-      if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-        this.logger.error({ statusCode, detail: message, attempts: this.reconnectAttempts }, `giving up after ${MAX_RECONNECT_ATTEMPTS} reconnect attempts`)
+      if (this.reconnectAttempts >= this.reconnectPolicy.maxAttempts) {
+        this.logger.error({ statusCode, detail: message, attempts: this.reconnectAttempts }, `giving up after ${this.reconnectPolicy.maxAttempts} reconnect attempts`)
         this.fan({ kind: 'connection', update: { state: 'closed', reason: 'transient', detail: { code: statusCode, message: 'reconnect exhausted' } } })
         return
       }
-      const delay = backoffDelay(this.reconnectAttempts)
+      const delay = backoffDelay(this.reconnectAttempts, this.reconnectPolicy.baseMs, this.reconnectPolicy.capMs)
       this.reconnectAttempts++
       this.logger.warn({ statusCode, detail: message, attempt: this.reconnectAttempts, delayMs: delay }, 'connection closed — reconnecting with backoff')
       this.scheduleReconnect(delay)
@@ -985,15 +1047,15 @@ export class BaileysProvider implements IProvider<WAMessage> {
    */
   private onReconnectStartFailed(error: unknown): void {
     if (this.isShuttingDown) return
-    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    if (this.reconnectAttempts >= this.reconnectPolicy.maxAttempts) {
       this.logger.error(
         { err: error, attempts: this.reconnectAttempts },
-        `giving up: start() failed ${MAX_RECONNECT_ATTEMPTS} times during reconnect`,
+        `giving up: start() failed ${this.reconnectPolicy.maxAttempts} times during reconnect`,
       )
       this.fan({ kind: 'connection', update: { state: 'closed', reason: 'transient', detail: { message: 'reconnect exhausted' } } })
       return
     }
-    const delay = backoffDelay(this.reconnectAttempts)
+    const delay = backoffDelay(this.reconnectAttempts, this.reconnectPolicy.baseMs, this.reconnectPolicy.capMs)
     this.reconnectAttempts++
     this.logger.warn({ err: error, attempt: this.reconnectAttempts, delayMs: delay }, 'reconnect start() failed — retrying with backoff')
     this.scheduleReconnect(delay)

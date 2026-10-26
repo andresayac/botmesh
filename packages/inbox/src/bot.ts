@@ -10,18 +10,21 @@ import type { Bot, ChatId, MessageContext, PluginSpec } from '@botmesh/core'
 import type { Inbox } from './inbox.js'
 
 export interface AttachInboxOptions {
-  /** Tenant the conversations belong to (default `'local'`, the `BotConfig.tenantId` default). */
+  /**
+   * Tenant the conversations belong to. Default: the bot's own tenant (`BotConfig.tenantId`,
+   * itself `'local'` when unset), so a bot of tenant `'acme'` never files them elsewhere.
+   */
   tenantId?: string
 }
 
 /** The plugin behind {@link attachInbox}. */
 export function inboxProjectionPlugin(inbox: Inbox, options: AttachInboxOptions = {}): PluginSpec {
-  const tenantId = options.tenantId ?? 'local'
   return {
     name: 'inbox-projection',
     version: '0.1.0',
     install(ctx) {
       const bot = ctx.bot
+      const tenantId = options.tenantId ?? botTenant(bot)
       // Same contract as the core's own errors: the `'error'` event payload is `{ error }`, and
       // with nobody listening it is logged instead (an unheard `'error'` emit would throw and
       // turn a backend blip into an unhandled rejection).
@@ -58,4 +61,10 @@ export function inboxProjectionPlugin(inbox: Inbox, options: AttachInboxOptions 
  */
 export function attachInbox(bot: Bot, inbox: Inbox, options: AttachInboxOptions = {}): () => void {
   return bot.plug(inboxProjectionPlugin(inbox, options))
+}
+
+/** The bot's tenant: its store is namespaced by `BotConfig.tenantId` (`'local'` when unset). */
+function botTenant(bot: Bot): string {
+  const namespace = (bot.getStore() as { namespace?: { tenantId?: unknown } }).namespace
+  return typeof namespace?.tenantId === 'string' && namespace.tenantId !== '' ? namespace.tenantId : 'local'
 }

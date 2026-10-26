@@ -167,7 +167,7 @@ bot.plug(aiPlugin({
 }))
 ```
 
-`baseUrl` is optional (endpoints compatible with the OpenAI API).
+`baseUrl` is optional (endpoints compatible with the OpenAI API). The output-token cap goes in `max_completion_tokens` for OpenAI itself (no `baseUrl`, `api.openai.com` or `*.openai.azure.com`) and in `max_tokens` for any other `baseUrl` (vLLM, LM Studio, gateways). Set `maxTokensField` to override it.
 
 ### Ollama (local, no API key)
 
@@ -264,7 +264,8 @@ process alive, even with `timeoutMs: 0`.
 | `maxTokens` | `number` | `4096` (anthropic) / `1024` (openai) | output token limit (on ollama only if you set it, as `options.num_predict`; the 1024 cap of memory extraction does not apply there). On reasoning models it includes the thinking tokens |
 | `effort` | `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'` | — | reasoning effort (only Anthropic uses it; it is not sent to models that reject it, such as Claude Haiku 4.5) |
 | `thinking` | `'auto' \| 'adaptive' \| 'off' \| { budgetTokens }` | `'auto'` | Anthropic thinking: `'auto'` uses adaptive thinking only on models that support it (Opus/Sonnet 4.6+, Haiku 5+); on `claude-haiku-4-5` and older it sends nothing. `{ budgetTokens }` = budgeted thinking on older models. A 400 mentioning `thinking`/`effort` is retried once without the parameter |
-| `timeoutMs` | `number` | `60000` | timeout per non-streaming call; when it expires it aborts the request and rejects, so a hung provider cannot block the chat queue (`0` disables it, not recommended) |
+| `timeoutMs` | `number` | `60000` | timeout of each model call. Non-streaming calls: a total deadline; when it expires it aborts the request and rejects, so a hung provider cannot block the chat queue. Streaming: an idle timeout that restarts on every chunk. `0` disables it (not recommended) |
+| `maxTokensField` | `'max_tokens' \| 'max_completion_tokens'` | by `baseUrl` | OpenAI-compatible providers: the field of the output-token cap |
 | `context.maxMessages` | `number` | `20` | stored history window per chat (always starts with a user turn; empty answers are not stored) |
 | `autoReply` | `boolean` | `true` | registers the catch-all autoresponder |
 | `resetCommand` | `boolean` | `true` | registers `/reset` |

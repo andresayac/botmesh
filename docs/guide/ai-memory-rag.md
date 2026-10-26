@@ -78,7 +78,7 @@ an extraction is running, its facts are dropped: erased data never comes back.
 | `type` | `'per-user'` | `'per-user'` | Only per-user memory exists (keyed by `ctx.sender`). |
 | `maxFacts` | `number` | `50` | Facts kept per user; the oldest are dropped first. |
 | `ttl` | `string \| number` | permanent | Lifetime of each fact (`'30d'`, `'12h'`, ms). Re-stating a fact renews it. |
-| `maxFactLength` | `number` | `300` | Longer facts are rejected. |
+| `maxFactLength` | `number` | `300` | Longer facts are rejected. `aiPlugin()` throws a `RangeError` for a value that is not a positive integer, and for a `ttl` or `maxFacts` that cannot work. |
 | `inject` | `boolean` | `true` | Inject the facts into the system prompt. |
 | `injectInGroups` | `boolean` | `false` | Also inject them when the user writes in a group. |
 | `autoExtract` | `boolean \| object` | `false` | Background extraction (see above). |

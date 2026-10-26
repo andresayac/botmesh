@@ -79,3 +79,11 @@ export class InboxNotFoundError extends Error {
     this.name = 'InboxNotFoundError'
   }
 }
+
+/** Options of `listNotes`. */
+export interface InboxNoteListOptions {
+  /** Maximum notes (default 100). */
+  limit?: number
+  /** Continue after this note id (the last one of the previous page). */
+  after?: string
+}

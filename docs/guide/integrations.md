@@ -124,6 +124,7 @@ with a persistent store. Chat ids are only used as opaque keys.
 | `baseUrl`, `apiKey`, `accountId`, `inboxId` | — | Chatwoot connection (required) |
 | `webhookToken` / `webhookSecret` | — | At least one, or `insecureNoWebhookAuth: true` |
 | `webhookToleranceSec` | `300` | Allowed skew of a signed timestamp |
+| `webhookAllowUntimedSignature` | `false` | Also accept a signature without `x-chatwoot-timestamp` (replayable) |
 | `autoHandoff` | `true` | Pause the bot when an agent replies |
 | `resumeOnResolve` | `true` | Resume the bot when the conversation is resolved |
 | `resolveOnResume` | `true` | Resolve the conversation when the bot resumes for another reason |
@@ -151,8 +152,11 @@ on shutdown and in tests) and `client` (`ChatwootClient`).
 - The token is accepted in `?token=`, `x-chatwoot-token` or
   `Authorization: Bearer`. The HMAC-SHA256 signature goes in
   `x-chatwoot-signature` (hex, `sha256=` prefix allowed) and is computed
-  over the **raw body**, or over `${timestamp}.${body}` when
-  `x-chatwoot-timestamp` is present. Comparisons are constant-time.
+  over `${timestamp}.${rawBody}`, with `x-chatwoot-timestamp` (seconds)
+  within `webhookToleranceSec` (300). A signature over the bare body never
+  expires, so a captured request could be replayed: it is rejected unless
+  you set `webhookAllowUntimedSignature: true`. Comparisons are
+  constant-time.
 - `handleWebhook` answers `401` without valid auth, `400` on invalid JSON
   and `503` before the plugin is installed; it never throws.
   `webhookHandler` only accepts `POST` and caps the body at 1 MiB.
@@ -252,10 +256,24 @@ used without a bot: `new TicketDesk({ storage: memoryTicketStorage() })`.
   Build the panel on `bot.injectTools.tickets` and protect it yourself.
 - `list()` with a filter that may include `closed` scans every id from 1
   to the last one.
-- One process per store namespace: the desk keeps its index and id
-  sequence in memory and serializes writes **in this process only**. Two
-  replicas over the same store would hand out the same id and overwrite
-  each other's index; run the tickets plugin on one replica.
+- The default storage (the store's cursors) has no compare-and-set, so it
+  is for one process per store namespace: two replicas over it would hand
+  out the same id and overwrite each other's index. For replicas, pass a
+  storage with `setIf`, such as `durableKvTicketStorage(kv)` over the same
+  `DurableKv` (Postgres, Redis, SQLite or a file) on every replica. The desk
+  then re-reads the index on every call, claims ids with a compare-and-set
+  and retries a lost write (`maxRetries`, default 20, then
+  `TicketContentionError`). With `reuseOpen` (the default) it also claims
+  the chat's open ticket with a compare-and-set, so two replicas creating a
+  ticket for the same chat at once (from a handler, the API or the manager)
+  get the same one. A failed create never leaves an open ticket that `get`,
+  `list` and `queue` cannot see.
+
+  ```ts
+  import { durableKvTicketStorage, ticketsPlugin } from '@botmesh/tickets'
+
+  bot.plug(ticketsPlugin({ storage: durableKvTicketStorage(kv) }))
+  ```
 
 ## Moderation
 
@@ -325,6 +343,9 @@ anyone `isAdmin(chatId, userId)` approves, and the list from
 `provider.groups.getAdmins(chatId)`, cached for `adminCacheMs` (default 5
 min) and invalidated on `promote`/`demote` group events. When someone
 leaves (`remove`), their warnings, mute and spam window are forgotten.
+The state stays bounded on a long-running bot: expired mutes and stale
+admin lists are swept, and at most `maxTrackedUsers` (default 10,000)
+warning counters are kept, dropping the least recently warned user's.
 
 `ctx.tools.moderation`: `mute`, `unmute`, `isMuted`, `warnings`,
 `resetWarnings`, `kick` (resolves an `ActionResult`), `setGroupRules`

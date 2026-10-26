@@ -138,6 +138,32 @@ export interface ClusterRetryOptions {
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
+/** Client methods that manage the connection itself: never guarded by {@link guardNotStarted}. */
+const LIFECYCLE_METHODS = new Set(['connect', 'quit', 'disconnect', 'close', 'destroy', 'on', 'once', 'off', 'addListener', 'removeListener', 'removeAllListeners', 'emit', 'duplicate'])
+
+/**
+ * Wrap a client a component created (and owns) so a command issued while it is not
+ * connected (before `start()`, or after `stop()`) throws an error that says so, instead
+ * of node-redis' bare "The client is closed". Methods run on the real client.
+ * @internal
+ */
+export function guardNotStarted<T extends object>(client: T, owner = 'RedisStore'): T {
+  return new Proxy(client, {
+    get(target, prop) {
+      const value: unknown = Reflect.get(target, prop, target)
+      if (typeof value !== 'function') return value
+      const fn = value as (...args: unknown[]) => unknown
+      if (typeof prop !== 'string' || LIFECYCLE_METHODS.has(prop)) return fn.bind(target)
+      return (...args: unknown[]) => {
+        if ((target as { isOpen?: boolean }).isOpen === false) {
+          throw new Error(`${owner}: the Redis client is not connected; call store.start() before using the store (bot.start() does it), and do not use it after stop()`)
+        }
+        return fn.apply(target, args)
+      }
+    },
+  })
+}
+
 /**
  * Wrap a client so commands rejected with `TRYAGAIN` (a multi-key command during a slot
  * migration), `CLUSTERDOWN`, or a redirect node-redis did not follow are retried with a backoff (default 10 attempts, 20 ms

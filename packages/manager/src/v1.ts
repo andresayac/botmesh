@@ -90,7 +90,11 @@ export function createControlPlaneApi(manager: BotManager, options: ControlPlane
 }
 function authenticate(req: IncomingMessage, keys: readonly ControlPlaneApiKey[]): ControlPlaneApiKey | undefined {
   const presented = header(req, 'x-api-key') ?? header(req, 'authorization')?.replace(/^Bearer\s+/i, '')
-  return presented ? keys.find((key) => verifyApiKey(presented, key.secret)) : undefined
+  if (!presented) return undefined
+  // Compare against every key (no early exit) so timing does not reveal which one matched.
+  let found: ControlPlaneApiKey | undefined
+  for (const key of keys) if (verifyApiKey(presented, key.secret) && !found) found = key
+  return found
 }
 function header(req: IncomingMessage, name: string): string | undefined { const raw = req.headers[name]; return Array.isArray(raw) ? raw[0] : raw }
 function pathname(url: string | undefined): string { try { return new URL(url ?? '/', 'http://manager.local').pathname } catch { return '/' } }

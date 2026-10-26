@@ -118,7 +118,9 @@ bot.use(
 
 If the process crashes mid-flow, the next message from that user **resumes at the exact step** where it left off. That message only wakes the flow: a pending `ask`/`choose` is sent again (`¿Tu email?` above), the flow goes on with the state it had, and the user's next reply is its answer (with [durability](./durability) the waking message is the answer instead). The checkpoint is written when a step completes, so a flow still waiting on its **first** question has nothing saved yet: after a restart, the user starts it again with its trigger.
 
-`bot.stop()` and a failed `bot.start()` close the database; the next `bot.start()` reopens it, so a bot can be stopped and started again with the same `SQLiteStore` (and the `schedules()` / `durability()` backends it handed out). An in-memory database (`file: ':memory:'`) is never closed by `stop()`: closing it would discard its data.
+`bot.stop()` and a failed `bot.start()` close the database; the next `bot.start()` reopens it, so a bot can be stopped and started again with the same `SQLiteStore` (and the `schedules()` / `durability()` backends it handed out). An in-memory database (`file: ':memory:'`) is never closed by `stop()`: closing it would discard its data. Calling `schedules()` or `durability()` on a stopped store reopens it the same way.
+
+SQLite stores text as UTF-8, where a lone UTF-16 surrogate becomes U+FFFD, so two different ids could share a row. `saveMessage` and `setCursor` reject a message id, chat id, cursor key or cursor value with a lone surrogate (`TypeError`), and a lookup with one finds nothing.
 
 ## RedisStore (distributed)
 
@@ -193,6 +195,11 @@ Semantics every store must keep:
   omit what it does not know. The `Bot` already does: a message without a
   display name (or chat name) never erases the one stored.
 - `deleteChat` also deletes that chat's message log.
+- `getMessagesByChat` returns the newest messages first. The persistent stores
+  order them by `timestamp`, so re-saving a message with a new timestamp moves
+  it. `MemoryStore` keeps a re-saved message at the position of its first
+  save (it updates the row in place); do not rely on re-saves to reorder the
+  log.
 - `maxMessagesPerChat` is opt-in in the persistent stores; by default their
   message log is unbounded. `MemoryStore` is the exception: it keeps 1000
   messages per chat by default because its log lives in RAM (`Infinity`

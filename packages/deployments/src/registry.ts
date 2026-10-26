@@ -6,7 +6,7 @@
 
 import { DeploymentGateError, normalizeGateResult, toJsonValue, type DeploymentCandidate, type DeploymentGate, type GateResult } from './gate.js'
 import { MemoryDeploymentStore } from './memory.js'
-import type { DeploymentStore } from './store.js'
+import type { DeploymentListOptions, DeploymentStore } from './store.js'
 import { DeploymentExistsError, type Deployment, type GateRecord, type GateRun } from './types.js'
 
 /** Options for {@link DeploymentRegistry.publish}. */
@@ -29,6 +29,12 @@ export interface DeploymentRegistryOptions {
   maxGateDetailsBytes?: number
   /** Time source (epoch ms). Default `Date.now`. */
   clock?: () => number
+  /**
+   * Keep at most this many versions per bot: after each publish the oldest ones beyond it
+   * are deleted (never the active one; see {@link DeploymentRegistry.prune}). Default: keep
+   * every version.
+   */
+  retainVersions?: number
 }
 
 const DEFAULT_GATE_TIMEOUT_MS = 10 * 60_000
@@ -44,12 +50,17 @@ export class DeploymentRegistry {
   private readonly gateTimeoutMs: number
   private readonly maxGateDetailsBytes: number
   private readonly clock: () => number
+  private readonly retainVersions: number | undefined
 
   constructor(store: DeploymentStore = new MemoryDeploymentStore(), options: DeploymentRegistryOptions = {}) {
     this.store = store
     this.gateTimeoutMs = options.gateTimeoutMs ?? DEFAULT_GATE_TIMEOUT_MS
     this.maxGateDetailsBytes = options.maxGateDetailsBytes ?? DEFAULT_MAX_GATE_DETAILS_BYTES
     this.clock = options.clock ?? Date.now
+    this.retainVersions = options.retainVersions
+    if (this.retainVersions !== undefined && !(Number.isInteger(this.retainVersions) && this.retainVersions >= 1)) {
+      throw new RangeError('retainVersions must be a positive integer')
+    }
     if (!(Number.isFinite(this.gateTimeoutMs) && this.gateTimeoutMs > 0)) throw new RangeError('gateTimeoutMs must be a positive number')
     if (!(Number.isInteger(this.maxGateDetailsBytes) && this.maxGateDetailsBytes > 0)) throw new RangeError('maxGateDetailsBytes must be a positive integer')
   }
@@ -68,8 +79,11 @@ export class DeploymentRegistry {
    */
   async publish(tenantId: string, botId: string, version: string, artifact: string, options: PublishOptions = {}): Promise<Deployment> {
     if (!version || !artifact) throw new Error('version and artifact are required')
-    if (!options.gate) return this.store.commit({ tenantId, botId, version, artifact })
-    return this.publishGated(tenantId, botId, version, artifact, options.gate)
+    const deployment = options.gate
+      ? await this.publishGated(tenantId, botId, version, artifact, options.gate)
+      : await this.store.commit({ tenantId, botId, version, artifact })
+    if (this.retainVersions !== undefined) await this.store.prune(tenantId, botId, this.retainVersions)
+    return deployment
   }
 
   private async publishGated(tenantId: string, botId: string, version: string, artifact: string, gate: DeploymentGate): Promise<Deployment> {
@@ -141,9 +155,20 @@ export class DeploymentRegistry {
     return this.store.activate(tenantId, botId, version)
   }
 
-  /** All versions of a bot in publish order. */
-  list(tenantId: string, botId: string, options?: { limit?: number }): Promise<Deployment[]> {
+  /**
+   * Versions of a bot in publish order, a page at a time: `limit` (default 1000) and
+   * `after` (the last version of the previous page).
+   */
+  list(tenantId: string, botId: string, options?: DeploymentListOptions): Promise<Deployment[]> {
     return this.store.list(tenantId, botId, options)
+  }
+
+  /**
+   * Delete the oldest versions so at most `keep` remain, never the active one. Returns
+   * how many were deleted. Their gate runs stay as an audit trail.
+   */
+  prune(tenantId: string, botId: string, keep: number): Promise<number> {
+    return this.store.prune(tenantId, botId, keep)
   }
 
   /** The persisted gate runs of one version (passes and failures), oldest first. */

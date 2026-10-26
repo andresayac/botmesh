@@ -129,6 +129,7 @@ usan como claves opacas.
 | `baseUrl`, `apiKey`, `accountId`, `inboxId` | — | Conexión a Chatwoot (obligatorias) |
 | `webhookToken` / `webhookSecret` | — | Al menos una, o `insecureNoWebhookAuth: true` |
 | `webhookToleranceSec` | `300` | Desfase admitido del timestamp firmado |
+| `webhookAllowUntimedSignature` | `false` | Aceptar también una firma sin `x-chatwoot-timestamp` (repetible) |
 | `autoHandoff` | `true` | Pausar el bot cuando responde un agente |
 | `resumeOnResolve` | `true` | Reanudar el bot al resolver la conversación |
 | `resolveOnResume` | `true` | Resolver la conversación cuando el bot se reanuda por otra vía |
@@ -156,8 +157,11 @@ pendiente, útil al apagar y en tests) y `client` (`ChatwootClient`).
 - El token se acepta en `?token=`, `x-chatwoot-token` o
   `Authorization: Bearer`. La firma HMAC-SHA256 va en
   `x-chatwoot-signature` (hex, admite el prefijo `sha256=`) y se calcula
-  sobre el **body crudo**, o sobre `${timestamp}.${body}` si llega
-  `x-chatwoot-timestamp`. Las comparaciones son de tiempo constante.
+  sobre `${timestamp}.${rawBody}`, con `x-chatwoot-timestamp` (segundos)
+  dentro de `webhookToleranceSec` (300). Una firma sobre el body solo no
+  caduca nunca, así que una petición capturada se podría repetir: se
+  rechaza salvo con `webhookAllowUntimedSignature: true`. Las comparaciones
+  son de tiempo constante.
 - `handleWebhook` responde `401` sin autenticación válida, `400` con JSON
   inválido y `503` antes de que el plugin esté instalado; nunca lanza.
   `webhookHandler` solo acepta `POST` y limita el body a 1 MiB.
@@ -261,10 +265,25 @@ memoria no cambia. `TicketDesk` también se puede usar sin bot:
   Construye el panel sobre `bot.injectTools.tickets` y protégelo tú.
 - `list()` con un filtro que pueda incluir `closed` recorre todos los ids
   desde 1 hasta el último.
-- Un proceso por namespace del store: el desk guarda su índice y la
-  secuencia de ids en memoria y serializa las escrituras **solo en este
-  proceso**. Dos réplicas sobre el mismo store repartirían el mismo id y se
-  pisarían el índice; ejecuta el plugin de tickets en una sola réplica.
+- El almacenamiento por defecto (los cursores del store) no tiene
+  compare-and-set, así que sirve para un proceso por namespace del store:
+  dos réplicas sobre él repartirían el mismo id y se pisarían el índice.
+  Para réplicas, pasa un almacenamiento con `setIf`, como
+  `durableKvTicketStorage(kv)` sobre el mismo `DurableKv` (Postgres, Redis,
+  SQLite o un archivo) en todas las réplicas. El desk relee entonces el
+  índice en cada llamada, reclama los ids con compare-and-set y reintenta
+  una escritura perdida (`maxRetries`, 20 por defecto; después
+  `TicketContentionError`). Con `reuseOpen` (por defecto) también reclama
+  con compare-and-set el ticket abierto del chat, así que dos réplicas que
+  crean a la vez un ticket para el mismo chat (desde un handler, la API o
+  el manager) obtienen el mismo. Un `create` que falla nunca deja un ticket
+  abierto invisible para `get`, `list` y `queue`.
+
+  ```ts
+  import { durableKvTicketStorage, ticketsPlugin } from '@botmesh/tickets'
+
+  bot.plug(ticketsPlugin({ storage: durableKvTicketStorage(kv) }))
+  ```
 
 ## Moderación
 
@@ -335,7 +354,11 @@ Los administradores se saltan todas las reglas (`adminBypass`, por defecto
 lista de `provider.groups.getAdmins(chatId)`, en caché durante
 `adminCacheMs` (por defecto 5 min) e invalidada con los eventos de grupo
 `promote`/`demote`. Cuando alguien sale (`remove`), se olvidan sus
-advertencias, su silencio y su ventana de spam.
+advertencias, su silencio y su ventana de spam. El estado no crece sin
+límite en un bot de larga duración: los silencios vencidos y las listas de
+administradores caducadas se barren, y se guardan como mucho
+`maxTrackedUsers` (10 000 por defecto) contadores de advertencias; se
+descarta el del usuario advertido hace más tiempo.
 
 `ctx.tools.moderation`: `mute`, `unmute`, `isMuted`, `warnings`,
 `resetWarnings`, `kick` (resuelve un `ActionResult`), `setGroupRules`

@@ -53,7 +53,8 @@ export interface DiscordProviderConfig {
   /**
    * Time allowed for each REST request (send, edit, delete, typing, reactions,
    * interaction callbacks), body included, in ms. A request that takes longer rejects
-   * with a `ProviderError` ("timed out"). Default 60 000.
+   * with a `ProviderError` ("timed out"). Default 60 000. File uploads use
+   * `uploadTimeoutMs`.
    */
   requestTimeoutMs?: number
   /**
@@ -86,6 +87,10 @@ export interface DiscordProviderConfig {
    * unsupported.
    */
   reactionMemory?: number
+  /** @deprecated Use {@link DiscordProviderConfig.autoAcknowledgeMs} (same meaning; setting both to different values throws). */
+  autoAckMs?: number | false
+  /** Time allowed for a REST request that uploads files, in ms. Default 300 000. */
+  uploadTimeoutMs?: number
   debug?: boolean
   logger?: LoggerLike
 }
