@@ -52,6 +52,7 @@
     "pino": "^10.3.1"
   },
   "devDependencies": {
+    "@botmesh/server": "workspace:^",
     "@types/node": "^26.1.1",
     "typescript": "^7.0.2",
     "vite": "^7.3.7",

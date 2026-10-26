@@ -78,6 +78,13 @@ export interface IngressRequest {
   /** Path without query string. */
   path: string
   query: URLSearchParams
+  /**
+   * The query string exactly as received, without the leading `?` (`'tenant=a%20b&flag'`).
+   * The ingress hands `path?rawQuery` to `ingest` so providers that sign the URL
+   * (Twilio) see the bytes the sender signed; `query.toString()` re-encodes it.
+   * Adapters that omit it fall back to `query.toString()`.
+   */
+  rawQuery?: string
   headers: IngressHeaders
   /**
    * Read the whole raw body. Must reject with `BodyTooLargeError` once more

@@ -241,8 +241,9 @@ one-way: build a new ingress to serve again.
 ## Provider notes
 
 The ingress calls `provider.ingest(rawBody, headers, requestUrl)`, where
-`requestUrl` is the request path with its query string (`/hook?token=…`).
-Providers that authenticate a token in the URL read it from there:
+`requestUrl` is the request path with its query string (`/hook?token=…`),
+exactly as received (not re-encoded, so a URL signature such as Twilio's
+still matches). Providers that authenticate a token in the URL read it from there:
 
 | Provider | Route setup |
 | --- | --- |

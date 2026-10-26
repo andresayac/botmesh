@@ -83,8 +83,9 @@ describe('ingress hardening: statuses returned by ingest()', () => {
 
 describe('ingress hardening: request targets', () => {
   it('splitUrl reduces an absolute-form target to its path', () => {
-    expect(splitUrl('http://example.com/webhook?token=a')).toEqual({ path: '/webhook', query: new URLSearchParams('token=a') })
-    expect(splitUrl('https://example.com')).toEqual({ path: '/', query: new URLSearchParams() })
+    expect(splitUrl('http://example.com/webhook?token=a')).toEqual({ path: '/webhook', query: new URLSearchParams('token=a'), rawQuery: 'token=a' })
+    expect(splitUrl('https://example.com')).toEqual({ path: '/', query: new URLSearchParams(), rawQuery: '' })
+    expect(splitUrl('/hook?t=a%20b&flag').rawQuery).toBe('t=a%20b&flag')
     expect(splitUrl('*').path).toBe('*')
   })
 

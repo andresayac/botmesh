@@ -17,6 +17,7 @@ export async function serveFetch(ingress: Ingress, request: Request): Promise<Re
     method: request.method,
     path: url.pathname,
     query: url.searchParams,
+    rawQuery: url.search.slice(1),
     headers: headersRecord(request.headers),
     readBody: (limit, timeoutMs) => readWebBody(request, limit, timeoutMs),
   })

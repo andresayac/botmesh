@@ -39,14 +39,17 @@ const ABSOLUTE_FORM = /^[a-z][a-z0-9+.-]*:\/\/[^/?#]*/i
 /**
  * Split `req.url` into path + query without trusting it as an absolute URL. An
  * absolute-form target (`http://host/path?q`) is reduced to its path; the
- * authority is ignored, never used for routing.
+ * authority is ignored, never used for routing. `rawQuery` is the query string
+ * as received (without `?`), for providers that sign the exact URL.
  */
-export function splitUrl(url: string | undefined): { path: string; query: URLSearchParams } {
+export function splitUrl(url: string | undefined): { path: string; query: URLSearchParams; rawQuery: string } {
   const raw = (url ?? '/').replace(ABSOLUTE_FORM, '')
   const q = raw.indexOf('?')
+  const rawQuery = q >= 0 ? raw.slice(q + 1) : ''
   return {
     path: q >= 0 ? raw.slice(0, q) || '/' : raw || '/',
-    query: new URLSearchParams(q >= 0 ? raw.slice(q + 1) : ''),
+    query: new URLSearchParams(rawQuery),
+    rawQuery,
   }
 }
 
@@ -121,11 +124,12 @@ function writeNow(req: IncomingMessage, res: ServerResponse, response: IngressRe
  * use {@link createNodeHandler} or a framework adapter instead.
  */
 export function serveNode(ingress: Ingress, req: NodeRequestLike, res: ServerResponse, opts: ServeNodeOptions = {}): void {
-  const { path, query } = splitUrl(req.url)
+  const { path, query, rawQuery } = splitUrl(req.url)
   ingress.handle({
     method: req.method ?? 'GET',
     path: opts.path ?? path,
     query,
+    rawQuery,
     headers: req.headers,
     readBody: (limit, timeoutMs) => readNodeBody(req, limit, timeoutMs),
   }).then((response) => {

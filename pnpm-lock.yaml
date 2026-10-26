@@ -1262,6 +1262,9 @@ importers:
         specifier: ^10.3.1
         version: 10.3.1
     devDependencies:
+      '@botmesh/server':
+        specifier: workspace:^
+        version: link:../server
       '@types/node':
         specifier: ^26.1.1
         version: 26.1.1
