@@ -39,4 +39,22 @@ describe.each([
       expect(actual).toBe(expected)
     }
   }, 30_000)
+
+  it('answers /id in a DM, as the page tells admins to do to learn their id', async () => {
+    const md = await readFile(join(root, page), 'utf8')
+    expect(md).toContain('`/id`')
+    const ws = await exampleWorkspace()
+    cleanup.push(ws.dispose)
+    const url = await ws.write('bot.ts', exampleModuleSource(md, page, { imports: { '@botmesh/core': src('index.ts'), '@botmesh/baileys': null } }))
+    let printed = ''
+    const session = new DevSession({ load: () => import(url), write: (t) => { printed += t }, user: 'ana', echo: true, settleMs: 50 })
+    expect(await session.start()).toBe(true)
+    try {
+      await session.handleLine('/id')
+      await session.drain()
+      expect(printed).toMatch(/bot › [^\n]*\bana\b/)
+    } finally {
+      await session.stop()
+    }
+  }, 30_000)
 })

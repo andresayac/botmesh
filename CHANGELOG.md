@@ -33,6 +33,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 - FAQ: textos del bot en inglés en la versión EN y en español (con `lang: 'es'`) en la ES.
 - `CONTRIBUTING.md`: modo prerelease `beta`, lista de paquetes al día, excepciones de `console.*` y cómo cubren los tests de `@botmesh/ai` las versiones de los SDK.
 
+### Docs: revisión de los ejemplos de grupo, handoff, IA y avanzados (2026-10)
+- **Bot de grupo** (EN/ES): el ejemplo enchufa `slashCommandsPlugin`; la página pedía enviar `/id` para conocer el id de un administrador, pero sin el plugin `/id` no existía y en privado contestaba el catch-all. Aclara que `/id` muestra el id del chat (en privado, el del usuario). Test nuevo en `docs-examples-group-bot.test.ts`.
+- **Handoff humano** (EN/ES): el temporizador de inactividad usa `async () => { await bot.resume(...) }`; `() => bot.resume(...)` devuelve `Promise<boolean>` y no compila contra el tipo `() => void | Promise<void>` de `bot.delay()`.
+- **IA con RAG** y **webhooks de la Cloud API** (EN/ES): quitadas las notas "en npm desde la beta" de `@botmesh/rag` y `@botmesh/server` (ya son públicos; la nota de prerelease vive en Inicio rápido).
+
 ### `@botmesh/messenger`: prueba de release de la beta (2026-10)
 - **Texto saliente sin recortes:** una lista envía su texto antes de la plantilla genérica (que no tiene encabezado y lo perdía); el texto de `buttons` que pasa de los 640 caracteres de la plantilla de botones sale antes como texto plano (Graph rechazaba el envío); `buttons` sin botones es texto; el texto de una tarjeta o lista de más de 2000 caracteres se divide en varios mensajes.
 - Las etiquetas de botones y plantillas se cortan en límites de grafema (una secuencia de emoji con ZWJ se partía en otro símbolo).

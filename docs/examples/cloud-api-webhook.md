@@ -200,7 +200,7 @@ check on: never deploy without it (and never set `allowUnsignedWebhooks`).
 On `SIGTERM` the server stops accepting webhooks (Meta retries what it could
 not deliver) and the bot drains the replies in flight.
 
-`@botmesh/server` (on npm from the beta) packages the same
+`@botmesh/server` packages the same
 ingress with concurrency limits, timeouts and adapters for Express, Fastify
 and Hono: see [Webhook server](/guide/server).
 
