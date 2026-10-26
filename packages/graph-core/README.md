@@ -12,7 +12,7 @@ pnpm add @botmesh/graph-core
 
 Node.js 22 or later, ESM only. It depends only on `@botmesh/core` and Node's built-in `crypto`.
 
-> **Prerelease.** Until the stable release, botmesh packages are published under a prerelease dist-tag instead of `latest`: add it to the command (`pnpm add @botmesh/graph-core@alpha`, or `@beta` during the beta).
+> **Prerelease.** Until the stable release, npm's `latest` tag may lag behind (it can stay on the first prerelease published). Add the prerelease dist-tag to get the newest build (`pnpm add @botmesh/graph-core@alpha`, or `@beta` during the beta).
 
 ## Quick start: a verified webhook endpoint
 

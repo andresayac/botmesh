@@ -19,7 +19,7 @@ Node's global `fetch`: no Telegram SDK, and media downloads go through the SSRF-
 pnpm add @botmesh/core @botmesh/telegram
 ```
 
-> **Prerelease.** Until the stable release, botmesh packages are published under a prerelease dist-tag instead of `latest`: add it to the command (`pnpm add @botmesh/core@alpha @botmesh/telegram@alpha`, or `@beta` during the beta).
+> **Prerelease.** Until the stable release, npm's `latest` tag may lag behind (it can stay on the first prerelease published). Add the prerelease dist-tag to get the newest build (`pnpm add @botmesh/core@alpha @botmesh/telegram@alpha`, or `@beta` during the beta).
 
 Create a bot with [@BotFather](https://t.me/BotFather) and keep the token.
 

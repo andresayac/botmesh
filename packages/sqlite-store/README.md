@@ -15,7 +15,7 @@ Best fit: **one bot process** on a VPS or in a container. For several replicas s
 pnpm add @botmesh/sqlite-store better-sqlite3
 ```
 
-> **Prerelease.** Until the stable release, botmesh packages are published under a prerelease dist-tag instead of `latest`: add it to the command (`pnpm add @botmesh/sqlite-store@alpha`, or `@beta` during the beta).
+> **Prerelease.** Until the stable release, npm's `latest` tag may lag behind (it can stay on the first prerelease published). Add the prerelease dist-tag to get the newest build (`pnpm add @botmesh/sqlite-store@alpha`, or `@beta` during the beta).
 
 `better-sqlite3` is a peer dependency (`^11.7.0 || ^12.0.0 || ^13.0.0`, all three tested), a native module with prebuilt binaries for common platforms:
 
