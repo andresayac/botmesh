@@ -4,6 +4,19 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### `@botmesh/telegram`: revisión para salir de alpha (2026-10)
+- **Revisión exhaustiva** del provider como usuario exigente y como atacante: ejemplos del README ejecutados, paquete instalado desde tarball en un proyecto limpio (nodenext + bundler), escenarios de extremo a extremo con `Bot` contra una Bot API falsa por HTTP real (long polling, webhook con secreto, botones, flows, ediciones, media, 40 chats en paralelo, 429/502, ciclos stop/start) y fuzzing con generador con semilla.
+- **`stop()` ya no se cuelga:** esperaba completo el `retry_after` de un 429 o el backoff de error (hasta 60 s) antes de volver; ahora la espera se aborta y su timer se libera.
+- **`ready` inmediato:** el primer `getUpdates` usa `timeout: 0`, así `await bot.ready` no espera un `pollTimeout` entero (30 s) cuando no hay mensajes.
+- **Timeouts de cliente (`requestTimeoutMs`, 120 s por defecto):** una conexión medio abierta dejaba el bucle de polling (o un envío) colgado para siempre; el long poll usa `pollTimeout` + hasta 15 s de margen.
+- **El token nunca sale en errores ni logs:** un fallo de red de `fetch` (p. ej. un `baseUrl` mal escrito) citaba la URL con el token y acababa en el `warn` del bucle de polling. Ahora es un `ProviderError` con el método y la causa redactada.
+- **Updates malformados:** un payload con tipos inesperados (`entities` no iterable, `photo: [null]`...) lanzaba dentro de `ingest()` (500 en el host y reintentos infinitos de Telegram) o del bucle de polling. El normalizador valida cada campo; lo que no puede normalizar se registra sin contenido y se descarta.
+- **`ingest()` acepta `Buffer`/`Uint8Array`** (lo que entrega `@botmesh/server` por defecto) y lee la cabecera del secreto en cualquier capitalización, también desde `Headers` de Fetch.
+- **Comandos de grupo `/menu@MiBot`** llegan a `bot.command('menu')` (opción nueva `username` cuando `selfId` evita `getMe`).
+- **Errores de configuración claros:** token ausente, `baseUrl` sin http(s) o tiempos negativos lanzan `TypeError` en el constructor; un string de media que no es URL ni archivo explica cómo reutilizar un `file_id`.
+- El texto de los botones inline se corta por puntos de código (antes podía partir un emoji).
+- README corregido: el ejemplo de webhook lanzaba (faltaba `webhookSecret`) y el de descarga de media no compilaba; ahora usan `ingest(body, headers)` y `loadMediaOf`.
+
 ### Prueba de extremo a extremo de lo publicado (2026-10)
 - **Validación real:** desde una carpeta fuera del repo se instalaron los diez paquetes publicados y se ejercitaron imports, `MockProvider` con flows y conversaciones, y `@botmesh/sqlite-store` (chats, contactos, mensajes, checkpoints con compare-and-set, conversaciones, cursores, datos por usuario y persistencia entre instancias): 12 comprobaciones del humo y 14 del store en verde. El scaffolder publicado (`pnpm dlx create-botmesh@alpha`) generó un proyecto e `npm install` lo dejó con 92 paquetes y 0 vulnerabilidades.
 - **Bug encontrado y corregido (proyecto recién generado):** `dev`/`start` usaban `--env-file .env`, y un proyecto nuevo solo trae `.env.example`. Node parsea ese flag **también después** del nombre del script, así que el arranque moría con `node: .env: not found` (exit 9) antes de ejecutar una línea. Ahora se usa **`--env-file-if-exists`** (el `.env` se carga si está y, si no, se arranca con los valores por defecto), `botmesh dev` acepta el flag, y `engines.node` del proyecto generado sube a **`>=22.12`** (el flag existe desde Node 22.9). Verificado con y sin `.env`.

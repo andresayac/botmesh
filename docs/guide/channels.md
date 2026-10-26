@@ -209,8 +209,16 @@ const hooked = new TelegramProvider({
 
 - Inline keyboards, native polls, reactions, message edits.
 - `ctx.stream()` uses native drafts in private chats and edits elsewhere.
-- In webhook mode `ingest()` parses a JSON **string** (or an object): with
-  `@botmesh/server` mount it with `body: 'text'`.
+- In webhook mode `ingest(body, headers)` takes the raw bytes, the JSON
+  string or the parsed object, and checks the `X-Telegram-Bot-Api-Secret-Token`
+  header (any case, plain or Fetch `Headers`). `@botmesh/server` needs no
+  extra option.
+- **Group commands** addressed to the bot (`/menu@MyBot`) reach
+  `bot.command('menu')`: the provider drops the suffix when it names this bot
+  (username from `getMe`, or the `username` option when you pass `selfId`).
+- Every Bot API request has a client timeout (`requestTimeoutMs`, 120 s by
+  default; long polls get `pollTimeout` + 15 s), errors never carry the bot
+  token, and `bot.stop()` cuts the poll loop's retry waits at once.
 - **Edited messages** reach the bot as messages with the new text and the
   original `ref.id` (replies, reactions and edits target the edited message).
   `isEditedMessage(ctx)` tells them apart; the core deduper lets an edit
