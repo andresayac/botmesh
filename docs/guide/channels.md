@@ -159,6 +159,11 @@ const provider = new BaileysProvider({ session: 'my-bot' })
 - No native buttons or lists (WhatsApp Web dropped them): use `choose()`
   menus or `ctx.poll()`.
 - Anti-ban send rate limiting is on by default (`rateLimit`).
+- Reactions, deletes and edits arrive as events, never as messages, so a
+  catch-all handler or an open `ask` does not take them as text.
+- `ctx.voice()` and `ctx.sticker()` accept URLs and streams (downloaded with
+  the same SSRF checks as other media); `ctx.poll()` needs 2 to 12 unique
+  options.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/baileys-provider)
 

@@ -165,6 +165,12 @@ const provider = new BaileysProvider({ session: 'my-bot' })
   `choose()` o `ctx.poll()`.
 - El rate limiting anti-baneo de envíos está activado por defecto
   (`rateLimit`).
+- Las reacciones, los borrados y las ediciones llegan como eventos, nunca
+  como mensajes, así que un handler comodín o un `ask` abierto no los toman
+  como texto.
+- `ctx.voice()` y `ctx.sticker()` aceptan URLs y streams (descargados con los
+  mismos controles anti-SSRF que el resto de la media); `ctx.poll()` necesita
+  de 2 a 12 opciones distintas.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/baileys-provider)
 
