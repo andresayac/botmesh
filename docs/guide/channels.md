@@ -641,7 +641,14 @@ const provider = new EvolutionProvider({
 - LID/PN twins sent by Evolution are reconciled before emitting; pass
   `identityPersistence` to keep ids stable across restarts.
 - Polls, reactions, edits (text), typing and read receipts; buttons, lists
-  and cards degrade to numbered text; `template` is rejected.
+  and cards degrade to numbered text; `template` is rejected, and so is a
+  poll WhatsApp cannot carry (fewer than 2 or more than 12 options, empty or
+  repeated ones).
+- If Evolution stops offering QR codes before the number is paired
+  (`QRCODE_LIMIT`), the `connection` update is `closed` with reason
+  `sessionInvalid`: call `start()` again for a new QR.
+- Keep the instance webhook's `webhookByEvents` off: with it, Evolution adds
+  the event name to the URL and an exact-path route answers 404.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/evolution-provider)
 

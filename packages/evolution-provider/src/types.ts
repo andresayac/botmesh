@@ -58,6 +58,8 @@ export interface EvolutionProviderConfig {
 export interface EvolutionMessageKey {
   remoteJid?: string
   remoteJidAlt?: string
+  /** The original `remoteJid` (a LID) when Evolution replaced it with `senderPn`. */
+  previousRemoteJid?: string
   fromMe?: boolean
   id?: string
   participant?: string

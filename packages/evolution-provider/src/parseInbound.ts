@@ -151,7 +151,8 @@ export function parseMessage(data: EvolutionMessage, ctx: ParseContext): Inbound
     ? remote
     // senderPn/senderLid describe the stanza sender — the bot itself on fromMe — so only
     // remoteJidAlt (the peer's twin) may be linked to the chat then.
-    : ctx.identity.resolve(remote, key.remoteJidAlt, ...(key.fromMe ? [] : [key.senderPn, key.senderLid])) ?? remote
+    // previousRemoteJid is the peer's LID that Evolution swapped for senderPn (same caveat on fromMe).
+    : ctx.identity.resolve(remote, key.remoteJidAlt, ...(key.fromMe ? [] : [key.senderPn, key.senderLid, key.previousRemoteJid])) ?? remote
   const senderId = senderFor(key, group, chatId, ctx) ?? (key.fromMe ? 'me' : chatId)
 
   const reaction = rec(m.reactionMessage)
@@ -258,14 +259,38 @@ function parseStatus(data: Record<string, unknown>, ctx: ParseContext): InboundE
   }
 }
 
+/**
+ * Baileys disconnect code → reason, as `@botmesh/baileys` classifies it: logged out (401),
+ * bad session (500) and multidevice mismatch (411) need a new pairing; conflict (440) and
+ * forbidden (403) must not be fought; anything else is transient.
+ */
+function closeReason(code: number): DisconnectReason {
+  if (code === 401 || code === 500 || code === 411) return 'sessionInvalid'
+  if (code === 440 || code === 403) return 'sessionTakenOver'
+  return 'transient'
+}
+
 function parseConnection(data: Record<string, unknown>): InboundEvent | undefined {
   const state = str(data.state)
   if (state === 'open') return { kind: 'connection', update: { state: 'ready' } }
   if (state === 'connecting') return { kind: 'connection', update: { state: 'connecting' } }
+  const code = Number(data.statusReason)
   if (state === 'close') {
-    const code = Number(data.statusReason)
-    const reason: DisconnectReason = code === 401 ? 'sessionInvalid' : code === 440 ? 'sessionTakenOver' : 'transient'
-    return { kind: 'connection', update: { state: 'closed', reason, detail: Number.isFinite(code) ? { code } : undefined } }
+    return { kind: 'connection', update: { state: 'closed', reason: closeReason(code), detail: Number.isFinite(code) ? { code } : undefined } }
+  }
+  if (state === 'refused') {
+    // Evolution gave up pairing (QRCODE_LIMIT reached): nothing else arrives until the instance connects again.
+    return {
+      kind: 'connection',
+      update: {
+        state: 'closed',
+        reason: 'sessionInvalid',
+        detail: {
+          ...(Number.isFinite(code) ? { code } : {}),
+          message: 'Evolution refused the connection: QR code limit reached without pairing. Call start() again (or connect the instance) to get a new QR.',
+        },
+      },
+    }
   }
   return undefined
 }
