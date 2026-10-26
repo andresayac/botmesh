@@ -47,7 +47,6 @@ const createBot = defineBot((provider) => {
   // 2. A quiz per participant: two people can play at the same time
   bot.use(
     flow({ pattern: 'quiz', match: 'contains' })
-      .id('quiz')
       .scope('group')
       .ask((ctx) => `🧠 ${nameOf(ctx)}, 2 + 2 = ?`, 'q1')
       .ask((ctx) => `🌍 ${nameOf(ctx)}, capital of France?`, 'q2')
@@ -79,14 +78,13 @@ const createBot = defineBot((provider) => {
     await ctx.reply('🧹 Scores cleared.')
   })
 
-  // 5. Answer when someone mentions the bot
-  bot.when(
-    (ctx) => ctx.isGroup && provider.selfId != null && ctx.mentions.includes(provider.selfId),
-    (ctx) => ctx.reply(`👋 Hi ${nameOf(ctx)}! Send "quiz" to play, /scores or /rules.`),
-  )
-
-  // 6. In groups, stay quiet about everything else; in a DM, explain
-  bot.onMessage((ctx) => (ctx.isGroup ? undefined : ctx.reply('Add me to a group and send "quiz" there.')))
+  // 5. In a DM, explain; in a group, answer only when someone mentions the bot
+  bot.onMessage((ctx) => {
+    if (!ctx.isGroup) return ctx.reply('Add me to a group and send "quiz" there.')
+    if (provider.selfId != null && ctx.mentions.includes(provider.selfId)) {
+      return ctx.reply(`👋 Hi ${nameOf(ctx)}! Send "quiz" to play, /scores or /rules.`)
+    }
+  })
 
   return bot
 })
@@ -109,18 +107,20 @@ if (isMainModule(import.meta)) {
 2. **One quiz per person.** Ana and Bob can be halfway through the quiz at
    the same time: each answer goes to its sender's conversation.
    `.scope('group')` keeps the quiz out of DMs. `{ pattern: 'quiz', match: 'contains' }`
-   also starts it from `@bot quiz`, and a flow with a non-string trigger needs
-   `.id()`. Scores are kept per group in a `Map`.
+   also starts it from `@bot quiz`, and the flow's id (`quiz`) comes from that
+   pattern. Scores are kept per group in a `Map`.
 3. **Commands for everyone.** `/rules` and `/scores` answer with the data of
    the group they are sent in.
 4. **Admin-only commands.** The bot checks `ctx.sender` against `ADMINS`. These
    are the bot's admins, not the group's: botmesh does not read a group's
    admin list, so keep yours in configuration (send `/id` to learn an id).
 5. **Mentions.** `ctx.mentions` lists the users a message mentions, and
-   `provider.selfId` is the bot's own id once connected. A function trigger
-   runs after the text triggers, so `@bot quiz` still starts the quiz.
-6. **Quiet in groups.** The catch-all replies only in a DM, so the bot does not
-   answer every message of the group.
+   `provider.selfId` is the bot's own id once connected. The catch-all checks
+   them, and it only sees what no other handler took, so `@bot quiz` still
+   starts the quiz.
+6. **Quiet in groups.** In a group the catch-all replies only to a mention, so
+   the bot does not answer every message of the group; in a DM it explains
+   how to use it.
 
 ## Try it
 

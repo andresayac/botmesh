@@ -100,6 +100,11 @@ if (isMainModule(import.meta)) {
   const bot = await createBot(new BaileysProvider({ session: 'orders-bot' }))
   bot.on('ready', () => console.log('✅ Connected'))
   await bot.start()
+  // Ctrl+C: stop the bot so the store writes orders.json before exiting
+  process.once('SIGINT', async () => {
+    await bot.stop()
+    process.exit(0)
+  })
 }
 ```
 
@@ -118,7 +123,9 @@ if (isMainModule(import.meta)) {
    `maxAttempts: 3` ends the conversation after three wrong answers.
 5. **Surviving restarts.** `MemoryStore({ file })` saves profiles and
    checkpoints to `orders.json` every minute and when the bot stops, and loads
-   them on start. Use
+   them on start. Nothing stops the bot on Ctrl+C by itself, so the start block
+   calls `bot.stop()` on `SIGINT`: without it, changes from the last minute
+   are lost. Use
    [SQLite or Redis](/guide/store) when several processes share the data.
 
 From outside a handler (a webhook from your shop, a scheduled job) the same

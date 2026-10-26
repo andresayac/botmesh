@@ -100,6 +100,11 @@ if (isMainModule(import.meta)) {
   const bot = await createBot(new BaileysProvider({ session: 'bot-pedidos' }))
   bot.on('ready', () => console.log('✅ Conectado'))
   await bot.start()
+  // Ctrl+C: para el bot para que el store escriba pedidos.json antes de salir
+  process.once('SIGINT', async () => {
+    await bot.stop()
+    process.exit(0)
+  })
 }
 ```
 
@@ -119,7 +124,9 @@ if (isMainModule(import.meta)) {
    pista, y `maxAttempts: 3` termina la conversación tras tres respuestas inválidas.
 5. **Sobrevivir a reinicios.** `MemoryStore({ file })` guarda perfiles y
    checkpoints en `pedidos.json` cada minuto y al parar el bot, y los carga al
-   arrancar. Usa [SQLite o Redis](/es/guide/store) cuando varios procesos
+   arrancar. Nada para el bot por sí solo con Ctrl+C, así que el bloque de
+   arranque llama a `bot.stop()` con `SIGINT`: sin él, se pierden los cambios
+   del último minuto. Usa [SQLite o Redis](/es/guide/store) cuando varios procesos
    comparten los datos.
 
 Fuera de un handler (un webhook de tu tienda, una tarea programada) el mismo

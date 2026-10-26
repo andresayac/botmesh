@@ -47,7 +47,6 @@ const createBot = defineBot((provider) => {
   // 2. Un quiz por participante: dos personas pueden jugar a la vez
   bot.use(
     flow({ pattern: 'quiz', match: 'contains' })
-      .id('quiz')
       .scope('group')
       .ask((ctx) => `🧠 ${nameOf(ctx)}, ¿2 + 2?`, 'q1')
       .ask((ctx) => `🌍 ${nameOf(ctx)}, ¿capital de Francia?`, 'q2')
@@ -79,14 +78,13 @@ const createBot = defineBot((provider) => {
     await ctx.reply('🧹 Puntos borrados.')
   })
 
-  // 5. Responde cuando alguien menciona al bot
-  bot.when(
-    (ctx) => ctx.isGroup && provider.selfId != null && ctx.mentions.includes(provider.selfId),
-    (ctx) => ctx.reply(`👋 ¡Hola ${nameOf(ctx)}! Envía "quiz" para jugar, /scores o /rules.`),
-  )
-
-  // 6. En grupos, calla ante todo lo demás; en privado, explica
-  bot.onMessage((ctx) => (ctx.isGroup ? undefined : ctx.reply('Añádeme a un grupo y envía "quiz" allí.')))
+  // 5. En privado, explica; en un grupo, responde solo cuando alguien menciona al bot
+  bot.onMessage((ctx) => {
+    if (!ctx.isGroup) return ctx.reply('Añádeme a un grupo y envía "quiz" allí.')
+    if (provider.selfId != null && ctx.mentions.includes(provider.selfId)) {
+      return ctx.reply(`👋 ¡Hola ${nameOf(ctx)}! Envía "quiz" para jugar, /scores o /rules.`)
+    }
+  })
 
   return bot
 })
@@ -109,8 +107,8 @@ if (isMainModule(import.meta)) {
 2. **Un quiz por persona.** Ana y Bob pueden ir por la mitad del quiz a la vez:
    cada respuesta va a la conversación de quien la envía. `.scope('group')`
    deja el quiz fuera de los chats privados. `{ pattern: 'quiz', match: 'contains' }`
-   también lo arranca desde `@bot quiz`, y un flujo con un trigger que no es un
-   string necesita `.id()`. Los puntos se guardan por grupo en un `Map`.
+   también lo arranca desde `@bot quiz`, y el id del flujo (`quiz`) sale de ese
+   patrón. Los puntos se guardan por grupo en un `Map`.
 3. **Comandos para todos.** `/rules` y `/scores` responden con los datos del
    grupo en el que se envían.
 4. **Comandos solo para administradores.** El bot compara `ctx.sender` con
@@ -118,11 +116,12 @@ if (isMainModule(import.meta)) {
    la lista de administradores de un grupo, así que guarda la tuya en la
    configuración (envía `/id` para ver un id).
 5. **Menciones.** `ctx.mentions` lista los usuarios que menciona un mensaje, y
-   `provider.selfId` es el id del propio bot una vez conectado. Un trigger de
-   función corre después de los triggers de texto, así que `@bot quiz` sigue
-   arrancando el quiz.
-6. **Silencio en grupos.** El catch-all solo responde en privado, así que el
-   bot no contesta a cada mensaje del grupo.
+   `provider.selfId` es el id del propio bot una vez conectado. El catch-all
+   las comprueba y solo ve lo que ningún otro handler tomó, así que `@bot quiz`
+   sigue arrancando el quiz.
+6. **Silencio en grupos.** En un grupo el catch-all solo responde a una
+   mención, así que el bot no contesta a cada mensaje del grupo; en privado
+   explica cómo usarlo.
 
 ## Pruébalo
 
