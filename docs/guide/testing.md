@@ -227,4 +227,5 @@ before the code runs.
 ## Next steps
 
 - [Terminal simulator](./dev-simulator): try the bot by hand
+- [Platform sandbox](./sandbox): test a real provider end to end against a local simulator of its platform
 - [Inspect & lint flows](./flow-tools)

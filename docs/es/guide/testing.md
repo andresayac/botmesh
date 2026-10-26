@@ -233,4 +233,5 @@ módulo antes de ejecutar el código.
 ## Siguientes pasos
 
 - [Simulador en la terminal](./simulador): prueba el bot a mano
+- [Sandbox de plataformas](./sandbox): prueba un provider real de extremo a extremo contra un simulador local de su plataforma
 - [Inspeccionar y validar flujos](./inspeccion-flujos)

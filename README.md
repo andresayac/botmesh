@@ -6,7 +6,7 @@ A modern, **transport-agnostic** framework for messaging bots: declarative flows
 
 ## Packages
 
-The monorepo has **44 packages**: 10 **Alpha** (publishable), 26 **Experimental** and 8 **Product** and infrastructure ones. They are not all equally mature, and the **Status** column says so plainly:
+The monorepo has **45 packages**: 10 **Alpha** (publishable), 27 **Experimental** and 8 **Product** and infrastructure ones. They are not all equally mature, and the **Status** column says so plainly:
 
 - **Alpha**: published on npm under the **`alpha` dist-tag** (install with `@alpha`; there is no `latest` yet).
 - **Experimental**: real, tested implementation, but the package is `private`. Not published yet and its API may change.
@@ -64,6 +64,7 @@ The monorepo has **44 packages**: 10 **Alpha** (publishable), 26 **Experimental*
 | **Tooling** | | |
 | [`create-botmesh`](packages/create-botmesh) | Alpha | CLI scaffolder (`npm create botmesh`), 10 templates: `baileys`, `meta`, `telegram`, `ai` and the use-case ones `games`, `support`, `store`, `restaurant`, `clinic`, `ai-full`. Every project ships an `AGENTS.md` for coding agents. |
 | [`eslint-plugin-botmesh`](packages/eslint-plugin) | Experimental | ESLint rules for bots: v1 API leftovers, blocking `runtime.enter`, async `install`, empty triggers, `ask` without timeout and per-user global state. |
+| [`@botmesh/sandbox`](packages/sandbox) | Experimental | Local simulators of WhatsApp Cloud API, Messenger, Instagram, Twilio, Gupshup, HighLevel, TikTok, Discord and Telegram (signed webhooks, realistic errors, request-shape checks) with a web chat UI: `pnpm sandbox`. Docker suites for Evolution API, WPPConnect, Chatwoot and Mailpit. |
 | [`@botmesh/mcp`](packages/mcp) | Experimental | Stdio MCP server (no dependencies) for agents: validates, compiles, renders, lints, migrates and diffs JSON flow documents without starting a bot; with `--docs` it searches these guides. |
 
 Start with the [core README](packages/core/README.md) for the quickstart.

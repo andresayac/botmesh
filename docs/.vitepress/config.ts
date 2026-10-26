@@ -66,6 +66,7 @@ const enSidebar = {
       text: 'Develop & test',
       items: [
         { text: 'Terminal simulator', link: '/guide/dev-simulator' },
+        { text: 'Platform sandbox', link: '/guide/sandbox' },
         { text: 'Testing', link: '/guide/testing' },
         { text: 'Inspect & lint flows', link: '/guide/flow-tools' },
         { text: 'JSON flow schema', link: '/guide/flow-schema' },
@@ -148,6 +149,7 @@ const esSidebar = {
       text: 'Desarrollo y tests',
       items: [
         { text: 'Simulador en la terminal', link: '/es/guide/simulador' },
+        { text: 'Sandbox de plataformas', link: '/es/guide/sandbox' },
         { text: 'Testing', link: '/es/guide/testing' },
         { text: 'Inspeccionar y validar flujos', link: '/es/guide/inspeccion-flujos' },
         { text: 'Esquema JSON de flujos', link: '/es/guide/flow-schema' },

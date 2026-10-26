@@ -60,6 +60,7 @@
 - [Threat model: assets, trust boundaries, threats T1-T12 and residual risks](https://github.com/andresayac/botmesh/blob/main/docs/guide/threat-model.md)
 - [MCP server (@botmesh/mcp): validate/analyze/migrate/diff flow documents, docs search](https://github.com/andresayac/botmesh/blob/main/docs/guide/mcp.md)
 - [Terminal simulator (botmesh dev)](https://github.com/andresayac/botmesh/blob/main/docs/guide/dev-simulator.md)
+- [Platform sandbox (local simulators of every channel + web chat)](https://github.com/andresayac/botmesh/blob/main/docs/guide/sandbox.md)
 - [Testing (createTestBot, MockProvider, chaos)](https://github.com/andresayac/botmesh/blob/main/docs/guide/testing.md)
 - [Inspect & lint flows (bot.describe/bot.lint)](https://github.com/andresayac/botmesh/blob/main/docs/guide/flow-tools.md)
 - [Golden transcripts](https://github.com/andresayac/botmesh/blob/main/docs/guide/golden-transcripts.md)
