@@ -6,8 +6,9 @@
  */
 
 import type { ChatId, MessageContext, UserId } from '@botmesh/core'
-import { allowedInviteCodes, findInviteLinks, findLinks, hostMatches, isAllowedInviteLink, linkHost } from './links.js'
+import { allowedInviteCodes, findInviteLinks, findLinks, hostMatches, isAllowedInviteLink, linkHost, linkScanText } from './links.js'
 import { RateWindow } from './rateWindow.js'
+import { validateConfig, validateGroupRules } from './validate.js'
 import { compileTerms, firstMatch, type CompiledTerm } from './words.js'
 import type {
   ActionResult,
@@ -45,6 +46,28 @@ export const DEFAULT_ADMIN_CACHE_MS = 5 * 60_000
 export const DEFAULT_MAX_TRACKED_USERS = 10_000
 /** Mutes and admin lists are swept for expired entries once their map passes this size. */
 const SWEEP_FLOOR = 10_000
+/** After `getAdmins` fails, wait this long (at most the cache TTL) before asking again. */
+const ADMIN_RETRY_MS = 30_000
+/** Longest display name put into a warning (in code points). */
+const MAX_NAME_LENGTH = 64
+/** Bidi controls and invisible separators a display name could use to garble the warning. */
+const NAME_INVISIBLE = /[\u00AD\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g
+
+/**
+ * A sender's display name is user input: drop control/bidi characters, collapse
+ * whitespace (no line breaks in the warning) and cap the length.
+ */
+function cleanName(raw: unknown, fallback: string): string {
+  if (typeof raw !== 'string') return fallback
+  const clean = raw
+    .replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, ' ')
+    .replace(NAME_INVISIBLE, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!clean) return fallback
+  const chars = Array.from(clean)
+  return chars.length > MAX_NAME_LENGTH ? `${chars.slice(0, MAX_NAME_LENGTH).join('').trimEnd()}…` : clean
+}
 const DEFAULT_WARNINGS: WarningPolicy = { max: 3, then: 'kick' }
 
 /** Built-in user-visible texts, picked by the chat language (`ctx.lang`, then the bot's default; English otherwise). */
@@ -115,11 +138,9 @@ export class Moderator implements ModerationController {
     private readonly logger: ModeratorLogger,
     private readonly sendWarning: WarnSender,
   ) {
+    validateConfig(config)
     this.now = config.now ?? Date.now
     this.maxTracked = config.maxTrackedUsers ?? DEFAULT_MAX_TRACKED_USERS
-    if (!Number.isInteger(this.maxTracked) || this.maxTracked < 1) {
-      throw new RangeError(`moderation: maxTrackedUsers must be a positive integer, got ${String(config.maxTrackedUsers)}`)
-    }
     for (const [chatId, rules] of Object.entries(config.groups ?? {})) this.groupOverrides.set(chatId, rules)
   }
 
@@ -156,6 +177,7 @@ export class Moderator implements ModerationController {
   }
 
   setGroupRules(chatId: ChatId, rules: ModerationRules | false | undefined): void {
+    if (rules !== undefined) validateGroupRules(chatId, rules)
     if (rules === undefined) this.groupOverrides.delete(chatId)
     else this.groupOverrides.set(chatId, rules)
     this.resolvedCache.delete(chatId)
@@ -164,6 +186,9 @@ export class Moderator implements ModerationController {
   /* ---------------------------------------------------------------- state */
 
   mute(chatId: ChatId, userId: UserId, ms?: number): void {
+    if (ms !== undefined && (typeof ms !== 'number' || Number.isNaN(ms) || ms <= 0)) {
+      throw new RangeError(`moderation: mute() duration must be a positive number of ms (Infinity mutes until unmute), got ${String(ms)}`)
+    }
     const resolved = this.resolve(chatId)
     const duration = ms ?? (resolved ? resolved.rules.muteMs : undefined) ?? this.config.muteMs ?? DEFAULT_MUTE_MS
     const key = keyOf(chatId, userId)
@@ -236,7 +261,14 @@ export class Moderator implements ModerationController {
 
   private async isAdmin(chatId: ChatId, userId: UserId, rules: ModerationRules): Promise<boolean> {
     if (rules.admins?.includes(userId)) return true
-    if (this.config.isAdmin && (await this.config.isAdmin(chatId, userId))) return true
+    if (this.config.isAdmin) {
+      try {
+        if (await this.config.isAdmin(chatId, userId)) return true
+      } catch (err) {
+        // A failing staff lookup must not drop every group message: treat as non-admin.
+        this.logger.warn({ err }, 'moderation: isAdmin threw; treating sender as non-admin')
+      }
+    }
     const groups = this.config.provider?.groups
     if (!groups?.getAdmins) return false
     const ttl = this.config.adminCacheMs ?? DEFAULT_ADMIN_CACHE_MS
@@ -253,8 +285,18 @@ export class Moderator implements ModerationController {
           this.adminSweepAt = Math.max(SWEEP_FLOOR, this.adminCache.size * 2)
         }
       } catch (err) {
-        this.logger.warn({ err }, 'moderation: could not fetch group admins; treating sender as non-admin')
-        return false
+        // Keep the last known list (or none) and retry after a short backoff, instead of
+        // calling the provider (and logging) for every message while it is failing.
+        const backoff = Math.min(ttl, ADMIN_RETRY_MS)
+        this.logger.warn(
+          { err, retryInMs: backoff },
+          entry
+            ? 'moderation: could not fetch group admins; using the last known list'
+            : 'moderation: could not fetch group admins; treating senders as non-admins',
+        )
+        entry = { at: this.now() - ttl + backoff, admins: entry?.admins ?? new Set() }
+        this.adminCache.delete(chatId)
+        this.adminCache.set(chatId, entry)
       }
     }
     return entry.admins.has(userId)
@@ -281,10 +323,10 @@ export class Moderator implements ModerationController {
         return { kind: 'ignore', reason: 'muted' }
       }
     }
-    if (bypass && (await this.isAdmin(chatId, userId, rules))) return { kind: 'allow' }
-
     const hit = this.findViolation(ctx, resolved)
     if (!hit) return { kind: 'allow' }
+    // Admin lookups (a user callback, a provider call) only for messages that broke a rule.
+    if (bypass && (await this.isAdmin(chatId, userId, rules))) return { kind: 'allow' }
     const report = await this.enforce(ctx, rules, hit.rule, hit.detail, hit.actions)
     return { kind: 'violation', report }
   }
@@ -317,6 +359,7 @@ export class Moderator implements ModerationController {
 
   private checkLinks(body: string, rule: LinkFilterRule): string | undefined {
     if (!body) return undefined
+    body = linkScanText(body)
     const patterns = rule.invitePatterns ?? []
     // Exact code match only: a substring match would let any URL that merely
     // contains an allowed code through.
@@ -445,7 +488,7 @@ export class Moderator implements ModerationController {
     const reason = rules.messages?.reasons?.[rule] ?? defaults.reasons[rule]
     // One pass: a display name such as '{reason}' is user input and must stay literal.
     const values: Record<string, string> = {
-      name: ctx.senderInfo?.displayName ?? ctx.pushName ?? defaults.anonymous,
+      name: cleanName(ctx.senderInfo?.displayName ?? ctx.pushName, defaults.anonymous),
       reason,
       count: String(count),
       max: policy ? String(policy.max) : '∞',

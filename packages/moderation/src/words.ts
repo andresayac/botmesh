@@ -9,13 +9,24 @@
  */
 
 /**
+ * Invisible format characters (zero-width space/joiners, soft hyphen, word joiner, BOM,
+ * bidi controls) and Hangul fillers: inserted inside a word they would hide it from the
+ * filter (`sp\u200Bam`).
+ */
+const INVISIBLE = /[\p{Cf}\u115F\u1160\u3164\uFFA0]/gu
+
+/**
+ * Compatibility forms are folded too (NFKD): fullwidth `ｓｐａｍ` and mathematical
+ * `𝐬𝐩𝐚𝐦` read as `spam`.
+ *
  * Lowercase and strip diacritics, except the tilde of `ñ`: in Spanish `ñ` is
  * its own letter (`año` is not `ano`), so folding it would make a banned term
  * match unrelated words. Keeps punctuation so word boundaries survive.
  */
 export function foldText(text: string): string {
   return text
-    .normalize('NFD')
+    .normalize('NFKD')
+    .replace(INVISIBLE, '')
     .toLowerCase()
     .replace(/n\u0303/g, '\u00f1')
     .replace(/[\u0300-\u036f]/g, '')

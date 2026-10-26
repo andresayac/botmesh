@@ -353,6 +353,12 @@ interacciones y los mensajes propios del bot nunca se moderan.
 - Las palabras se comparan sin mayúsculas ni tildes (la `ñ` sigue siendo
   distinta de la `n`) y como palabra completa; las RegExp se prueban sobre
   el texto crudo.
+- Antes de buscar palabras y enlaces se quitan los caracteres invisibles
+  (espacios de ancho cero, guion suave, controles bidi) y las formas de
+  compatibilidad como `ｓｐａｍ` (ancho completo) se leen como letras
+  normales, así que no sirven para esconder una palabra o una invitación.
+  El formato de WhatsApp alrededor de un enlace (`_cursiva_`, `*negrita*`,
+  `~tachado~`) tampoco lo esconde.
 - Invitaciones reconocidas: WhatsApp (`chat.whatsapp.com/…`), Telegram
   (`t.me/+…`, `t.me/joinchat/…`) y Discord (`discord.gg/…`,
   `discord.com/invite/…`). `allowInvites` compara el código exacto.
@@ -379,7 +385,11 @@ Los administradores se saltan todas las reglas (`adminBypass`, por defecto
 `true`): los ids de `admins`, quien apruebe `isAdmin(chatId, userId)` y la
 lista de `provider.groups.getAdmins(chatId)`, en caché durante
 `adminCacheMs` (por defecto 5 min) e invalidada con los eventos de grupo
-`promote`/`demote`. Cuando alguien sale (`remove`), se olvidan sus
+`promote`/`demote`. Los administradores solo se consultan para un mensaje
+que rompe una regla o viene de un usuario silenciado. Si `isAdmin` lanza,
+el remitente cuenta como no administrador (y se registra un aviso); si
+`getAdmins` falla, se conserva la última lista conocida y se vuelve a
+preguntar al provider tras 30 segundos como mucho. Cuando alguien sale (`remove`), se olvidan sus
 advertencias, su silencio y su ventana de spam. El estado no crece sin
 límite en un bot de larga duración: los silencios vencidos y las listas de
 administradores caducadas se barren, y se guardan como mucho
@@ -389,6 +399,13 @@ descarta el del usuario advertido hace más tiempo.
 `ctx.tools.moderation`: `mute`, `unmute`, `isMuted`, `warnings`,
 `resetWarnings`, `kick` (resuelve un `ActionResult`), `setGroupRules`
 (`false` desactiva, `undefined` quita el override) e `invalidateAdmins`.
+
+La configuración se valida al llamar a `moderationPlugin()` y en
+`setGroupRules`: una acción desconocida, un contador o una ventana no
+positivos o un campo de tipo incorrecto lanzan un `TypeError`/`RangeError`
+que nombra el campo. `{name}` en el texto de la advertencia es el nombre
+visible del remitente sin caracteres de control ni bidi, en una sola línea
+y con 64 caracteres como mucho.
 
 ::: warning `groupMode` corre antes
 El filtro `groupMode` del bot corre **antes** de los hooks
