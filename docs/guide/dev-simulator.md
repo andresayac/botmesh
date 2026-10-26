@@ -25,7 +25,7 @@ import { BaileysProvider } from '@botmesh/baileys'
 
 const createBot = defineBot((provider) => {
   const bot = new Bot({ provider })           // ALWAYS use the provider you receive
-  bot.when('hola', (ctx) => ctx.reply('Hi! 👋'))
+  bot.when('hi', (ctx) => ctx.reply('Hi! 👋'))
   bot.use(flow('menu').ask('Your name?', 'name').say((_ctx, c) => `Hi ${c.state.name}`))
   return bot                                   // do not call bot.start() here
 })
@@ -95,7 +95,7 @@ Buttons, lists, cards and polls print numbered (`[1] Info`); media prints
 as `[image: url]` with the caption on the next line. Messages the bot sends
 to other chats print as `bot → <chatId> › ...`.
 
-When input is piped (`printf 'hola\n' | npx botmesh dev src/bot.js --no-watch`),
+When input is piped (`printf 'hi\n' | npx botmesh dev src/bot.js --no-watch`),
 each line waits until the bot has finished reacting (up to 30 s, to cover AI
 calls), so transcripts stay in order.
 
@@ -142,7 +142,7 @@ import { DevSession } from '@botmesh/core/dev'
 
 const session = new DevSession({ load: () => import('./bot.js'), write: (t) => process.stdout.write(t) })
 await session.start()
-await session.handleLine('hola')
+await session.handleLine('hi')
 await session.handleLine(':state')
 await session.stop()
 ```

@@ -13,7 +13,7 @@ entrante pasa por ellas.
 import { Bot } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
 
-const bot = new Bot({ provider: new BaileysProvider({ session: 'mi-bot' }) })
+const bot = new Bot({ provider: new BaileysProvider({ session: 'mi-bot' }), lang: 'es' })
 // registra aquí handlers, flujos, hooks y plugins, y después:
 await bot.start()
 ```

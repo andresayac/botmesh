@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url'
 
 import { scaffold } from './scaffold.js'
 import { TEMPLATE_NAMES, getTemplate } from './templates.js'
+import { BOTMESH_VERSIONS } from './versions.js'
 
 const DEFAULT_TEMPLATE = 'baileys'
 
@@ -51,10 +52,22 @@ export function parseArgs(argv) {
   return out
 }
 
+/**
+ * The `npm create` command for this release (exported for tests): a prerelease of
+ * `@botmesh/core` is installed through its dist-tag (`2.0.0-beta.3` → `npm create botmesh@beta`),
+ * because npm's `latest` can still point to an older prerelease; a stable core needs no tag.
+ * @param {string} [coreRange] the `@botmesh/core` range or version (default: the one stamped into projects)
+ */
+export function createCommand(coreRange = BOTMESH_VERSIONS['@botmesh/core']) {
+  const pre = /-([0-9A-Za-z]+)/.exec(coreRange.replace(/^[\^~]/, ''))
+  return 'npm create botmesh' + (pre ? '@' + pre[1] : '')
+}
+
 function printUsage(log = console.log) {
+  const create = createCommand()
   log('Usage: create-botmesh <dir> [options]')
   log('')
-  log('Scaffold a new @botmesh bot (npm create botmesh@alpha).')
+  log('Scaffold a new @botmesh bot (' + create + ').')
   log('')
   log('Arguments:')
   log('  dir                 target directory; the package name is derived from it')
@@ -68,9 +81,9 @@ function printUsage(log = console.log) {
   log('  -h, --help          show this help')
   log('')
   log('Examples:')
-  log('  npm create botmesh@alpha my-bot')
-  log('  npm create botmesh@alpha my-bot -- --template telegram')
-  log('  npm create botmesh@alpha my-shop -- --template store')
+  log('  ' + create + ' my-bot')
+  log('  ' + create + ' my-bot -- --template telegram')
+  log('  ' + create + ' my-shop -- --template store')
 }
 
 /**

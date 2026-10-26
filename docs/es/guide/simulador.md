@@ -24,7 +24,7 @@ import { Bot, defineBot, flow, isMainModule } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
 
 const createBot = defineBot((provider) => {
-  const bot = new Bot({ provider })           // usa SIEMPRE el provider que recibes
+  const bot = new Bot({ provider, lang: 'es' }) // usa SIEMPRE el provider que recibes
   bot.when('hola', (ctx) => ctx.reply('¡Hola! 👋'))
   bot.use(flow('menu').ask('¿Tu nombre?', 'name').say((_ctx, c) => `Hola ${c.state.name}`))
   return bot                                   // no llames a bot.start() aquí

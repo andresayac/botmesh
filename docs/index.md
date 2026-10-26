@@ -65,8 +65,8 @@ features:
     linkText: Plugins
   - title: Pluggable stores
     details: |
-      MemoryStore by default; @botmesh/sqlite-store and @botmesh/redis-store
-      for persistence, or your own IStore.
+      MemoryStore by default; SQLite, Redis, PostgreSQL, MySQL and MongoDB
+      stores for persistence, or your own IStore.
     icon: 📦
     link: /guide/store
     linkText: Stores
