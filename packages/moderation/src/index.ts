@@ -11,7 +11,7 @@
 import type { ModerationController } from './types.js'
 
 export { moderationPlugin } from './plugin.js'
-export { Moderator, DEFAULT_MUTE_MS, DEFAULT_ADMIN_CACHE_MS } from './Moderator.js'
+export { Moderator, DEFAULT_MUTE_MS, DEFAULT_ADMIN_CACHE_MS, DEFAULT_MAX_TRACKED_USERS } from './Moderator.js'
 export type { ModeratorLogger, WarnSender, Verdict } from './Moderator.js'
 export { findInviteLinks, findLinks } from './links.js'
 export type { InviteLink } from './links.js'

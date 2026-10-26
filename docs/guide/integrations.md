@@ -335,6 +335,9 @@ anyone `isAdmin(chatId, userId)` approves, and the list from
 `provider.groups.getAdmins(chatId)`, cached for `adminCacheMs` (default 5
 min) and invalidated on `promote`/`demote` group events. When someone
 leaves (`remove`), their warnings, mute and spam window are forgotten.
+The state stays bounded on a long-running bot: expired mutes and stale
+admin lists are swept, and at most `maxTrackedUsers` (default 10,000)
+warning counters are kept, dropping the least recently warned user's.
 
 `ctx.tools.moderation`: `mute`, `unmute`, `isMuted`, `warnings`,
 `resetWarnings`, `kick` (resolves an `ActionResult`), `setGroupRules`

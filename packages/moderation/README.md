@@ -81,6 +81,8 @@ With `adminBypass` (default `true`) administrators are not moderated. Considered
 
 When someone leaves the group (`remove` event), their warnings, mute and spam window are forgotten.
 
+Memory stays bounded: expired mutes and stale admin lists are swept, and at most `maxTrackedUsers` (default 10,000) warning counters are kept; past it, the least recently warned user's counter is dropped.
+
 ## `ctx.tools.moderation`
 
 ```ts

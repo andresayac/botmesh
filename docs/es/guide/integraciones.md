@@ -346,7 +346,11 @@ Los administradores se saltan todas las reglas (`adminBypass`, por defecto
 lista de `provider.groups.getAdmins(chatId)`, en caché durante
 `adminCacheMs` (por defecto 5 min) e invalidada con los eventos de grupo
 `promote`/`demote`. Cuando alguien sale (`remove`), se olvidan sus
-advertencias, su silencio y su ventana de spam.
+advertencias, su silencio y su ventana de spam. El estado no crece sin
+límite en un bot de larga duración: los silencios vencidos y las listas de
+administradores caducadas se barren, y se guardan como mucho
+`maxTrackedUsers` (10 000 por defecto) contadores de advertencias; se
+descarta el del usuario advertido hace más tiempo.
 
 `ctx.tools.moderation`: `mute`, `unmute`, `isMuted`, `warnings`,
 `resetWarnings`, `kick` (resuelve un `ActionResult`), `setGroupRules`
