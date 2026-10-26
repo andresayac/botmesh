@@ -35,12 +35,20 @@ import type {
   TranslateParams,
 } from './types.js'
 
-/** Minimal logger the registry needs (pino-compatible). */
+/**
+ * Minimal logger the registry needs (pino-compatible).
+ *
+ * @category i18n
+ */
 export interface I18nLogger {
   debug?(...args: unknown[]): void
 }
 
-/** Options of the {@link I18n} constructor. */
+/**
+ * Options of the {@link I18n} constructor.
+ *
+ * @category i18n
+ */
 export interface I18nOptions extends I18nConfig {
   logger?: I18nLogger
 }
@@ -59,6 +67,8 @@ type Tree = { [key: string]: Leaf | Tree }
 /**
  * Normalize a locale code: trimmed, lower-case, `_` → `-` (`' EN_us '` → `'en-us'`).
  * Returns `undefined` for anything that is not a non-empty string.
+ *
+ * @category i18n
  */
 export function normalizeLocale(code: unknown): string | undefined {
   if (typeof code !== 'string') return undefined
@@ -149,6 +159,13 @@ export function providerLanguageOf(sender: SenderInfo | undefined): string | und
     ?? normalizeLocale(pd?.locale)
 }
 
+/**
+ * The translation engine behind `bot.locale()`, `ctx.t()` and `ctx.lang`: locale
+ * catalogues, plural forms, `{param}` interpolation and language resolution. Exposed for
+ * integration authors; applications use the bot methods.
+ *
+ * @category i18n
+ */
 export class I18n {
   private tree = new Map<string, Tree>()
   private pluralRules = new Map<string, Intl.PluralRules>()

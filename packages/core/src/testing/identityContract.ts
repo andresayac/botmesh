@@ -45,10 +45,18 @@ import type {
   UserId,
 } from '../core/provider.js'
 
-/** Anything a provider test may hold: the `InboundEvent` wrapper or the bare message/interaction. */
+/**
+ * Anything a provider test may hold: the `InboundEvent` wrapper or the bare message/interaction.
+ *
+ * @category Contract checks
+ */
 export type IdentityEventInput = InboundEvent | InboundMessage | InboundInteraction
 
-/** What one human's events must satisfy. */
+/**
+ * What one human's events must satisfy.
+ *
+ * @category Contract checks
+ */
 export interface IdentityExpectation {
   /** Indices (into the checked array) of the events produced by this human. */
   events: number[]
@@ -60,10 +68,18 @@ export interface IdentityExpectation {
   kind?: ChatKind
 }
 
-/** Human label → that human's event indices, or a full {@link IdentityExpectation}. */
+/**
+ * Human label → that human's event indices, or a full {@link IdentityExpectation}.
+ *
+ * @category Contract checks
+ */
 export type IdentityExpectations = Record<string, number[] | IdentityExpectation>
 
-/** Tuning for {@link checkIdentityContract}. */
+/**
+ * Tuning for {@link checkIdentityContract}.
+ *
+ * @category Contract checks
+ */
 export interface IdentityContractOptions {
   /** Require `ref.chatId === chatId`. Default `true`. */
   requireRefChatId?: boolean
@@ -73,7 +89,11 @@ export interface IdentityContractOptions {
   distinctHumans?: boolean
 }
 
-/** Machine-readable rule ids reported in {@link IdentityViolation.rule}. */
+/**
+ * Machine-readable rule ids reported in {@link IdentityViolation.rule}.
+ *
+ * @category Contract checks
+ */
 export type IdentityRule =
   | 'missing-id'
   | 'suspicious-id'
@@ -88,7 +108,11 @@ export type IdentityRule =
   | 'collapsed-humans'
   | 'bad-index'
 
-/** One broken promise of the identity stability contract. */
+/**
+ * One broken promise of the identity stability contract.
+ *
+ * @category Contract checks
+ */
 export interface IdentityViolation {
   rule: IdentityRule
   /** Human-readable explanation (ids included, so the failure is actionable). */
@@ -99,7 +123,11 @@ export interface IdentityViolation {
   human?: string
 }
 
-/** Thrown by {@link assertStableIdentity}; carries every violation found. */
+/**
+ * Thrown by {@link assertStableIdentity}; carries every violation found.
+ *
+ * @category Contract checks
+ */
 export class IdentityContractError extends Error {
   readonly violations: IdentityViolation[]
   constructor(violations: IdentityViolation[]) {
@@ -116,6 +144,8 @@ export class IdentityContractError extends Error {
  * Check normalized events against the identity stability contract and return
  * every violation (empty array = conforming). Non-identity events (connection,
  * status, …) are skipped but keep their index.
+ *
+ * @category Contract checks
  */
 export function checkIdentityContract(
   events: ReadonlyArray<IdentityEventInput>,
@@ -255,6 +285,8 @@ export function checkIdentityContract(
  * {@link checkIdentityContract}). Runner-agnostic: works in any test framework.
  *
  * @throws {IdentityContractError}
+ *
+ * @category Contract checks
  */
 export function assertStableIdentity(
   events: ReadonlyArray<IdentityEventInput>,
@@ -265,7 +297,11 @@ export function assertStableIdentity(
   if (violations.length > 0) throw new IdentityContractError(violations)
 }
 
-/** Live recording of a provider's event stream (see {@link recordEvents}). */
+/**
+ * Live recording of a provider's event stream (see {@link recordEvents}).
+ *
+ * @category Contract checks
+ */
 export interface EventRecorder {
   /** Every event emitted since recording started, in order. */
   readonly events: InboundEvent[]
@@ -281,6 +317,8 @@ export interface EventRecorder {
  * Subscribe to `provider.onEvent` and keep everything it emits — handy to feed
  * {@link assertStableIdentity} from a provider suite that drives `ingest()`
  * or a fake socket.
+ *
+ * @category Contract checks
  */
 export function recordEvents(provider: Pick<IProvider, 'onEvent'>): EventRecorder {
   const events: InboundEvent[] = []

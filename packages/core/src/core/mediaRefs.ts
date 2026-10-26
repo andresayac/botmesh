@@ -18,6 +18,8 @@ import { ProviderError, type MediaRef } from './provider.js'
  * What a provider writes for one `MediaRef` (`IProvider.serializeMediaRef`): JSON-safe,
  * versioned, provider-defined. It is read back from storage, so the provider must treat
  * it as UNTRUSTED in `rehydrateMediaRef` and validate it.
+ *
+ * @category Messages & context
  */
 export interface SerializedMediaRef {
   /** Provider-defined format version; a provider rejects versions it does not know. */
@@ -45,6 +47,8 @@ export interface StoredMediaToken {
  * - `'provider-mismatch'`: the record was journaled by another provider;
  * - `'rehydrate-failed'`: the provider could not rebuild the reference (invalid, unknown
  *   version, tampered), or it has no `rehydrateMediaRef` (any more).
+ *
+ * @category Messages & context
  */
 export type MediaUnavailableReason = 'not-durable' | 'provider-mismatch' | 'rehydrate-failed'
 
@@ -52,6 +56,8 @@ export type MediaUnavailableReason = 'not-durable' | 'provider-mismatch' | 'rehy
  * The media of a replayed message (durable inbox) cannot be downloaded again. Rejected by
  * `loadMediaOf(ctx, { throwOnError: true })`. Extends {@link ProviderError}, so existing
  * `instanceof ProviderError` checks still match.
+ *
+ * @category Errors
  */
 export class MediaUnavailableError extends ProviderError {
   constructor(readonly reason: MediaUnavailableReason, message?: string) {

@@ -41,13 +41,35 @@
 
 import type { Plugin, PluginSpec } from '../core/types.js'
 
+/**
+ * Types a plugin spec (it returns `spec` unchanged). `install()` must be synchronous.
+ *
+ * @example
+ * ```ts
+ * const greeter = definePlugin<{ text?: string }>({
+ *   name: 'greeter',
+ *   version: '1.0.0',
+ *   install({ bot }, config) {
+ *     bot.when('hello', (ctx) => ctx.reply(config?.text ?? 'Hi!'))
+ *   },
+ * })
+ *
+ * bot.plug(greeter, { text: 'Welcome!' })
+ * ```
+ *
+ * @category Hooks & plugins
+ */
 export function definePlugin<TConfig = Record<string, unknown>>(
   spec: PluginSpec<TConfig>
 ): PluginSpec<TConfig> {
   return spec
 }
 
-/** Sentinel check to differentiate plugins from flows in bot.use(). */
+/**
+ * Sentinel check to differentiate plugins from flows in bot.use().
+ *
+ * @category Hooks & plugins
+ */
 export function isPlugin(x: unknown): x is Plugin {
   if (typeof x === 'function' && x.length === 0) return false // arrow without args?
   if (!x || typeof x !== 'object') return false

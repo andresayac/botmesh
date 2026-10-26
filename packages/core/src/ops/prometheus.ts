@@ -6,6 +6,11 @@
 
 import type { BotMetricsSnapshot, ConversationCounters } from './metrics.js'
 
+/**
+ * Options of {@link toPrometheus}.
+ *
+ * @category Operations
+ */
 export interface PrometheusOptions {
   /**
    * Metric name prefix (default `'botmesh_'`). Must match `[a-zA-Z_:][a-zA-Z0-9_:]*`.
@@ -16,7 +21,11 @@ export interface PrometheusOptions {
   labels?: Record<string, string>
 }
 
-/** Content-Type to serve {@link toPrometheus} output with. */
+/**
+ * Content-Type to serve {@link toPrometheus} output with.
+ *
+ * @category Operations
+ */
 export const PROMETHEUS_CONTENT_TYPE = 'text/plain; version=0.0.4; charset=utf-8'
 
 const OUTCOMES: Array<[keyof ConversationCounters, string]> = [
@@ -40,6 +49,8 @@ const OUTCOMES: Array<[keyof ConversationCounters, string]> = [
  *   res.end(toPrometheus(bot.metrics(), { labels: { bot: 'ventas' } }))
  * }).listen(9464)
  * ```
+ *
+ * @category Operations
  */
 export function toPrometheus(snapshot: BotMetricsSnapshot, options: PrometheusOptions = {}): string {
   const prefix = options.prefix ?? 'botmesh_'

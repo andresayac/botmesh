@@ -458,6 +458,8 @@ class StreamSession {
  * bound to the current chat; use it directly for custom sinks (and tests).
  * Rejects with the source's error (after flushing what was produced) or with the
  * first send error.
+ *
+ * @category Messages & context
  */
 export function streamText(target: StreamTarget, source: StreamSource, opts: StreamOptions = {}): Promise<StreamResult> {
   return new StreamSession(target, opts).run(source)

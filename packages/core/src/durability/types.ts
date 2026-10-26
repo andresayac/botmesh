@@ -36,10 +36,16 @@ export type { JsonValue }
  * Lifecycle of an inbound record:
  * `pending` → (claim) `processing` → `done` (ack) | `failed` (retry later) | `dead` (gave up) |
  * `pending` (release, not charged). An expired `processing` lease is claimable again.
+ *
+ * @category Durability
  */
 export type InboxState = 'pending' | 'processing' | 'failed' | 'done' | 'dead'
 
-/** One journaled inbound event. */
+/**
+ * One journaled inbound event.
+ *
+ * @category Durability
+ */
 export interface InboxRecord {
   /** Stable id: a hash of the namespace + the event's idempotency key, or a random id for events without one. */
   id: string
@@ -66,12 +72,20 @@ export interface InboxRecord {
   lastError?: string
 }
 
-/** Fields the caller provides to {@link InboxJournal.append}. */
+/**
+ * Fields the caller provides to {@link InboxJournal.append}.
+ *
+ * @category Durability
+ */
 export type InboxAppend = Pick<InboxRecord, 'id' | 'partitionKey' | 'kind' | 'payload' | 'receivedAt'> & {
   idempotencyKey?: string
 }
 
-/** Lease parameters of a claim. */
+/**
+ * Lease parameters of a claim.
+ *
+ * @category Durability
+ */
 export interface LeaseOptions {
   /** Who takes the lease. */
   owner: string
@@ -81,7 +95,11 @@ export interface LeaseOptions {
   now: number
 }
 
-/** Options of {@link InboxJournal.claim} / {@link OutboxJournal.claimDue}. */
+/**
+ * Options of {@link InboxJournal.claim} / {@link OutboxJournal.claimDue}.
+ *
+ * @category Durability
+ */
 export interface ClaimOptions extends LeaseOptions {
   /** Max records to claim. */
   limit: number
@@ -95,7 +113,11 @@ export interface ClaimOptions extends LeaseOptions {
   partitions?: (key: string) => boolean
 }
 
-/** Options of {@link OutboxJournal.claimDue}. */
+/**
+ * Options of {@link OutboxJournal.claimDue}.
+ *
+ * @category Durability
+ */
 export interface OutboxClaimOptions extends ClaimOptions {
   /**
    * With `reclaimOwn`: re-claim an own `sending` record only when its lease ends before
@@ -107,7 +129,11 @@ export interface OutboxClaimOptions extends ClaimOptions {
   reclaimOwnBefore?: number
 }
 
-/** Persistence contract of the inbound journal. */
+/**
+ * Persistence contract of the inbound journal.
+ *
+ * @category Durability
+ */
 export interface InboxJournal {
   /**
    * Insert-if-absent by `id`. `'duplicate'` means the id is already known (any state);
@@ -154,17 +180,27 @@ export interface InboxJournal {
  * `dead` (gave up). A `sending` record whose lease expired is AMBIGUOUS — the process died
  * between calling the provider and recording the outcome; it becomes `unknown` (policy
  * `'skip'`) or is sent again (`'resend'`).
+ *
+ * @category Durability
  */
 export type OutboxState = 'pending' | 'sending' | 'sent' | 'failed' | 'dead' | 'unknown'
 
-/** Error summary stored on a failed outbound record. */
+/**
+ * Error summary stored on a failed outbound record.
+ *
+ * @category Durability
+ */
 export interface OutboxError {
   name?: string
   code?: string | number
   message?: string
 }
 
-/** One journaled outbound send. */
+/**
+ * One journaled outbound send.
+ *
+ * @category Durability
+ */
 export interface OutboxRecord {
   /** Idempotency key: explicit, derived from the inbound being handled, or random. */
   key: string
@@ -204,7 +240,11 @@ export interface OutboxRecord {
   lastError?: OutboxError
 }
 
-/** Fields the caller provides to {@link OutboxJournal.put}. */
+/**
+ * Fields the caller provides to {@link OutboxJournal.put}.
+ *
+ * @category Durability
+ */
 export type OutboxPut = Pick<OutboxRecord, 'key' | 'chatId' | 'content' | 'createdAt'> & {
   causationId?: string
   options?: JsonValue
@@ -212,14 +252,22 @@ export type OutboxPut = Pick<OutboxRecord, 'key' | 'chatId' | 'content' | 'creat
   previousPart?: string
 }
 
-/** A record returned by {@link OutboxJournal.claimDue}. */
+/**
+ * A record returned by {@link OutboxJournal.claimDue}.
+ *
+ * @category Durability
+ */
 export interface ClaimedSend {
   record: OutboxRecord
   /** The record was `sending` under an expired lease: the outcome of its last attempt is unknown. */
   ambiguous: boolean
 }
 
-/** Persistence contract of the outbound journal. */
+/**
+ * Persistence contract of the outbound journal.
+ *
+ * @category Durability
+ */
 export interface OutboxJournal {
   /**
    * Insert-if-absent by `key`; on conflict the existing record is returned unchanged (`'exists'`).
@@ -264,7 +312,11 @@ export interface OutboxJournal {
  * Backend + configuration
  * ========================================================================== */
 
-/** A durability backend: the two journals plus optional lifecycle. */
+/**
+ * A durability backend: the two journals plus optional lifecycle.
+ *
+ * @category Durability
+ */
 export interface DurabilityBackend {
   readonly inbox: InboxJournal
   readonly outbox: OutboxJournal
@@ -290,6 +342,8 @@ export interface DurabilityBackend {
  * Retry delay policy: a function of the 1-based attempt that just failed, or the
  * parameters of capped exponential backoff with jitter
  * (`min(capMs, baseMs * 2^(attempt-1))`, then ± `jitter` fraction).
+ *
+ * @category Durability
  */
 export type RetryBackoff =
   | ((attempt: number) => number)
@@ -302,7 +356,11 @@ export type RetryBackoff =
     jitter?: number
   }
 
-/** `BotConfig.durability`. Every field is optional; `{}` enables durability with the in-memory backend. */
+/**
+ * `BotConfig.durability`. Every field is optional; `{}` enables durability with the in-memory backend.
+ *
+ * @category Durability
+ */
 export interface DurabilityConfig {
   /**
    * Where the inbox and outbox records live: `MemoryDurability`, `FileDurability`, or a store's

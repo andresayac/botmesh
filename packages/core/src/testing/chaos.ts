@@ -82,6 +82,8 @@ import { TimeoutError } from '../utils/timers.js'
 /**
  * Deterministic PRNG (mulberry32). Same seed → same sequence of floats in
  * `[0, 1)`. Exposed so tests can derive their own reproducible choices.
+ *
+ * @category Chaos testing
  */
 export function createSeededRandom(seed: number): () => number {
   let a = seed >>> 0
@@ -98,16 +100,28 @@ export function createSeededRandom(seed: number): () => number {
  * OPTIONS
  * ========================================================================== */
 
-/** Inclusive millisecond range; each use draws a value from it (seeded). */
+/**
+ * Inclusive millisecond range; each use draws a value from it (seeded).
+ *
+ * @category Chaos testing
+ */
 export interface ChaosRange {
   min: number
   max: number
 }
 
-/** A fixed delay in ms, or a {@link ChaosRange} drawn per use. */
+/**
+ * A fixed delay in ms, or a {@link ChaosRange} drawn per use.
+ *
+ * @category Chaos testing
+ */
 export type ChaosDelay = number | ChaosRange
 
-/** Webhook-style redelivery of inbound events. */
+/**
+ * Webhook-style redelivery of inbound events.
+ *
+ * @category Chaos testing
+ */
 export interface ChaosDuplicateOptions {
   /** Probability `[0, 1]` that an inbound event is redelivered. Default `1`. */
   probability?: number
@@ -121,7 +135,11 @@ export interface ChaosDuplicateOptions {
   delayMs?: ChaosDelay
 }
 
-/** Out-of-order delivery within a sliding window. */
+/**
+ * Out-of-order delivery within a sliding window.
+ *
+ * @category Chaos testing
+ */
 export interface ChaosReorderOptions {
   /** Events held and permuted together. Integer `>= 2`. */
   window: number
@@ -140,6 +158,8 @@ export interface ChaosReorderOptions {
  * - `'outside-window'` → `OutsideSessionWindowError(chatId)`
  * - `'unsupported'` → `UnsupportedContentError(content.kind)`
  * - `'disconnected'` → {@link ChaosDisconnectedError} (a `ProviderError`)
+ *
+ * @category Chaos testing
  */
 export type ChaosSendErrorKind =
   | 'rate-limited'
@@ -149,7 +169,11 @@ export type ChaosSendErrorKind =
   | 'unsupported'
   | 'disconnected'
 
-/** The send attempt a failure is being decided for (1-based `attempt`). */
+/**
+ * The send attempt a failure is being decided for (1-based `attempt`).
+ *
+ * @category Chaos testing
+ */
 export interface ChaosSendAttempt {
   attempt: number
   chatId: ChatId
@@ -157,10 +181,18 @@ export interface ChaosSendAttempt {
   options?: SendOptions
 }
 
-/** Custom failure: build any error (ideally a `ProviderError` subclass) for an attempt. */
+/**
+ * Custom failure: build any error (ideally a `ProviderError` subclass) for an attempt.
+ *
+ * @category Chaos testing
+ */
 export type ChaosErrorFactory = (attempt: ChaosSendAttempt) => Error
 
-/** Transient outbound failures. */
+/**
+ * Transient outbound failures.
+ *
+ * @category Chaos testing
+ */
 export interface ChaosSendFailureOptions {
   /**
    * Probability `[0, 1]` that a send fails. Defaults to `1`, or to `0` when
@@ -183,7 +215,11 @@ export interface ChaosSendFailureOptions {
   maxConsecutive?: number
 }
 
-/** Connection drops and reconnects. */
+/**
+ * Connection drops and reconnects.
+ *
+ * @category Chaos testing
+ */
 export interface ChaosDisconnectOptions {
   /** Drop the connection right after the Nth delivered inbound event (1-based). */
   afterInbound?: number[]
@@ -201,7 +237,11 @@ export interface ChaosDisconnectOptions {
   replayOnReconnect?: number
 }
 
-/** The same human seen under several wire identities. */
+/**
+ * The same human seen under several wire identities.
+ *
+ * @category Chaos testing
+ */
 export interface ChaosAliasOptions {
   /** Canonical user id → alias ids of the same human (e.g. `{ [pn]: [lid] }`). */
   map: Record<UserId, UserId[]>
@@ -217,7 +257,11 @@ export interface ChaosAliasOptions {
   resolve?: (wireId: UserId) => UserId
 }
 
-/** All chaos knobs. Every field is optional; `{}` is a transparent wrapper. */
+/**
+ * All chaos knobs. Every field is optional; `{}` is a transparent wrapper.
+ *
+ * @category Chaos testing
+ */
 export interface ChaosOptions {
   /** PRNG seed. Same seed + same call sequence → same chaos. Default `1`. */
   seed?: number
@@ -242,7 +286,11 @@ export interface ChaosOptions {
   kinds?: ReadonlyArray<InboundEvent['kind']>
 }
 
-/** One thing the kit injected, in order (see {@link ChaosProvider.log}). */
+/**
+ * One thing the kit injected, in order (see {@link ChaosProvider.log}).
+ *
+ * @category Chaos testing
+ */
 export type ChaosLogEntry =
   | { type: 'duplicate'; ref: string; copies: number }
   | { type: 'latency'; ms: number }
@@ -258,6 +306,8 @@ export type ChaosLogEntry =
  * Rejected by {@link ChaosProvider.send} while the simulated connection is down
  * (or for the `'disconnected'` failure kind). A `ProviderError`, like the
  * errors real providers reject with.
+ *
+ * @category Chaos testing
  */
 export class ChaosDisconnectedError extends ProviderError {
   constructor(public readonly chatId: ChatId, message?: string) {
@@ -389,6 +439,8 @@ interface ResolvedOptions {
  * Optional provider capabilities (`typing`, `markRead`, `downloadMedia`, …)
  * are exposed only when the wrapped provider has them, so feature detection
  * in the Bot keeps working.
+ *
+ * @category Chaos testing
  */
 export class ChaosProvider<P extends IProvider = IProvider> implements IProvider {
   /** The wrapped provider (drive it to simulate inbound traffic). */
@@ -754,6 +806,8 @@ export class ChaosProvider<P extends IProvider = IProvider> implements IProvider
  * const bot = new Bot({ provider: chaos })
  * mock.incoming('hola') // delivered twice; the Bot's inbound dedupe drops the copy
  * ```
+ *
+ * @category Chaos testing
  */
 export function withChaos<P extends IProvider>(provider: P, options: ChaosOptions = {}): ChaosProvider<P> {
   return new ChaosProvider(provider, options)
@@ -762,6 +816,8 @@ export function withChaos<P extends IProvider>(provider: P, options: ChaosOption
 /**
  * Structural copy of a normalized inbound event (fresh `ref`/`chat`/`senderInfo`
  * objects; `raw` and `media` shared) — what a re-parsed webhook body looks like.
+ *
+ * @category Chaos testing
  */
 export function cloneInboundEvent(event: InboundEvent): InboundEvent {
   switch (event.kind) {

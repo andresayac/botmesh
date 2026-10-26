@@ -11,8 +11,15 @@
   "excludeProtected": true,
   "excludeExternals": true,
   "disableSources": false,
-  "categorizeByGroup": true,
-  "categoryOrder": ["Core", "Flows", "Hooks", "Plugins", "Media", "Provider", "Store", "Scheduler", "Sub-APIs", "Utils", "*"],
+  "categorizeByGroup": false,
+  "defaultCategory": "Also in @botmesh/core",
+  "categoryOrder": [
+    "Bot", "Test bot", "MockProvider", "Contract checks", "Chaos testing", "Crash testing",
+    "Messages & context", "Triggers", "Flows", "Conversations", "Forms", "Hooks & plugins",
+    "Handoff & access lists", "i18n", "Store", "User data", "Scheduler", "Operations", "Errors",
+    "Provider", "Durability", "Coordination", "Tracing", "Flow inspection", "Golden transcripts",
+    "Dev simulator", "Utilities", "*"
+  ],
   "groupOrder": ["Constructors", "Properties", "Methods", "Functions", "Type Aliases", "Interfaces", "Classes", "Enumerations", "*"],
   "sort": ["source-order"],
   "visibilityFilters": {

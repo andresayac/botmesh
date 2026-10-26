@@ -106,6 +106,8 @@ const hubStates = new WeakMap<MemoryCoordinationHub, HubState>()
 /**
  * Shared state of the replicas of one in-process cluster: pass the same hub to every
  * {@link MemoryCoordinator} that should coordinate with the others.
+ *
+ * @category Coordination
  */
 export class MemoryCoordinationHub {
   /**
@@ -131,6 +133,11 @@ export class MemoryCoordinationHub {
 /** Default {@link MemoryCoordinationHub} bound on idle chats. */
 const DEFAULT_MAX_IDLE_KEYS = 10_000
 
+/**
+ * Options of {@link MemoryCoordinator}.
+ *
+ * @category Coordination
+ */
 export interface MemoryCoordinatorOptions {
   /** Share state with other replicas of this process. Default: a private hub. */
   hub?: MemoryCoordinationHub
@@ -140,6 +147,7 @@ export interface MemoryCoordinatorOptions {
 
 type Listener = (payload: never) => void
 
+/** @category Coordination */
 export class MemoryCoordinator implements Coordinator {
   readonly replicaId: string
   private readonly hub: HubState

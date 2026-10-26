@@ -42,6 +42,8 @@ import type { IProvider } from '../core/provider.js'
  * before registering handlers). It must pass `provider` to `new Bot({ provider })`
  * and must NOT call `bot.start()` — the caller (your main block, or `botmesh dev`)
  * starts it.
+ *
+ * @category Dev simulator
  */
 export type BotFactory = (provider: IProvider) => Bot | Promise<Bot>
 
@@ -59,6 +61,8 @@ const BOT_FACTORY = Symbol.for('@botmesh/core.botFactory')
  *
  * @param factory `(provider) => Bot` — build your bot around the given provider.
  * @throws {TypeError} when `factory` is not a function.
+ *
+ * @category Dev simulator
  */
 export function defineBot<F extends BotFactory>(factory: F): F {
   if (typeof factory !== 'function') {
@@ -72,7 +76,11 @@ export function defineBot<F extends BotFactory>(factory: F): F {
   return factory
 }
 
-/** True when `value` is a factory created with {@link defineBot}. */
+/**
+ * True when `value` is a factory created with {@link defineBot}.
+ *
+ * @category Dev simulator
+ */
 export function isBotFactory(value: unknown): value is BotFactory {
   return typeof value === 'function' && (value as unknown as Record<symbol, unknown>)[BOT_FACTORY] === true
 }
@@ -91,6 +99,8 @@ export function isBotFactory(value: unknown): value is BotFactory {
  * imports the factory and starts it instead.
  *
  * @param meta `import.meta` of the calling module.
+ *
+ * @category Dev simulator
  */
 export function isMainModule(meta: { url: string; main?: boolean }): boolean {
   if (typeof meta.main === 'boolean') return meta.main

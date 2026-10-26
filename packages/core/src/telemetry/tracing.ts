@@ -37,10 +37,18 @@ class NoopSpan implements BotSpan {
 /** The shared no-op span. */
 export const NOOP_SPAN: BotSpan = Object.freeze(new NoopSpan())
 
-/** A tracer that records nothing (every span is a shared, frozen no-op span). */
+/**
+ * A tracer that records nothing (every span is a shared, frozen no-op span).
+ *
+ * @category Tracing
+ */
 export const noopTracer: BotTracer = Object.freeze({ startSpan: (): BotSpan => NOOP_SPAN })
 
-/** `bot.tracing` of a bot without `BotConfig.telemetry`: disabled, every call a no-op. */
+/**
+ * `bot.tracing` of a bot without `BotConfig.telemetry`: disabled, every call a no-op.
+ *
+ * @category Tracing
+ */
 export const NOOP_TRACING: BotTracing = Object.freeze({
   enabled: false,
   startSpan: (): BotSpan => NOOP_SPAN,
@@ -123,7 +131,11 @@ function isThenable(x: unknown): x is PromiseLike<unknown> {
   return typeof (x as { then?: unknown } | null | undefined)?.then === 'function'
 }
 
-/** Name of an error for `error.type` (class name), never its message. */
+/**
+ * Name of an error for `error.type` (class name), never its message.
+ *
+ * @category Tracing
+ */
 export function errorTypeOf(error: unknown): string {
   if (error instanceof Error) return error.name || error.constructor.name || 'Error'
   if (error === null) return 'null'

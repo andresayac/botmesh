@@ -10,6 +10,8 @@ import { ProviderError } from '../core/provider.js'
  * A journal completion (`ack`, `fail`, `markSent`, …) presented a fencing token that is
  * not the record's current claim: the lease expired and someone else re-claimed the
  * record, or it already left the leased state. The stale holder must drop its result.
+ *
+ * @category Errors
  */
 export class StaleLeaseError extends Error {
   constructor(
@@ -32,6 +34,8 @@ export class StaleLeaseError extends Error {
  * the outbox keeps it and the background sweeper keeps retrying it (see `key`). Callers
  * that must know the final outcome enqueue with `bot.enqueue()` and watch
  * `bot.durability.outbox.get(key)` / the `'durability:dead'` event instead.
+ *
+ * @category Errors
  */
 export class SendDeferredError extends ProviderError {
   constructor(

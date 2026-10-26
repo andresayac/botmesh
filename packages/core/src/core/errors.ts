@@ -8,6 +8,8 @@
  * before `bot.start()` (or after a failed start), or after `bot.stop()`. Nothing reached
  * the provider. Sends are accepted from the moment the transport starts connecting (so a
  * `'ready'` listener can send) until `stop()` stops the transport.
+ *
+ * @category Errors
  */
 export class BotNotRunningError extends Error {
   readonly code = 'BOT_NOT_RUNNING'
@@ -25,6 +27,8 @@ export class BotNotRunningError extends Error {
  * (`IProvider.onEvent`): not an object, an unknown `kind`, or a message/interaction without
  * the ids the core routes by. The event is dropped and this error goes to the bot `'error'`
  * event. `reason` names the broken field; no ids or message contents are included.
+ *
+ * @category Errors
  */
 export class InvalidProviderEventError extends Error {
   readonly code = 'INVALID_PROVIDER_EVENT'

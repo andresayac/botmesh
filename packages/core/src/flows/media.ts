@@ -10,16 +10,37 @@ import type { MediaSource } from '../core/provider.js'
 import type { RuntimeMessage } from '../conversations/ConversationRuntime.js'
 import type { ConversationControls } from '../conversations/controls.js'
 
-/** Kinds accepted by `flow().media()`. `'voice'` is a voice note (PTT). */
+/**
+ * Kinds accepted by `flow().media()`. `'voice'` is a voice note (PTT).
+ *
+ * @category Flows
+ */
 export const FLOW_MEDIA_KINDS = ['image', 'video', 'audio', 'voice', 'document', 'sticker', 'location'] as const
+/**
+ * A media kind accepted by `flow().media()`.
+ *
+ * @category Flows
+ */
 export type FlowMediaKind = (typeof FLOW_MEDIA_KINDS)[number]
-/** Every kind but `location` (they take a {@link MediaSource}). */
+/**
+ * Every kind but `location` (they take a {@link MediaSource}).
+ *
+ * @category Flows
+ */
 export type FlowFileMediaKind = Exclude<FlowMediaKind, 'location'>
 
-/** A location for `.media('location', …)`. `name` is overridden by the step caption, when given. */
+/**
+ * A location for `.media('location', …)`. `name` is overridden by the step caption, when given.
+ *
+ * @category Flows
+ */
 export interface FlowLocation { lat: number; lng: number; name?: string }
 
-/** Per-step media options. */
+/**
+ * Per-step media options.
+ *
+ * @category Flows
+ */
 export interface FlowMediaOptions {
   /** Pause before sending (`'2s'`, `1500`). */
   delay?: string | number
@@ -34,15 +55,27 @@ export interface FlowMediaOptions {
   author?: string
 }
 
-/** A source computed at runtime from the message and the conversation controls. */
+/**
+ * A source computed at runtime from the message and the conversation controls.
+ *
+ * @category Flows
+ */
 export type DynamicMediaSource<T> = (ctx: RuntimeMessage, c: ConversationControls) => T | Promise<T>
 
-/** What a compiled media step sends. */
+/**
+ * What a compiled media step sends.
+ *
+ * @category Flows
+ */
 export type FlowMediaSource = MediaSource | FlowLocation | DynamicMediaSource<MediaSource | FlowLocation>
 
 const MEDIA_KIND_SET: ReadonlySet<string> = new Set(FLOW_MEDIA_KINDS)
 
-/** Whether `x` names a {@link FlowMediaKind}. */
+/**
+ * Whether `x` names a {@link FlowMediaKind}.
+ *
+ * @category Flows
+ */
 export function isFlowMediaKind(x: unknown): x is FlowMediaKind {
   return typeof x === 'string' && MEDIA_KIND_SET.has(x)
 }

@@ -14,12 +14,20 @@ import { FlowBuilder, type CompiledFlow } from '../flows/FlowBuilder.js'
 import type { Trigger } from './types.js'
 import type { ChatId, UserId } from './provider.js'
 
-/** One entry of {@link Bot.listFlows}. */
+/**
+ * One entry of {@link Bot.listFlows}.
+ *
+ * @category Triggers
+ */
 export type RegisteredFlowInfo =
   | { id: string; kind: 'flow'; steps: number; persistent: boolean }
   | { id: string; kind: 'conversation' }
 
-/** Who {@link Bot.triggerFlow} starts the flow with. Ids are opaque strings. */
+/**
+ * Who {@link Bot.triggerFlow} starts the flow with. Ids are opaque strings.
+ *
+ * @category Triggers
+ */
 export interface FlowTriggerTarget {
   chatId: ChatId
   /** Participant id in a group; defaults to `chatId` (a DM). */
@@ -28,7 +36,11 @@ export interface FlowTriggerTarget {
   isGroup?: boolean
 }
 
-/** Options of {@link Bot.triggerFlow} (mapped onto {@link Bot.trigger}'s `data` / `body`). */
+/**
+ * Options of {@link Bot.triggerFlow} (mapped onto {@link Bot.trigger}'s `data` / `body`).
+ *
+ * @category Triggers
+ */
 export interface FlowTriggerOptions {
   /** Shallow-merged into `c.state` before the first step runs (same as {@link Bot.trigger}'s `data`). */
   data?: Record<string, unknown>

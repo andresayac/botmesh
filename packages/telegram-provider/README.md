@@ -1,8 +1,8 @@
 # @botmesh/telegram
 
-Telegram Bot API transport ([`IProvider` v2](https://github.com/andresayac/botmesh/blob/main/packages/core/src/core/provider.ts)) for
-[@botmesh/core](https://github.com/andresayac/botmesh/tree/main/packages/core). Plain HTTP over Node's global `fetch` — no extra
-runtime dependencies beyond `@botmesh/core` and `pino`.
+The Telegram Bot API transport for [`@botmesh/core`](https://github.com/andresayac/botmesh/tree/main/packages/core). Plain HTTP over
+Node's global `fetch`: no Telegram SDK, and media downloads go through the SSRF-safe
+[`@botmesh/http`](https://www.npmjs.com/package/@botmesh/http).
 
 - **Ingress:** long-polling (`getUpdates`, default) **or** webhook (`ingest()`).
 - **Outbound:** text, photo, video, audio, voice, document, sticker, location,
@@ -19,14 +19,10 @@ runtime dependencies beyond `@botmesh/core` and `pino`.
 pnpm add @botmesh/core @botmesh/telegram
 ```
 
-> **Prerelease.** Until the stable release, botmesh is published only under a prerelease
-> dist-tag, so a plain install does not resolve yet. Add the tag to both packages
-> (today `alpha`: `pnpm add @botmesh/core@alpha @botmesh/telegram@alpha`); `npm view
-> @botmesh/telegram dist-tags` lists the current ones.
+> **Prerelease.** Until the stable release, npm's `latest` tag may lag behind (it can stay on the first prerelease published). Add the prerelease dist-tag to get the newest build (`pnpm add @botmesh/core@alpha @botmesh/telegram@alpha`, or `@beta` during the beta).
 
 Create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`) and keep the token
-out of your code (an environment variable such as `TG_TOKEN`). Inside the monorepo the
-package is already available as a workspace.
+out of your code (an environment variable such as `TG_TOKEN`).
 
 ### Polling or webhook?
 
@@ -51,20 +47,19 @@ interface TelegramProviderConfig {
   selfId?: string      // bot's own user id; resolved via getMe() when omitted
   username?: string    // bot's @username; learned from getMe() when selfId is omitted (see "Group commands")
   pollTimeoutMs?: number // getUpdates server timeout (ms, sent in whole seconds), default 30000
-  pollTimeout?: number   // deprecated: the same in seconds
   anonymousPolls?: boolean // default false: polls are non-anonymous so votes reach the bot (see "Poll votes")
   errorBackoffMs?: number  // base backoff after a failed poll round (doubles per failure), default 1000
   maxBackoffMs?: number    // ceiling for that backoff, default 60000
   pollIdleMs?: number      // pause after an empty batch, default 250
   requestTimeoutMs?: number // client timeout per Bot API request, default 120000
   uploadTimeoutMs?: number  // client timeout of a file upload (multipart), default 300000
-  debug?: boolean      // deprecated: pass a logger
   logger?: LoggerLike  // pino, console or any { debug, info, warn, error }
 }
 ```
 
 Invalid options (no token, a `baseUrl` that is not an absolute http(s) URL,
-negative or non-numeric timings) throw a `TypeError` from the constructor.
+negative or non-numeric timings) throw a `TypeError` from the constructor. The deprecated `pollTimeout` (seconds) and `debug` options still work; use
+`pollTimeoutMs` and `logger` instead.
 
 ## Usage — long-poll (default)
 
@@ -119,7 +114,7 @@ await bot.start()
 const app = express()
 app.post('/telegram', express.raw({ type: '*/*' }), (req, res) => {
   // ingest() checks X-Telegram-Bot-Api-Secret-Token (timing-safe) and parses the body.
-  res.sendStatus(provider.ingest(req.body, req.headers)) // 200 accepted / 401 bad secret / 400 bad body
+  res.sendStatus(provider.ingest(req.body, req.headers)) // 200 accepted / 401 bad secret / 400 bad body / 503 bot stopped
 })
 app.listen(3000)
 // Register once: POST /bot<token>/setWebhook { url: 'https://…/telegram', secret_token: TG_WEBHOOK_SECRET }
@@ -267,6 +262,7 @@ mapping; `toProviderError` is its deprecated alias):
 | 400 *chat not found*, *user not found*, *bot is not a member*… | `RecipientUnreachableError` |
 | 400 *message is too long* / *file is too big*, 413 | `PayloadTooLargeError` |
 | 401  | `ProviderError` + connection `sessionInvalid` (also mid-run: the poll loop stops) |
+| 404  | `ProviderError` "check the bot token and baseUrl" (a malformed token, or a wrong `baseUrl` path) |
 | 409 conflict (two pollers) | connection `sessionTakenOver`, poll loop stops |
 | no answer within `requestTimeoutMs` | `ProviderError` ("timed out") |
 | network failure (DNS, TLS, reset) | `ProviderError` (`cause` keeps the code) |
@@ -305,4 +301,9 @@ left as is. The username comes from `getMe`; if you pass `selfId` (which skips
   Timestamps are emitted as epoch **milliseconds**.
 - Long-poll and webhook share one ingress path; never run two pollers on the
   same token (Telegram returns 409 and the provider stops deliberately).
-- ESM only (`"type": "module"`); relative imports carry `.js` extensions.
+- ESM only, Node.js 22 or later.
+
+## Links
+
+- [Channels guide](https://andresayac.github.io/botmesh/guide/channels) · [Streaming replies](https://andresayac.github.io/botmesh/guide/streaming) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/telegram-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/telegram-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

@@ -28,7 +28,11 @@ import type { ChatId, MessageContext } from './provider.js'
 import type { ScheduledTask } from './types.js'
 import { parseIdlePeriod } from '../utils/timers.js'
 
-/** What an idle handler learns about the quiet chat. */
+/**
+ * What an idle handler learns about the quiet chat.
+ *
+ * @category Bot
+ */
 export interface IdleEvent {
   /** Chat that went quiet (`ctx.from` of its last processed inbound message). */
   chatId: ChatId
@@ -41,6 +45,8 @@ export interface IdleEvent {
 /**
  * Handler of `bot.onIdle()`. `ctx` is the chat's LAST processed inbound message, so
  * `ctx.reply('¿Sigues ahí?')` answers in the right chat. Errors go to the bot `'error'` event.
+ *
+ * @category Bot
  */
 export type IdleHandler = (ctx: MessageContext, event: IdleEvent) => unknown | Promise<unknown>
 

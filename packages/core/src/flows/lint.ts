@@ -19,7 +19,11 @@ import type { CompiledStep } from './FlowBuilder.js'
 import { buildFlowGraph, effectiveWaitTimeout, type FlowGraphNode } from './describe.js'
 import { describeTrigger, resolveFlowInventory, type FlowRoute, type FlowSource, type TriggerInfo } from './inventory.js'
 
-/** How bad a diagnostic is. `error` = fails at runtime; `warning` = almost surely a bug; `info` = advisory. */
+/**
+ * How bad a diagnostic is. `error` = fails at runtime; `warning` = almost surely a bug; `info` = advisory.
+ *
+ * @category Flow inspection
+ */
 export type LintSeverity = 'error' | 'warning' | 'info'
 
 /**
@@ -43,6 +47,8 @@ export type LintSeverity = 'error' | 'warning' | 'info'
  * | `form-state-collision` | warning | a `form()` stores its answers under a `c.state` key another ask/choose/form of the same flow also writes |
  *
  * Wait checks (`invalid-timeout`, `missing-timeout`, `wait-never-expires`) also cover `form()` steps.
+ *
+ * @category Flow inspection
  */
 export type LintCode =
   | 'goto-target-missing'
@@ -60,7 +66,11 @@ export type LintCode =
   | 'wait-never-expires'
   | 'form-state-collision'
 
-/** One finding. Plain data — safe to `JSON.stringify`, log or send to a dashboard. */
+/**
+ * One finding. Plain data — safe to `JSON.stringify`, log or send to a dashboard.
+ *
+ * @category Flow inspection
+ */
 export interface LintDiagnostic {
   code: LintCode
   severity: LintSeverity
@@ -76,7 +86,11 @@ export interface LintDiagnostic {
   trigger?: string
 }
 
-/** Options for {@link lintFlows} / `bot.lint()`. */
+/**
+ * Options for {@link lintFlows} / `bot.lint()`.
+ *
+ * @category Flow inspection
+ */
 export interface LintOptions {
   /** Drop diagnostics below this severity (default `'info'`: keep everything). */
   minSeverity?: LintSeverity
@@ -97,6 +111,8 @@ const ANONYMOUS_ID = /^flow_\d+_\d+$/
  * dynamic texts and predicate triggers are treated as "could do anything" —
  * including `c.goto()` to any flow — so the linter only warns about what is
  * certain from the declared structure. See {@link LintCode} for every check.
+ *
+ * @category Flow inspection
  */
 export function lintFlows(source: FlowSource, options: LintOptions = {}): LintDiagnostic[] {
   const built = buildFlowGraph(resolveFlowInventory(source))

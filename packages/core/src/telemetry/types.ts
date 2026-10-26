@@ -7,22 +7,42 @@
  * by default), kinds, stages and outcomes on spans. See `docs/guide/tracing.md`.
  */
 
-/** Attribute values: primitives or homogeneous primitive arrays (OpenTelemetry-compatible). */
+/**
+ * Attribute values: primitives or homogeneous primitive arrays (OpenTelemetry-compatible).
+ *
+ * @category Tracing
+ */
 export type TraceAttributeValue = string | number | boolean | readonly string[] | readonly number[] | readonly boolean[]
 
-/** Span attributes; `undefined` entries are dropped. */
+/**
+ * Span attributes; `undefined` entries are dropped.
+ *
+ * @category Tracing
+ */
 export type TraceAttributes = Record<string, TraceAttributeValue | undefined>
 
-/** Role of a span (same values as OpenTelemetry's `SpanKind`). */
+/**
+ * Role of a span (same values as OpenTelemetry's `SpanKind`).
+ *
+ * @category Tracing
+ */
 export type SpanKind = 'internal' | 'server' | 'client' | 'producer' | 'consumer'
 
-/** Status of a finished span. */
+/**
+ * Status of a finished span.
+ *
+ * @category Tracing
+ */
 export interface SpanStatus {
   code: 'unset' | 'ok' | 'error'
   message?: string
 }
 
-/** Opaque identity of a span (adapters fill it; the core never parses it). */
+/**
+ * Opaque identity of a span (adapters fill it; the core never parses it).
+ *
+ * @category Tracing
+ */
 export interface SpanContextRef {
   readonly traceId: string
   readonly spanId: string
@@ -36,20 +56,32 @@ export interface SpanContextRef {
   readonly isRemote?: boolean
 }
 
-/** A causal link to another span (e.g. a conversation's later turn → its first turn). */
+/**
+ * A causal link to another span (e.g. a conversation's later turn → its first turn).
+ *
+ * @category Tracing
+ */
 export interface SpanLink {
   context: SpanContextRef
   attributes?: TraceAttributes
 }
 
-/** Sanitized error recorded on a span: the message only with `telemetry.errorMessages`. */
+/**
+ * Sanitized error recorded on a span: the message only with `telemetry.errorMessages`.
+ *
+ * @category Tracing
+ */
 export interface SpanException {
   name: string
   message?: string
   code?: string | number
 }
 
-/** One span, as the core drives it. */
+/**
+ * One span, as the core drives it.
+ *
+ * @category Tracing
+ */
 export interface BotSpan {
   setAttribute(key: string, value: TraceAttributeValue | undefined): this
   setAttributes(attrs: TraceAttributes): this
@@ -63,7 +95,11 @@ export interface BotSpan {
   spanContext(): SpanContextRef | undefined
 }
 
-/** Options of {@link BotTracer.startSpan} / {@link BotTracing.startSpan}. */
+/**
+ * Options of {@link BotTracer.startSpan} / {@link BotTracing.startSpan}.
+ *
+ * @category Tracing
+ */
 export interface SpanOptions {
   kind?: SpanKind
   attributes?: TraceAttributes
@@ -79,6 +115,8 @@ export interface SpanOptions {
 /**
  * The ONLY thing a tracing integration implements. Minimal on purpose, so it can be
  * backed by OpenTelemetry (`@botmesh/otel`), Datadog, Sentry or a test recorder.
+ *
+ * @category Tracing
  */
 export interface BotTracer {
   startSpan(name: string, options?: SpanOptions): BotSpan
@@ -90,7 +128,11 @@ export interface BotTracer {
   withSpan?<T>(span: BotSpan, fn: () => T): T
 }
 
-/** `BotConfig.telemetry` (opt-in): where spans go and what they may contain. */
+/**
+ * `BotConfig.telemetry` (opt-in): where spans go and what they may contain.
+ *
+ * @category Tracing
+ */
 export interface TelemetryConfig {
   tracer: BotTracer
   /**
@@ -114,6 +156,8 @@ export interface TelemetryConfig {
 /**
  * Tracing facade of a bot (`bot.tracing`), also used by plugins (`@botmesh/ai`). Without
  * `BotConfig.telemetry` it is a no-op (`enabled === false`).
+ *
+ * @category Tracing
  */
 export interface BotTracing {
   readonly enabled: boolean

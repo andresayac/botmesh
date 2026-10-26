@@ -13,15 +13,27 @@ import { createHash } from 'node:crypto'
 import type { ChatId, InboundEvent, OutboundContent, StoredMessage } from '../../core/provider.js'
 import type { JsonValue } from '../../core/json.js'
 
-/** Magic string in every transcript file. */
+/**
+ * Magic string in every transcript file.
+ *
+ * @category Golden transcripts
+ */
 export const TRANSCRIPT_FORMAT = 'botmesh/transcript'
-/** Current transcript schema version. Bump on breaking changes and migrate in {@link parseTranscript}. */
+/**
+ * Current transcript schema version. Bump on breaking changes and migrate in {@link parseTranscript}.
+ *
+ * @category Golden transcripts
+ */
 export const TRANSCRIPT_VERSION = 1
 
 /** Any JSON value (defined in the core, re-exported here for transcript authors). */
 export type { JsonValue }
 
-/** A user → bot turn. */
+/**
+ * A user → bot turn.
+ *
+ * @category Golden transcripts
+ */
 export interface TranscriptInbound {
   dir: 'in'
   /** `'message'` (default) or `'interaction'` (button/list/callback; `text` holds its data). */
@@ -40,7 +52,11 @@ export interface TranscriptInbound {
   t?: number
 }
 
-/** A bot → user turn. */
+/**
+ * A bot → user turn.
+ *
+ * @category Golden transcripts
+ */
 export interface TranscriptOutbound {
   dir: 'out'
   chatId: string
@@ -56,9 +72,18 @@ export interface TranscriptOutbound {
   t?: number
 }
 
+/**
+ * One turn of a {@link Transcript}: a message the user sent or one the bot sent.
+ *
+ * @category Golden transcripts
+ */
 export type TranscriptTurn = TranscriptInbound | TranscriptOutbound
 
-/** A golden transcript (schema {@link TRANSCRIPT_VERSION}). */
+/**
+ * A golden transcript (schema {@link TRANSCRIPT_VERSION}).
+ *
+ * @category Golden transcripts
+ */
 export interface Transcript {
   format: typeof TRANSCRIPT_FORMAT
   version: typeof TRANSCRIPT_VERSION
@@ -73,7 +98,11 @@ export interface Transcript {
   turns: TranscriptTurn[]
 }
 
-/** Thrown by {@link parseTranscript} on malformed or unsupported input. */
+/**
+ * Thrown by {@link parseTranscript} on malformed or unsupported input.
+ *
+ * @category Golden transcripts
+ */
 export class TranscriptFormatError extends Error {
   constructor(message: string) {
     super(message)
@@ -81,12 +110,20 @@ export class TranscriptFormatError extends Error {
   }
 }
 
-/** Build a transcript from turns (handy for hand-written goldens). */
+/**
+ * Build a transcript from turns (handy for hand-written goldens).
+ *
+ * @category Golden transcripts
+ */
 export function createTranscript(turns: TranscriptTurn[], meta: Partial<Omit<Transcript, 'format' | 'version' | 'turns'>> = {}): Transcript {
   return { format: TRANSCRIPT_FORMAT, version: TRANSCRIPT_VERSION, ...meta, turns: turns.map((turn) => ({ ...turn })) }
 }
 
-/** Stable, diff-friendly JSON (2-space indent, trailing newline). */
+/**
+ * Stable, diff-friendly JSON (2-space indent, trailing newline).
+ *
+ * @category Golden transcripts
+ */
 export function serializeTranscript(transcript: Transcript): string {
   return `${JSON.stringify(transcript, null, 2)}\n`
 }
@@ -94,6 +131,8 @@ export function serializeTranscript(transcript: Transcript): string {
 /**
  * Parse and validate a transcript (a JSON string or an already-parsed object).
  * Throws {@link TranscriptFormatError} when the shape or version is wrong.
+ *
+ * @category Golden transcripts
  */
 export function parseTranscript(input: string | unknown): Transcript {
   let value: unknown = input
@@ -135,7 +174,11 @@ export function parseTranscript(input: string | unknown): Transcript {
   return { ...(value as unknown as Transcript), turns }
 }
 
-/** Human-readable text of an outbound content (same projection the store log uses). */
+/**
+ * Human-readable text of an outbound content (same projection the store log uses).
+ *
+ * @category Golden transcripts
+ */
 export function outboundText(content: OutboundContent): string {
   switch (content.kind) {
     case 'text': return content.text
@@ -154,12 +197,18 @@ export function outboundText(content: OutboundContent): string {
   }
 }
 
-/** Inbound events a transcript can hold as turns (messages and interactions). */
+/**
+ * Inbound events a transcript can hold as turns (messages and interactions).
+ *
+ * @category Golden transcripts
+ */
 export type TranscriptInboundEvent = Extract<InboundEvent, { kind: 'message' | 'interaction' }>
 
 /**
  * The inbound turn of a message or interaction event, as the recorder writes it:
  * `isGroup`, `displayName` and `id` only when the event carries them, `t` only when given.
+ *
+ * @category Golden transcripts
  */
 export function inboundTurnOf(event: TranscriptInboundEvent, t?: number): TranscriptInbound {
   if (event.kind === 'message') {
@@ -191,7 +240,11 @@ export function inboundTurnOf(event: TranscriptInboundEvent, t?: number): Transc
   }
 }
 
-/** The outbound turn of a sent content: `kind`, readable `text` and the JSON-safe `content`. */
+/**
+ * The outbound turn of a sent content: `kind`, readable `text` and the JSON-safe `content`.
+ *
+ * @category Golden transcripts
+ */
 export function outboundTurnOf(chatId: ChatId, content: OutboundContent, t?: number, id?: string): TranscriptOutbound {
   return {
     dir: 'out',
@@ -209,6 +262,8 @@ export function outboundTurnOf(chatId: ChatId, content: OutboundContent, t?: num
  * `bot< Your name?`, `bot< [buttons] Elige` (non-text kinds are tagged),
  * `user-1> (button) a` (interactions). Lines carry a `[chatId]` prefix when the
  * transcript spans several chats.
+ *
+ * @category Golden transcripts
  */
 export function transcriptToText(transcript: Transcript): string {
   const chats = new Set(transcript.turns.map((turn) => turn.chatId))
@@ -227,6 +282,8 @@ export function transcriptToText(transcript: Transcript): string {
  * JSON-safe copy of an outbound content. Binary payloads become
  * `{ $binary: { bytes, sha256 } }`, streams `{ $stream: true }`; functions and
  * `undefined` fields are dropped.
+ *
+ * @category Golden transcripts
  */
 export function serializeContent(content: OutboundContent): JsonValue {
   return toJson(content) ?? null
@@ -257,7 +314,11 @@ function toJson(value: unknown): JsonValue | undefined {
   return undefined
 }
 
-/** Options for {@link transcriptFromMessages}. */
+/**
+ * Options for {@link transcriptFromMessages}.
+ *
+ * @category Golden transcripts
+ */
 export interface FromMessagesOptions {
   name?: string
   /** Keep outbound messages whose status is `'failed'` (default `false`). */
@@ -276,6 +337,8 @@ export interface FromMessagesOptions {
  * Messages are ordered by timestamp (stable). Outbound turns carry `kind` + `text`
  * only — the store keeps no full content — so replays compare those two fields.
  * Display names are not in the log, so replays use the mock default push name.
+ *
+ * @category Golden transcripts
  */
 export function transcriptFromMessages(messages: StoredMessage[], options: FromMessagesOptions = {}): Transcript {
   const ordered = messages
@@ -308,14 +371,22 @@ export function transcriptFromMessages(messages: StoredMessage[], options: FromM
   return createTranscript(turns, { source: 'store', startedAt, ...(options.name ? { name: options.name } : {}) })
 }
 
-/** Minimal slice of `IStore` needed by {@link transcriptFromStore}. */
+/**
+ * Minimal slice of `IStore` needed by {@link transcriptFromStore}.
+ *
+ * @category Golden transcripts
+ */
 export interface TranscriptMessageSource {
   getMessagesByChat(chatId: string, limit?: number): Promise<StoredMessage[]>
   /** Used to detect group chats when `isGroup` is not given. */
   getChat?(chatId: string): Promise<{ kind?: string } | undefined>
 }
 
-/** Anything exposing the store a bot writes to (e.g. a `Bot`). */
+/**
+ * Anything exposing the store a bot writes to (e.g. a `Bot`).
+ *
+ * @category Golden transcripts
+ */
 export interface TranscriptStoreOwner {
   getStore(): TranscriptMessageSource
 }
@@ -326,6 +397,8 @@ export interface TranscriptStoreOwner {
  * Pass the **bot** (or `bot.getStore()`): a `Bot` wraps the store it is given in a
  * namespaced view, so reading the raw store you passed to `new Bot({ store })`
  * finds nothing under the plain chat ids.
+ *
+ * @category Golden transcripts
  */
 export async function transcriptFromStore(
   source: TranscriptMessageSource | TranscriptStoreOwner,

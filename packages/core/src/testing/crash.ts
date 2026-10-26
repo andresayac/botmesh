@@ -26,12 +26,20 @@ import type { DurabilityBackend, InboxJournal, OutboxJournal } from '../durabili
 import type { ChatId, OutboundContent, SendOptions, SendResult } from '../core/provider.js'
 import { MockProvider } from './MockProvider.js'
 
-/** A journal operation, as `'inbox.append'`, `'outbox.markSent'`, … */
+/**
+ * A journal operation, as `'inbox.append'`, `'outbox.markSent'`, …
+ *
+ * @category Crash testing
+ */
 export type JournalOp =
   | `inbox.${'append' | 'claim' | 'claimOne' | 'ack' | 'fail' | 'release' | 'extend' | 'replay' | 'get' | 'list' | 'purge'}`
   | `outbox.${'put' | 'begin' | 'extend' | 'markSent' | 'markFailed' | 'claimDue' | 'resolveAmbiguous' | 'get' | 'list' | 'retry' | 'discard' | 'purge'}`
 
-/** A {@link DurabilityBackend} that can be crashed (see {@link crashable}). */
+/**
+ * A {@link DurabilityBackend} that can be crashed (see {@link crashable}).
+ *
+ * @category Crash testing
+ */
 export interface CrashableBackend extends DurabilityBackend {
   /** The wrapped backend (what survives the crash). */
   readonly inner: DurabilityBackend
@@ -61,7 +69,11 @@ interface CrashState {
   armed: Array<{ op: JournalOp; nth: number; when: 'before' | 'after' }>
 }
 
-/** Wrap `inner` so it can be crashed at a chosen journal operation. */
+/**
+ * Wrap `inner` so it can be crashed at a chosen journal operation.
+ *
+ * @category Crash testing
+ */
 export function crashable(inner: DurabilityBackend): CrashableBackend {
   let onCrash!: () => void
   const whenCrashed = new Promise<void>((r) => { onCrash = r })
@@ -116,7 +128,11 @@ function crashableView(inner: DurabilityBackend, state: CrashState): CrashableBa
   }
 }
 
-/** A MockProvider whose sends hang once `crash()` was called (or once `backend` crashed). */
+/**
+ * A MockProvider whose sends hang once `crash()` was called (or once `backend` crashed).
+ *
+ * @category Crash testing
+ */
 export class CrashableProvider extends MockProvider {
   private dead = false
   constructor(private readonly backend?: Pick<CrashableBackend, 'crashed'>) { super() }

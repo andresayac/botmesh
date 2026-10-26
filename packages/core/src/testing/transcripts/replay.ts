@@ -23,13 +23,25 @@ import { createTranscript, isRecord, type JsonValue, type Transcript, type Trans
 import { RecordingProvider } from './record.js'
 import { EMAIL_PATTERN, PHONE_PATTERN, isPhoneMatch, placeholderCategory, type RedactionRule } from './redact.js'
 
-/** Builds the bot under test around the given provider (same shape as `defineBot` factories). Must not start it. */
+/**
+ * Builds the bot under test around the given provider (same shape as `defineBot` factories). Must not start it.
+ *
+ * @category Golden transcripts
+ */
 export type ReplayBotFactory = (provider: IProvider) => Bot | Promise<Bot>
 
-/** A text mask: every match is replaced by `replace` (default `'<*>'`) on both sides before comparing. */
+/**
+ * A text mask: every match is replaced by `replace` (default `'<*>'`) on both sides before comparing.
+ *
+ * @category Golden transcripts
+ */
 export type ReplayMask = RegExp | { pattern: RegExp; replace?: string }
 
-/** Ready-made masks for volatile values inside replies. */
+/**
+ * Ready-made masks for volatile values inside replies.
+ *
+ * @category Golden transcripts
+ */
 export const REPLAY_MASKS = {
   /** ISO-8601 dates / date-times. */
   isoDate: /\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?/g,
@@ -41,7 +53,11 @@ export const REPLAY_MASKS = {
   number: /\d+/g,
 } as const satisfies Record<string, RegExp>
 
-/** Options for {@link replayTranscript}. */
+/**
+ * Options for {@link replayTranscript}.
+ *
+ * @category Golden transcripts
+ */
 export interface ReplayOptions {
   /** Quiet period that ends a step once the expected replies arrived (default 30 ms). */
   settleMs?: number
@@ -84,7 +100,11 @@ export interface ReplayOptions {
   now?: () => number
 }
 
-/** One difference between the expected and the actual conversation. */
+/**
+ * One difference between the expected and the actual conversation.
+ *
+ * @category Golden transcripts
+ */
 export interface TranscriptDiff {
   kind: 'missing' | 'unexpected' | 'mismatch' | 'timing'
   /** Index of the inbound turn the replies belong to (`-1` = before the first inbound turn). */
@@ -101,7 +121,11 @@ export interface TranscriptDiff {
   message: string
 }
 
-/** Outcome of {@link replayTranscript}. */
+/**
+ * Outcome of {@link replayTranscript}.
+ *
+ * @category Golden transcripts
+ */
 export interface ReplayResult {
   ok: boolean
   diffs: TranscriptDiff[]
@@ -112,7 +136,11 @@ export interface ReplayResult {
   report(): string
 }
 
-/** Thrown by {@link assertTranscript} when a replay does not match. */
+/**
+ * Thrown by {@link assertTranscript} when a replay does not match.
+ *
+ * @category Golden transcripts
+ */
 export class TranscriptMismatchError extends Error {
   readonly result: ReplayResult
   constructor(result: ReplayResult) {
@@ -131,6 +159,8 @@ interface Step {
 /**
  * Replay `transcript` against the bot returned by `createBot` and diff the
  * replies. The bot is started before the first turn and stopped at the end.
+ *
+ * @category Golden transcripts
  */
 export async function replayTranscript(transcript: Transcript, createBot: ReplayBotFactory, options: ReplayOptions = {}): Promise<ReplayResult> {
   const settleMs = options.settleMs ?? 30
@@ -176,14 +206,22 @@ export async function replayTranscript(transcript: Transcript, createBot: Replay
   return result
 }
 
-/** {@link replayTranscript}, throwing a {@link TranscriptMismatchError} on any diff. */
+/**
+ * {@link replayTranscript}, throwing a {@link TranscriptMismatchError} on any diff.
+ *
+ * @category Golden transcripts
+ */
 export async function assertTranscript(transcript: Transcript, createBot: ReplayBotFactory, options: ReplayOptions = {}): Promise<ReplayResult> {
   const result = await replayTranscript(transcript, createBot, options)
   if (!result.ok) throw new TranscriptMismatchError(result)
   return result
 }
 
-/** Render diffs as a readable report. */
+/**
+ * Render diffs as a readable report.
+ *
+ * @category Golden transcripts
+ */
 export function formatReplayReport(transcript: Transcript, diffs: TranscriptDiff[]): string {
   const title = transcript.name ? `transcript "${transcript.name}"` : 'transcript'
   if (diffs.length === 0) return `✓ ${title} matches`

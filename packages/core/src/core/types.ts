@@ -83,6 +83,11 @@ export {
  * HOOKS & MIDDLEWARES
  * ========================================================================== */
 
+/**
+ * Events hooks attach to with `bot.before`, `bot.after` and `bot.onError`. Custom names are allowed.
+ *
+ * @category Hooks & plugins
+ */
 export type HookEvent =
   | 'message'
   | 'send'
@@ -97,6 +102,11 @@ export type HookEvent =
   // for the built-in names (a bare `| string` collapses the union to `string`).
   | (string & {})
 
+/**
+ * Phase of a hook: `before` (can stop the event), `after` or `error`.
+ *
+ * @category Hooks & plugins
+ */
 export type HookPhase = 'before' | 'after' | 'error'
 
 /**
@@ -104,13 +114,19 @@ export type HookPhase = 'before' | 'after' | 'error'
  * through (returning without it stops the event, like `ctx.abort()`); `after` hooks receive
  * no usable `next`. The context type is inferred from the event name through
  * {@link HookContextMap}; for a custom event it is `unknown` unless the handler annotates it.
+ *
+ * @category Hooks & plugins
  */
 export type HookHandler<TCtx = unknown> = (
   ctx: TCtx,
   next: () => Promise<void>,
 ) => void | Promise<void>
 
-/** An `error`-phase hook (`bot.onError`): receives the failing context and the error. */
+/**
+ * An `error`-phase hook (`bot.onError`): receives the failing context and the error.
+ *
+ * @category Hooks & plugins
+ */
 export type HookErrorHandler<TCtx = unknown> = (
   ctx: TCtx,
   error: unknown,
@@ -120,6 +136,8 @@ export type HookErrorHandler<TCtx = unknown> = (
  * Payload of the `'send'` hooks: every outbound send (`ctx.reply`, `bot.send`, broadcasts),
  * plus edits (`edit`) and streamed output (`stream`). A `before` hook may rewrite `content`
  * and `options` in place, or `abort()` to skip the send (it then resolves `skipped`).
+ *
+ * @category Hooks & plugins
  */
 export interface SendHookContext {
   chatId: ChatId
@@ -141,6 +159,8 @@ export interface SendHookContext {
  * }
  * bot.after('crm.lead', (lead) => lead.leadId) // typed
  * ```
+ *
+ * @category Hooks & plugins
  */
 export interface HookContextMap {
   message: MessageContext
@@ -154,19 +174,34 @@ export interface HookContextMap {
   status: DeliveryStatus
 }
 
-/** The context a hook on `E` receives: the {@link HookContextMap} entry, else `TCtx` (default `unknown`). */
+/**
+ * The context a hook on `E` receives: the {@link HookContextMap} entry, else `TCtx` (default `unknown`).
+ *
+ * @category Hooks & plugins
+ */
 export type HookContextOf<E extends HookEvent, TCtx = unknown> = E extends keyof HookContextMap ? HookContextMap[E] : TCtx
 
-/** A `before` hook's context: the event context plus `abort()`. */
+/**
+ * A `before` hook's context: the event context plus `abort()`.
+ *
+ * @category Hooks & plugins
+ */
 export type HookBeforeContext<T> = T & { abort(): void }
 
 /**
  * Registry-side handler type: every {@link HookHandler} and {@link HookErrorHandler} is
  * assignable to it (the parameter is `never`), so it can hold handlers of any event. It is
  * not callable without a cast; the hook pipeline does that internally.
+ *
+ * @category Hooks & plugins
  */
 export type AnyHookHandler = HookHandler<never> | HookErrorHandler<never>
 
+/**
+ * A registered hook: its event, phase, handler and priority (higher runs first).
+ *
+ * @category Hooks & plugins
+ */
 export interface HookRegistration {
   event: HookEvent
   phase: HookPhase
@@ -178,6 +213,12 @@ export interface HookRegistration {
  * PLUGINS
  * ========================================================================== */
 
+/**
+ * What `PluginSpec.install()` receives: a scoped bot whose registrations are undone on
+ * unplug, the logger, the injected tools, the plugin config and `onDispose()` for extra cleanup.
+ *
+ * @category Hooks & plugins
+ */
 export interface PluginContext<TTools extends object = DefaultTools> {
   /** Scoped facade of the Bot; registrations auto-track their unsubscribers. */
   bot: Bot
@@ -188,6 +229,12 @@ export interface PluginContext<TTools extends object = DefaultTools> {
   onDispose(fn: () => void): void
 }
 
+/**
+ * A plugin: a name, a version and a synchronous `install()` that registers handlers
+ * through `ctx.bot`. Build one with {@link definePlugin} and plug it with `bot.plug(plugin, config)`.
+ *
+ * @category Hooks & plugins
+ */
 export interface PluginSpec<TConfig = Record<string, unknown>> {
   name: string
   version: string
@@ -220,11 +267,17 @@ export interface PluginSpec<TConfig = Record<string, unknown>> {
  * Carried in the return type of {@link PluginSpec.install} so an `async install()` fails to
  * compile with this text in the error (`Promise<void>` is not assignable to it). Never a
  * value: a sync `install` returns nothing.
+ *
+ * @category Hooks & plugins
  */
 export type SyncInstallError =
   'Plugin.install() must be synchronous and return nothing: bot.plug() does not await it. Do async setup lazily on first use (LazyProvider in @botmesh/ai).'
 
-/** A plugin is just a PluginSpec or a factory returning one. */
+/**
+ * A plugin is just a PluginSpec or a factory returning one.
+ *
+ * @category Hooks & plugins
+ */
 export type Plugin<TConfig = Record<string, unknown>> =
   | PluginSpec<TConfig>
   | ((config?: TConfig) => PluginSpec<TConfig>)
@@ -233,6 +286,11 @@ export type Plugin<TConfig = Record<string, unknown>> =
  * SCHEDULER
  * ========================================================================== */
 
+/**
+ * Handle of a task registered with `bot.schedule`, `bot.every` or `bot.delay`.
+ *
+ * @category Scheduler
+ */
 export interface ScheduledTask {
   id: string
   readonly cron?: string
@@ -258,6 +316,8 @@ export interface ScheduledTask {
 /**
  * Options of a plain (in-memory) cron task: `bot.schedule(cron, { timeZone }, fn)`.
  * Add an `id` (see {@link DurableTaskOptions}) to make it durable.
+ *
+ * @category Scheduler
  */
 export interface CronTaskOptions {
   /**
@@ -286,6 +346,8 @@ export interface CronTaskOptions {
  *
  * A one-shot `delay` task counts as one slot: `'skip'` drops a reminder that was due
  * while the bot was down, the other two run it once.
+ *
+ * @category Scheduler
  */
 export type MissedRunPolicy = 'skip' | 'run-once' | 'catch-up'
 
@@ -293,6 +355,8 @@ export type MissedRunPolicy = 'skip' | 'run-once' | 'catch-up'
  * Options that make a `schedule`/`every`/`delay` task durable: its next run time is
  * persisted in the scheduler's `ScheduleStore` under `id`, so it survives restarts, and
  * each occurrence is claimed under a fenced lease so only one replica runs it.
+ *
+ * @category Scheduler
  */
 export interface DurableTaskOptions {
   /**
@@ -320,7 +384,11 @@ export interface DurableTaskOptions {
   timeZone?: string
 }
 
-/** One occurrence of a durable task, passed to its handler. */
+/**
+ * One occurrence of a durable task, passed to its handler.
+ *
+ * @category Scheduler
+ */
 export interface ScheduledRun {
   /** The task's {@link DurableTaskOptions.id} (without the store namespace). */
   taskId: string
@@ -342,7 +410,11 @@ export interface ScheduledRun {
   signal: AbortSignal
 }
 
-/** Handler of a durable task. */
+/**
+ * Handler of a durable task.
+ *
+ * @category Scheduler
+ */
 export type DurableTaskHandler = (run: ScheduledRun) => void | Promise<void>
 
 /* ============================================================================
@@ -356,15 +428,51 @@ export type { BroadcastResult } from '../ops/broadcast.js'
  * TRIGGER MATCHING
  * ========================================================================== */
 
+/**
+ * How a text trigger is compared with the message body, after both are normalized
+ * (lowercase, accents stripped, spaces collapsed). The default is `'equals'`.
+ *
+ * @category Triggers
+ */
 export type MatchStrategy = 'equals' | 'contains' | 'startsWith' | 'endsWith'
+/**
+ * Where a trigger fires: direct messages, groups or both (default `'all'`).
+ *
+ * @category Triggers
+ */
 export type TriggerScope = 'dm' | 'group' | 'all'
 
+/**
+ * A text trigger with an explicit match strategy and scope.
+ *
+ * @example
+ * ```ts
+ * bot.when({ pattern: 'price', match: 'contains', scope: 'dm' }, (ctx) => ctx.reply('Our prices: …'))
+ * ```
+ *
+ * @category Triggers
+ */
 export interface TriggerObject {
   pattern: string | RegExp | Array<string | RegExp>
   match?: MatchStrategy
   scope?: TriggerScope
 }
 
+/**
+ * What `bot.when()` and `flow()` match: a text (normalized equality), a `RegExp`
+ * (tested against the raw body), a list of them, a {@link TriggerObject}, a predicate, a type
+ * trigger (`IMAGE`, `CALL`…) or `WELCOME`.
+ *
+ * @example
+ * ```ts
+ * bot.when('menu', showMenu) // "Menu" and "MENÚ " match too
+ * bot.when(/^order\s+\d+$/i, showOrder)
+ * bot.when(['hi', 'hello'], greet)
+ * bot.when(IMAGE, (ctx) => ctx.reply('Nice picture!'))
+ * ```
+ *
+ * @category Triggers
+ */
 export type Trigger =
   | string
   | RegExp
@@ -380,7 +488,11 @@ export type Trigger =
  * CONVERSATIONS — CONTROLS
  * ========================================================================== */
 
-/** Options shared by the conversation controls that wait for an inbound message. */
+/**
+ * Options shared by the conversation controls that wait for an inbound message.
+ *
+ * @category Conversations
+ */
 export interface WaitOptions {
   timeout?: number | string
   validate?: (body: string, ctx: RuntimeMessage) => true | string | Promise<true | string>

@@ -30,11 +30,23 @@ import type { CheckpointTrace } from '../telemetry/w3c.js'
  * 1. IDENTITY PRIMITIVES  (opaque — no shape grammar)
  * ========================================================================== */
 
-/** A chat/conversation identifier. Opaque; NEVER string-sniffed by core. */
+/**
+ * A chat/conversation identifier. Opaque; NEVER string-sniffed by core.
+ *
+ * @category Provider
+ */
 export type ChatId = string
-/** A user/sender identifier. Opaque. */
+/**
+ * A user/sender identifier. Opaque.
+ *
+ * @category Provider
+ */
 export type UserId = string
-/** A message identifier. Opaque; unique only within its chat for some transports. */
+/**
+ * A message identifier. Opaque; unique only within its chat for some transports.
+ *
+ * @category Provider
+ */
 export type MessageId = string
 
 /**
@@ -42,6 +54,8 @@ export type MessageId = string
  * `{id, chatId}` is the portable minimum; `native` round-trips the provider's
  * own key shape (WAMessageKey, Telegram {chat_id,message_id}, Discord snowflakes)
  * so a provider can act on it later without the core knowing its structure.
+ *
+ * @category Provider
  */
 export interface MessageRef {
   id: MessageId
@@ -53,9 +67,18 @@ export interface MessageRef {
  * 2. CHAT / SENDER  (provider-computed classification)
  * ========================================================================== */
 
-/** Provider-populated chat classification — never inferred from id shape. */
+/**
+ * Provider-populated chat classification — never inferred from id shape.
+ *
+ * @category Provider
+ */
 export type ChatKind = 'dm' | 'group' | 'channel' | 'broadcast'
 
+/**
+ * The chat a message belongs to: its id, its kind and, when the transport knows it, its name.
+ *
+ * @category Provider
+ */
 export interface ChatInfo {
   id: ChatId
   kind: ChatKind
@@ -72,6 +95,8 @@ export interface ChatInfo {
  * Base, cross-transport sender fields only. WA-only vocabulary (phoneNumber,
  * lid, isBusiness) and Telegram/Discord extras (languageCode, nickname, roles)
  * live in `platformData`, NOT as named fields on the shared type.
+ *
+ * @category Provider
  */
 export interface SenderInfo {
   id: UserId
@@ -91,6 +116,11 @@ export interface SenderInfo {
  * 3. MESSAGE TYPE + MEDIA
  * ========================================================================== */
 
+/**
+ * Normalized type of an inbound message (`ctx.type`).
+ *
+ * @category Provider
+ */
 export type MessageType =
   | 'text' | 'image' | 'video' | 'audio' | 'voice' | 'document'
   | 'sticker' | 'location' | 'contact' | 'poll' | 'buttons' | 'list'
@@ -113,6 +143,8 @@ export type MessageType =
  *  - Baileys (decrypt + CDN fetch + possible reupload),
  *  - Cloud API / Telegram (resolve id -> short-lived URL -> fetch bytes),
  *  - Discord (plain HTTPS GET).
+ *
+ * @category Provider
  */
 export interface MediaRef {
   kind: Exclude<MessageType, 'text' | 'poll' | 'buttons' | 'list' | 'unknown' | 'call' | 'form'>
@@ -130,6 +162,8 @@ export interface MediaRef {
  * Providers fill it for: WhatsApp via Baileys (`locationMessage` / `liveLocationMessage`),
  * WhatsApp Cloud API (`location`), Telegram (`location` / `venue`) and Messenger
  * (`location` attachments, when Meta still sends coordinates).
+ *
+ * @category Provider
  */
 export interface InboundLocation {
   latitude: number
@@ -142,7 +176,11 @@ export interface InboundLocation {
   live?: boolean
 }
 
-/** Downloaded media payload surfaced on `ctx.media`. */
+/**
+ * Downloaded media payload surfaced on `ctx.media`.
+ *
+ * @category Messages & context
+ */
 export interface MediaPayload {
   buffer: Buffer
   mimetype: string
@@ -153,6 +191,8 @@ export interface MediaPayload {
 /**
  * Outbound media source. Extensible per provider via the `native` escape hatch
  * (e.g. Telegram's reuse-by-`file_id`) rather than a fixed closed union.
+ *
+ * @category Messages & context
  */
 export type MediaSource =
   | string
@@ -170,6 +210,8 @@ export type MediaSource =
 /**
  * A quoted/replied-to message. `body`/`senderId` may be absent when a transport
  * only returns the id inline (Cloud API); resolve lazily via provider.getMessage.
+ *
+ * @category Provider
  */
 export interface QuotedRef {
   ref?: MessageRef
@@ -185,6 +227,8 @@ export interface QuotedRef {
  * conforming provider. Field names `from`/`sender`/`body`/`type`/`isGroup` are
  * duplicated to match `RuntimeMessage`/`MessageContext` so the object flows into
  * the dispatcher/runtime unchanged.
+ *
+ * @category Provider
  */
 export interface InboundMessage<TRaw = unknown> {
   /**
@@ -238,6 +282,8 @@ export interface InboundMessage<TRaw = unknown> {
  * from `ctx.acknowledge(text)`, otherwise deferred (`{ defer: true }`) before the
  * handler's first send, shortly before `respondBy`, or when routing ends, whichever
  * comes first. Without the capability the core acks only on `ctx.acknowledge()`.
+ *
+ * @category Provider
  */
 export interface InboundInteraction<TRaw = unknown> {
   /**
@@ -265,7 +311,11 @@ export interface InboundInteraction<TRaw = unknown> {
   raw: TRaw
 }
 
-/** Neutral delivery/read receipt — replaces piggybacking on Baileys' ack shape. */
+/**
+ * Neutral delivery/read receipt — replaces piggybacking on Baileys' ack shape.
+ *
+ * @category Provider
+ */
 export interface DeliveryStatus {
   ref: MessageRef
   status: 'sent' | 'delivered' | 'read' | 'failed'
@@ -280,6 +330,11 @@ export interface DeliveryStatus {
   platformData?: Record<string, unknown>
 }
 
+/**
+ * A reaction to a message, as emitted on `bot.on('reaction', …)`.
+ *
+ * @category Provider
+ */
 export interface InboundReaction {
   ref: MessageRef
   emoji: string
@@ -287,6 +342,11 @@ export interface InboundReaction {
   removed?: boolean
 }
 
+/**
+ * The tallies of a poll after a vote, as emitted on `bot.on('poll', …)`.
+ *
+ * @category Provider
+ */
 export interface PollVote {
   ref: MessageRef
   senderId: UserId
@@ -301,9 +361,16 @@ export interface PollVote {
 /**
  * Listener passed to {@link IProvider.onEvent}: receives every normalized inbound
  * event. May be async; providers do not await it unless they document so.
+ *
+ * @category Provider
  */
 export type InboundListener<TRaw = unknown> = (event: InboundEvent<TRaw>) => void | Promise<void>
 
+/**
+ * Everything a provider can emit to the bot, as a union tagged by `kind`.
+ *
+ * @category Provider
+ */
 export type InboundEvent<TRaw = unknown> =
   | { kind: 'message'; message: InboundMessage<TRaw> }
   | { kind: 'interaction'; interaction: InboundInteraction<TRaw> }
@@ -315,12 +382,22 @@ export type InboundEvent<TRaw = unknown> =
   | { kind: 'presence'; event: PresenceEvent }
   | { kind: 'call'; event: CallEvent }
 
+/**
+ * A group membership or settings change, as emitted on `bot.on('group', …)`.
+ *
+ * @category Provider
+ */
 export interface GroupEvent {
   chatId: ChatId
   action: 'add' | 'remove' | 'promote' | 'demote' | 'update'
   participants: UserId[]
   actor?: UserId
 }
+/**
+ * Presence updates of a chat's participants, as emitted on `bot.on('presence', …)`.
+ *
+ * @category Provider
+ */
 export interface PresenceEvent {
   chatId: ChatId
   presences: Record<UserId, { lastKnownPresence?: string; lastSeen?: number }>
@@ -328,6 +405,8 @@ export interface PresenceEvent {
 /**
  * An inbound call notification. Transports may emit several per call (one per
  * status update) with the same `id`.
+ *
+ * @category Provider
  */
 export interface CallEvent {
   id: string
@@ -358,6 +437,12 @@ export interface CallEvent {
  * 5. OUTBOUND — normalized content
  * ========================================================================== */
 
+/**
+ * A button of a `buttons` or `card` message. Sent natively where
+ * `capabilities.buttons` is `true` (Cloud API, Telegram, Discord…); elsewhere it degrades to numbered text.
+ *
+ * @category Messages & context
+ */
 export interface Button {
   id: string
   title: string
@@ -365,12 +450,21 @@ export interface Button {
   url?: string
 }
 
+/**
+ * A section of a `list` message: an optional title and its selectable rows.
+ *
+ * @category Messages & context
+ */
 export interface ListSection {
   title?: string
   rows: Array<{ id: string; title: string; description?: string }>
 }
 
-/** Options common to any send. */
+/**
+ * Options common to any send.
+ *
+ * @category Messages & context
+ */
 export interface SendOptions {
   /**
    * Durability (`BotConfig.durability`): idempotency key of this send in the outbox. A key
@@ -398,6 +492,8 @@ export interface SendOptions {
  * to numbered text). The `template` and `native` kinds are the escape hatches
  * for transport-specific features (Cloud API templates, Discord components,
  * Telegram inline keyboards) without polluting the neutral kinds.
+ *
+ * @category Messages & context
  */
 export type OutboundContent =
   | { kind: 'text'; text: string }
@@ -419,7 +515,11 @@ export type OutboundContent =
   /** A native form (only sent to providers with `capabilities.forms === 'native'`). */
   | FormContent
 
-/** Result of a send. Opaque `ref` — no faked remoteJid/fromMe triple. */
+/**
+ * Result of a send. Opaque `ref` — no faked remoteJid/fromMe triple.
+ *
+ * @category Messages & context
+ */
 export interface SendResult<TRaw = unknown> {
   ref: MessageRef
   raw?: TRaw
@@ -437,6 +537,13 @@ export interface SendResult<TRaw = unknown> {
  * 6. CAPABILITIES + CONSTRAINTS  (queryable per provider)
  * ========================================================================== */
 
+/**
+ * What a transport can do: content kinds, buttons, typing, edits, text limits and so on.
+ * Handlers usually ask through `ctx.supports(feature)`; an unsupported operation is an absent
+ * provider method with a `false` flag here.
+ *
+ * @category Provider
+ */
 export interface ProviderCapabilities {
   /** Content kinds this provider can actually deliver. */
   contentKinds: ReadonlyArray<OutboundContent['kind']>
@@ -517,13 +624,25 @@ export interface ProviderCapabilities {
   textFormat?: TextFormat
 }
 
-/** See {@link ProviderCapabilities.streaming}. */
+/**
+ * See {@link ProviderCapabilities.streaming}.
+ *
+ * @category Provider
+ */
 export type StreamingMode = 'draft' | 'edit' | 'none'
 
-/** See {@link ProviderCapabilities.textFormat}. */
+/**
+ * See {@link ProviderCapabilities.textFormat}.
+ *
+ * @category Messages & context
+ */
 export type TextFormat = 'whatsapp' | 'markdown' | 'html' | 'plain'
 
-/** Options of one {@link IProvider.sendDraft} call. */
+/**
+ * Options of one {@link IProvider.sendDraft} call.
+ *
+ * @category Messages & context
+ */
 export interface DraftOptions {
   /** Show the user a button to stop the generation (Telegram `can_stop`). */
   canStop?: boolean
@@ -542,9 +661,18 @@ export interface DraftOptions {
  * 7. CONNECTION STATE  (neutral — no baked-in 'qr')
  * ========================================================================== */
 
+/**
+ * Connection state of a transport, reported on the `'connection'` event.
+ *
+ * @category Provider
+ */
 export type ConnectionState = 'connecting' | 'authenticating' | 'ready' | 'closed'
 
-/** Transport-neutral disconnect taxonomy. Providers map their codes into this. */
+/**
+ * Transport-neutral disconnect taxonomy. Providers map their codes into this.
+ *
+ * @category Provider
+ */
 export type DisconnectReason =
   | 'sessionInvalid'    // wipe + re-auth (Baileys loggedOut/badSession)
   | 'sessionTakenOver'  // MUST NOT auto-reconnect (Baileys conflict 440; TG/Discord 409)
@@ -552,6 +680,12 @@ export type DisconnectReason =
   | 'rateLimited'       // reconnect after a signalled delay
   | 'unknown'
 
+/**
+ * Payload of the `'connection'` event: the new state, the auth artifact while
+ * authenticating (a QR string or a pairing code) and the reason when the connection closes.
+ *
+ * @category Provider
+ */
 export interface ConnectionUpdate {
   state: ConnectionState
   /**
@@ -570,7 +704,11 @@ export interface ConnectionUpdate {
  * 8. TYPED OUTBOUND ERRORS  (core, zero deps)
  * ========================================================================== */
 
-/** Base of the typed send errors; `name` is the concrete class name. */
+/**
+ * Base of the typed send errors; `name` is the concrete class name.
+ *
+ * @category Errors
+ */
 export class ProviderError extends Error {
   constructor(message?: string) {
     super(message)
@@ -578,7 +716,11 @@ export class ProviderError extends Error {
   }
 }
 
-/** A provider cannot honor an OutboundContent kind/field. */
+/**
+ * A provider cannot honor an OutboundContent kind/field.
+ *
+ * @category Errors
+ */
 export class UnsupportedContentError extends ProviderError {
   constructor(public readonly kind: OutboundContent['kind'], message?: string) {
     super(message ?? `Unsupported content kind: ${kind}`)
@@ -587,7 +729,11 @@ export class UnsupportedContentError extends ProviderError {
 }
 /** Longest wait a {@link RateLimitedError} carries: 24 h. */
 const MAX_RETRY_AFTER_MS = 86_400_000
-/** Server-signalled quota (Telegram 429 retry_after, Discord bucket, Cloud API tier). */
+/**
+ * Server-signalled quota (Telegram 429 retry_after, Discord bucket, Cloud API tier).
+ *
+ * @category Errors
+ */
 export class RateLimitedError extends ProviderError {
   /**
    * How long the transport asked to wait, in ms. Capped at 24 h (`86_400_000`), so a
@@ -604,6 +750,8 @@ export class RateLimitedError extends ProviderError {
 /**
  * Recipient can't be initiated / permanently unreachable (Telegram 403). The chat is on
  * {@link RecipientUnreachableError.chatId}; the default message leaves it out (it ends up in logs).
+ *
+ * @category Errors
  */
 export class RecipientUnreachableError extends ProviderError {
   constructor(public readonly chatId: ChatId, message?: string) {
@@ -611,7 +759,11 @@ export class RecipientUnreachableError extends ProviderError {
     this.name = 'RecipientUnreachableError'
   }
 }
-/** Payload exceeds a transport limit (Telegram 4096 chars, media ceilings). */
+/**
+ * Payload exceeds a transport limit (Telegram 4096 chars, media ceilings).
+ *
+ * @category Errors
+ */
 export class PayloadTooLargeError extends ProviderError {
   constructor(message?: string) { super(message); this.name = 'PayloadTooLargeError' }
 }
@@ -619,6 +771,8 @@ export class PayloadTooLargeError extends ProviderError {
  * Inbound media over the `maxBytes` cap of {@link loadMediaOf}. `bytes` is the
  * declared size when the provider reported one (nothing was downloaded), or the
  * bytes read before the download was cut.
+ *
+ * @category Errors
  */
 export class MediaTooLargeError extends PayloadTooLargeError {
   constructor(public readonly bytes: number, public readonly maxBytes: number) {
@@ -629,6 +783,8 @@ export class MediaTooLargeError extends PayloadTooLargeError {
 /**
  * Outside the send window for free-form content (Cloud API 24h window). The chat is on
  * {@link OutsideSessionWindowError.chatId}; the default message leaves it out (it ends up in logs).
+ *
+ * @category Errors
  */
 export class OutsideSessionWindowError extends ProviderError {
   constructor(public readonly chatId: ChatId, message?: string) {
@@ -661,6 +817,8 @@ export class OutsideSessionWindowError extends ProviderError {
  * repeats (e.g. kind + event timestamp) or emit `''`, which opts the event out
  * of deduplication. Never fall back to a per-user constant (sender id,
  * `user_ref`) or a shared placeholder (`'<prefix>_0'`).
+ *
+ * @category Provider
  */
 export interface IProvider<TRaw = unknown> {
   /** Stable transport tag (e.g. 'baileys', 'telegram') — used to namespace
@@ -782,6 +940,24 @@ export interface IProvider<TRaw = unknown> {
  * 10. MESSAGE CONTEXT  (generic; ergonomics preserved)
  * ========================================================================== */
 
+/**
+ * Types of `ctx.tools`. Empty by default: augment it so values registered with
+ * `bot.provide(name, value)` are typed in every handler.
+ *
+ * @example
+ * ```ts
+ * declare module '@botmesh/core' {
+ *   interface DefaultTools {
+ *     prices: Map<string, number>
+ *   }
+ * }
+ *
+ * bot.provide('prices', new Map([['cake', 12]]))
+ * bot.when('price', (ctx) => ctx.reply(String(ctx.tools.prices.get('cake'))))
+ * ```
+ *
+ * @category Messages & context
+ */
 export interface DefaultTools {}
 
 /**
@@ -790,6 +966,8 @@ export interface DefaultTools {}
  * `OutboundContent` descriptor and calls `provider.send`, instead of hand-rolling
  * Baileys JSON. `from`/`sender`/`body`/`type`/`isGroup` are read straight off the
  * normalized `InboundMessage`, so user code and `keyFor` are unchanged.
+ *
+ * @category Messages & context
  */
 export interface MessageContext<TTools extends object = DefaultTools, TRaw = unknown> {
   /* Normalized inbound data */
@@ -984,7 +1162,11 @@ export interface MessageContext<TTools extends object = DefaultTools, TRaw = unk
   tools: TTools
 }
 
-/** Result of an outbound send handed back to `ctx.reply(...)` callers. */
+/**
+ * Result of an outbound send handed back to `ctx.reply(...)` callers.
+ *
+ * @category Messages & context
+ */
 export interface SentMessage<TRaw = unknown> {
   ref: MessageRef
   /** Convenience mirrors of ref (avoids callers destructuring `ref`). */
@@ -1071,7 +1253,11 @@ export interface BuildContextDeps<TRaw = unknown> {
   i18n?: ContextI18n
 }
 
-/** What `buildMessageContext` needs to localize a context (implemented by the Bot's `I18n`). */
+/**
+ * What `buildMessageContext` needs to localize a context (implemented by the Bot's `I18n`).
+ *
+ * @category Messages & context
+ */
 export interface ContextI18n {
   /** Initial `ctx.lang` (the bot re-resolves it inside the per-chat queue). */
   readonly defaultLocale: string
@@ -1088,6 +1274,11 @@ export interface ContextI18n {
  * 12. STORE  (generic normalized shapes — no Baileys imports)
  * ========================================================================== */
 
+/**
+ * A message as kept in the store's per-chat log.
+ *
+ * @category Store
+ */
 export interface StoredMessage {
   ref: MessageRef
   chatId: ChatId
@@ -1110,11 +1301,20 @@ export interface StoredMessage {
   raw?: unknown
 }
 
-/** One turn of AI conversation history (consumed by @botmesh/ai). Transport-neutral. */
+/**
+ * One turn of AI conversation history (consumed by @botmesh/ai). Transport-neutral.
+ *
+ * @category Store
+ */
 export interface AIMessage {
   role: 'user' | 'assistant'
   content: string
 }
+/**
+ * A chat record in the store (name, kind, handoff state…).
+ *
+ * @category Store
+ */
 export interface StoredChat {
   id: ChatId
   tenantId?: string
@@ -1133,6 +1333,11 @@ export interface StoredChat {
    */
   handoff?: StoredHandoff | null
 }
+/**
+ * A contact record in the store.
+ *
+ * @category Store
+ */
 export interface StoredContact {
   id: UserId
   tenantId?: string
@@ -1147,6 +1352,12 @@ export interface StoredContact {
   raw?: unknown
 }
 
+/**
+ * Saved position of a conversation (flow id, step and `c.state`), written by
+ * `.persistent()` flows so they can resume after a restart.
+ *
+ * @category Store
+ */
 export interface FlowCheckpoint {
   flowId: string
   step: number
@@ -1199,7 +1410,11 @@ export interface FlowCheckpoint {
   revision?: number
 }
 
-/** See {@link FlowCheckpoint.answer}. Stores persist it opaquely, as JSON. */
+/**
+ * See {@link FlowCheckpoint.answer}. Stores persist it opaquely, as JSON.
+ *
+ * @category Store
+ */
 export interface CheckpointAnswer {
   /** Durability on: the inbox record holding the message (read back from the journal). */
   inboundId?: string
@@ -1219,7 +1434,11 @@ export interface CheckpointAnswer {
   at: number
 }
 
-/** See {@link FlowCheckpoint.handover}. */
+/**
+ * See {@link FlowCheckpoint.handover}.
+ *
+ * @category Store
+ */
 export interface CheckpointHandover {
   /**
    * `'ephemeral'`: a flow WITHOUT `.persistent()` checkpointed only so another replica can
@@ -1248,6 +1467,8 @@ export interface CheckpointHandover {
  * it as JSON and hand back a fresh copy on every read). `userId`, `namespace`
  * and `key` are compared as EXACT strings: case, accents and leading or
  * trailing whitespace all make a different entry.
+ *
+ * @category Store
  */
 export interface UserDataEntry {
   /** Canonical subject id (the provider-resolved `senderId`). Opaque. */
@@ -1268,6 +1489,14 @@ export interface UserDataEntry {
   updatedAt: number
 }
 
+/**
+ * Persistence contract of the bot: message log, chats, contacts, flow checkpoints,
+ * AI history, delivery cursors and (optionally) `ctx.user` data. {@link MemoryStore} is the
+ * reference implementation; `@botmesh/sqlite-store` and `@botmesh/redis-store` provide durable ones.
+ * Pass a store as {@link BotConfig.store}.
+ *
+ * @category Store
+ */
 export interface IStore {
   saveMessage(msg: StoredMessage): Promise<void>
   getMessage(ref: MessageRef): Promise<StoredMessage | undefined>
@@ -1372,6 +1601,8 @@ function escapeKeyPart(part: string): string {
  *
  * Persistent stores that wrote keys in the old format read and delete through
  * {@link legacyMessageKey} as a fallback (see the store READMEs).
+ *
+ * @category Store
  */
 export function messageKey(ref: MessageRef): string {
   return `${escapeKeyPart(ref.chatId)}:${escapeKeyPart(ref.id)}`
@@ -1383,6 +1614,8 @@ export function messageKey(ref: MessageRef): string {
  * {@link messageKey} escaped its parts: it differs from `messageKey(ref)`
  * exactly when a part contains `:` or `%`, and a row found under it must be
  * checked to belong to `ref` (same chat id and message id) before use.
+ *
+ * @category Store
  */
 export function legacyMessageKey(ref: MessageRef): string {
   return `${ref.chatId}:${ref.id}`
@@ -1418,6 +1651,7 @@ export function legacyMessageKey(ref: MessageRef): string {
  * }
  * ```
  */
+/** @category Bot */
 export interface LoggerLike {
   debug(...a: unknown[]): void
   info(...a: unknown[]): void
@@ -1426,11 +1660,18 @@ export interface LoggerLike {
   child?(bindings: Record<string, unknown>): LoggerLike
 }
 
+/**
+ * Label of a store backend.
+ *
+ * @category Store
+ */
 export type StoreKind = 'memory' | 'sqlite' | 'redis' | 'postgres' | 'mongo' | 'custom'
 
 /**
  * @deprecated The type of the deprecated {@link BotConfig.storeConfig}: pass
  * `store: new MemoryStore(options)` (see `MemoryStoreOptions`) instead.
+ *
+ * @category Store
  */
 export interface BuiltinStoreConfig {
   /** JSON file the in-memory store is loaded from and saved to. */
@@ -1448,7 +1689,11 @@ export interface BuiltinStoreConfig {
  * `BaileysProviderConfig`, consumed when you construct the provider you inject
  * here. The provider is now the transport boundary — you build it, then pass it.
  */
-/** Options of `BotConfig.rateLimitRetry`. */
+/**
+ * Options of `BotConfig.rateLimitRetry`.
+ *
+ * @category Bot
+ */
 export interface RateLimitRetryOptions {
   /** Retries after the first attempt. Default `1`. */
   retries?: number
@@ -1456,6 +1701,26 @@ export interface RateLimitRetryOptions {
   maxWaitMs?: number | string
 }
 
+/**
+ * Options of `new Bot(config)`. Only `provider` is required. Every duration option takes
+ * a string (`'30s'`, `'5m'`) or milliseconds; the constructor validates them and throws
+ * {@link ConfigValidationError} naming the option.
+ *
+ * @example
+ * ```ts
+ * import { Bot, MemoryStore } from '@botmesh/core'
+ * import { TelegramProvider } from '@botmesh/telegram'
+ *
+ * const bot = new Bot({
+ *   provider: new TelegramProvider({ token: process.env.TELEGRAM_TOKEN! }),
+ *   store: new MemoryStore({ file: './data/store.json' }),
+ *   lang: 'es', // built-in texts in Spanish (default 'en')
+ *   typing: true, // show "typing…" before text replies
+ * })
+ * ```
+ *
+ * @category Bot
+ */
 export interface BotConfig {
   session?: string
   /** Storage and control-plane namespace. Defaults to `local`. */

@@ -22,11 +22,20 @@ import type {
 import { MemoryUserDataTable } from './MemoryUserDataTable.js'
 import { parseTimerDuration } from '../utils/timers.js'
 
-/** Minimal logger surface — satisfied by pino and by a bare `console`. */
+/**
+ * Minimal logger surface — satisfied by pino and by a bare `console`.
+ *
+ * @category Store
+ */
 export interface MemoryStoreLogger {
   error?: (...args: unknown[]) => void
 }
 
+/**
+ * Options of {@link MemoryStore}.
+ *
+ * @category Store
+ */
 export interface MemoryStoreOptions {
   /**
    * Max messages retained per chat; older ones are dropped on save. Default
@@ -55,6 +64,19 @@ function assertRevision(revision: number, method: string): void {
   }
 }
 
+/**
+ * The built-in {@link IStore}: everything in RAM, optionally saved to a JSON `file` on
+ * an interval and when the bot stops. It is the default store. It keeps the newest 1000 messages
+ * per chat unless `maxMessagesPerChat` says otherwise. For a database, use
+ * `@botmesh/sqlite-store` or `@botmesh/redis-store`.
+ *
+ * @example
+ * ```ts
+ * const bot = new Bot({ provider, store: new MemoryStore({ file: './data/store.json' }) })
+ * ```
+ *
+ * @category Store
+ */
 export class MemoryStore implements IStore {
   private messages = new Map<string, Map<string, StoredMessage>>() // chatId -> messageId -> msg
   private chats = new Map<string, StoredChat>()

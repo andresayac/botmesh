@@ -20,7 +20,11 @@ import type {
   TraceAttributeValue, TraceAttributes,
 } from '../telemetry/types.js'
 
-/** One recorded span. */
+/**
+ * One recorded span.
+ *
+ * @category Tracing
+ */
 export interface RecordedSpan {
   readonly name: string
   readonly kind: SpanKind
@@ -40,7 +44,11 @@ export interface RecordedSpan {
   readonly ended: boolean
 }
 
-/** Options of {@link createRecordingTracer}. */
+/**
+ * Options of {@link createRecordingTracer}.
+ *
+ * @category Tracing
+ */
 export interface RecordingTracerOptions {
   /** `false` makes every span non-recording (`isRecording() === false`), like a sampler dropping it. Default true. */
   sampled?: boolean
@@ -55,7 +63,11 @@ export interface RecordingTracerOptions {
   traceState?: string
 }
 
-/** What {@link createRecordingTracer} returns. */
+/**
+ * What {@link createRecordingTracer} returns.
+ *
+ * @category Tracing
+ */
 export interface RecordingTracer {
   readonly tracer: BotTracer
   /** Every span started so far, in start order. */
@@ -109,7 +121,11 @@ class RecSpan implements BotSpan {
   }
 }
 
-/** Create an in-memory tracer for tests (see {@link RecordingTracer}). */
+/**
+ * Create an in-memory tracer for tests (see {@link RecordingTracer}).
+ *
+ * @category Tracing
+ */
 export function createRecordingTracer(options: RecordingTracerOptions = {}): RecordingTracer {
   const sampled = options.sampled !== false
   const spans: RecordedSpan[] = []

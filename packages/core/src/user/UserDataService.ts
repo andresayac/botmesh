@@ -28,13 +28,19 @@ export const DEFAULT_USER_NAMESPACE = 'default'
 
 const DEFAULT_PURGE_INTERVAL_MS = 60_000
 
-/** An IStore whose user-data methods are all present. */
+/**
+ * An IStore whose user-data methods are all present.
+ *
+ * @category User data
+ */
 export type UserDataStore = IStore & Required<Pick<IStore, 'getUserData' | 'setUserData' | 'deleteUserData' | 'listUserData'>>
 
 /**
  * Whether `store` implements the user-data contract (`getUserData`,
  * `setUserData`, `deleteUserData`, `listUserData`; `purgeExpiredUserData` is
  * optional). All built-in stores do; custom stores may not.
+ *
+ * @category User data
  */
 export function supportsUserData(store: IStore): store is UserDataStore {
   return typeof store.getUserData === 'function'
@@ -340,6 +346,8 @@ function isUserData(value: unknown): value is UserData {
  *   .ask('¿Idioma?', 'lang')
  *   .do(async (ctx, c) => { await userOf(ctx).set('lang', c.state.lang) })
  * ```
+ *
+ * @category User data
  */
 export function userOf(ctx: RuntimeMessage): UserData {
   const user = (ctx as { user?: unknown }).user

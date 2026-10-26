@@ -23,7 +23,11 @@ import { parseDuration } from '../utils/duration.js'
 /** Default number of sent refs a {@link SentRefRing} remembers. */
 export const DEFAULT_ECHO_FILTER_SIZE = 1000
 
-/** User-facing options of `BotConfig.echoFilter`. */
+/**
+ * User-facing options of `BotConfig.echoFilter`.
+ *
+ * @category Bot
+ */
 export interface EchoFilterOptions {
   /** Maximum number of remembered sent refs (least-recent evicted). Positive integer; default 1000. */
   size?: number

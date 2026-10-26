@@ -17,7 +17,11 @@ import { KvDurability } from './journal.js'
 import { MemoryKv, assertKvMutation, type KvMutation, type MemoryKvSnapshot } from './kv.js'
 import { AppendLog, appendLogOptions, syncDirectory, writeSnapshotFile } from './fileLog.js'
 
-/** Options of {@link FileDurability.open}. */
+/**
+ * Options of {@link FileDurability.open}.
+ *
+ * @category Durability
+ */
 export interface FileDurabilityOptions {
   /** Skip the advisory lock file (only when something else guarantees a single writer). */
   lock?: boolean
@@ -204,7 +208,11 @@ async function acquireLock(lockPath: string, waitMs: number): Promise<void> {
   throw new Error(`could not acquire durability journal lock: ${lockPath}`)
 }
 
-/** {@link DurabilityBackend} persisted to a JSON file (single process). */
+/**
+ * {@link DurabilityBackend} persisted to a JSON file (single process).
+ *
+ * @category Durability
+ */
 export class FileDurability extends KvDurability {
   private closing: Promise<void> | undefined
   private constructor(

@@ -12,6 +12,12 @@ import type { KeyedQueue } from '../utils/keyedQueue.js'
 /** Every message of a chat (the store APIs take a limit). */
 const ALL = 2_147_483_647
 
+/**
+ * Everything the bot stores about one user, as returned by `bot.exportSubject(userId)`
+ * (for data-subject access requests).
+ *
+ * @category Bot
+ */
 export interface SubjectDataExport {
   namespace: Readonly<StoreNamespace>
   userId: UserId
@@ -25,6 +31,11 @@ export interface SubjectDataExport {
   exportedAt: number
 }
 
+/**
+ * How many records of each kind `bot.deleteSubject(userId)` erased.
+ *
+ * @category Bot
+ */
 export interface SubjectDeletionResult {
   contacts: number
   chats: number

@@ -17,14 +17,22 @@ const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const TYPES = new Set(['text', 'number', 'email', 'date', 'select', 'multiselect', 'optin'])
 
-/** `[key, label]` pairs of a select/multiselect, in display order. */
+/**
+ * `[key, label]` pairs of a select/multiselect, in display order.
+ *
+ * @category Forms
+ */
 export function formOptionEntries(options: FormOptions): Array<[string, string]> {
   return Array.isArray(options)
     ? (options as readonly string[]).map((label) => [label, label])
     : Object.entries(options as Record<string, string>)
 }
 
-/** Whether an answer is mandatory (`required` defaults to `true`, except for `optin`). */
+/**
+ * Whether an answer is mandatory (`required` defaults to `true`, except for `optin`).
+ *
+ * @category Forms
+ */
 export function isFieldRequired(field: FormField): boolean {
   return field.required ?? field.type !== 'optin'
 }
@@ -45,6 +53,8 @@ function patternOf(pattern: RegExp | string): RegExp {
  * Throw a `TypeError` describing the first structural problem of `def` (bad id or
  * field name, duplicate names, empty options, inconsistent bounds, invalid
  * dates or patterns). Called by `flow().form()` at build time.
+ *
+ * @category Forms
  */
 export function assertFormDefinition(def: FormDefinition): void {
   const where = `form ${JSON.stringify(def?.id)}`
@@ -105,7 +115,11 @@ export function assertFormDefinition(def: FormDefinition): void {
   }
 }
 
-/** Effective `[min, max]` picks of a multiselect. */
+/**
+ * Effective `[min, max]` picks of a multiselect.
+ *
+ * @category Forms
+ */
 export function selectionBounds(field: MultiSelectFormField): { min: number; max: number } {
   const count = formOptionEntries(field.options).length
   return {
@@ -114,7 +128,11 @@ export function selectionBounds(field: MultiSelectFormField): { min: number; max
   }
 }
 
-/** Result of checking one answer. */
+/**
+ * Result of checking one answer.
+ *
+ * @category Forms
+ */
 export type FieldCheck = { ok: true; value: FormValue | undefined } | { ok: false; message: string }
 
 const fail = (field: FormField, message: string): FieldCheck => ({ ok: false, message: field.error ?? message })
@@ -168,7 +186,11 @@ function checkTyped(field: FormField, value: FormValue, t: Translate): FieldChec
   }
 }
 
-/** Parse a date answer: `YYYY-MM-DD`, `DD/MM/YYYY`, `DD-MM-YYYY` or `DD.MM.YYYY` → `YYYY-MM-DD`. */
+/**
+ * Parse a date answer: `YYYY-MM-DD`, `DD/MM/YYYY`, `DD-MM-YYYY` or `DD.MM.YYYY` → `YYYY-MM-DD`.
+ *
+ * @category Forms
+ */
 export function parseFormDate(input: string): string | undefined {
   const s = input.trim()
   if (isValidIsoDate(s)) return s
@@ -213,6 +235,8 @@ function resolveOption(entries: Array<[string, string]>, token: string): string 
  * Degraded mode: parse a typed answer for `field`. `{ ok: true, value: undefined }`
  * means an optional field was skipped (`skipWord`, default: the localized
  * `core.form.skipWord`). `t` localizes the error messages (default: built-in Spanish).
+ *
+ * @category Forms
  */
 export function parseFieldAnswer(field: FormField, input: string, skipWord?: string, t: Translate = defaultT): FieldCheck {
   const raw = input.trim()
@@ -314,13 +338,21 @@ function checkNative(field: FormField, v: unknown, t: Translate): FieldCheck {
   }
 }
 
-/** One invalid field of a submission. */
+/**
+ * One invalid field of a submission.
+ *
+ * @category Forms
+ */
 export interface FormFieldError {
   field: string
   message: string
 }
 
-/** Result of {@link validateFormValues}. */
+/**
+ * Result of {@link validateFormValues}.
+ *
+ * @category Forms
+ */
 export type FormValidation = { ok: true; values: FormValues } | { ok: false; errors: FormFieldError[] }
 
 /**
@@ -328,6 +360,8 @@ export type FormValidation = { ok: true; values: FormValues } | { ok: false; err
  * keys are dropped, missing optional fields are omitted, values are coerced to
  * the {@link FormValues} types. `t` localizes the error messages (default: built-in
  * Spanish `core.form.*`; the form runtime passes `c.t`).
+ *
+ * @category Forms
  */
 export function validateFormValues(def: FormDefinition, raw: Record<string, unknown>, t: Translate = defaultT): FormValidation {
   const values: FormValues = {}

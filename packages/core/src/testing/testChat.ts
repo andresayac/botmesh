@@ -28,12 +28,24 @@ import {
   type TranscriptTurn,
 } from './transcripts/format.js'
 
-/** Default user of `createTestBot().chat` (a DM: `chatId === senderId`). */
+/**
+ * Default user of `createTestBot().chat` (a DM: `chatId === senderId`).
+ *
+ * @category Test bot
+ */
 export const DEFAULT_TEST_USER = 'user@s.whatsapp.net'
-/** Default display name of simulated users (the mock's own default push name). */
+/**
+ * Default display name of simulated users (the mock's own default push name).
+ *
+ * @category Test bot
+ */
 export const DEFAULT_TEST_NAME = 'Test User'
 
-/** Thrown by the test chat helpers on misuse (nothing to press, nothing to react to, an unexpected reply...). */
+/**
+ * Thrown by the test chat helpers on misuse (nothing to press, nothing to react to, an unexpected reply...).
+ *
+ * @category Test bot
+ */
 export class TestKitError extends Error {
   constructor(message: string) {
     super(message)
@@ -41,10 +53,18 @@ export class TestKitError extends Error {
   }
 }
 
-/** Media kinds {@link TestChat.sendMedia} can simulate. */
+/**
+ * Media kinds {@link TestChat.sendMedia} can simulate.
+ *
+ * @category Test bot
+ */
 export type TestMediaKind = MediaRef['kind']
 
-/** What {@link TestChat.pressButton} pressed. */
+/**
+ * What {@link TestChat.pressButton} pressed.
+ *
+ * @category Test bot
+ */
 export interface PressedButton {
   /** Button / row id (what the bot receives as `ctx.body` and `ctx.interaction.data`). */
   id: string
@@ -55,7 +75,11 @@ export interface PressedButton {
   kind: 'button' | 'list'
 }
 
-/** Options of {@link TestChat.transcript}. */
+/**
+ * Options of {@link TestChat.transcript}.
+ *
+ * @category Test bot
+ */
 export interface TestTranscriptOptions {
   name?: string
   /** Keep `t` offsets (default `false`: snapshots must be stable). */
@@ -66,12 +90,20 @@ export interface TestTranscriptOptions {
   scope?: 'chat' | 'all'
 }
 
-/** One message the bot sent, with the `ref` the mock returned (see {@link TestChat.sent}). */
+/**
+ * One message the bot sent, with the `ref` the mock returned (see {@link TestChat.sent}).
+ *
+ * @category Test bot
+ */
 export interface TestSent extends MockOutgoing {
   ref: MessageRef
 }
 
-/** A (chat, sender) view over the test bot. See {@link createTestBot}. */
+/**
+ * A (chat, sender) view over the test bot. See {@link createTestBot}.
+ *
+ * @category Test bot
+ */
 export interface TestChat {
   /** @deprecated Alias of {@link chatId}. */
   jid: string

@@ -5,7 +5,11 @@
 
 import type { InboundLocation } from './provider.js'
 
-/** Raw fields a provider read from its transport payload (any of them may be missing or junk). */
+/**
+ * Raw fields a provider read from its transport payload (any of them may be missing or junk).
+ *
+ * @category Provider
+ */
 export interface InboundLocationInput {
   latitude?: unknown
   longitude?: unknown
@@ -24,6 +28,8 @@ export interface InboundLocationInput {
  * ```ts
  * const location = toInboundLocation({ latitude: msg.location?.latitude, longitude: msg.location?.longitude, name: msg.location?.name })
  * ```
+ *
+ * @category Provider
  */
 export function toInboundLocation(input: InboundLocationInput | null | undefined): InboundLocation | undefined {
   if (!input) return undefined

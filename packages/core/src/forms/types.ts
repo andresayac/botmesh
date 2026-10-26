@@ -10,16 +10,26 @@
  * land in `c.state` with the same normalized types (see {@link FormValues}).
  */
 
-/** Field types a form can contain. */
+/**
+ * Field types a form can contain.
+ *
+ * @category Forms
+ */
 export type FormFieldType = 'text' | 'number' | 'email' | 'date' | 'select' | 'multiselect' | 'optin'
 
 /**
  * Options of a `select`/`multiselect` field: either `{ key: label }` (the KEY is
  * stored in `c.state`) or a list of labels (each label is its own key).
+ *
+ * @category Forms
  */
 export type FormOptions = Record<string, string> | readonly string[]
 
-/** Properties shared by every {@link FormField} variant. */
+/**
+ * Properties shared by every {@link FormField} variant.
+ *
+ * @category Forms
+ */
 export interface FormFieldBase {
   /**
    * Key of the answer in the form's values (and in `c.state` with `flatten`).
@@ -38,7 +48,11 @@ export interface FormFieldBase {
   error?: string
 }
 
-/** Free text. */
+/**
+ * Free text.
+ *
+ * @category Forms
+ */
 export interface TextFormField extends FormFieldBase {
   type: 'text'
   minLength?: number
@@ -49,7 +63,11 @@ export interface TextFormField extends FormFieldBase {
   multiline?: boolean
 }
 
-/** A number (`c.state` gets a `number`). */
+/**
+ * A number (`c.state` gets a `number`).
+ *
+ * @category Forms
+ */
 export interface NumberFormField extends FormFieldBase {
   type: 'number'
   min?: number
@@ -58,7 +76,11 @@ export interface NumberFormField extends FormFieldBase {
   integer?: boolean
 }
 
-/** An email address (stored as typed, trimmed). */
+/**
+ * An email address (stored as typed, trimmed).
+ *
+ * @category Forms
+ */
 export interface EmailFormField extends FormFieldBase {
   type: 'email'
 }
@@ -66,6 +88,8 @@ export interface EmailFormField extends FormFieldBase {
 /**
  * A calendar date, stored as `'YYYY-MM-DD'`. Degraded mode also accepts
  * `DD/MM/YYYY` and `DD-MM-YYYY`.
+ *
+ * @category Forms
  */
 export interface DateFormField extends FormFieldBase {
   type: 'date'
@@ -75,13 +99,21 @@ export interface DateFormField extends FormFieldBase {
   max?: string
 }
 
-/** Pick exactly one option (`c.state` gets the option KEY). */
+/**
+ * Pick exactly one option (`c.state` gets the option KEY).
+ *
+ * @category Forms
+ */
 export interface SelectFormField extends FormFieldBase {
   type: 'select'
   options: FormOptions
 }
 
-/** Pick several options (`c.state` gets an array of option KEYS, in option order). */
+/**
+ * Pick several options (`c.state` gets an array of option KEYS, in option order).
+ *
+ * @category Forms
+ */
 export interface MultiSelectFormField extends FormFieldBase {
   type: 'multiselect'
   options: FormOptions
@@ -94,12 +126,18 @@ export interface MultiSelectFormField extends FormFieldBase {
 /**
  * A consent checkbox (`c.state` gets a `boolean`). When `required`, the user must
  * accept it to submit the form.
+ *
+ * @category Forms
  */
 export interface OptInFormField extends FormFieldBase {
   type: 'optin'
 }
 
-/** Any form field. */
+/**
+ * Any form field.
+ *
+ * @category Forms
+ */
 export type FormField =
   | TextFormField
   | NumberFormField
@@ -109,7 +147,11 @@ export type FormField =
   | MultiSelectFormField
   | OptInFormField
 
-/** A transport-agnostic form. */
+/**
+ * A transport-agnostic form.
+ *
+ * @category Forms
+ */
 export interface FormDefinition {
   /**
    * Stable form id: default `c.state` key of the answers, the key a native
@@ -129,13 +171,19 @@ export interface FormDefinition {
   fields: readonly FormField[]
 }
 
-/** Normalized answer of one field. */
+/**
+ * Normalized answer of one field.
+ *
+ * @category Forms
+ */
 export type FormValue = string | number | boolean | string[]
 
 /**
  * Answers of a completed form, keyed by field name. Optional fields the user
  * skipped are absent. Types: `text`/`email`/`date`/`select` → `string`,
  * `number` → `number`, `multiselect` → `string[]`, `optin` → `boolean`.
+ *
+ * @category Forms
  */
 export type FormValues = Record<string, FormValue>
 
@@ -144,6 +192,8 @@ export type FormValues = Record<string, FormValue>
  * `'form'` (its `body` is `JSON.stringify(reply)`; see `formReplyBody()` /
  * `parseFormReply()`). `token` echoes the `token` of the `'form'` content that
  * opened the form, so the runtime can match the reply to the pending step.
+ *
+ * @category Forms
  */
 export interface FormReply {
   token?: string
@@ -151,10 +201,18 @@ export interface FormReply {
   values: Record<string, unknown>
 }
 
-/** How `.form()` renders. `'auto'` (default) follows `capabilities.forms`. */
+/**
+ * How `.form()` renders. `'auto'` (default) follows `capabilities.forms`.
+ *
+ * @category Forms
+ */
 export type FormMode = 'auto' | 'native' | 'degraded'
 
-/** Options of `flow().form(definition, opts)`. */
+/**
+ * Options of `flow().form(definition, opts)`.
+ *
+ * @category Forms
+ */
 export interface FormStepOptions {
   /** `c.state` key the answers object is stored under. Default: the form `id`. */
   stateKey?: string
@@ -179,7 +237,11 @@ export interface FormStepOptions {
   pendingMessage?: string
 }
 
-/** Outbound descriptor a native provider receives (OutboundContent kind `'form'`). */
+/**
+ * Outbound descriptor a native provider receives (OutboundContent kind `'form'`).
+ *
+ * @category Forms
+ */
 export interface FormContent {
   kind: 'form'
   form: FormDefinition

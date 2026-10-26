@@ -19,13 +19,25 @@
  */
 import type { CheckpointTrace } from '../telemetry/w3c.js'
 
-/** Strictly increasing number per key (a ticket's sequence, a leadership term). Usable as a fencing token. */
+/**
+ * Strictly increasing number per key (a ticket's sequence, a leadership term). Usable as a fencing token.
+ *
+ * @category Coordination
+ */
 export type Fence = number
 
-/** Why a turn or a leadership ended without its holder releasing it. */
+/**
+ * Why a turn or a leadership ended without its holder releasing it.
+ *
+ * @category Coordination
+ */
 export type LeaseLossReason = 'expired' | 'superseded' | 'coordinator-down' | 'stopped'
 
-/** A lease as reported by {@link CoordinatorEvents}. */
+/**
+ * A lease as reported by {@link CoordinatorEvents}.
+ *
+ * @category Coordination
+ */
 export interface LeaseInfo {
   key: string
   holder: string
@@ -37,6 +49,8 @@ export interface LeaseInfo {
  * expired (pause, partition), another replica superseded it, the coordinator became
  * unreachable, or it was stopped. Sends from a chat whose turn was lost reject with it
  * instead of reaching the transport out of order.
+ *
+ * @category Errors
  */
 export class LeaseLostError extends Error {
   constructor(
@@ -54,6 +68,8 @@ export class LeaseLostError extends Error {
  * not come within `coordination.turnWaitMs`. The message is dropped unprocessed (its
  * dedupe key is released, so a transport redelivery is processed) and this error is
  * reported through the bot's `'error'` event.
+ *
+ * @category Errors
  */
 export class CoordinationUnavailableError extends Error {
   constructor(
@@ -66,7 +82,11 @@ export class CoordinationUnavailableError extends Error {
   }
 }
 
-/** A reserved place in one key's cross-replica FIFO (see {@link Coordinator.reserve}). */
+/**
+ * A reserved place in one key's cross-replica FIFO (see {@link Coordinator.reserve}).
+ *
+ * @category Coordination
+ */
 export interface Ticket {
   readonly key: string
   /** Position in the key's FIFO; becomes the turn's {@link ChatTurn.fence}. */
@@ -75,7 +95,11 @@ export interface Ticket {
   cancel(): Promise<void>
 }
 
-/** A granted per-key turn. The holder may run the key's work until {@link release} or until {@link signal} aborts. */
+/**
+ * A granted per-key turn. The holder may run the key's work until {@link release} or until {@link signal} aborts.
+ *
+ * @category Coordination
+ */
 export interface ChatTurn {
   readonly key: string
   readonly fence: Fence
@@ -93,7 +117,11 @@ export interface ChatTurn {
   release(): Promise<void>
 }
 
-/** A renewed lease on a named singleton (see {@link Coordinator.lead}). */
+/**
+ * A renewed lease on a named singleton (see {@link Coordinator.lead}).
+ *
+ * @category Coordination
+ */
 export interface Leadership {
   readonly name: string
   /** Term number: strictly increasing every time the leadership changes hands. */
@@ -104,14 +132,22 @@ export interface Leadership {
   release(): Promise<void>
 }
 
-/** Events a {@link Coordinator} reports. */
+/**
+ * Events a {@link Coordinator} reports.
+ *
+ * @category Coordination
+ */
 export interface CoordinatorEvents {
   'lease-lost': LeaseInfo & { reason: LeaseLossReason }
   leader: { name: string; fence: Fence }
   follower: { name: string }
 }
 
-/** Options of {@link Coordinator.acquireTurn}. */
+/**
+ * Options of {@link Coordinator.acquireTurn}.
+ *
+ * @category Coordination
+ */
 export interface AcquireTurnOptions {
   /** Give up (reject with an `AbortError`-like reason) when aborted. */
   signal?: AbortSignal
@@ -122,6 +158,8 @@ export interface AcquireTurnOptions {
 /**
  * Cross-replica coordination backend. One instance per replica (per `Bot`); the bot
  * calls {@link start} when it starts and {@link stop} when it stops.
+ *
+ * @category Coordination
  */
 export interface Coordinator {
   /** This replica's id; unique among the replicas sharing the backend. */
@@ -150,6 +188,8 @@ export interface Coordinator {
 /**
  * `BotConfig.coordination`: run this bot as one of N replicas. Omit it for a single
  * process (the default; nothing below runs).
+ *
+ * @category Coordination
  */
 export interface CoordinationConfig {
   /** The backend shared by the replicas (`RedisCoordinator`, or `MemoryCoordinator` for one process). */
@@ -193,7 +233,11 @@ export interface CoordinationConfig {
   handover?: ConversationHandoverConfig
 }
 
-/** `coordination.handover`: conversation hand-over between replicas. */
+/**
+ * `coordination.handover`: conversation hand-over between replicas.
+ *
+ * @category Coordination
+ */
 export interface ConversationHandoverConfig {
   /**
    * DSL flows WITHOUT `.persistent()`: `'forward'` keeps a TTL-bound ("ephemeral")
@@ -237,10 +281,16 @@ export interface ConversationHandoverConfig {
 /**
  * A custom {@link ConversationHandoverConfig.fallback}: `ctx` is the waking message's context
  * (a `MessageContext` in a Bot). Resolve `true` when it consumed the message.
+ *
+ * @category Coordination
  */
 export type HandoverFallback = (info: InterruptedConversation, ctx: HandoverContext) => boolean | Promise<boolean>
 
-/** The minimal context a {@link HandoverFallback} receives (in a Bot it is the full `MessageContext`). */
+/**
+ * The minimal context a {@link HandoverFallback} receives (in a Bot it is the full `MessageContext`).
+ *
+ * @category Coordination
+ */
 export interface HandoverContext {
   from: string
   sender: string
@@ -250,7 +300,11 @@ export interface HandoverContext {
   reply(text: string): Promise<unknown>
 }
 
-/** A conversation the replica that took the chat could not continue (see {@link HandoverFallback}). */
+/**
+ * A conversation the replica that took the chat could not continue (see {@link HandoverFallback}).
+ *
+ * @category Coordination
+ */
 export interface InterruptedConversation {
   /** Conversation (or flow) name. */
   name: string
@@ -269,7 +323,11 @@ export interface InterruptedConversation {
   trace?: CheckpointTrace
 }
 
-/** Payload of the `'coordination:handover'` bot event. */
+/**
+ * Payload of the `'coordination:handover'` bot event.
+ *
+ * @category Coordination
+ */
 export interface ConversationHandoverEvent {
   key: string
   name: string

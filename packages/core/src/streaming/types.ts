@@ -16,6 +16,8 @@ import type {
  * Anything that yields text pieces: an async iterable (async generator, Node
  * `Readable`), a web `ReadableStream`, or a plain sync iterable. Byte chunks
  * (`Uint8Array`/`Buffer`) are decoded as UTF-8.
+ *
+ * @category Messages & context
  */
 export type StreamSource =
   | AsyncIterable<string | Uint8Array>
@@ -28,10 +30,16 @@ export type StreamSource =
  * - `'edit'`   send the first text, then throttled edits of that message.
  * - `'chunk'`  no live preview: sentence-sized messages with typing between them.
  * - `'buffer'` collect everything (typing meanwhile), then send it once (split if long).
+ *
+ * @category Messages & context
  */
 export type StreamStrategy = 'draft' | 'edit' | 'chunk' | 'buffer'
 
-/** Options of `ctx.stream()` / {@link streamText}. */
+/**
+ * Options of `ctx.stream()` / {@link streamText}.
+ *
+ * @category Messages & context
+ */
 export interface StreamOptions {
   /** `'auto'` (default) picks from `capabilities.streaming`; an unsupported choice degrades. */
   strategy?: 'auto' | StreamStrategy
@@ -69,7 +77,11 @@ export interface StreamOptions {
   draftPlatformData?: Record<string, unknown>
 }
 
-/** What `ctx.stream()` resolves with. */
+/**
+ * What `ctx.stream()` resolves with.
+ *
+ * @category Messages & context
+ */
 export interface StreamResult {
   /** Full text received from the source (before splitting). */
   text: string
@@ -86,6 +98,8 @@ export interface StreamResult {
 /**
  * The sink {@link streamText} renders into. `ctx.stream()` builds one from the
  * bot; tests and custom integrations can provide their own.
+ *
+ * @category Messages & context
  */
 export interface StreamTarget {
   capabilities?: Pick<ProviderCapabilities, 'streaming' | 'maxTextLength' | 'maxTextBytes' | 'edit'>

@@ -8,7 +8,11 @@
 
 import type { LocaleMessages } from './types.js'
 
-/** Keys of the built-in core messages (pass them to `ctx.t()` or override them in `bot.locale()`). */
+/**
+ * Keys of the built-in core messages (pass them to `ctx.t()` or override them in `bot.locale()`).
+ *
+ * @category i18n
+ */
 export const CORE_MESSAGES = {
   /** A conversation wait timed out. */
   timeout: 'core.conversation.timeout',
@@ -110,10 +114,18 @@ export const CORE_MESSAGES = {
   formBody: 'core.form.body',
 } as const
 
-/** Union of the built-in core message keys. */
+/**
+ * Union of the built-in core message keys.
+ *
+ * @category i18n
+ */
 export type CoreMessageKey = (typeof CORE_MESSAGES)[keyof typeof CORE_MESSAGES]
 
-/** The built-in locales: `es` (historical defaults, byte for byte) and `en`. */
+/**
+ * The built-in locales: `es` (historical defaults, byte for byte) and `en`.
+ *
+ * @category i18n
+ */
 export const BUILTIN_LOCALES: Readonly<Record<'es' | 'en', LocaleMessages>> = {
   es: {
     core: {

@@ -20,7 +20,11 @@ function describeValue(value: unknown): string {
   }
 }
 
-/** A `BotConfig` option with an invalid value; `field` is the option's dotted path (`'durability.pollMs'`). */
+/**
+ * A `BotConfig` option with an invalid value; `field` is the option's dotted path (`'durability.pollMs'`).
+ *
+ * @category Errors
+ */
 export class ConfigValidationError extends Error {
   constructor(
     public readonly field: string,
@@ -97,6 +101,8 @@ function assertDurations(config: Partial<BotConfig>): void {
 /**
  * Validate a BotConfig object at construction time. Throws
  * {@link ConfigValidationError} with a clear message on invalid input.
+ *
+ * @category Bot
  */
 export function validateConfig<T extends Partial<BotConfig>>(config: T): T {
   assertType('session', config.session, 'string')

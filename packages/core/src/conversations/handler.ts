@@ -26,6 +26,8 @@ import type { ConversationControls } from './controls.js'
  *   await ctx.reply(`Recibida (${img.type})`)
  * })
  * ```
+ *
+ * @category Conversations
  */
 export type ConversationHandler<TTools extends object = DefaultTools> =
   (c: ConversationControls, ctx: MessageContext<TTools>) => Promise<unknown>

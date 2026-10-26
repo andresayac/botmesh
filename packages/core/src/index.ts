@@ -22,7 +22,7 @@
  * import { BaileysProvider } from '@botmesh/baileys'
  *
  * const bot = new Bot({ provider: new BaileysProvider({ session: 'demo' }) })
- * bot.when('hola', async (ctx) => await ctx.reply('¡Hola! 👋'))
+ * bot.when('hi', (ctx) => ctx.reply('Hello! 👋'))
  * await bot.start()
  * ```
  *
@@ -44,7 +44,11 @@ export type {
 
 // Transport-agnostic contract + core vocabulary
 import type { BotConfig as BotConfigForAlias } from './core/types.js'
-/** @deprecated Use {@link BotConfig}: `Config` is an older alias of the same type. */
+/**
+ * @deprecated Use {@link BotConfig}: `Config` is an older alias of the same type.
+ *
+ * @category Bot
+ */
 export type Config = BotConfigForAlias
 export type {
   BotConfig,

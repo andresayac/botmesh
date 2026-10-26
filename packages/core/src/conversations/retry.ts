@@ -84,6 +84,8 @@ const OUT_OF_BAND_MESSAGE = 'a c.idle() callback cannot start a wait (c.ask/wait
  * catches it and replays the flow from that step; code after `c.retry()` in the step does
  * not run (like `c.end()` / `c.goto()`). If you wrap a step body in `try/catch`, rethrow
  * every {@link ConversationError}.
+ *
+ * @category Conversations
  */
 export class ConversationRetry extends ConversationError {
   /**
@@ -106,6 +108,8 @@ export class ConversationRetry extends ConversationError {
  * `c.retry()` had nothing to re-run: no wait happened yet in this conversation (or, in a
  * flow, no earlier `.ask()`/`.choose()` step — or `.use()` of a sub-flow that waits — exists). It is a programming error — the
  * conversation ends through the error path (`onError` / bot `'error'` event + `errorMessage`).
+ *
+ * @category Errors
  */
 export class RetryUnavailableError extends ConversationError {
   constructor() {

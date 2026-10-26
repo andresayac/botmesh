@@ -2,7 +2,11 @@
  * Typed errors raised by the `ctx.user` profile API.
  */
 
-/** Machine-readable reason carried by {@link UserDataError}. */
+/**
+ * Machine-readable reason carried by {@link UserDataError}.
+ *
+ * @category User data
+ */
 export type UserDataErrorCode =
   /** Empty path, empty segment (`a..b`), control characters, `__proto__`/`prototype`/`constructor`, key > 255 chars, or an array index that would leave a hole. */
   | 'INVALID_PATH'
@@ -31,6 +35,8 @@ export type UserDataErrorCode =
  *   if (error instanceof UserDataError && error.code === 'INVALID_PATH') { ... }
  * }
  * ```
+ *
+ * @category Errors
  */
 export class UserDataError extends Error {
   constructor(

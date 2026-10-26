@@ -18,13 +18,9 @@ const bot = new Bot({
   }),
 })
 
-// v2 emite el artifact de auth (QR string / pairing code) por el evento 'qr':
-bot.on('qr', (artifact) => console.log('Auth artifact:', artifact))
+// El código de vinculación llega por el evento 'qr' (el mismo que trae el QR)
+bot.on('qr', (code) => console.log('Escribe este código en WhatsApp > Dispositivos vinculados:', code))
 ```
-
-En v2 ya no hay un evento `pairing_code` dedicado — el código de
-vinculación llega como payload del evento `qr` (un artifact de auth en
-string que el core reenvía tal cual del provider).
 
 ## ¿El bot funciona en grupos?
 
@@ -158,19 +154,23 @@ type-checking, pero es opcional.
 ## ¿Por qué me sale `ERR_REQUIRE_ESM` o "require is not defined"?
 
 Estás intentando hacer `require('@botmesh/core')` (o un paquete de
-transporte) desde un archivo CommonJS. No hay build de CJS — cambia a
+transporte) desde un archivo CommonJS. No hay build de CJS: cambia a
 `import` (agrega `"type": "module"` a tu `package.json`, o usa la extensión
-`.mjs`). Node >= 22.12 también puede hacer `require()` de un paquete ESM
-gracias a su soporte experimental `require(esm)`.
+`.mjs`). Más errores de instalación (scripts de build de pnpm, módulos
+nativos) en [Solución de problemas](./solucion-problemas#instalacion).
 
 ## ¿Dónde está la API reference completa?
 
-En la [API Reference](/api/) — generada con TypeDoc desde el código fuente. Cubre
-**`@botmesh/core`** (todos sus exports públicos, con la separación de `/internal`);
-los paquetes de canal, store y plugins están documentados en su página de guía y
-en el `README.md` de cada paquete (`packages/<pkg>/README.md`).
+En la [API Reference](/api/), generada con TypeDoc desde el código fuente y
+agrupada por tema (Bot, Messages & context, Flows, Store, Errors…). Cubre las
+tres entradas de **`@botmesh/core`** con garantía semver: la principal, `/spi`
+(para autores de stores, backends y transportes) y `/testing`.
+`@botmesh/core/internal` no se documenta a propósito: no tiene garantía semver.
+Los paquetes de canal, store y plugins se documentan en su página de guía y en el
+README de cada paquete en npm.
 
 ## ¿Sigues teniendo problemas?
 
+- [Solución de problemas](./solucion-problemas): los errores frecuentes y cómo resolverlos
 - [Abre un issue en GitHub](https://github.com/andresayac/botmesh/issues)
 - [Revisa los ejemplos](/es/ejemplos/mensajes)

@@ -9,6 +9,12 @@ import type { ChatId, UserId } from '../core/types.js'
 import type { InboundMessage } from '../core/provider.js'
 import { randomId } from '../utils/timers.js'
 
+/**
+ * Options of `bot.trigger(name, options)`: the target chat and user, the initial
+ * `c.state` and what to do when that user already has a conversation.
+ *
+ * @category Operations
+ */
 export interface TriggerOptions {
   /** Chat to run the conversation in (an opaque transport id, used as-is). */
   chatId: ChatId
@@ -28,7 +34,11 @@ export interface TriggerOptions {
   body?: string
 }
 
-/** Why {@link TriggerResult.started} is `false`. */
+/**
+ * Why {@link TriggerResult.started} is `false`.
+ *
+ * @category Operations
+ */
 export type TriggerSkipReason =
   /** The bot is not running (`start()` not called, or stopped). */
   | 'stopped'
@@ -39,6 +49,12 @@ export type TriggerSkipReason =
   /** The subject already has a conversation and `ifActive` is `'skip'`. */
   | 'busy'
 
+/**
+ * What `bot.trigger()` resolves to once the conversation is entered, or the
+ * `reason` it was not.
+ *
+ * @category Operations
+ */
 export interface TriggerResult {
   /** `true` when the conversation was entered (it keeps running after this resolves). */
   started: boolean
@@ -48,7 +64,11 @@ export interface TriggerResult {
   reason?: TriggerSkipReason
 }
 
-/** Marker placed on `ctx.raw` of a triggered conversation's context. */
+/**
+ * Marker placed on `ctx.raw` of a triggered conversation's context.
+ *
+ * @category Operations
+ */
 export interface TriggerRaw {
   synthetic: 'trigger'
   name: string
