@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { createMcpServer } from '../src/server.js'
-import { docsDirFromArgv, serveStream } from '../src/stdio.js'
+import { docsDirFromArgv, docsDirFromEnv, serveStream } from '../src/stdio.js'
 
 /** Feed `chunks` through the transport and collect the lines it wrote. */
 async function run(chunks: readonly string[]): Promise<Array<Record<string, any>>> {
@@ -74,5 +74,14 @@ describe('docsDirFromArgv', () => {
     expect(docsDirFromArgv(['--docs', '--other'])).toBeUndefined()
     expect(docsDirFromArgv(['--docs='])).toBeUndefined()
     expect(docsDirFromArgv([])).toBeUndefined()
+  })
+})
+
+describe('docsDirFromEnv', () => {
+  it('reads BOTMESH_DOCS_DIR, then the deprecated BOTWA_DOCS_DIR', () => {
+    expect(docsDirFromEnv({})).toBeUndefined()
+    expect(docsDirFromEnv({ BOTWA_DOCS_DIR: 'old' })).toBe('old')
+    expect(docsDirFromEnv({ BOTMESH_DOCS_DIR: 'new', BOTWA_DOCS_DIR: 'old' })).toBe('new')
+    expect(docsDirFromEnv({ BOTMESH_DOCS_DIR: '', BOTWA_DOCS_DIR: 'old' })).toBe('old')
   })
 })

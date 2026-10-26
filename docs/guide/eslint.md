@@ -22,21 +22,21 @@ check it).
 
 ```js
 // eslint.config.js
-import botWa from 'eslint-plugin-botmesh'
+import botmesh from 'eslint-plugin-botmesh'
 
 export default [
-  botWa.configs.recommended,
+  botmesh.configs.recommended,
 ]
 ```
 
 Or rule by rule:
 
 ```js
-import botWa from 'eslint-plugin-botmesh'
+import botmesh from 'eslint-plugin-botmesh'
 
 export default [
   {
-    plugins: { 'botmesh': botWa },
+    plugins: { 'botmesh': botmesh },
     rules: {
       'botmesh/no-v1-api': 'error',
       'botmesh/require-timeout-on-ask': ['error', { methods: ['ask', 'choose'], allowFlowTimeout: true }],
@@ -151,11 +151,11 @@ parameter (default `['ctx']`).
 ## API
 
 ```ts
-import botWa, { rules, configs, PLUGIN_NAMESPACE } from 'eslint-plugin-botmesh'
+import botmesh, { rules, configs, PLUGIN_NAMESPACE } from 'eslint-plugin-botmesh'
 
-botWa.meta      // { name: 'eslint-plugin-botmesh', version, namespace: 'botmesh' }
-botWa.rules     // the six rules, by name without the 'botmesh/' prefix
-botWa.configs   // { recommended, strict } (flat configs)
+botmesh.meta      // { name: 'eslint-plugin-botmesh', version, namespace: 'botmesh' }
+botmesh.rules     // the six rules, by name without the 'botmesh/' prefix
+botmesh.configs   // { recommended, strict } (flat configs)
 ```
 
 The rule modules are also named exports: `noV1Api`, `noAwaitRuntimeEnter`,

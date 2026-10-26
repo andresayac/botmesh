@@ -19,8 +19,9 @@ export const PLUGIN_PERMISSIONS: readonly PluginPermission[] = Object.freeze([
 ])
 
 /**
- * Validate a manifest against the running BotWA version and return a copy holding only
- * the known fields, with deduplicated permissions. The input is treated as untrusted
+ * Validate a manifest against the running botmesh version and return a copy holding only
+ * the known fields, with deduplicated permissions and the runtime range under `botmesh`
+ * (the deprecated `botwa` field is read when `botmesh` is absent). The input is treated as untrusted
  * (e.g. parsed JSON): every field is type-checked. Throws {@link PluginManifestError} on
  * the first failing check.
  */
@@ -41,12 +42,13 @@ export function validateManifest(manifest: PluginManifest, runtimeVersion: strin
   if (!runtime) {
     throw new PluginManifestError('runtime version must be semver')
   }
-  const range = typeof manifest.botwa === 'string' ? parseRange(manifest.botwa) : undefined
+  const rawRange: unknown = manifest.botmesh ?? manifest.botwa
+  const range = typeof rawRange === 'string' ? parseRange(rawRange) : undefined
   if (!range) {
-    throw new PluginManifestError('invalid botwa range')
+    throw new PluginManifestError('invalid botmesh range')
   }
   if (!satisfies(runtime, range)) {
-    throw new PluginManifestError('plugin is incompatible with this BotWA runtime')
+    throw new PluginManifestError('plugin is incompatible with this botmesh runtime')
   }
   const permissions: unknown = manifest.permissions
   if (!Array.isArray(permissions) || !permissions.every((permission) => typeof permission === 'string')) {
@@ -64,7 +66,7 @@ export function validateManifest(manifest: PluginManifest, runtimeVersion: strin
   return {
     id: manifest.id,
     version: manifest.version,
-    botwa: manifest.botwa,
+    botmesh: rawRange as string,
     entry: manifest.entry,
     permissions: [...new Set(permissions as PluginPermission[])],
     ...(manifest.name !== undefined ? { name: manifest.name } : {}),

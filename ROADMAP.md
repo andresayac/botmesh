@@ -1,4 +1,4 @@
-# Roadmap estratégico — BotWA
+# Roadmap estratégico — BotMesh
 
 > Estado: propuesta de dirección y secuencia de trabajo  
 > Auditoría base: 2026-07-23  
@@ -34,10 +34,10 @@ La brecha principal no es cantidad de funcionalidades. Es convertir esta superfi
 
 La estrategia recomendada es preservar `@botmesh/core` como motor ligero y construir la ambición de plataforma en aplicaciones y contratos separados:
 
-- **BotWA Core:** framework y SDK open source.
-- **BotWA Studio:** panel, simulador, flow builder e inbox self-hosted.
-- **BotWA Cloud:** control plane gestionado, multi-tenant y escalable.
-- **BotWA Hub:** plugins, skills, plantillas e integraciones.
+- **BotMesh Core:** framework y SDK open source.
+- **BotMesh Studio:** panel, simulador, flow builder e inbox self-hosted.
+- **BotMesh Cloud:** control plane gestionado, multi-tenant y escalable.
+- **BotMesh Hub:** plugins, skills, plantillas e integraciones.
 
 ## Principios de producto e ingeniería
 
@@ -238,7 +238,7 @@ Gate de salida:
 
 ## Tracks de trabajo
 
-> **Alcance de este repositorio.** Este monorepo implementa **las piezas del core y los paquetes que las consumen**. Los tracks **D** (BotWA Studio), **G** en su parte de producto (datasets, evaluaciones, red-team, routing con presupuestos) y **H** en su parte de ecosistema (marketplace, billing, trust tiers) **no pertenecen al core**: se documentan aquí como dirección de producto y se construirían en repositorios o servicios aparte, consumiendo la API pública. Lo que sí vive aquí: el motor (A), eventos/stores/durabilidad (B), el control plane REST de `@botmesh/manager` (C, sin OIDC/RBAC multi-proveedor ni SSE todavía), los paquetes de producto persistentes `inbox`/`crm`/`campaigns`/`deployments`/`hub` (E, F y el registro de H), el plugin de IA (G, sin producto de evaluación) y `flow-schema`.
+> **Alcance de este repositorio.** Este monorepo implementa **las piezas del core y los paquetes que las consumen**. Los tracks **D** (BotMesh Studio), **G** en su parte de producto (datasets, evaluaciones, red-team, routing con presupuestos) y **H** en su parte de ecosistema (marketplace, billing, trust tiers) **no pertenecen al core**: se documentan aquí como dirección de producto y se construirían en repositorios o servicios aparte, consumiendo la API pública. Lo que sí vive aquí: el motor (A), eventos/stores/durabilidad (B), el control plane REST de `@botmesh/manager` (C, sin OIDC/RBAC multi-proveedor ni SSE todavía), los paquetes de producto persistentes `inbox`/`crm`/`campaigns`/`deployments`/`hub` (E, F y el registro de H), el plugin de IA (G, sin producto de evaluación) y `flow-schema`.
 
 ### A. Core y experiencia de desarrollo
 
@@ -285,7 +285,7 @@ Gate de salida:
 - QR/pairing, send, restart, jobs y broadcasts.
 - SSE para estado, QR, logs e inbox; WebSocket solo donde aporte interacción bidireccional.
 
-### D. BotWA Studio
+### D. BotMesh Studio
 
 - Onboarding guiado por caso de uso y canal.
 - Conexiones por QR, OAuth, token o webhook con preflight.
@@ -599,10 +599,10 @@ Los elementos que allí aparecen como “descartados” deben interpretarse así
 
 | Elemento | Ubicación correcta |
 | --- | --- |
-| Pagos, CRM, calendario y traducción | BotWA Hub / integrations |
-| Dashboard y flow builder | BotWA Studio |
+| Pagos, CRM, calendario y traducción | BotMesh Hub / integrations |
+| Dashboard y flow builder | BotMesh Studio |
 | Docker, Helm y CI | Engineering / operations |
-| Marketplace | BotWA Hub / negocio |
+| Marketplace | BotMesh Hub / negocio |
 | Skills por industria | Solutions / templates |
 
 No pertenecen a `@botmesh/core`, pero sí forman parte de la plataforma.

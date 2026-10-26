@@ -121,9 +121,9 @@ bot.schedule('0 9 * * 1-5', { id: 'daily-report', timeZone: 'America/Mexico_City
 The default `pnpm test` is hermetic: the unit tests use the in-memory fake and `tests/integration.test.ts` is **skipped**. To run it against a real MongoDB (the shared `IStore` conformance suite plus index creation, persistence across restarts, trimming, merges, unicode, large values and concurrent writes), set `BOTWA_TEST_MONGO_URL`:
 
 ```bash
-docker run -d --name botwa-it-mongo -p 57017:27017 mongo:7
+docker run -d --name botmesh-it-mongo -p 57017:27017 mongo:7
 BOTWA_TEST_MONGO_URL=mongodb://127.0.0.1:57017 pnpm --filter @botmesh/mongo-store test
-docker rm -f botwa-it-mongo
+docker rm -f botmesh-it-mongo
 ```
 
 Each run works in its own database (`botwa_it_<random>`, dropped at the end) with a unique collection prefix per store, so reruns never collide. Use `127.0.0.1` rather than `localhost`: with Docker Desktop on Windows, `localhost` may resolve to `::1` first and the driver then times out on server selection. CI does not run this suite; run it locally with Docker before changing the store.

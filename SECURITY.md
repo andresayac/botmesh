@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-BotWA is currently in an alpha stage. Security fixes are applied on a best-effort basis to the latest actively maintained code.
+botmesh is currently in an alpha stage. Security fixes are applied on a best-effort basis to the latest actively maintained code.
 
 | Version | Support |
 | --- | --- |

@@ -12,7 +12,7 @@ afterEach(async () => { await tracingEnv?.close(); tracingEnv = undefined })
 async function frozen(m: ReturnType<typeof memoryMetrics>, provider: MockProvider, before: unknown) {
   provider.incoming('otra', { from: 'z' })
   await tick()
-  expect(value(await m.points('botwa.messages.inbound'))).toBe(before)
+  expect(value(await m.points('botmesh.messages.inbound'))).toBe(before)
 }
 
 async function busyBot(config: Record<string, unknown> = {}) {
@@ -41,18 +41,18 @@ describe('bot.metrics() → OpenTelemetry', () => {
     const m = memoryMetrics()
     const dispose = bridgeMetrics(api, bot, { meterProvider: m.meterProvider, attributes: { env: 'test' } })
     const snap = bot.metrics()
-    expect(value(await m.points('botwa.messages.inbound'), { 'bot.id': 'ventas', env: 'test' })).toBe(snap.messages.in)
-    expect(value(await m.points('botwa.messages.outbound'), { result: 'ok' })).toBe(snap.messages.out)
-    expect(value(await m.points('botwa.dropped'), { reason: 'blocked' })).toBe(1)
-    expect(value(await m.points('botwa.conversations.started'))).toBe(1)
-    expect(value(await m.points('botwa.conversations.ended'), { outcome: 'completed' })).toBe(1)
-    expect(value(await m.points('botwa.flow.conversations.started'), { flow: 'pedido' })).toBe(1)
-    expect(value(await m.points('botwa.flow.conversations.ended'), { flow: 'pedido', outcome: 'completed' })).toBe(1)
-    expect(value(await m.points('botwa.conversations.active'))).toBe(0)
-    expect(typeof value(await m.points('botwa.uptime'))).toBe('number')
+    expect(value(await m.points('botmesh.messages.inbound'), { 'bot.id': 'ventas', env: 'test' })).toBe(snap.messages.in)
+    expect(value(await m.points('botmesh.messages.outbound'), { result: 'ok' })).toBe(snap.messages.out)
+    expect(value(await m.points('botmesh.dropped'), { reason: 'blocked' })).toBe(1)
+    expect(value(await m.points('botmesh.conversations.started'))).toBe(1)
+    expect(value(await m.points('botmesh.conversations.ended'), { outcome: 'completed' })).toBe(1)
+    expect(value(await m.points('botmesh.flow.conversations.started'), { flow: 'pedido' })).toBe(1)
+    expect(value(await m.points('botmesh.flow.conversations.ended'), { flow: 'pedido', outcome: 'completed' })).toBe(1)
+    expect(value(await m.points('botmesh.conversations.active'))).toBe(0)
+    expect(typeof value(await m.points('botmesh.uptime'))).toBe('number')
     // A counter reset follows bot.resetMetrics().
     bot.resetMetrics()
-    expect(value(await m.points('botwa.messages.inbound'))).toBe(0)
+    expect(value(await m.points('botmesh.messages.inbound'))).toBe(0)
     dispose()
     await frozen(m, provider, 0)
     await bot.stop()
@@ -67,10 +67,10 @@ describe('bot.metrics() → OpenTelemetry', () => {
     bot.use(flow('hola').say('hola'))
     provider.incoming('hola', { from: 'u1' })
     await tick()
-    const points = await m.points('botwa.conversation.duration') as Array<{ value: { count: number }; attributes: Record<string, unknown> }>
+    const points = await m.points('botmesh.conversation.duration') as Array<{ value: { count: number }; attributes: Record<string, unknown> }>
     expect(points[0]!.value.count).toBe(1)
     expect(points[0]!.attributes).toMatchObject({ flow: 'hola', outcome: 'completed' })
-    expect(await m.points('botwa.flow.conversations.started')).toEqual([])
+    expect(await m.points('botmesh.flow.conversations.started')).toEqual([])
     dispose()
     expect(bot.listenerCount('conversation:ended')).toBe(0)
     await bot.stop()
@@ -80,7 +80,7 @@ describe('bot.metrics() → OpenTelemetry', () => {
     const m = memoryMetrics()
     const { bot, provider } = await busyBot()
     const unplug = bot.plug(otelMetricsPlugin({ api, meterProvider: m.meterProvider }))
-    expect(value(await m.points('botwa.messages.inbound'))).toBe(3)
+    expect(value(await m.points('botmesh.messages.inbound'))).toBe(3)
     unplug()
     await frozen(m, provider, 3)
     await bot.stop()
@@ -90,7 +90,7 @@ describe('bot.metrics() → OpenTelemetry', () => {
     const m = memoryMetrics()
     const { bot } = await busyBot()
     bot.plug(otelMetricsPlugin({ meterProvider: m.meterProvider }))
-    await vi.waitFor(async () => expect((await m.points('botwa.messages.inbound')).length).toBe(1))
+    await vi.waitFor(async () => expect((await m.points('botmesh.messages.inbound')).length).toBe(1))
     await bot.stop()
   })
 })
@@ -107,14 +107,14 @@ describe('span metrics', () => {
     })
     const metrics = await m.collect()
     const names = metrics.map((x) => x.descriptor.name)
-    for (const n of ['botwa.inbound.duration', 'botwa.dispatch.duration', 'botwa.queue.wait', 'botwa.send.duration', 'botwa.lifecycle.duration', 'gen_ai.client.operation.duration', 'gen_ai.client.token.usage']) {
+    for (const n of ['botmesh.inbound.duration', 'botmesh.dispatch.duration', 'botmesh.queue.wait', 'botmesh.send.duration', 'botmesh.lifecycle.duration', 'gen_ai.client.operation.duration', 'gen_ai.client.token.usage']) {
       expect(names, n).toContain(n)
     }
     // Startup steps are measured: the transport (connect/handshake) included.
-    const lifecycle = metrics.find((x) => x.descriptor.name === 'botwa.lifecycle.duration')!
+    const lifecycle = metrics.find((x) => x.descriptor.name === 'botmesh.lifecycle.duration')!
     expect(lifecycle.dataPoints.map((p) => [p.attributes['bot.lifecycle.step'], p.attributes['bot.lifecycle.phase']]))
       .toContainEqual(['transport', 'start'])
-    const inbound = metrics.find((x) => x.descriptor.name === 'botwa.inbound.duration')!
+    const inbound = metrics.find((x) => x.descriptor.name === 'botmesh.inbound.duration')!
     const outcomes = inbound.dataPoints.map((p) => p.attributes['bot.inbound.outcome']).sort()
     expect(outcomes).toEqual(['blocked', 'dispatched'])
     const tokens = metrics.find((x) => x.descriptor.name === 'gen_ai.client.token.usage')!
@@ -129,6 +129,18 @@ describe('span metrics', () => {
         }
       }
     }
+    await bot.stop()
+  })
+})
+
+describe('metric name prefix', () => {
+  it('defaults to botmesh; prefix "botwa" keeps the pre-rename names', async () => {
+    const { bot } = await busyBot()
+    const m = memoryMetrics()
+    const dispose = bridgeMetrics(api, bot, { meterProvider: m.meterProvider, prefix: 'botwa' })
+    expect(value(await m.points('botwa.messages.inbound'))).toBe(bot.metrics().messages.in)
+    expect(await m.points('botmesh.messages.inbound')).toEqual([])
+    dispose()
     await bot.stop()
   })
 })

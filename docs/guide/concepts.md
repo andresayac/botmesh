@@ -259,7 +259,7 @@ new Bot({ provider, echoFilter: true })                       // 1000 refs, no T
 new Bot({ provider, echoFilter: { size: 5000, ttl: '10m' } }) // tune it
 ```
 
-Drops count in `metrics().dropped.echo` (Prometheus: `botwa_dropped_total{reason="echo"}`)
+Drops count in `metrics().dropped.echo` (Prometheus: `botmesh_dropped_total{reason="echo"}`)
 and only when the option is on; without it the bot behaves exactly as before.
 The ring is in memory (per process) and each remembered ref is consumed by
 the first matching echo; a later redelivery is the deduper's business.

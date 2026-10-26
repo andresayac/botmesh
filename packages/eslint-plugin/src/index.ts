@@ -8,12 +8,12 @@
  * @example
  * ```js
  * // eslint.config.js
- * import botWa from 'eslint-plugin-botmesh'
+ * import botmesh from 'eslint-plugin-botmesh'
  *
  * export default [
- *   botWa.configs.recommended,
+ *   botmesh.configs.recommended,
  *   // or pick rules:
- *   { plugins: { 'botmesh': botWa }, rules: { 'botmesh/require-timeout-on-ask': ['error', { methods: ['ask', 'choose'] }] } },
+ *   { plugins: { 'botmesh': botmesh }, rules: { 'botmesh/require-timeout-on-ask': ['error', { methods: ['ask', 'choose'] }] } },
  * ]
  * ```
  */
@@ -41,7 +41,7 @@ export const rules: Record<string, Rule.RuleModule> = {
 export const PLUGIN_NAMESPACE = 'botmesh'
 
 /** The plugin's flat configs (a type alias, so it fits ESLint's `Record<string, Config>`). */
-export type BotWaConfigs = {
+export type BotMeshConfigs = {
   /** Problems as errors, style/robustness rules as warnings. */
   recommended: Linter.Config
   /** Every rule as an error; `require-timeout-on-ask` also checks waitText/waitMedia/choose/waitAny. */
@@ -49,17 +49,17 @@ export type BotWaConfigs = {
 }
 
 /** The plugin object (`meta`, `rules`, `configs`) — the default export. */
-export interface BotWaPlugin extends ESLint.Plugin {
+export interface BotMeshPlugin extends ESLint.Plugin {
   meta: { name: string; version: string; namespace: string }
   rules: Record<string, Rule.RuleModule>
-  configs: BotWaConfigs
+  configs: BotMeshConfigs
 }
 
 const plugin = {
   meta: { name: 'eslint-plugin-botmesh', version: '0.1.0', namespace: PLUGIN_NAMESPACE },
   rules,
-  configs: {} as BotWaConfigs,
-} satisfies BotWaPlugin
+  configs: {} as BotMeshConfigs,
+} satisfies BotMeshPlugin
 
 plugin.configs.recommended = {
   name: 'botmesh/recommended',
@@ -87,9 +87,14 @@ plugin.configs.strict = {
   },
 }
 
-export const configs: BotWaConfigs = plugin.configs
+export const configs: BotMeshConfigs = plugin.configs
 
 export { noAsyncPluginInstall, noAwaitRuntimeEnter, noEmptyTrigger, noV1Api, preferCtxUser, requireTimeoutOnAsk }
 
-const botWa: BotWaPlugin = plugin
-export default botWa
+const botmesh: BotMeshPlugin = plugin
+export default botmesh
+
+/** @deprecated Renamed to {@link BotMeshConfigs}. */
+export type BotWaConfigs = BotMeshConfigs
+/** @deprecated Renamed to {@link BotMeshPlugin}. */
+export type BotWaPlugin = BotMeshPlugin

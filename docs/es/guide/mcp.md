@@ -13,7 +13,7 @@ node packages/mcp/lib/bin.js --docs docs       # herramientas de flujo + docs_se
 node packages/mcp/lib/bin.js                   # solo herramientas de flujo
 ```
 
-`--docs <dir>` (o `BOTWA_DOCS_DIR`) apunta a un árbol de documentación; sin él las dos herramientas de docs **no** se anuncian en `tools/list`, así que un cliente nunca ve una herramienta que no puede funcionar.
+`--docs <dir>` (o `BOTMESH_DOCS_DIR`; el nombre anterior, `BOTWA_DOCS_DIR`, se sigue leyendo) apunta a un árbol de documentación; sin él las dos herramientas de docs **no** se anuncian en `tools/list`, así que un cliente nunca ve una herramienta que no puede funcionar.
 
 En VS Code el repo ya trae `.vscode/mcp.json`: ejecuta `pnpm build` una vez y arranca el servidor *botmesh* desde la vista MCP.
 

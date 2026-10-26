@@ -222,16 +222,16 @@ describe('toPrometheus', () => {
   it('renders HELP/TYPE lines, counters and escaped labels', () => {
     const text = toPrometheus(snapshot(), { labels: { bot: 'ventas' } })
     expect(text.endsWith('\n')).toBe(true)
-    expect(text).toContain('# TYPE botwa_conversations_started_total counter')
-    expect(text).toContain('botwa_conversations_started_total{bot="ventas"} 1')
-    expect(text).toContain('botwa_conversations_active{bot="ventas"} 2')
-    expect(text).toContain('botwa_conversations_ended_total{bot="ventas",outcome="completed"} 1')
-    expect(text).toContain('botwa_flow_started_total{bot="ventas",flow="re\\"g\\\\x\\n"} 1')
-    expect(text).toContain('botwa_flow_duration_avg_seconds{bot="ventas",flow="re\\"g\\\\x\\n"} 1.5')
-    expect(text).toContain('botwa_messages_out_total{bot="ventas",result="failed"} 1')
-    expect(text).toContain('botwa_inbound_dropped_total{bot="ventas",reason="duplicate"} 1')
-    expect(text).toContain('botwa_errors_total{bot="ventas"} 1')
-    expect(text).toContain('botwa_uptime_seconds{bot="ventas"} 0')
+    expect(text).toContain('# TYPE botmesh_conversations_started_total counter')
+    expect(text).toContain('botmesh_conversations_started_total{bot="ventas"} 1')
+    expect(text).toContain('botmesh_conversations_active{bot="ventas"} 2')
+    expect(text).toContain('botmesh_conversations_ended_total{bot="ventas",outcome="completed"} 1')
+    expect(text).toContain('botmesh_flow_started_total{bot="ventas",flow="re\\"g\\\\x\\n"} 1')
+    expect(text).toContain('botmesh_flow_duration_avg_seconds{bot="ventas",flow="re\\"g\\\\x\\n"} 1.5')
+    expect(text).toContain('botmesh_messages_out_total{bot="ventas",result="failed"} 1')
+    expect(text).toContain('botmesh_inbound_dropped_total{bot="ventas",reason="duplicate"} 1')
+    expect(text).toContain('botmesh_errors_total{bot="ventas"} 1')
+    expect(text).toContain('botmesh_uptime_seconds{bot="ventas"} 0')
     // every sample line is "name{labels} value" or "name value"
     for (const line of text.trim().split('\n')) {
       if (line.startsWith('#')) continue
@@ -246,11 +246,17 @@ describe('toPrometheus', () => {
     c.conversationStarted('menu')
     c.conversationEnded('menu', 'ended', 0)
     const text = toPrometheus(c.snapshot(0))
-    expect(text).toContain('botwa_conversations_ended_total{outcome="ended"} 1')
-    expect(text).toContain('botwa_conversations_ended_total{outcome="guarded"} 1')
-    expect(text).toContain('botwa_conversations_ended_total{outcome="completed"} 0')
-    expect(text).toContain('botwa_flow_ended_total{flow="menu",outcome="guarded"} 1')
-    expect(text).toContain('botwa_flow_ended_total{flow="menu",outcome="ended"} 1')
+    expect(text).toContain('botmesh_conversations_ended_total{outcome="ended"} 1')
+    expect(text).toContain('botmesh_conversations_ended_total{outcome="guarded"} 1')
+    expect(text).toContain('botmesh_conversations_ended_total{outcome="completed"} 0')
+    expect(text).toContain('botmesh_flow_ended_total{flow="menu",outcome="guarded"} 1')
+    expect(text).toContain('botmesh_flow_ended_total{flow="menu",outcome="ended"} 1')
+  })
+
+  it('defaults to the botmesh_ prefix; prefix "botwa_" keeps the pre-rename names', () => {
+    expect(toPrometheus(snapshot())).toContain('botmesh_messages_in_total 1')
+    expect(toPrometheus(snapshot())).not.toContain('botwa_')
+    expect(toPrometheus(snapshot(), { prefix: 'botwa_' })).toContain('botwa_messages_in_total 1')
   })
 
   it('supports a custom prefix and validates names', () => {

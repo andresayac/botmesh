@@ -13,7 +13,7 @@ node packages/mcp/lib/bin.js --docs docs       # flow tools + docs_search / docs
 node packages/mcp/lib/bin.js                   # flow tools only
 ```
 
-`--docs <dir>` (or `BOTWA_DOCS_DIR`) points at a docs tree; without it the two docs tools are **not** advertised in `tools/list`, so a client never sees a tool that cannot work.
+`--docs <dir>` (or `BOTMESH_DOCS_DIR`; the pre-rename `BOTWA_DOCS_DIR` is still read) points at a docs tree; without it the two docs tools are **not** advertised in `tools/list`, so a client never sees a tool that cannot work.
 
 In VS Code the repo already ships `.vscode/mcp.json`: run `pnpm build` once, then start the *botmesh* server from the MCP view.
 

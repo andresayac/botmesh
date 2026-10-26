@@ -19,10 +19,17 @@ export interface PluginManifest {
   /** Plugin version; a full semver version (`MAJOR.MINOR.PATCH[-pre][+build]`). */
   version: string
   /**
-   * Required BotWA runtime semver range (e.g. `^2.0.0`, `~2.1.0`, `>=2.0.0 <3.0.0`,
+   * Required botmesh runtime semver range (e.g. `^2.0.0`, `~2.1.0`, `>=2.0.0 <3.0.0`,
    * `2.x`, `^1.0.0 || ^2.0.0`). Hyphen ranges and the `v` prefix are not supported.
+   * Required unless the deprecated {@link PluginManifest.botwa} is given; validated
+   * manifests always carry it.
    */
-  botwa: string
+  botmesh?: string
+  /**
+   * @deprecated Pre-rename name of {@link PluginManifest.botmesh}, still read (`botmesh`
+   * wins when both are set). Validation returns the manifest with `botmesh` only.
+   */
+  botwa?: string
   /**
    * POSIX relative path to the entry module: `/`-separated, no `..` or empty
    * segments, no leading `/`, no backslashes, colons (drive letters, URL

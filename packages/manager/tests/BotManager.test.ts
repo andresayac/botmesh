@@ -317,3 +317,27 @@ describe('BotManager — events', () => {
     expect(seen).toEqual(['a'])
   })
 })
+
+describe('default logger level', () => {
+  const saved = { now: process.env.BOTMESH_MANAGER_LOG_LEVEL, old: process.env.BOTWA_MANAGER_LOG_LEVEL }
+  const restore = () => {
+    for (const [k, v] of [['BOTMESH_MANAGER_LOG_LEVEL', saved.now], ['BOTWA_MANAGER_LOG_LEVEL', saved.old]] as const) {
+      if (v === undefined) delete process.env[k]
+      else process.env[k] = v
+    }
+  }
+
+  it('reads BOTMESH_MANAGER_LOG_LEVEL, then the deprecated BOTWA_MANAGER_LOG_LEVEL, else silent', () => {
+    try {
+      delete process.env.BOTMESH_MANAGER_LOG_LEVEL
+      delete process.env.BOTWA_MANAGER_LOG_LEVEL
+      expect(new BotManager().logger.level).toBe('silent')
+      process.env.BOTWA_MANAGER_LOG_LEVEL = 'info'
+      expect(new BotManager().logger.level).toBe('info')
+      process.env.BOTMESH_MANAGER_LOG_LEVEL = 'debug'
+      expect(new BotManager().logger.level).toBe('debug')
+    } finally {
+      restore()
+    }
+  })
+})

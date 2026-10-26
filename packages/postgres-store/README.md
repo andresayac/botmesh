@@ -142,12 +142,12 @@ It is opt-in: without `BOTWA_TEST_POSTGRES_URL` the whole file is skipped and `p
 
 ```bash
 # a throwaway PostgreSQL 16 on port 55432
-docker run -d --name botwa-it-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=botwa -p 55432:5432 postgres:16-alpine
+docker run -d --name botmesh-it-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=botwa -p 55432:5432 postgres:16-alpine
 
 BOTWA_TEST_POSTGRES_URL=postgres://postgres:postgres@127.0.0.1:55432/botwa \
   pnpm --filter @botmesh/postgres-store test
 
-docker rm -f botwa-it-postgres
+docker rm -f botmesh-it-postgres
 ```
 
 - Use `127.0.0.1` rather than `localhost` on Windows: `localhost` resolves to `::1` first and Docker Desktop's IPv6 port forward can hang until the connection timeout.

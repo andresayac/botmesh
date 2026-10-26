@@ -16,7 +16,7 @@ export interface DeepgramSttOptions extends VoiceHttpOptions {
   language?: string
   /** Punctuation + formatting. Default `true`. */
   smartFormat?: boolean
-  /** Extra query parameters passed verbatim (e.g. `{ keyterm: 'BotWA' }`). */
+  /** Extra query parameters passed verbatim (e.g. `{ keyterm: 'BotMesh' }`). */
   query?: Record<string, string>
   /** Default `https://api.deepgram.com/v1`. */
   baseUrl?: string

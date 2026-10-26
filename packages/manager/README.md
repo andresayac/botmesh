@@ -114,7 +114,7 @@ and stop bots, and a warning is logged once.
 | Route | Success | Errors |
 | --- | --- | --- |
 | `GET {prefix}/health` | `200` — `{ status: 'ok', bots, running }` | |
-| `GET {prefix}/metrics` | `200` — Prometheus text (`botwa_manager_bots_registered`, `botwa_manager_bots_running`) | |
+| `GET {prefix}/metrics` | `200` — Prometheus text (`botmesh_manager_bots_registered`, `botmesh_manager_bots_running`) | |
 | `GET {prefix}/bots` | `200` — `Array<{ id, running, meta }>` | |
 | `GET {prefix}/bots/:id` | `200` — `{ id, running, meta }` | `404 { error }` unknown id |
 | `POST {prefix}/bots/:id/start` | `200` — `{ id, running: true }` | `404` unknown id · `500 { error }` start failure |
@@ -188,7 +188,7 @@ With `autoReconnect`, if the connection drops (`connection: closed`, except `ses
 
 The manager logs lifecycle events with pino at `debug`/`warn`.
 Inject your own logger (`new BotManager({ logger })`) or enable the default
-one with `BOTWA_MANAGER_LOG_LEVEL=debug` (default: `silent`).
+one with `BOTMESH_MANAGER_LOG_LEVEL=debug` (default: `silent`; the pre-rename `BOTWA_MANAGER_LOG_LEVEL` is still read).
 
 ## Development
 
