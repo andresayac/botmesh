@@ -296,7 +296,8 @@ Quien escribe un provider las comprueba con los helpers de `@botmesh/core/testin
   `toTwilioError`…; los canales de Meta comparten `toGraphError` de
   `@botmesh/graph-core`); los nombres antiguos `toProviderError` quedan como alias
   deprecados. `ingest()` devuelve el estado HTTP con el que responder (un `number`);
-  WPPConnect lo devuelve como `Promise<number>` (comprueba el token de forma asíncrona) y
+  WPPConnect lo devuelve como `Promise<number>` (resuelve los LID desconocidos contra el
+  gateway antes de emitir, sin esperar a tus handlers) y
   el `ingest()` de email recibe un mensaje crudo, no un webhook, y devuelve un
   `EmailIngestResult`.
 
@@ -683,6 +684,11 @@ const provider = new WPPConnectProvider({
   antes de emitir.
 - `markRead` marca el chat entero como leído; botones y listas se degradan a
   texto numerado.
+- La conexión sigue los webhooks `status-find` del servidor: `isLogged` /
+  `qrReadSuccess` → `ready`, `notLogged` y `qrcode` → `authenticating`, y
+  desvincular el dispositivo desde el teléfono (`disconnectedMobile`) →
+  `closed` con `sessionInvalid`. `bot.stop()` no cierra la sesión en el
+  servidor.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/wppconnect-provider)
 

@@ -68,13 +68,30 @@ import { bearerToken, headerValue, safeEqual, type HeaderBag } from './webhookAu
 
 const UNREACHABLE = /not exist|não existe|no existe|not registered|invalid wid|wid error|number.{0,20}invalid|not on whatsapp/i
 
+/** Express's default error page (`<pre>Cannot POST /api/…</pre>`) and other HTML bodies → their text. */
+function htmlText(body: string): string | undefined {
+  if (!/^\s*<(?:!doctype|html|body|pre|head)\b/i.test(body)) return undefined
+  const pre = /<pre[^>]*>([\s\S]*?)<\/pre>/i.exec(body)
+  const text = (pre ? pre[1] : body.replace(/<(script|style|title)\b[^>]*>[\s\S]*?<\/\1>/gi, ' '))
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text.slice(0, 300)
+}
+
 /** Translate a wppconnect-server error response into a typed provider error. */
 export function toWppError(status: number, body: unknown, chatId: ChatId, retryAfterMs?: number): ProviderError {
-  const detail = describeErrorBody(body)
+  const detail = (typeof body === 'string' ? htmlText(body) : undefined) ?? describeErrorBody(body)
   const desc = `WPPConnect HTTP ${status}${detail ? `: ${detail}` : ''}`
   if (status === 429) return new RateLimitedError(retryAfterMs ?? 1000, desc)
   if (status === 413) return new PayloadTooLargeError(desc)
   if (status === 401 || status === 403) return new ProviderError(`Unauthorized — check the WPPConnect token/secretKey (${desc})`)
+  // The server answers every session endpoint with `{ status: 'Disconnected' }` (404) while the
+  // session is not started, still waiting for the QR scan, or closed.
+  if (isRecord(body) && body.status === 'Disconnected') {
+    return new ProviderError(`WPPConnect session is not connected: start it (bot.start()) and pair it by scanning the QR first (${desc})`)
+  }
   if (status >= 400 && chatId && UNREACHABLE.test(typeof body === 'string' ? body : JSON.stringify(body ?? ''))) {
     return new RecipientUnreachableError(chatId, desc)
   }
@@ -115,7 +132,11 @@ export class WPPConnectProvider implements IProvider<unknown> {
   private readonly logger: LoggerLike
   private readonly identity: WaIdentityStore
   private readonly listeners = new Set<(e: InboundEvent) => void | Promise<void>>()
-  /** LIDs whose pn-lid lookup failed or found no PN → time they may be retried (bounded). */
+  /**
+   * LIDs whose pn-lid lookup failed or found no PN → time they may be retried; `Infinity` for a LID
+   * the lookup linked to its PN (never looked up again, even when its canonical id stays the LID
+   * because the contact was first seen LID-only). Bounded by `identityCacheSize`.
+   */
   private readonly lidRetryAt = new Map<string, number>()
   /** pn-lid lookups in flight, shared by concurrent webhooks. */
   private readonly lidInFlight = new Map<string, Promise<void>>()
@@ -313,7 +334,7 @@ export class WPPConnectProvider implements IProvider<unknown> {
         const pn = isRecord(entry) ? jidOf(entry.phoneNumber) : undefined
         if (pn && !isLidJid(pn)) {
           this.identity.resolve(pn, lid)
-          this.lidRetryAt.delete(lid)
+          this.remember(lid, Number.POSITIVE_INFINITY)
         } else {
           this.coolDown(lid)
         }
@@ -329,8 +350,12 @@ export class WPPConnectProvider implements IProvider<unknown> {
   }
 
   private coolDown(lid: string): void {
+    this.remember(lid, Date.now() + (this.config.lidRetryMs ?? 300_000))
+  }
+
+  private remember(lid: string, retryAt: number): void {
     this.lidRetryAt.delete(lid)
-    this.lidRetryAt.set(lid, Date.now() + (this.config.lidRetryMs ?? 300_000))
+    this.lidRetryAt.set(lid, retryAt)
     const max = this.config.identityCacheSize ?? 10_000
     while (this.lidRetryAt.size > max) {
       const oldest = this.lidRetryAt.keys().next().value

@@ -4,6 +4,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### `@botmesh/wppconnect`: correcciones contra un wppconnect-server real (2026-10)
+- Una sesión sin emparejar ya no pasa por `ready`: el `status-find` `inChat` (que WA-JS también envía antes de `notLogged` en una sesión nueva) se ignora; `isLogged` y `qrReadSuccess` siguen significando conectado.
+- Desvincular el dispositivo desde el teléfono (`disconnectedMobile`, la grafía actual) cierra la conexión con `sessionInvalid` y `phoneNotConnected` la cierra como `transient`; antes solo se reconocía la grafía antigua `desconnectedMobile`.
+- Un contacto visto primero por su LID ya no se consulta en `contact/pn-lid` en cada mensaje cuando la consulta ya lo enlazó con su número.
+- Una sesión no iniciada, sin emparejar o cerrada (`404 { status: 'Disconnected' }`) rechaza con "WPPConnect session is not connected: start it … and pair it" en vez de solo el mensaje en portugués del servidor, y una página de error HTML se reduce a su texto (`Cannot POST /api/…`).
+- Un `contact` cuyo `phone` no tiene dígitos y una `location` con coordenadas fuera de ±90/±180 rechazan con `UnsupportedContentError` antes de llamar al servidor.
+- La suite real (`packages/sandbox/tests/docker/wppconnect.integration.test.ts`) comprueba que una sesión sin emparejar nunca emite `ready` y el mensaje de error de una sesión desconectada. README y guía de canales (EN/ES) documentan los estados de conexión y que `bot.stop()` no cierra la sesión en el servidor.
+
 ### Integración de los 26 paquetes promovidos en `main` (2026-10)
 - Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
 - Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).

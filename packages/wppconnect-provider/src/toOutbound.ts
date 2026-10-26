@@ -76,9 +76,15 @@ export async function toOutbound(chatId: string, content: OutboundContent, optio
       return { endpoint: 'send-sticker', body: { ...to, path: toDataUri(media) } }
     }
     case 'location':
+      if (!Number.isFinite(content.lat) || Math.abs(content.lat) > 90 || !Number.isFinite(content.lng) || Math.abs(content.lng) > 180) {
+        throw new UnsupportedContentError('location', `location needs a latitude in [-90, 90] and a longitude in [-180, 180] (got ${String(content.lat)}, ${String(content.lng)})`)
+      }
       return { endpoint: 'send-location', body: { ...to, lat: content.lat, lng: content.lng, title: content.name ?? '', address: content.address ?? '' } }
-    case 'contact':
-      return { endpoint: 'contact-vcard', body: { ...to, contactsId: `${digits(content.phone)}@c.us`, name: content.displayName ?? content.phone } }
+    case 'contact': {
+      const number = digits(String(content.phone ?? ''))
+      if (!number) throw new UnsupportedContentError('contact', 'contact.phone must contain the phone number digits (e.g. "+57 300 111 2233")')
+      return { endpoint: 'contact-vcard', body: { ...to, contactsId: `${number}@c.us`, name: content.displayName ?? content.phone } }
+    }
     case 'poll':
       return {
         endpoint: 'send-poll-message',
