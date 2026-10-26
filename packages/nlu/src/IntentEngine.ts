@@ -91,8 +91,18 @@ function compileUtterance(raw: string): CompiledUtterance {
   const slotNames: string[] = []
   const withSlots: string[] = []
   const withoutSlots: string[] = []
+  let previousSlot: string | undefined
   for (const seg of raw.split(SLOT_SPLITTER)) {
+    if (seg === '') continue
     const m = SLOT_SEGMENT.exec(seg)
+    if (m && previousSlot !== undefined) {
+      // `(\S+)(\S+)` is ambiguous (which token boundary?) and backtracks quadratically on a
+      // long token, so a crafted message could stall the chat queue.
+      throw new Error(
+        `IntentEngine.define: utterance ${JSON.stringify(raw)} has adjacent slots {${previousSlot}}{${m[1]}}; separate them with a space or a word`,
+      )
+    }
+    previousSlot = m ? m[1] : undefined
     if (m) {
       slotNames.push(m[1])
       withSlots.push(seg)
@@ -118,6 +128,13 @@ function compileUtterance(raw: string): CompiledUtterance {
   return { normalized, tokens, slotNames, regex }
 }
 
+function checkThreshold(threshold: unknown): number {
+  if (typeof threshold !== 'number' || Number.isNaN(threshold) || threshold < 0 || threshold > 1) {
+    throw new Error(`IntentEngine: threshold must be a number in [0, 1], got ${String(threshold)}`)
+  }
+  return threshold
+}
+
 /**
  * Deterministic local intent matcher. See the package README for the scoring
  * formula and its limits (it is NOT a full ML NLU).
@@ -127,11 +144,7 @@ export class IntentEngine {
   private readonly defaultThreshold: number
 
   constructor(options: IntentEngineOptions = {}) {
-    const threshold = options.threshold ?? 0.5
-    if (typeof threshold !== 'number' || Number.isNaN(threshold) || threshold < 0 || threshold > 1) {
-      throw new Error(`IntentEngine: threshold must be a number in [0, 1], got ${String(threshold)}`)
-    }
-    this.defaultThreshold = threshold
+    this.defaultThreshold = checkThreshold(options.threshold ?? 0.5)
   }
 
   /** Minimum confidence `match()` requires (constructor value). */
@@ -172,6 +185,7 @@ export class IntentEngine {
    * earliest-defined intent.
    */
   match(text: string, threshold: number = this.defaultThreshold): IntentMatch | null {
+    checkThreshold(threshold)
     const best = this.rank(text)[0]
     return best && best.confidence >= threshold ? best : null
   }

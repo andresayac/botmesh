@@ -172,3 +172,28 @@ describe('IntentEngine — {slot} entities', () => {
     expect(nlu.match('saluda a ANDRÉS')?.entities).toEqual({ nombre: 'andres' })
   })
 })
+
+describe('IntentEngine — hostile input and config mistakes', () => {
+  it('rejects adjacent slots: ambiguous, and their regex backtracks quadratically on long tokens', () => {
+    const nlu = new IntentEngine()
+    expect(() => nlu.define('x', ['{a}{b} foo'])).toThrow(/adjacent slots \{a\}\{b\}.*separate them/)
+    expect(() => nlu.define('x', ['mi {a} {b}'])).not.toThrow()
+    expect(nlu.intents()).toEqual(['x'])
+  })
+
+  it('scores a 64 KiB single-token message quickly', () => {
+    const nlu = new IntentEngine()
+    nlu.define('x', ['{a} foo', 'pedido {id}'])
+    const started = performance.now()
+    nlu.rank(`${'a'.repeat(65_536)} bar`)
+    expect(performance.now() - started).toBeLessThan(500)
+  })
+
+  it('validates the per-call threshold like the constructor one', () => {
+    const nlu = new IntentEngine()
+    nlu.define('greeting', ['hola'])
+    expect(() => nlu.match('hola', Number.NaN)).toThrow(/threshold must be a number in \[0, 1\]/)
+    expect(() => nlu.match('hola', 2)).toThrow(/threshold/)
+    expect(nlu.match('hola', 1)).toEqual({ intent: 'greeting', confidence: 1 })
+  })
+})
