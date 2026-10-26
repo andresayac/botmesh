@@ -17,7 +17,7 @@ Nothing else to install: Graph calls use Node.js 22's native `fetch` and `crypto
 1. An app on [developers.facebook.com](https://developers.facebook.com) with the **Messenger** product and a connected Facebook Page.
 2. A **Page access token** with `pages_messaging` (generated in the app's Messenger settings).
 3. The app's **app secret** (App settings → Basic): it verifies every webhook.
-4. A public **HTTPS webhook** for the Page: set its URL and a `verify_token` you choose, and subscribe the `messages` and `messaging_postbacks` fields (add `message_reactions` to receive reactions).
+4. A public **HTTPS webhook** for the Page: set its URL and a `verify_token` you choose, and subscribe the `messages` and `messaging_postbacks` fields (add `message_reactions` to receive reactions and `message_edits` to receive edited messages).
 
 ## Usage
 
@@ -77,11 +77,15 @@ The same two routes work in any framework (or with the [webhook server](https://
 | Feature | Messenger |
 | --- | --- |
 | Text, image, video, audio, document (by public URL) | ✅ |
-| Postback buttons (`ctx.buttons`, button template, max 3; a button with `url` is a `web_url` button) | ✅ native |
+| Postback buttons (`ctx.buttons`, button template, max 3; a button with `url` is a `web_url` button). Text past the template's 640 characters goes first as plain text | ✅ native |
 | Cards (`card` with an image or buttons → generic template; without them, text) | ✅ native |
-| Lists (generic template, one element per row, max 10) | ✅ native |
+| Lists (the list text, then a generic template with one element per row, max 10) | ✅ native |
 | Quick replies and postbacks → interactions (`kind: 'button'`) | ✅ |
 | Inbound location (`type: 'location'`) and replies (`ctx.quoted`) | ✅ |
+| Shared links (`fallback` attachments) → a text message with the link title and URL | ✅ |
+| Several attachments in one message (one message each: the first keeps the `mid` and the text, the next ones are `<mid>#2`, `<mid>#3`…) | ✅ |
+| Edited messages (`message_edits`: the edit arrives as a new message with the original id; `isEditedMessage(ctx)` tells it apart) | ✅ |
+| Message tags and delivery options (`platformData`: `tag`, `messaging_type`, `notification_type`, `persona_id`) | ✅ |
 | Inbound reactions (`message_reactions` → `reaction` event; `emoji` is the character, `removed` on `unreact`) | ✅ |
 | Typing (`typing_on`/`typing_off`) and read receipts (`mark_seen`) | ✅ |
 | Inbound media download (`MediaRef.token` is the attachment URL) | ✅ |
@@ -92,6 +96,8 @@ The same two routes work in any framework (or with the [webhook server](https://
 
 - **Media by public URL only.** The Send API refers to attachments by URL; this provider does not implement the chunked upload. A `Buffer`, a path or a stream rejects with `UnsupportedContentError`: host the file and pass `'https://…'` or `{ url }`.
 - **Replies are not threaded on send:** the Send API has no reply context, so `options.quoted` is ignored.
+- **Message tags:** a send is `messaging_type: 'RESPONSE'` unless `options.platformData` says otherwise. `bot.send(psid, text, { platformData: { tag: 'HUMAN_AGENT' } })` sends with an approved [message tag](https://developers.facebook.com/docs/messenger-platform/send-messages/message-tags) after the 24-hour window (`messaging_type` becomes `'MESSAGE_TAG'`); `notification_type` (`'REGULAR'`, `'SILENT_PUSH'`, `'NO_PUSH'`) and `persona_id` are passed too. A value of the wrong type throws a `TypeError` before the call; other keys are ignored.
+- **Edits:** an edited message is delivered again with its original `ref.id` and the new text (the core deduplicates by id and content, so it is not dropped). It also reaches an active conversation as an answer; check `isEditedMessage(ctx)` (exported by this package) to treat it differently.
 - **Identity:** `chatId` and `senderId` are the user's Page-scoped id (`sender.id`), stable for each Page and user.
 - `acknowledgeInteraction()` is a no-op: postbacks need no ack.
 
@@ -101,12 +107,13 @@ Sends reject with the typed errors of `@botmesh/core` (mapping in [`@botmesh/gra
 
 | Error | Typical cause | What to do |
 | --- | --- | --- |
-| `OutsideSessionWindowError` (code `10`, subcode `2018278`) | More than 24 h since the user's last message | Wait for the user to write again, or send a message tag your app is approved for through `ctx.sendNative()`. |
+| `OutsideSessionWindowError` (code `10`, subcode `2018278`) | More than 24 h since the user's last message | Wait for the user to write again, or send with a message tag your app is approved for: `bot.send(psid, text, { platformData: { tag: 'HUMAN_AGENT' } })`. |
 | `RecipientUnreachableError` (code `551`, subcodes `1545041`/`2018001`) | The user is unavailable, blocked the Page or does not exist | Stop sending to that id. |
 | `RateLimitedError` (codes `4`/`613`) | Page or app rate limit | Wait `retryAfterMs`; `ctx` sends and `bot.broadcast()` already retry short waits. |
 | `UnsupportedContentError` | Poll, sticker, location, contact, template, a non-URL media source, more than 3 buttons or 10 list rows | Use buttons, a list or text; host media and pass its URL. |
 | `ProviderError` (code `190`) | Wrong or expired Page token | Generate a Page access token with `pages_messaging`. |
 | `ProviderError` ("timed out") | A Send API call took longer than `requestTimeoutMs` | Check connectivity to Graph, or raise the timeout. |
+| `TypeError` naming `platformData.<key>` | A delivery option of the wrong type, or `messaging_type: 'MESSAGE_TAG'` without a `tag` | Pass strings: `tag`, `messaging_type` (`RESPONSE`, `UPDATE`, `MESSAGE_TAG`), `notification_type`, `persona_id`. |
 | Constructor error naming a field | `accessToken` or `verifyToken` empty, or `appSecret` missing | Check the environment variables. |
 
 ## Troubleshooting
@@ -119,6 +126,7 @@ Sends reject with the typed errors of `@botmesh/core` (mapping in [`@botmesh/gra
 | The webhook verifies but no message arrives | The Page is not subscribed to the app's `messages` field, or the app is in development mode and the sender has no role in it. |
 | Button presses never arrive | `messaging_postbacks` is not subscribed. |
 | Reactions never arrive | `message_reactions` is not subscribed. |
+| Edited messages never arrive | `message_edits` is not subscribed. |
 
 ## Internal entry
 

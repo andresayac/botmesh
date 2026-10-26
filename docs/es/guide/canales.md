@@ -525,6 +525,15 @@ const provider = new MessengerProvider({
 - Más de 3 botones (plantilla de botones) o de 10 filas de lista (plantilla
   genérica) rechazan con `UnsupportedContentError` en vez de descartar opciones.
 - Cada llamada a la Send API vence tras `requestTimeoutMs` (60 s por defecto).
+- No se corta texto: una lista envía su texto antes de la plantilla genérica
+  (que no tiene encabezado), y el texto de botones que pasa de los 640
+  caracteres de la plantilla sale antes como texto plano.
+- Varios adjuntos en un mensaje llegan como un mensaje cada uno (`<mid>`,
+  `<mid>#2`…). Un mensaje editado (suscribe `message_edits`) llega de nuevo
+  con su id original; `isEditedMessage(ctx)` lo distingue.
+- Etiquetas de mensaje: `bot.send(psid, texto, { platformData: { tag: 'HUMAN_AGENT' } })`
+  envía fuera de la ventana de 24 horas (también acepta `messaging_type`,
+  `notification_type` y `persona_id`).
 
 ```bash
 pnpm add @botmesh/core @botmesh/messenger

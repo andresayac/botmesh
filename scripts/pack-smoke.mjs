@@ -68,7 +68,7 @@ import { WPPConnectProvider, toWppError, type WppMessage } from '@botmesh/wppcon
 import { parseWebhook as parseWppWebhook } from '@botmesh/wppconnect/internal'
 import { WaIdentityStore, type IdentityPersistence } from '@botmesh/wa-gateway-kit'
 import { CloudAPIProvider } from '@botmesh/meta'
-import { MessengerProvider, toMessengerError, type MessengerSendResponse, type PageWebhookBody } from '@botmesh/messenger'
+import { MessengerProvider, isEditedMessage as isMessengerEdit, toMessengerError, type MessengerSendResponse, type PageWebhookBody } from '@botmesh/messenger'
 import { parseInbound as parseMessengerInbound, toOutboundMessages } from '@botmesh/messenger/internal'
 import { InstagramProvider, toInstagramError, type InstagramSendResponse, type IgWebhookBody } from '@botmesh/instagram'
 import { GraphClient as InstagramGraphClient, parseInbound as parseInstagramInbound } from '@botmesh/instagram/internal'
@@ -172,7 +172,7 @@ export const providers: IProvider[] = [
   new EmailProvider({ address: 'bot@example.com', smtp: { host: 'smtp.example.com', user: 'bot@example.com', pass: 'p' }, logger: console }),
 ]
 // Meta Graph channels: webhook payload types on the main entry, wire helpers in /internal.
-export const metaChannelRefs = [toMessengerError, toInstagramError, parseMessengerInbound, toOutboundMessages, InstagramGraphClient, parseInstagramInbound]
+export const metaChannelRefs = [toMessengerError, isMessengerEdit, toInstagramError, parseMessengerInbound, toOutboundMessages, InstagramGraphClient, parseInstagramInbound]
 export const messengerHook: PageWebhookBody = { object: 'page', entry: [] }
 export const instagramHook: IgWebhookBody = { object: 'instagram', entry: [] }
 export const sendRaws: Array<MessengerSendResponse | InstagramSendResponse> = [{ message_id: 'm' }]

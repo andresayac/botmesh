@@ -507,6 +507,15 @@ const provider = new MessengerProvider({
 - More than 3 buttons (button template) or 10 list rows (generic template)
   reject with `UnsupportedContentError` instead of dropping options.
 - Each Send API call times out after `requestTimeoutMs` (60 s by default).
+- No text is cut: a list sends its text before the generic template (which
+  has no header), and button text past the template's 640 characters goes
+  first as plain text.
+- Several attachments in one message arrive as one message each (`<mid>`,
+  `<mid>#2`…). An edited message (subscribe `message_edits`) arrives again
+  with its original id; `isEditedMessage(ctx)` tells it apart.
+- Message tags: `bot.send(psid, text, { platformData: { tag: 'HUMAN_AGENT' } })`
+  sends after the 24-hour window (`messaging_type`, `notification_type` and
+  `persona_id` are accepted too).
 
 ```bash
 pnpm add @botmesh/core @botmesh/messenger

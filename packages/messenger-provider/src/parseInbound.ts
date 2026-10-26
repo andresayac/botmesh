@@ -24,6 +24,10 @@ import { toInboundLocation } from '@botmesh/core/spi'
 
 export interface MessengerAttachment {
   type?: string // 'image' | 'video' | 'audio' | 'file' | 'location' | 'fallback'
+  /** Place name of a `location` attachment, or title of a shared link (Meta sends it next to `payload`). */
+  title?: string
+  /** Link of a `location` or `fallback` (shared link) attachment. */
+  url?: string
   /** `coordinates` is set on a `location` attachment (when Meta still sends one). */
   payload?: { url?: string; title?: string; coordinates?: { lat?: number; long?: number } }
 }
@@ -53,6 +57,8 @@ export interface MessagingEvent {
    */
   reaction?: { reaction?: string; emoji?: string; action?: string; mid?: string }
   postback?: { mid?: string; payload?: string; title?: string }
+  /** `message_edits` webhook: the edited message keeps its `mid`; `text` is the new text. */
+  message_edit?: { mid?: string; text?: string; num_edit?: number }
   optin?: { ref?: string; user_ref?: string; payload?: string }
   referral?: { ref?: string; source?: string; type?: string }
 }
@@ -86,13 +92,24 @@ function attachType(type: string | undefined): MessageType {
     case 'video': return 'video'
     case 'audio': return 'audio'
     case 'location': return 'location'
-    default: return 'document' // 'file', 'fallback', anything else
+    default: return 'document' // 'file' and anything else ('fallback' is a shared link, handled apart)
   }
 }
 
-function toMessage(ev: MessagingEvent, chatId: string, m: MessengerMessage, selfId?: string): InboundMessage<MessagingEvent> {
-  const text = typeof m.text === 'string' ? m.text : undefined
-  const attach = rec<MessengerAttachment>(arr(m.attachments)[0])
+/**
+ * One normalized message. `attach` is the attachment it carries (if any) and `index`
+ * its position: a message with several attachments becomes one message per attachment,
+ * the first keeping the `mid` and the text, the next ones `<mid>#2`, `<mid>#3`…
+ */
+function toMessage(
+  ev: MessagingEvent,
+  chatId: string,
+  m: MessengerMessage,
+  selfId: string | undefined,
+  attach: MessengerAttachment | undefined,
+  index = 0,
+): InboundMessage<MessagingEvent> {
+  const text = index === 0 && typeof m.text === 'string' ? m.text : undefined
   let type: MessageType = text !== undefined ? 'text' : 'unknown'
   let body = text ?? ''
   let media: MediaRef | undefined
@@ -102,11 +119,16 @@ function toMessage(ev: MessagingEvent, chatId: string, m: MessengerMessage, self
     const attachKind = str(attach.type)
     const payload = rec<NonNullable<MessengerAttachment['payload']>>(attach.payload)
     type = attachType(attachKind)
-    // A shared location has no downloadable bytes.
-    if (type === 'location') {
-      body = text ?? str(payload?.title) ?? ''
+    if (attachKind === 'fallback') {
+      // A shared link: its URL is a web page, not media bytes to download.
+      type = 'text'
+      body = text ?? [str(payload?.title) ?? str(attach.title), str(payload?.url) ?? str(attach.url)].filter(Boolean).join('\n')
+    } else if (type === 'location') {
+      // A shared location has no downloadable bytes.
+      const name = str(payload?.title) ?? str(attach.title)
+      body = text ?? name ?? ''
       const c = rec<{ lat?: unknown; long?: unknown }>(payload?.coordinates)
-      location = toInboundLocation({ latitude: c?.lat, longitude: c?.long, name: str(payload?.title) })
+      location = toInboundLocation({ latitude: c?.lat, longitude: c?.long, name })
     } else {
       // Messenger attachments carry no caption; text doubles as one.
       media = {
@@ -117,9 +139,10 @@ function toMessage(ev: MessagingEvent, chatId: string, m: MessengerMessage, self
     }
   }
   const replyTo = str(rec<{ mid?: unknown }>(m.reply_to)?.mid)
+  const mid = str(m.mid)
 
   return {
-    ref: { id: str(m.mid) ?? '', chatId, native: ev },
+    ref: { id: mid === undefined ? '' : index === 0 ? mid : `${mid}#${index + 1}`, chatId, native: ev },
     chat: { id: chatId, kind: 'dm', isGroup: false, isBroadcast: false },
     senderInfo: { id: chatId },
     from: chatId,
@@ -178,16 +201,22 @@ function toReaction(ev: MessagingEvent, chatId: string, r: Reaction): InboundEve
 }
 
 /**
- * Id for an event that carries no `mid` (opt-in, referral). Core dedupes inbound
+ * Id for an event that carries no `mid` (opt-in, referral, a postback without one). Core dedupes inbound
  * events by `chatId` + id, so the id must be unique per logical event and stable
  * across redelivery: the event kind plus its webhook `timestamp` (epoch ms,
  * identical on a Meta retry) is both. Never a per-user constant (PSID,
  * `user_ref`) — that would drop every later referral/opt-in of the same user as
  * a duplicate. Without a timestamp, `''` opts the event out of deduplication.
  */
-function eventScopedId(kind: 'optin' | 'referral', ev: MessagingEvent): string {
+function eventScopedId(kind: 'optin' | 'referral' | 'postback', ev: MessagingEvent): string {
   const ts = num(ev.timestamp)
   return ts !== undefined ? `${kind}:${ts}` : ''
+}
+
+/** Epoch ms of the event (the webhook sends ms); the receive time when it is missing. */
+function eventTime(v: unknown): number {
+  const ts = num(v)
+  return ts !== undefined && ts > 0 ? Math.round(ts) : Date.now()
 }
 
 /**
@@ -195,18 +224,13 @@ function eventScopedId(kind: 'optin' | 'referral', ev: MessagingEvent): string {
  *
  * A `reaction` (top-level, as Meta sends `message_reactions`, or nested in
  * `message` as older payloads did) becomes a reaction event. Inside a
- * `message`: quick_reply → attachment → text. `postback`, `opt_in` and
- * `referral` surface as `button` interactions (the payload the bot set on the
+ * `message`: quick_reply → attachments (one message each) → text. A
+ * `message_edit` is a text message with the original `mid` ({@link isEditedMessage}).
+ * `postback`, `opt_in` and `referral` surface as `button` interactions (the payload the bot set on the
  * control, or the referral param). Delivery/read webhooks
  * (`message_deliveries`/`message_reads`) are not normalized here — use
  * `markRead`/`typing` for the outbound side.
  */
-/** Epoch ms of the event (the webhook sends ms); the receive time when it is missing. */
-function eventTime(v: unknown): number {
-  const ts = num(v)
-  return ts !== undefined && ts > 0 ? Math.round(ts) : Date.now()
-}
-
 export function parseInbound(body: PageWebhookBody, selfId?: string): InboundEvent[] {
   const events: InboundEvent[] = []
   if (rec<PageWebhookBody>(body)?.object !== 'page') return events
@@ -237,13 +261,28 @@ export function parseInbound(body: PageWebhookBody, selfId?: string): InboundEve
           events.push(toInteraction(ev, chatId, str(message.mid) ?? '', quickReply.payload))
           continue
         }
-        events.push({ kind: 'message', message: toMessage(ev, chatId, message, selfId) })
+        const attachments = arr(message.attachments).flatMap((a) => {
+          const r = rec<MessengerAttachment>(a)
+          return r ? [r] : []
+        })
+        if (!attachments.length) events.push({ kind: 'message', message: toMessage(ev, chatId, message, selfId, undefined) })
+        attachments.forEach((a, i) => events.push({ kind: 'message', message: toMessage(ev, chatId, message, selfId, a, i) }))
+        continue
+      }
+
+      // An edit keeps the original mid (so the core deduper tells it apart by its new
+      // content) and its raw event carries `message_edit` (see isEditedMessage).
+      const edit = rec<NonNullable<MessagingEvent['message_edit']>>(ev.message_edit)
+      if (edit) {
+        if (typeof edit.text === 'string') {
+          events.push({ kind: 'message', message: toMessage(ev, chatId, { mid: edit.mid, text: edit.text } as MessengerMessage, selfId, undefined) })
+        }
         continue
       }
 
       const postback = rec<NonNullable<MessagingEvent['postback']>>(ev.postback)
       if (postback) {
-        events.push(toInteraction(ev, chatId, str(postback.mid) ?? '', str(postback.payload) ?? ''))
+        events.push(toInteraction(ev, chatId, str(postback.mid) ?? eventScopedId('postback', ev), str(postback.payload) ?? ''))
         continue
       }
       const optin = rec<NonNullable<MessagingEvent['optin']>>(ev.optin)
@@ -258,4 +297,22 @@ export function parseInbound(body: PageWebhookBody, selfId?: string): InboundEve
     }
   }
   return events
+}
+
+/**
+ * Whether `message` (emitted by this provider) is an edit of an earlier message (a
+ * `message_edits` webhook). An edit keeps the original `ref.id`; its `body` is the new
+ * text and `raw.message_edit.num_edit` counts the edits. Subscribe the Page to the
+ * `message_edits` field to receive them.
+ *
+ * @example
+ * ```ts
+ * bot.on('message', (m) => { if (isEditedMessage(m)) audit.log('edited', m.ref.id) })
+ * ```
+ */
+export function isEditedMessage(message: { raw?: unknown }): boolean {
+  const raw = message.raw
+  if (raw === null || typeof raw !== 'object') return false
+  const edit = (raw as { message_edit?: unknown }).message_edit
+  return edit !== null && typeof edit === 'object' && !Array.isArray(edit)
 }

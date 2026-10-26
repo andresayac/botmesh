@@ -10,7 +10,7 @@
  * throw {@link UnsupportedContentError}.
  */
 
-import { UnsupportedContentError, type Button, type OutboundContent } from '@botmesh/core'
+import { UnsupportedContentError, splitMessage, type Button, type OutboundContent } from '@botmesh/core'
 
 /**
  * Send API limits: button titles 20 chars, generic-template titles/subtitles 80,
@@ -22,11 +22,46 @@ const BUTTON_TEXT = 640
 const MAX_BUTTONS = 3
 /** Generic template: at most 10 elements (one per list row). */
 const MAX_ELEMENTS = 10
+/** Send API `text` limit (the provider's `maxTextLength`). */
+const TEXT_MAX = 2000
 
-/** First `max` characters (code points: an emoji is never split into a lone surrogate). */
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+
+/**
+ * At most `max` characters (code points), cut on a grapheme boundary: an emoji ZWJ
+ * sequence, a flag or a letter with combining marks is kept whole or dropped whole.
+ */
 function cut(text: string, max: number): string {
-  const chars = Array.from(text)
-  return chars.length <= max ? text : chars.slice(0, max).join('')
+  if (Array.from(text).length <= max) return text
+  let out = ''
+  let used = 0
+  for (const { segment } of graphemes.segment(text)) {
+    const size = Array.from(segment).length
+    if (used + size > max) break
+    out += segment
+    used += size
+  }
+  return out
+}
+
+/** Plain text as Send API messages within the 2000-char limit (several when longer). */
+function textMessages(text: string): Array<Record<string, unknown>> {
+  if (text.length <= TEXT_MAX) return [{ text }]
+  return splitMessage(text, { maxLength: TEXT_MAX, format: 'plain' }).map((part) => ({ text: part }))
+}
+
+/**
+ * Split `text` so its tail fits a button template (640 chars): the parts before it go
+ * as plain text messages (each within the 2000-char Send API limit), the tail carries
+ * the buttons. Nothing is cut.
+ */
+function splitForTemplate(text: string): { head: string[]; tail: string } {
+  if (text.length <= BUTTON_TEXT) return { head: [], tail: text }
+  const parts = splitMessage(text, { maxLength: BUTTON_TEXT, format: 'plain' })
+  const tail = parts[parts.length - 1] ?? ''
+  const at = text.lastIndexOf(tail)
+  const rest = at > 0 ? text.slice(0, at).trimEnd() : parts.slice(0, -1).join('\n')
+  return { head: rest ? splitMessage(rest, { maxLength: TEXT_MAX, format: 'plain' }) : [], tail }
 }
 
 /**
@@ -75,9 +110,9 @@ type CardContent = Extract<OutboundContent, { kind: 'card' }>
 function cardMessages(content: CardContent): Array<Record<string, unknown>> {
   const text = [content.title, content.body].filter(Boolean).join('\n')
   const buttons = content.buttons ?? []
-  if (!content.imageUrl && !buttons.length) return [{ text }]
+  if (!content.imageUrl && !buttons.length) return textMessages(text)
   assertAtMost('card', 'buttons per template', buttons.length, MAX_BUTTONS)
-  const fits = content.title.length <= ELEMENT_TEXT && (content.body ?? '').length <= ELEMENT_TEXT
+  const fits = Array.from(content.title).length <= ELEMENT_TEXT && Array.from(content.body ?? '').length <= ELEMENT_TEXT
   if (fits) {
     return [genericTemplate([{
       title: content.title,
@@ -88,10 +123,43 @@ function cardMessages(content: CardContent): Array<Record<string, unknown>> {
   }
   const messages: Array<Record<string, unknown>> = []
   if (content.imageUrl) messages.push(attachmentMessage('image', content.imageUrl))
-  if (!buttons.length) messages.push({ text })
+  if (!buttons.length) messages.push(...textMessages(text))
   else if (text.length <= BUTTON_TEXT) messages.push(buttonTemplate('card', text, buttons))
-  else messages.push({ text }, buttonTemplate('card', cut(content.title, BUTTON_TEXT), buttons))
+  else if (content.title.trim()) messages.push(...textMessages(text), buttonTemplate('card', cut(content.title, BUTTON_TEXT), buttons))
+  else {
+    const { head, tail } = splitForTemplate(text)
+    messages.push(...head.map((part) => ({ text: part })), buttonTemplate('card', tail, buttons))
+  }
   return messages
+}
+
+type ButtonsContent = Extract<OutboundContent, { kind: 'buttons' }>
+
+/** Buttons as a button template; text past 640 chars goes first as plain text, no buttons → text. */
+function buttonsMessages(content: ButtonsContent): Array<Record<string, unknown>> {
+  if (!content.buttons.length) return textMessages(content.text)
+  assertAtMost('buttons', 'buttons per template', content.buttons.length, MAX_BUTTONS)
+  const { head, tail } = splitForTemplate(content.text)
+  return [...head.map((text) => ({ text })), buttonTemplate('buttons', tail, content.buttons)]
+}
+
+type ListContent = Extract<OutboundContent, { kind: 'list' }>
+
+/**
+ * A list as a generic template, one element per row (max 10), each with a postback
+ * button carrying the row id. The template has no header, so the list text goes
+ * first as its own message; a list without rows is just its text.
+ */
+function listMessages(content: ListContent): Array<Record<string, unknown>> {
+  const rows = content.sections.flatMap((s) => s.rows)
+  assertAtMost('list', 'list rows (generic template elements)', rows.length, MAX_ELEMENTS)
+  if (!rows.length) return textMessages(content.text)
+  const elements = rows.map((r) => ({
+    title: cut(r.title, ELEMENT_TEXT),
+    ...(r.description ? { subtitle: cut(r.description, ELEMENT_TEXT) } : {}),
+    buttons: [sendApiButton(r)],
+  }))
+  return [...(content.text.trim() ? textMessages(content.text) : []), genericTemplate(elements)]
 }
 
 function attachmentMessage(type: 'image' | 'video' | 'audio' | 'file', url: string | undefined): Record<string, unknown> {
@@ -103,17 +171,25 @@ function attachmentMessage(type: 'image' | 'video' | 'audio' | 'file', url: stri
 
 /**
  * Map content to the ordered list of Send API `message` payloads that carry it.
- * Every kind is a single message except a `card` whose title or body exceeds the
- * 80-char generic-template limit: that one is sent as image + text/buttons so no
- * text is cut. The provider's `send()` posts them in order.
+ * Most kinds are a single message. Several messages, so no text is cut: a `list`
+ * (its text, then the generic template), `buttons` whose text exceeds the 640-char
+ * button template (the leading text, then the template), and a `card` whose title
+ * or body exceeds the 80-char generic-template limit (image, then text/buttons).
+ * The provider's `send()` posts them in order.
  */
 export function toOutboundMessages(content: OutboundContent, mediaUrl?: string): Array<Record<string, unknown>> {
-  return content.kind === 'card' ? cardMessages(content) : [toOutbound(content, mediaUrl)]
+  switch (content.kind) {
+    case 'card': return cardMessages(content)
+    case 'buttons': return buttonsMessages(content)
+    case 'list': return listMessages(content)
+    default: return [toOutbound(content, mediaUrl)]
+  }
 }
 
 /**
- * Single-message mapping. For a long `card` it returns only the last message of
- * {@link toOutboundMessages} (text + buttons); use that function to send it whole.
+ * Single-message mapping. For content that needs several messages (a `list` with
+ * text, long `buttons` text, a long `card`) it returns only the last one of
+ * {@link toOutboundMessages} (the template); use that function to send it whole.
  *
  * @returns the `message` payload ready to wrap in
  *   `{ recipient:{id}, messaging_type:'RESPONSE', message }`.
@@ -134,28 +210,12 @@ export function toOutbound(content: OutboundContent, mediaUrl?: string): Record<
       return attachmentMessage('file', mediaUrl)
 
     case 'buttons':
-      return buttonTemplate('buttons', content.text, content.buttons)
-
-    case 'list': {
-      // Generic template: one element per row (max 10), each with a postback
-      // button carrying the row id.
-      const rows = content.sections.flatMap((s) => s.rows)
-      assertAtMost('list', 'list rows (generic template elements)', rows.length, MAX_ELEMENTS)
-      const elements = rows.length
-        ? rows.map((r) => ({
-            title: cut(r.title, ELEMENT_TEXT),
-            ...(r.description ? { subtitle: cut(r.description, ELEMENT_TEXT) } : {}),
-            buttons: [sendApiButton(r)],
-          }))
-        : [{ title: cut(content.text, ELEMENT_TEXT) }]
-      return genericTemplate(elements)
-    }
-
+    case 'list':
     case 'card': {
-      // A card that needs several messages (see toOutboundMessages) maps to its
-      // last one here: the text with the buttons.
-      const messages = cardMessages(content)
-      return messages[messages.length - 1]
+      // Content that needs several messages (see toOutboundMessages) maps to its
+      // last one here: the template.
+      const messages = toOutboundMessages(content)
+      return messages[messages.length - 1] as Record<string, unknown>
     }
 
     case 'native':
