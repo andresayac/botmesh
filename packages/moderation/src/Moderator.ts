@@ -70,7 +70,10 @@ export class Moderator implements ModerationController {
   private readonly mutes = new Map<string, number>()
   private readonly adminCache = new Map<ChatId, { at: number; admins: Set<UserId> }>()
   private readonly groupOverrides = new Map<ChatId, ModerationRules | false>()
+  /** Resolutions of chats WITH an override (bounded by the overrides). */
   private readonly resolvedCache = new Map<ChatId, Resolved | false>()
+  /** The shared resolution of every chat without an override. */
+  private baseResolved: Resolved | false | undefined
   private readonly warnedUnsupported = new Set<string>()
   private readonly now: () => number
 
@@ -85,27 +88,33 @@ export class Moderator implements ModerationController {
 
   /* ---------------------------------------------------------------- rules */
 
-  /** Effective rules for a chat (global rules shallow-merged with its override), or `false`. */
+  /**
+   * Effective rules for a chat (global rules shallow-merged with its override), or `false`.
+   * Chats without an override share one resolution, so the cache (and the compiled word
+   * filters) grows with the configured overrides, never with the number of chats seen.
+   */
   private resolve(chatId: ChatId): Resolved | false {
+    const override = this.groupOverrides.get(chatId)
+    if (override === undefined) return (this.baseResolved ??= this.build(undefined))
     const cached = this.resolvedCache.get(chatId)
     if (cached !== undefined) return cached
-    const override = this.groupOverrides.get(chatId)
-    let resolved: Resolved | false = false
-    if (override !== false) {
-      const {
-        groups: _groups, provider: _provider, isAdmin: _isAdmin, onViolation: _onViolation, now: _now,
-        applyTo: _applyTo, adminCacheMs: _adminCacheMs, kickFallback: _kickFallback, priority: _priority,
-        ...base
-      } = this.config
-      const rules: ModerationRules = { ...base, ...(override ?? {}) }
-      if (rules.enabled !== false) {
-        if (rules.autoKickOnLink && !rules.linkFilter) rules.linkFilter = { action: ['delete', 'kick'] }
-        const wf = rules.wordFilter
-        resolved = { rules, words: wf ? compileTerms(wf.banned, wf.wholeWord ?? true) : [] }
-      }
-    }
+    const resolved = this.build(override)
     this.resolvedCache.set(chatId, resolved)
     return resolved
+  }
+
+  private build(override: ModerationRules | false | undefined): Resolved | false {
+    if (override === false) return false
+    const {
+      groups: _groups, provider: _provider, isAdmin: _isAdmin, onViolation: _onViolation, now: _now,
+      applyTo: _applyTo, adminCacheMs: _adminCacheMs, kickFallback: _kickFallback, priority: _priority,
+      ...base
+    } = this.config
+    const rules: ModerationRules = { ...base, ...(override ?? {}) }
+    if (rules.enabled === false) return false
+    if (rules.autoKickOnLink && !rules.linkFilter) rules.linkFilter = { action: ['delete', 'kick'] }
+    const wf = rules.wordFilter
+    return { rules, words: wf ? compileTerms(wf.banned, wf.wholeWord ?? true) : [] }
   }
 
   setGroupRules(chatId: ChatId, rules: ModerationRules | false | undefined): void {
@@ -367,11 +376,14 @@ export class Moderator implements ModerationController {
     else this.warnCounts.set(key, count)
 
     const reason = rules.messages?.reasons?.[rule] ?? DEFAULT_REASONS[rule]
-    const text = (rules.messages?.warn ?? DEFAULT_WARN_TEXT)
-      .replaceAll('{name}', ctx.senderInfo?.displayName ?? ctx.pushName ?? 'usuario')
-      .replaceAll('{reason}', reason)
-      .replaceAll('{count}', String(count))
-      .replaceAll('{max}', policy ? String(policy.max) : '∞')
+    // One pass: a display name such as '{reason}' is user input and must stay literal.
+    const values: Record<string, string> = {
+      name: ctx.senderInfo?.displayName ?? ctx.pushName ?? 'usuario',
+      reason,
+      count: String(count),
+      max: policy ? String(policy.max) : '∞',
+    }
+    const text = (rules.messages?.warn ?? DEFAULT_WARN_TEXT).replace(/\{(name|reason|count|max)\}/g, (_, key: string) => values[key]!)
     const extra = escalate ? { escalate } : {}
     try {
       await this.sendWarning(ctx, text)
