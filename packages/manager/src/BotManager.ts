@@ -681,6 +681,8 @@ export class BotManager extends EventEmitter {
 
   private async removeFlowUnlocked(botId: string, flowId: string): Promise<boolean> {
     const entry = this.requireEntry(botId)
+    const user = (this.configs.get(botId)?.flows ?? []).find((flow) => flow.id !== flowId && usesSubflow(flow.steps, flowId))
+    if (user) throw new ManagerError(`Flow "${flowId}" is used as a subflow by "${user.id}"; remove or change that flow first`, 'CONFLICT')
     const removed = requireCapability(entry.bot, 'unregisterFlow')(flowId)
     let persisted = false
     await this.saveFlows(botId, (flows) => {
@@ -859,7 +861,8 @@ export class BotManager extends EventEmitter {
     }
     if (record.flows?.length) {
       const replace = requireCapability(bot, 'replaceFlow')
-      for (const doc of record.flows) replace(doc.id, compileFlowDocument(doc))
+      const resolveSubflow = subflowResolver(record.flows)
+      for (const doc of record.flows) replace(doc.id, compileFlowDocument(doc, { resolveSubflow }))
     }
     return bot
   }
@@ -935,7 +938,32 @@ function checkFlows(flows: unknown[] | undefined): FlowDocument[] {
     if (ids.has(id)) throw new ManagerError(`duplicate flow id "${id}"`, 'INVALID')
     ids.add(id)
   })
+  // Compile too: a `subflow` step must resolve against the bot's own flows now, not at restore.
+  const documents = flows as FlowDocument[]
+  const resolveSubflow = subflowResolver(documents)
+  documents.forEach((doc, i) => {
+    try {
+      compileFlowDocument(doc, { resolveSubflow })
+    } catch (error) {
+      if (error instanceof FlowDocumentError) throw new ManagerError(`flows[${i}] is invalid`, 'INVALID', error.issues)
+      throw error
+    }
+  })
   return structuredClone(flows) as FlowDocument[]
+}
+
+/** Whether `steps` (nested branches included) contain a `subflow` step targeting `flowId`. */
+function usesSubflow(steps: readonly unknown[] | undefined, flowId: string): boolean {
+  return (steps ?? []).some((raw) => {
+    const step = raw as { kind?: string; flowId?: string; then?: unknown[]; else?: unknown[]; options?: Array<{ steps?: unknown[] }> }
+    if (step.kind === 'subflow' && step.flowId === flowId) return true
+    return usesSubflow(step.then, flowId) || usesSubflow(step.else, flowId) || (step.options ?? []).some((o) => usesSubflow(o.steps, flowId))
+  })
+}
+
+/** Resolve `subflow` steps against the flows stored with the same bot. */
+function subflowResolver(flows: readonly FlowDocument[]): (id: string) => FlowDocument | undefined {
+  return (id) => flows.find((flow) => flow.id === id)
 }
 
 function checkProvider(provider: BotProviderConfig): BotProviderConfig {

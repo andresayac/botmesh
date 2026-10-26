@@ -20,7 +20,7 @@ export type {
 export { createManagerApi } from './http.js'
 export type { ManagerApiHandler, ManagerApiOptions } from './http.js'
 export { AuditLog, ControlPlaneError, IdempotencyRegistry, SecretVault, assertAuthorized, verifyApiKey } from './controlPlane.js'
-export type { AuditEntry, ControlAction, Principal } from './controlPlane.js'
+export type { AuditEntry, AuditLogOptions, ControlAction, IdempotencyRegistryOptions, Principal } from './controlPlane.js'
 export { createControlPlaneApi } from './v1.js'
 export type { ControlPlaneApiHandler, ControlPlaneApiKey, ControlPlaneApiOptions } from './v1.js'
 export { BotReconciler, DesiredStateConflictError, MemoryDesiredStateStore } from './reconciler.js'
