@@ -1,147 +1,135 @@
-# Enviar media
+# Respuestas con media
 
-Recetas para enviar fotos, videos, audios, stickers y más. En cualquier lugar
-donde veas un argumento `source` (`MediaSource`), puede ser una URL, la ruta
-de un archivo local, o un `Buffer`.
+Construye un bot que responde con fotos, documentos, videos, notas de voz,
+stickers, ubicaciones y contactos, y que reacciona a las imágenes que le
+envían.
 
-## Configuración
+**Nivel:** Principiante · **Etiquetas:** WhatsApp, Telegram, Media
 
-```ts
-import { Bot } from '@botmesh/core'
+**Funciones que muestra:** [enviar foto, video, archivo, voz, sticker](/es/guide/mensajes#enviar-foto) ·
+[enviar ubicación](/es/guide/mensajes#enviar-ubicacion) ·
+[enviar contacto](/es/guide/mensajes#enviar-contacto) ·
+[recibir media (`bot.onType`)](/es/guide/mensajes#recibir-media) ·
+[`loadMediaOf()`](/es/guide/mensajes#acceder-al-contenido-del-media) ·
+[recibir una ubicación](/es/guide/mensajes#recibir-una-ubicacion)
+
+## Requisitos previos
+
+Node.js 22.12 o superior y una carpeta con `"type": "module"` (ver
+[Inicio rápido](/es/guide/inicio#requisitos), que también explica las
+etiquetas de prerelease). Después instala:
+
+```bash
+npm install @botmesh/core @botmesh/baileys
+```
+
+## El bot completo
+
+```js
+// bot.js
+import { Bot, defineBot, isMainModule, loadMediaOf } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
 
-const bot = new Bot({
-  provider: new BaileysProvider({ session: 'demo-bot', qr: { terminal: true, small: true } }),
-})
-```
+const createBot = defineBot((provider) => {
+  const bot = new Bot({ provider, lang: 'es' })
 
-## Foto
+  // Cada fuente puede ser una URL, una ruta local o un Buffer
+  bot.when('foto', (ctx) => ctx.photo('https://picsum.photos/400/300', '📸 Una foto al azar'))
+  bot.when('carta', (ctx) => ctx.file('https://example.com/carta.pdf', 'carta.pdf', '📄 Nuestra carta'))
+  bot.when('video', (ctx) => ctx.video('https://example.com/clip.mp4', '🎬 Un clip corto'))
+  bot.when('voz', (ctx) => ctx.voice('https://example.com/nota.ogg'))
+  bot.when('sticker', (ctx) => ctx.sticker('https://picsum.photos/512/512', { pack: 'Mi bot', author: 'yo' }))
+  bot.when('donde', (ctx) => ctx.location(4.711, -74.0721, 'Bogotá, Colombia'))
+  bot.when('contacto', (ctx) => ctx.contact('+573001234567', 'Soporte'))
 
-```ts
-bot.when('photo', async (ctx) => {
-  await ctx.photo('https://picsum.photos/400/300', '📸 Random photo')
-})
-```
-
-## Foto desde un archivo local
-
-```ts
-bot.when('logo', async (ctx) => {
-  await ctx.photo('./assets/logo.png', '🖼️ Our logo')
-})
-```
-
-## Sticker
-
-```ts
-bot.when('sticker', async (ctx) => {
-  await ctx.reply('🎨 Generating sticker...')
-  try {
-    await ctx.sticker('https://picsum.photos/512/512', {
-      pack: 'My Bot',
-      author: 'me',
-    })
-  } catch (err) {
-    await ctx.reply('❌ Failed: ' + (err as Error).message)
-  }
-})
-```
-
-## Nota de voz
-
-```ts
-bot.when('audio', async (ctx) => {
-  await ctx.reply('🎵 Sending audio...')
-  await ctx.voice('https://example.com/audio.mp3')
-})
-```
-
-## Video
-
-```ts
-bot.when('video', async (ctx) => {
-  await ctx.video('https://example.com/video.mp4', '🎬 My video')
-})
-```
-
-## Archivo
-
-```ts
-bot.when('file', async (ctx) => {
-  await ctx.file('https://example.com/doc.pdf', 'document.pdf', '📄 Here')
-})
-```
-
-## Ubicación
-
-```ts
-bot.when('location', async (ctx) => {
-  await ctx.location(4.7110, -74.0721, 'Bogotá, Colombia 🇨🇴')
-})
-```
-
-## Contacto
-
-```ts
-bot.when('contact', async (ctx) => {
-  await ctx.contact('573001234567', 'Support Bot')
-})
-```
-
-## Encuesta
-
-```ts
-bot.when('poll', async (ctx) => {
-  await ctx.poll('How is the bot?', ['👍 Great', '👌 Good', '👎 Bad'])
-})
-
-// Multi-select
-bot.when('poll-multi', async (ctx) => {
-  await ctx.poll('What do you like?', ['🍕', '🍔', '🌮'], true)
-})
-```
-
-## Recibir una imagen y responder con un sticker
-
-El media entrante se descarga bajo demanda: `loadMediaOf(ctx)` trae los bytes
-una vez y los deja en `ctx.media` (ver
-[Acceder al contenido del media](/es/guide/mensajes#acceder-al-contenido-del-media)):
-
-```ts
-import { loadMediaOf } from '@botmesh/core'
-
-bot.onType('image', async (ctx) => {
-  await ctx.reply('📸 Got your image. Converting to sticker...')
-  const media = await loadMediaOf(ctx, { maxBytes: 5 * 1024 * 1024 })
-  if (media) {
-    await ctx.sticker(media.buffer, { pack: 'My Bot', author: 'me' })
-  }
-})
-```
-
-## Enviar media fuera de un handler — bot.send
-
-`bot.send` recibe un objeto de contenido neutral de transporte
-(`{ kind, ... }`) y un id de chat (`'573001112233@s.whatsapp.net'` para un
-usuario de WhatsApp, `'...@g.us'` para un grupo):
-
-```ts
-bot.every('30 minutes', async () => {
-  await bot.send('573001112233@s.whatsapp.net', {
-    kind: 'image',
-    media: { url: 'https://picsum.photos/400/300' },
-    caption: '📸 Scheduled photo',
+  // Media entrante: descarga los bytes solo cuando los necesitas
+  bot.onType('image', async (ctx) => {
+    const media = await loadMediaOf(ctx, { maxBytes: 5 * 1024 * 1024 })
+    if (!media) return ctx.reply('No pude descargar esa imagen.')
+    await ctx.react('😍')
+    await ctx.reply(`🖼️ Recibí tu imagen ${media.mimetype}${ctx.body ? `: "${ctx.body}"` : ''}`)
   })
+
+  // Una ubicación compartida llega normalizada en ctx.sharedLocation
+  bot.onType('location', (ctx) => {
+    const loc = ctx.sharedLocation
+    return ctx.reply(loc ? `📍 Estás en ${loc.latitude}, ${loc.longitude}` : 'No pude leer esa ubicación')
+  })
+
+  bot.onMessage((ctx) => ctx.reply('Prueba: foto, carta, video, voz, sticker, donde, contacto, o envía una imagen.'))
+
+  return bot
 })
+
+export default createBot
+
+// `node bot.js` conecta con WhatsApp; `npx botmesh dev bot.js` se salta este bloque
+if (isMainModule(import.meta)) {
+  const bot = await createBot(new BaileysProvider({ session: 'media-bot' }))
+  bot.on('ready', () => console.log('✅ Conectado. Escribe "foto" desde otro teléfono.'))
+  await bot.start()
+}
 ```
 
-## Iniciar el bot
+## Transcripción de ejemplo
 
-```ts
-await bot.start()
+Capturada con `npx botmesh dev bot.js`. El simulador muestra la media como
+`[tipo: fuente]`; `:media image ./gato.jpg Mi gato` envía un archivo del
+disco:
+
+```text
+user › foto
+bot › [image: https://picsum.photos/400/300]
+      📸 Una foto al azar
+user › carta
+bot › [document: carta.pdf · https://example.com/carta.pdf]
+      📄 Nuestra carta
+user › video
+bot › [video: https://example.com/clip.mp4]
+      🎬 Un clip corto
+user › voz
+bot › [voice note: https://example.com/nota.ogg]
+user › sticker
+bot › [sticker: https://picsum.photos/512/512]
+user › dónde
+bot › [location: 4.711, -74.0721 · Bogotá, Colombia]
+user › contacto
+bot › [contact: Soporte · +573001234567]
+user › :media image ./gato.jpg Mi gato
+bot › [reaction: 😍]
+bot › 🖼️ Recibí tu imagen image/jpeg: "Mi gato"
 ```
+
+## Cómo funciona
+
+- **Un método por tipo.** `ctx.photo`, `ctx.video`, `ctx.file`,
+  `ctx.voice`, `ctx.sticker`, `ctx.location` y `ctx.contact` aceptan una
+  URL, una ruta local o un `Buffer`. `ctx.file(fuente, nombre, caption)`
+  fija el nombre que ve el usuario.
+- **Los detalles del transporte se quedan en el provider.** En WhatsApp una
+  nota de voz se convierte con ffmpeg y un sticker necesita el paquete
+  opcional `sharp`; Telegram los envía tal cual. Lo que soporta cada canal
+  está en la [matriz de capacidades](/es/guide/canales#matriz-de-capacidades).
+- **La media entrante es perezosa.** El mensaje solo trae una referencia;
+  `loadMediaOf(ctx, { maxBytes })` la descarga una vez (rechazando archivos
+  demasiado grandes) y devuelve `{ buffer, mimetype }`. `ctx.body` es el
+  caption.
+- **Las ubicaciones** llegan como `type: 'location'` con
+  `ctx.sharedLocation` (`latitude`, `longitude`, `name?`); `ctx.location()`
+  es el método que **envía** una.
+- **Fuera de un handler**,
+  `bot.send(chatId, { kind: 'image', media: { url }, caption })` envía el
+  mismo contenido, por ejemplo desde una [tarea programada](./recordatorios).
+
+## Ejecutarlo en WhatsApp o Telegram
+
+`node bot.js` muestra un QR: escanéalo en WhatsApp → Dispositivos
+vinculados. Para Telegram, instala `@botmesh/telegram` y cambia el provider
+como se muestra en [O conectar Telegram](/es/guide/inicio#o-conectar-telegram);
+la factory no cambia.
 
 ## Siguientes pasos
 
-- [Flujo de registro](./flujo-registro) — conversación multi-paso
-- [Mensajes](./mensajes) — más recetas de texto
+- [Bot de encuestas](./bot-encuesta): encuestas y reacciones
+- [Mensajes y media](/es/guide/mensajes): ediciones, indicador de escritura, todos los métodos de envío
+- [Voz (STT/TTS)](/es/guide/voz): transcribe las notas de voz que envían los usuarios

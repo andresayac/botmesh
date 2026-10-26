@@ -1,139 +1,129 @@
 # Send Messages
 
-Practical recipes for responding to text messages.
+Build a bot that shows every way to answer a text: keywords, regex,
+quotes, reactions, sender info and multi-line replies.
 
-## Setup
+**Level:** Beginner · **Tags:** WhatsApp, Telegram, Triggers
 
-```ts
-import { Bot } from '@botmesh/core'
+**Features shown:** [trigger forms](/guide/concepts#when-simple-responses) ·
+[reply helpers](/guide/messages#reply-helpers-inside-a-handler) ·
+[`ctx.react()`](/guide/messages#react) ·
+[`ctx.senderInfo`, `ctx.sender`, `ctx.isGroup`](/guide/concepts#the-ctx-object) ·
+[catch-all](/guide/concepts#message-event-vs-onmessage)
+
+## Prerequisites
+
+Node.js 22.12 or newer and a folder with `"type": "module"` (see
+[Getting started](/guide/getting-started#requirements), which also explains
+the prerelease tags). Then install:
+
+```bash
+npm install @botmesh/core @botmesh/baileys
+```
+
+## The complete bot
+
+```js
+// bot.js
+import { Bot, defineBot, isMainModule } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
 
-const bot = new Bot({
-  provider: new BaileysProvider({ session: 'demo-bot', qr: { terminal: true, small: true } }),
+const createBot = defineBot((provider) => {
+  const bot = new Bot({ provider })
+
+  // One keyword, or any of a list (whole message, case and accents ignored)
+  bot.when('hi', (ctx) => ctx.reply('👋 Hello!'))
+  bot.when(['bye', 'goodbye', 'see you'], (ctx) => ctx.reply('👋 See you later!'))
+
+  // The word anywhere in the message
+  bot.when({ pattern: 'invoice', match: 'contains' }, (ctx) => ctx.reply('🧾 I see you mentioned an invoice'))
+
+  // Regular expressions
+  bot.when(/[\w.]+@[\w.]+\.\w+/, (ctx) => ctx.reply('📧 That looks like an email'))
+  bot.when(/\d{4,}/, (ctx) => ctx.reply(`🔢 Detected a long number in "${ctx.body}"`))
+
+  // Quote the user's message, or react to it
+  bot.when('quote', (ctx) => ctx.quote('Replying to your exact message'))
+  bot.when('good bot', (ctx) => ctx.react('👍'))
+
+  // Who wrote, and where
+  bot.when('who', (ctx) =>
+    ctx.reply(`You are ${ctx.senderInfo.displayName ?? 'someone'} (${ctx.sender}) in a ${ctx.isGroup ? 'group' : 'private chat'}.`),
+  )
+
+  // Multi-line text with WhatsApp-style formatting
+  bot.when('info', (ctx) => ctx.reply(['ℹ️ *Bot info*', '', '• Engine: botmesh', '• Works on: WhatsApp, Telegram'].join('\n')))
+
+  bot.onMessage((ctx) => ctx.reply('🤔 I did not recognize that. Try: hi, quote, who, info.'))
+
+  return bot
 })
+
+export default createBot
+
+// `node bot.js` connects to WhatsApp; `npx botmesh dev bot.js` skips this block
+if (isMainModule(import.meta)) {
+  const bot = await createBot(new BaileysProvider({ session: 'messages-bot' }))
+  bot.on('ready', () => console.log('✅ Connected. Send "hi" from another phone.'))
+  await bot.start()
+}
 ```
 
-## Respond to text
+## Sample transcript
 
-```ts
-bot.when('hi', async (ctx) => {
-  await ctx.reply('👋 Hello!')
-})
+Captured with `npx botmesh dev bot.js --name Ana`:
+
+```text
+user › Hi
+bot › 👋 Hello!
+user › see you
+bot › 👋 See you later!
+user › can you resend my invoice?
+bot › 🧾 I see you mentioned an invoice
+user › ana@example.com
+bot › 📧 That looks like an email
+user › my code is 123456
+bot › 🔢 Detected a long number in "my code is 123456"
+user › quote
+bot › Replying to your exact message
+user › good bot
+bot › [reaction: 👍]
+user › who
+bot › You are Ana (user) in a private chat.
+user › info
+bot › ℹ️ *Bot info*
+
+      • Engine: botmesh
+      • Works on: WhatsApp, Telegram
+user › hello there
+bot › 🤔 I did not recognize that. Try: hi, quote, who, info.
 ```
 
-## Multiple keywords
+## How it works
 
-```ts
-bot.when(['bye', 'goodbye', 'see you'], async (ctx) => {
-  await ctx.reply('👋 See you later!')
-})
-```
+- **Exact by default.** `bot.when('hi')` matches the whole message after
+  normalizing case, accents and spaces: "Hi" matches, "hi there" does not.
+- **`match: 'contains'`** (also `'startsWith'` and `'endsWith'`) matches part
+  of the message; a **regex** matches anywhere in it.
+- **Specificity decides** when several triggers match: exact text beats
+  regex, regex beats `contains` (see [Precedence](/guide/triggers#precedence)).
+- **`ctx.quote(text)`** replies quoting the incoming message;
+  **`ctx.react(emoji)`** reacts to it (channels without reactions skip it).
+- **`ctx.senderInfo.displayName`** is the sender's profile name when the
+  transport reports one; `ctx.sender` is their stable id, the same in a DM and
+  in a group.
+- Baileys has no native buttons: for a quick choice use a
+  [poll](./poll-bot) or a numbered [menu](./menu-bot).
 
-## Regex match
+## Run it on WhatsApp or Telegram
 
-```ts
-bot.when(/\d{4,}/, async (ctx) => {
-  await ctx.reply(`🔢 Detected a long number: "${ctx.body}"`)
-})
-
-bot.when(/[\w.]+@[\w.]+\.\w+/, async (ctx) => {
-  await ctx.reply('📧 Detected an email')
-})
-```
-
-## Match "contains" instead of exact
-
-By default a string trigger only matches when the (normalized) message
-**equals** it — `bot.when('invoice', ...)` does NOT match "check my invoice
-please". Use a `TriggerObject` with `match: 'contains'` for the old
-"contains" behavior:
-
-```ts
-bot.when({ pattern: 'invoice', match: 'contains' }, async (ctx) => {
-  await ctx.reply('🧾 I see you mentioned an invoice')
-})
-```
-
-`match` also supports `'startsWith'` and `'endsWith'`.
-
-## Quote the message
-
-```ts
-bot.when('quote', async (ctx) => {
-  await ctx.quote('Replying to your specific message')
-})
-```
-
-## React with emoji
-
-```ts
-bot.when('good', async (ctx) => { await ctx.react('👍') })
-bot.when('love', async (ctx) => { await ctx.react('❤️') })
-```
-
-## Private only
-
-```ts
-bot.when('private', async (ctx) => {
-  if (ctx.isGroup) return
-  await ctx.reply('This only works in private chat')
-})
-```
-
-## Multi-line message
-
-```ts
-bot.when('info', async (ctx) => {
-  await ctx.reply([
-    'ℹ️ *Bot info*',
-    '',
-    '• Version: 2.0.0',
-    '• Engine: Baileys 7',
-  ].join('\n'))
-})
-```
-
-## Use sender info
-
-```ts
-bot.when('who', async (ctx) => {
-  const name = ctx.senderInfo.displayName ?? 'friend'
-  await ctx.reply(`👋 Hi ${name}!`)
-})
-```
-
-## No native buttons — use a poll
-
-WhatsApp Web killed native buttons, so on Baileys a quick yes/no is best
-done with a real poll (see [Send media](./media) for more poll options). On
-the official Cloud API (`@botmesh/meta`) it's the other way round: native
-buttons work and polls don't, so use `ctx.buttons()` there.
-
-```ts
-bot.when('confirm', async (ctx) => {
-  await ctx.poll('Do you confirm your order?', ['Yes', 'No'])
-})
-```
-
-For a menu that branches into different logic per option, use
-`flow().choose()` or `c.choose()` instead — see the
-[Shopping flow](./shopping-flow) recipe.
-
-## Catch-all
-
-```ts
-bot.onMessage(async (ctx) => {
-  await ctx.reply('🤔 I did not recognize that. Send /help.')
-})
-```
-
-## Start the bot
-
-```ts
-await bot.start()
-```
+`node bot.js` prints a QR: scan it in WhatsApp → Linked devices. For
+Telegram, install `@botmesh/telegram` and swap the provider as shown in
+[Or connect Telegram](/guide/getting-started#or-connect-telegram); the
+factory does not change.
 
 ## Next steps
 
-- [Send media](./media) — photos, stickers, audio
-- [Registration flow](./registration-flow) — multi-step conversation
+- [Media replies](./media): photos, files, locations and contacts
+- [FAQ bot](./faq-bot): keyword answers with a fallback
+- [Messages & media](/guide/messages): typing indicators, edits, long texts

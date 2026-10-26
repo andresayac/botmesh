@@ -1,130 +1,163 @@
 # Shopping Flow
 
-A flow with a numbered menu and branching using `.choose()`.
+Build a small shop: pick a product and a quantity from numbered menus,
+confirm, enter the address in a reusable sub-flow, or go back and start over.
 
-## The flow
+**Level:** Intermediate · **Tags:** WhatsApp, Telegram, Flows
 
-```ts
-import { Bot, flow } from '@botmesh/core'
+**Features shown:** [`.choose()` menus](/guide/flows#dsl-methods) ·
+[`then` sub-flows](/guide/flows#dsl-methods) ·
+[`goto`](/guide/flows#dsl-methods) ·
+[`c.state`](/guide/flows#typed-state) ·
+[`.timeout()` and `timeoutMessage`](/guide/flows#dsl-methods) ·
+[`bot.lint()`](/guide/flow-tools)
+
+## Prerequisites
+
+Node.js 22.12 or newer and a folder with `"type": "module"` (see
+[Getting started](/guide/getting-started#requirements), which also explains
+the prerelease tags). Then install:
+
+```bash
+npm install @botmesh/core @botmesh/baileys
+```
+
+## The complete bot
+
+```js
+// bot.js
+import { Bot, defineBot, flow, isMainModule, slashCommandsPlugin } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
 
-const bot = new Bot({
-  provider: new BaileysProvider({ session: 'demo-bot', qr: { terminal: true, small: true } }),
-})
-
-const catalog: Record<string, string> = {
-  electronics: '📱 *Electronics* — iPhone 15 ($999), Samsung S24 ($899), Xiaomi 14 ($599)',
-  clothing: '👕 *Clothing* — Shirt ($25), Jeans ($45), Jacket ($80)',
-  home: '🏠 *Home* — Lamp ($35), Rug ($60), Glass ($12)',
+const PRODUCTS = {
+  phone: { label: '📱 Phone ($599)', price: 599 },
+  shirt: { label: '👕 Shirt ($25)', price: 25 },
+  lamp: { label: '🏠 Lamp ($35)', price: 35 },
 }
 
-const buy = flow('buy')
-  .say('🛒 *What do you want to buy?*')
-  .choose('Write the option number', {
-    electronics: 'Electronics 📱',
-    clothing: 'Clothing 👕',
-    home: 'Home 🏠',
-  }, 'category')
-  .say((_ctx, c) => catalog[String(c.state.category)])
-  .say('✅ Thanks for your interest! Anything else?')
+const createBot = defineBot((provider) => {
+  const bot = new Bot({
+    provider,
+    // Sent when a wait of the flow times out
+    conversation: { timeoutMessage: '⏰ Your cart expired. Send "shop" to start again.' },
+  })
+  bot.plug(slashCommandsPlugin)
 
-bot.use(buy)
+  // A reusable sub-flow: runs inline from the checkout and comes back
+  const address = flow([]).ask('🏠 Street and number?', 'street').ask('🏙️ City?', 'city')
 
-await bot.start()
+  bot.use(
+    flow('shop')
+      .timeout('2m')
+      .choose('🛒 *What do you want to buy?*', {
+        phone: PRODUCTS.phone.label,
+        shirt: PRODUCTS.shirt.label,
+        lamp: PRODUCTS.lamp.label,
+      }, 'product')
+      .choose('How many?', { one: '1 unit', two: '2 units', three: '3 units' }, 'qty')
+      .say((_ctx, c) => {
+        const qty = { one: 1, two: 2, three: 3 }[c.state.qty]
+        const product = PRODUCTS[c.state.product]
+        c.state.total = qty * product.price
+        return `🧾 ${qty} × ${product.label} = $${c.state.total}`
+      })
+      .choose('Confirm your order?', {
+        yes: { label: 'Yes ✅', then: address },
+        change: { label: '⬅️ Pick another product', goto: 'shop' },
+      })
+      .say((_ctx, c) => `📦 Order placed: $${c.state.total}, shipping to ${c.state.street}, ${c.state.city}.`),
+  )
+
+  bot.onMessage((ctx) => ctx.reply('Send "shop" to start shopping.'))
+
+  return bot
+})
+
+export default createBot
+
+// `node bot.js` connects to WhatsApp; `npx botmesh dev bot.js` skips this block
+if (isMainModule(import.meta)) {
+  const bot = await createBot(new BaileysProvider({ session: 'shop-bot' }))
+  bot.on('ready', () => console.log('✅ Connected. Send "shop" from another phone.'))
+  await bot.start()
+}
+```
+
+## Sample transcript
+
+Captured with `npx botmesh dev bot.js`:
+
+```text
+user › shop
+bot › 🛒 *What do you want to buy?*
+
+      1) 📱 Phone ($599)
+      2) 👕 Shirt ($25)
+      3) 🏠 Lamp ($35)
+user › 1
+bot › How many?
+
+      1) 1 unit
+      2) 2 units
+      3) 3 units
+user › 2
+bot › 🧾 2 × 📱 Phone ($599) = $1198
+bot › Confirm your order?
+
+      1) Yes ✅
+      2) ⬅️ Pick another product
+user › 2
+bot › 🛒 *What do you want to buy?*
+
+      1) 📱 Phone ($599)
+      2) 👕 Shirt ($25)
+      3) 🏠 Lamp ($35)
+user › 2
+bot › How many?
+
+      1) 1 unit
+      2) 2 units
+      3) 3 units
+user › 3
+bot › 🧾 3 × 👕 Shirt ($25) = $75
+bot › Confirm your order?
+
+      1) Yes ✅
+      2) ⬅️ Pick another product
+user › 1
+bot › 🏠 Street and number?
+user › 742 Evergreen Terrace
+bot › 🏙️ City?
+user › Springfield
+bot › 📦 Order placed: $75, shipping to 742 Evergreen Terrace, Springfield.
 ```
 
 ## How it works
 
-1. User sends "buy"
-2. `.say(...)` sends the intro, then `.choose()` builds a numbered menu from the
-   `options` keys (`1) Electronics 📱`, `2) Clothing 👕`, `3) Home 🏠`) and waits
-   for a valid number
-3. The chosen KEY (`electronics`, `clothing` or `home` — not the number the user
-   typed) is stored in `c.state.category`, since `'category'` is the 3rd argument
-   to `.choose()`
-4. The next `.say()` reads `c.state.category` to print the matching catalog text
-5. The flow closes with a thank-you message
+- **`.choose(prompt, options, key)`** sends a numbered menu, accepts the
+  number, the key or the label, and stores the chosen **key** in
+  `c.state[key]`. Without a key it goes to `c.state.choice`.
+- **`then: address`** runs the `address` flow inline when "Yes" is picked;
+  it shares `c.state`, so the last `.say()` reads `street` and `city`.
+  `flow([])` has no trigger: it only runs from here.
+- **`goto: 'shop'`** leaves the current flow and starts the named one
+  (here, the same shop from the top). `bot.lint()` warns about a `goto` to a
+  flow that is not registered.
+- **A function `.say()`** can compute and store values (`c.state.total`)
+  for later steps.
+- **`.timeout('2m')`** applies to every wait of the flow; when it fires the
+  bot sends `conversation.timeoutMessage`. A `then` sub-flow uses its own
+  `.timeout()` (or the bot-wide default).
 
-## Branch with `then` sub-steps
+## Run it on WhatsApp or Telegram
 
-Instead of reading `c.state` afterwards, each option can run its own `then`
-step right when it's picked. Control returns to the parent flow once the
-sub-step finishes — there is no separate nested flow to build:
-
-```ts
-const buy = flow('buy')
-  .say('🛒 *What do you want to buy?*')
-  .choose('Write the option number', {
-    electronics: {
-      label: 'Electronics 📱',
-      then: (_ctx, c) => { c.state.summary = '📱 iPhone 15 — $999' },
-    },
-    clothing: {
-      label: 'Clothing 👕',
-      then: (_ctx, c) => { c.state.summary = '👕 Shirt — $25' },
-    },
-    home: {
-      label: 'Home 🏠',
-      then: (_ctx, c) => { c.state.summary = '🏠 Lamp — $35' },
-    },
-  })
-  .say((_ctx, c) => `${c.state.summary}\n\n✅ Thanks for your interest!`)
-
-bot.use(buy)
-```
-
-The chosen key is still available afterwards as `c.state.choice` (the default
-`stateKey` when you don't pass one) if you need it later in the chain.
-
-## Give the whole flow a timeout
-
-`.timeout()` sets how long each wait in the flow (including the `.choose()`
-menu) waits for a reply. The message sent on timeout is NOT a `.timeout()`
-argument — configure it once on the bot:
-
-```ts
-const bot = new Bot({
-  provider: new BaileysProvider({ session: 'demo-bot' }),
-  conversation: { timeoutMessage: '⏰ Session expired due to inactivity.' },
-})
-
-const buy = flow('buy')
-  .timeout('2m')
-  .say('🛒 *What do you want to buy?*')
-  .choose('Write the option number', {
-    electronics: 'Electronics 📱',
-    clothing: 'Clothing 👕',
-    home: 'Home 🏠',
-  }, 'category')
-  .say((_ctx, c) => catalog[String(c.state.category)])
-
-bot.use(buy)
-```
-
-## Back to the main menu
-
-An option with `goto` leaves the current flow for another one; an option whose
-`then` is a whole flow runs it inline and comes back (like `.use()`):
-
-```ts
-const menu = flow('menu').choose('Main menu', { buy: 'Buy 🛒', help: 'Help' }, 'section')
-
-const address = flow('address').ask('Street?', 'street').ask('City?', 'city')
-
-const checkout = flow('checkout')
-  .choose('Confirm your order?', {
-    yes: { label: 'Yes ✅', then: address },   // runs the sub-flow, then continues below
-    back: { label: '⬅️ Main menu', goto: menu }, // leaves this flow
-  })
-  .say((_ctx, c) => `📦 Shipping to ${c.state.street}, ${c.state.city}`)
-
-bot.use([menu, checkout]) // `address` runs inline, it needs no registration
-```
-
-`bot.lint()` reports a `goto` to a flow that is not registered (see
-[Inspect & lint flows](/guide/flow-tools)).
+`node bot.js` prints a QR: scan it in WhatsApp → Linked devices. For
+Telegram, install `@botmesh/telegram` and swap the provider as shown in
+[Or connect Telegram](/guide/getting-started#or-connect-telegram); the
+factory does not change.
 
 ## Next steps
 
-- [Support with timeout](./support-flow) — timeout and fallback
-- [Flows](/guide/flows) — full DSL guide
+- [Support with timeout](./support-flow): `bot.conversation()` with full control
+- [Menu bot](./menu-bot): native buttons where the channel has them
+- [Inspect & lint flows](/guide/flow-tools): check flows before running them

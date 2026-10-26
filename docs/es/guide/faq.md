@@ -173,4 +173,4 @@ README de cada paquete en npm.
 
 - [Solución de problemas](./solucion-problemas): los errores frecuentes y cómo resolverlos
 - [Abre un issue en GitHub](https://github.com/andresayac/botmesh/issues)
-- [Revisa los ejemplos](/es/ejemplos/mensajes)
+- [Revisa los ejemplos](/es/ejemplos/)

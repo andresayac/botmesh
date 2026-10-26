@@ -166,4 +166,4 @@ each package's README on npm.
 
 - [Troubleshooting](./troubleshooting): the common errors and their fixes
 - [Open an issue on GitHub](https://github.com/andresayac/botmesh/issues)
-- [Check the examples](/examples/messages)
+- [Check the examples](/examples/)

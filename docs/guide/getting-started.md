@@ -308,5 +308,5 @@ commands to run.
 - [Configuration reference](./configuration): every `new Bot({...})` option
 - [Channels](./channels): every transport and what it supports
 - [Testing](./testing): test your flows with `createTestBot`, no network
-- [Examples](/examples/messages): copy-ready recipes
+- [Examples](/examples/): copy-ready recipes
 - [Going to production](./production) and [Troubleshooting](./troubleshooting)

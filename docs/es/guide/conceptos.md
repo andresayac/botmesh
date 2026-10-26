@@ -367,4 +367,4 @@ que coincide.
 - [Flujos conversacionales](./flujos): conversaciones de varios pasos
 - [Triggers especiales](./triggers): WELCOME, tipos de mensaje y CALL
 - [Hooks](./hooks): middleware
-- [Ejemplos](/es/ejemplos/mensajes): recetas prácticas
+- [Ejemplos](/es/ejemplos/): recetas prácticas

@@ -311,5 +311,5 @@ comandos ejecutar.
 - [Referencia de configuración](./configuracion): todas las opciones de `new Bot({...})`
 - [Canales](./canales): todos los transportes y lo que admite cada uno
 - [Testing](./testing): prueba tus flujos con `createTestBot`, sin red
-- [Ejemplos](/es/ejemplos/mensajes): recetas listas para copiar
+- [Ejemplos](/es/ejemplos/): recetas listas para copiar
 - [Pasar a producción](./produccion) y [Solución de problemas](./solucion-problemas)
