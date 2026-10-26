@@ -241,6 +241,19 @@ function ownedMessage(raw: string | Buffer | null, ref: MessageRef): StoredMessa
   return msg.ref?.id === ref.id && msg.ref?.chatId === ref.chatId ? msg : undefined
 }
 
+/**
+ * The `revision` of a stored checkpoint JSON (0 when absent or unreadable, the same rule
+ * as the CAS scripts), read in JS for the values cjson cannot decode.
+ */
+function checkpointRevision(raw: string): number {
+  try {
+    const doc = JSON.parse(raw) as { revision?: unknown } | null
+    return doc !== null && typeof doc === 'object' && typeof doc.revision === 'number' ? doc.revision : 0
+  } catch {
+    return 0
+  }
+}
+
 /** Whether a message item holds a message of `chatId` (any message of that chat). */
 function sameChatMessage(raw: string | Buffer | null, chatId: string): boolean {
   if (raw == null) return false
@@ -760,14 +773,36 @@ export class RedisStore implements IStore {
     if (this.cluster) {
       const index = this.indexOf('cp', key)!
       this.oneSlot([recordKey, index.key])
-      const written = await this.client.eval(CAS_CHECKPOINT_INDEXED_SCRIPT, {
+      return this.checkpointCas(recordKey, expectedRevision, (raw) => this.client.eval(CAS_CHECKPOINT_INDEXED_SCRIPT, {
         keys: [recordKey, index.key],
-        arguments: [String(expectedRevision), value, index.member, px],
-      })
-      return Number(written) === 1
+        arguments: [String(expectedRevision), value, index.member, px, ...(raw === undefined ? [] : [raw])],
+      }))
     }
-    const written = await this.client.eval(CAS_CHECKPOINT_SCRIPT, { keys: [recordKey], arguments: [String(expectedRevision), value, px] })
-    return Number(written) === 1
+    return this.checkpointCas(recordKey, expectedRevision, (raw) => this.client.eval(CAS_CHECKPOINT_SCRIPT, {
+      keys: [recordKey],
+      arguments: [String(expectedRevision), value, px, ...(raw === undefined ? [] : [raw])],
+    }))
+  }
+
+  /**
+   * Run a checkpoint compare-and-set script. It decides on the server from the stored
+   * JSON's `revision`, unless cjson cannot decode that JSON (it answers -1: e.g. `c.state`
+   * holding a lone UTF-16 surrogate, which JSON.stringify escapes and cjson refuses). Then
+   * the revision is read here, with JSON.parse, and the script runs again conditioned on
+   * the exact string read, so the write still only lands on that revision; a concurrent
+   * change makes it re-decide.
+   */
+  private async checkpointCas(recordKey: string, expected: number, run: (raw?: string) => Promise<unknown>): Promise<boolean> {
+    for (let attempt = 0; attempt < MERGE_MAX_ATTEMPTS; attempt++) {
+      const verdict = Number(await run())
+      if (verdict !== -1) return verdict === 1
+      const raw = await this.client.get(recordKey)
+      if (raw == null) continue // gone meanwhile: the server can decide again
+      const current = toStr(raw)
+      if (checkpointRevision(current) !== expected) return false
+      if (Number(await run(current)) === 1) return true
+    }
+    throw new Error(`RedisStore: gave up the checkpoint compare-and-set on ${recordKey} after ${MERGE_MAX_ATTEMPTS} attempts (write contention)`)
   }
   async clearCheckpointIf(key: string, expectedRevision: number): Promise<boolean> {
     if (!Number.isInteger(expectedRevision) || expectedRevision < 0) {
@@ -777,14 +812,15 @@ export class RedisStore implements IStore {
     if (this.cluster) {
       const index = this.indexOf('cp', key)!
       this.oneSlot([recordKey, index.key])
-      const gone = await this.client.eval(CLEAR_CHECKPOINT_IF_INDEXED_SCRIPT, {
+      return this.checkpointCas(recordKey, expectedRevision, (raw) => this.client.eval(CLEAR_CHECKPOINT_IF_INDEXED_SCRIPT, {
         keys: [recordKey, index.key],
-        arguments: [String(expectedRevision), index.member],
-      })
-      return Number(gone) === 1
+        arguments: [String(expectedRevision), index.member, ...(raw === undefined ? [] : [raw])],
+      }))
     }
-    const gone = await this.client.eval(CLEAR_CHECKPOINT_IF_SCRIPT, { keys: [recordKey], arguments: [String(expectedRevision)] })
-    return Number(gone) === 1
+    return this.checkpointCas(recordKey, expectedRevision, (raw) => this.client.eval(CLEAR_CHECKPOINT_IF_SCRIPT, {
+      keys: [recordKey],
+      arguments: [String(expectedRevision), ...(raw === undefined ? [] : [raw])],
+    }))
   }
   async listCheckpoints(): Promise<Array<[string, FlowCheckpoint]>> {
     if (this.cluster) return (await this.listIndexed<FlowCheckpoint>('cp', true)).map((r) => [r.id, r.value])

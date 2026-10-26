@@ -25,6 +25,7 @@ import { RedisStore, type NativeRedisClient, type RedisLikeClient, type RedisSto
 import { PROBES, meets, outcome } from './redis-probes.js'
 import { runStoreConformance } from '../../../test-utils/store-conformance.js'
 import { runUserDataConformance } from '../../../test-utils/user-data-conformance.js'
+import { runStoreModelFuzz } from '../../../test-utils/store-model-fuzz.js'
 
 const REDIS_URL = process.env.BOTWA_TEST_REDIS_URL
 const RUN = `botwa-it:${process.pid}-${randomUUID().slice(0, 8)}`
@@ -160,6 +161,17 @@ describe.skipIf(!REDIS_URL)('RedisStore against a real Redis server', { timeout:
     runUserDataConformance('RedisStore (real server, injected client)', {
       async make() {
         const store = new RedisStore({ client: admin, prefix: nextPrefix('ud-inj') })
+        await store.start()
+        return { store, teardown: () => store.stop() }
+      },
+    })
+  })
+
+  describe('model fuzz — injected client', () => {
+    runStoreModelFuzz('RedisStore (real server)', {
+      seeds: [1, 2],
+      async make() {
+        const store = new RedisStore({ client: admin, prefix: nextPrefix('fuzz') })
         await store.start()
         return { store, teardown: () => store.stop() }
       },

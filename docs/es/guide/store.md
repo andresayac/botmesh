@@ -56,6 +56,8 @@ pnpm add @botmesh/sqlite-store@alpha better-sqlite3
 
 El rango soportado es `^11.7.0 || ^12.0.0 || ^13.0.0` (probado con 11.10.0, 12.11.1 y 13.0.3). `npm` elige un major compatible y solo avisa; `pnpm` instala el último y se salta el rango.
 
+`better-sqlite3` es un módulo nativo: su script de instalación descarga (o compila) el binario. **pnpm 10 y posteriores no ejecutan los scripts de build de las dependencias** hasta que los apruebas, y el store falla al construirse con `better-sqlite3 is installed but its native module was never built`. Apruébalo una vez con `pnpm approve-builds` (o añádelo a `onlyBuiltDependencies` en `pnpm-workspace.yaml`) y reinstala. Tras actualizar Node.js, `npm rebuild better-sqlite3` arregla un binario compilado para la versión anterior. El directorio de `file` debe existir: SQLite crea el archivo, no sus carpetas.
+
 ```ts
 import { Bot } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
@@ -115,7 +117,9 @@ bot.use(
 )
 ```
 
-Si el proceso se cae a mitad del flujo, el próximo mensaje de ese usuario **reanuda en el paso exacto** donde se quedó. Ese mensaje solo despierta el flujo: un `ask`/`choose` pendiente se vuelve a enviar y la siguiente respuesta del usuario es la que lo contesta (con [durabilidad](./durabilidad) el mensaje que despierta es la respuesta).
+Si el proceso se cae a mitad del flujo, el próximo mensaje de ese usuario **reanuda en el paso exacto** donde se quedó. Ese mensaje solo despierta el flujo: un `ask`/`choose` pendiente se vuelve a enviar (`¿Tu email?` arriba), el flujo sigue con el estado que tenía y la siguiente respuesta del usuario es la que lo contesta (con [durabilidad](./durabilidad) el mensaje que despierta es la respuesta). El checkpoint se escribe al completar un paso, así que un flujo que aún espera su **primera** pregunta no tiene nada guardado: tras un reinicio, el usuario lo vuelve a empezar con su disparador.
+
+`bot.stop()` y un `bot.start()` fallido cierran la base de datos; el siguiente `bot.start()` la reabre, así que un bot puede pararse y volver a arrancar con el mismo `SQLiteStore` (y con los backends `schedules()` / `durability()` que entregó). Una base en memoria (`file: ':memory:'`) nunca la cierra `stop()`: cerrarla perdería sus datos.
 
 ## RedisStore (distribuido)
 

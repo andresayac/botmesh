@@ -20,6 +20,8 @@ pnpm add @botmesh/sqlite-store better-sqlite3
 
 `better-sqlite3` is a peer dependency, a native module with prebuilt binaries for common platforms. It is loaded when the store is constructed; if it is missing, the constructor throws an error telling you to install it.
 
+**pnpm 10+ skips dependency build scripts** (the step that fetches that binary) until you approve them: run `pnpm approve-builds` once, or add `onlyBuiltDependencies: [better-sqlite3]` to `pnpm-workspace.yaml`, and reinstall. Otherwise the constructor throws `better-sqlite3 is installed but its native module was never built`. A binary built for another Node.js version gets its own message (`npm rebuild better-sqlite3`).
+
 The supported range is `^11.7.0 || ^12.0.0 || ^13.0.0`; the store is exercised against all three majors.
 
 ## Usage with Bot
@@ -37,7 +39,9 @@ const bot = new Bot({
 await bot.start()
 ```
 
-The bot calls the store's `start()`/`stop()` for you. `stop()` closes the database (a close failure goes to `logger.error`).
+The bot calls the store's `start()`/`stop()` for you. `stop()` closes the database (a close failure goes to `logger.error`) and `start()` reopens it, so the same store survives `bot.stop()` / `bot.start()` cycles and a failed start (the `schedules()` and `durability()` backends follow the new connection). Both are idempotent. An in-memory database (`file: ':memory:'` or `''`) stays open on `stop()`, since closing it would discard its data.
+
+Opening errors name the file: a missing directory (`file`'s folder must exist), a file that is not a SQLite database (`code: 'SQLITE_NOTADB'`, the handle is released) or a native module that was never built.
 
 With a durable store, `flow(...).persistent()` checkpoints survive a restart: the next message from that user resumes the flow at the saved step.
 
@@ -45,7 +49,7 @@ With a durable store, `flow(...).persistent()` checkpoints survive a restart: th
 
 | Option               | Type          | Default      | Description |
 | -------------------- | ------------- | ------------ | ----------- |
-| `file`               | `string`      | `'./bot.db'` | Path to the SQLite database file. The directory must exist. |
+| `file`               | `string`      | `'./bot.db'` | Path to the SQLite database file. The directory must exist (the error says so and names the path). |
 | `wal`                | `boolean`     | `true`       | Enable WAL journal mode. |
 | `maxMessagesPerChat` | `number`      | — (unbounded) | Keep only the newest N messages per chat; older rows are pruned on each `saveMessage`. Must be a non-negative integer (else `RangeError`). |
 | `purgeBatchSize` | `number` | `1000` | Rows deleted per statement by `purgeExpiredUserData`; the purge loops until nothing expired is left, so a large backlog never runs as one long delete. Must be a positive integer (else `RangeError`). |

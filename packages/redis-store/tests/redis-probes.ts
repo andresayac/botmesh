@@ -8,7 +8,7 @@
  * is the same namespace glob-escaped, for KEYS patterns.
  */
 import type { RedisLikeClient } from '../src/RedisStore.js'
-import { MERGE_CAS_SCRIPT, RELEASE_LOCK_SCRIPT } from '../src/scripts.js'
+import { CAS_CHECKPOINT_SCRIPT, CLEAR_CHECKPOINT_IF_SCRIPT, MERGE_CAS_SCRIPT, RELEASE_LOCK_SCRIPT } from '../src/scripts.js'
 
 export interface ProbeTools {
   k: (name: string) => string
@@ -295,5 +295,27 @@ export const PROBES: Probe[] = [
       await c.get(t.k('cas2')),
     ],
     expected: [0, null],
+  },
+  {
+    // cjson refuses a lone surrogate escape (JSON.stringify of a string cut mid-emoji):
+    // the script answers -1, and the retry conditioned on the exact stored string writes.
+    name: 'EVAL checkpoint CAS: an undecodable checkpoint answers -1, the raw-compare retry writes',
+    run: async (c, t) => {
+      const key = t.k('cpj1')
+      const stored = JSON.stringify({ revision: 1, state: { name: '😀'.slice(0, 1) } })
+      await c.set(key, stored)
+      const cas = (extra: string[]): Promise<unknown> =>
+        c.eval(CAS_CHECKPOINT_SCRIPT, { keys: [key], arguments: ['1', '{"revision":2}', '', ...extra] })
+      const decoded = await cas([])
+      const changed = await cas(['{"revision":1}'])
+      const written = await cas([stored])
+      const paired = t.k('cpj2')
+      await c.set(paired, JSON.stringify({ revision: 3, state: { name: '😀', esc: '\\u' } }))
+      const pairedOk = await c.eval(CAS_CHECKPOINT_SCRIPT, { keys: [paired], arguments: ['3', '{"revision":4}', ''] })
+      await c.set(t.k('cpj3'), JSON.stringify({ revision: 5, state: { name: '😀'.slice(1) } }))
+      const lowAlone = await c.eval(CLEAR_CHECKPOINT_IF_SCRIPT, { keys: [t.k('cpj3')], arguments: ['5'] })
+      return [decoded, changed, written, await c.get(key), pairedOk, lowAlone]
+    },
+    expected: [-1, 0, 1, '{"revision":2}', 1, -1],
   },
 ]

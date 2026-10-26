@@ -35,6 +35,50 @@ interface ZEntry {
 const WRONGTYPE = 'WRONGTYPE Operation against a key holding the wrong kind of value'
 const NOT_INTEGER = 'ERR value is not an integer or out of range'
 
+/**
+ * Whether Redis' cjson can decode `raw`: valid JSON whose `\u` escapes never leave a
+ * UTF-16 surrogate unpaired (cjson refuses a lone `\ud83d`, which JSON.stringify emits for
+ * a lone surrogate). Checked against a real server by the shared probes.
+ */
+export function cjsonDecodable(raw: string): boolean {
+  try { JSON.parse(raw) } catch { return false }
+  let pendingHigh = false
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] !== '\\') {
+      if (pendingHigh) return false
+      continue
+    }
+    if (raw[i + 1] !== 'u') {
+      if (pendingHigh) return false
+      i++ // skip the escaped character (it may be another backslash)
+      continue
+    }
+    const code = Number.parseInt(raw.slice(i + 2, i + 6), 16)
+    i += 5
+    const high = code >= 0xd800 && code <= 0xdbff
+    const low = code >= 0xdc00 && code <= 0xdfff
+    if (pendingHigh) {
+      if (!low) return false
+      pendingHigh = false
+    } else if (low) {
+      return false
+    } else if (high) {
+      pendingHigh = true
+    }
+  }
+  return !pendingHigh
+}
+
+/**
+ * What the checkpoint CAS scripts see: the stored JSON's `revision` (0 when absent), or
+ * `null` when cjson could not decode it (the scripts then answer -1).
+ */
+export function cjsonRevision(raw: string | null): number | null {
+  if (raw === null) return 0
+  if (!cjsonDecodable(raw)) return null
+  return jsonRevision(raw)
+}
+
 /** The `revision` of a stored checkpoint JSON, as the Lua scripts read it (0 when absent/invalid). */
 export function jsonRevision(raw: string | null): number {
   if (raw === null) return 0
@@ -471,20 +515,33 @@ export class FakeRedisClient implements RedisLikeClient {
     }
     if (script === CAS_CHECKPOINT_SCRIPT) {
       const [key] = keys
-      const [expected, next, px] = args
+      const [expected, next, px, raw] = args
       if (key == null || expected == null || next == null || px == null) throw new Error('ERR cas-checkpoint script needs one key and three arguments')
-      if (jsonRevision(this.readString(key)) !== Number(expected)) return 0
+      const current = this.readString(key)
+      if (raw !== undefined) {
+        if (current !== raw) return 0
+      } else {
+        const rev = cjsonRevision(current)
+        if (rev === null) return -1
+        if (rev !== Number(expected)) return 0
+      }
       if (px !== '') this.setSync(key, next, { PX: Number(px) })
       else this.setSync(key, next)
       return 1
     }
     if (script === CLEAR_CHECKPOINT_IF_SCRIPT) {
       const [key] = keys
-      const [expected] = args
+      const [expected, raw] = args
       if (key == null || expected == null) throw new Error('ERR clear-checkpoint-if script needs one key and one argument')
       const current = this.readString(key)
       if (current === null) return 1
-      if (jsonRevision(current) !== Number(expected)) return 0
+      if (raw !== undefined) {
+        if (current !== raw) return 0
+      } else {
+        const rev = cjsonRevision(current)
+        if (rev === null) return -1
+        if (rev !== Number(expected)) return 0
+      }
       this.delSync(key)
       return 1
     }

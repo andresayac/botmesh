@@ -73,6 +73,9 @@ export class OutboundPipeline {
         ? this.sendRetryingRateLimit(payload)
         : provider.send(payload.chatId, payload.content, payload.options)
     inflightSends.add(op)
+    // Pending from the provider call on, so a stop() that starts while it is in flight
+    // still lets its bookkeeping (after-send hooks + ledger row) land before the store closes.
+    const recorded = this.ledgerWrite()
     try {
       let res: SendResult
       try { res = await op } catch (error) { counters.outbound(false); throw error }
@@ -106,6 +109,7 @@ export class OutboundPipeline {
       throw error
     } finally {
       inflightSends.delete(op)
+      recorded()
     }
   }
 
@@ -157,6 +161,19 @@ export class OutboundPipeline {
     return this.k.hooks.runBefore('send', payload as P & { abort(): void })
   }
 
+  /**
+   * Mark a send as pending in `ledgerWrites` from its provider call until its bookkeeping
+   * (after-send hooks + ledger row) is done, so `stop()` does not close the store under it;
+   * call the returned function when it is done. A plain deferred: no extra await on the send path.
+   */
+  private ledgerWrite(): () => void {
+    const writes = this.k.ledgerWrites
+    let done!: () => void
+    const pending = new Promise<void>((resolve) => { done = resolve })
+    writes.add(pending)
+    return () => { writes.delete(pending); done() }
+  }
+
   /** The `skipped` result of a send a `before('send')` hook aborted (outcome on the span). */
   private skipped(ref: MessageRef, span: BotSpan | undefined): SendResult {
     span?.setAttribute(TRACE_ATTR.sendOutcome, 'skipped')
@@ -173,6 +190,7 @@ export class OutboundPipeline {
     assertCoordinated(this.k)
     const op = provider.editMessage!(ref, payload.content)
     inflightSends.add(op)
+    const recorded = this.ledgerWrite()
     try {
       const res = await op
       span?.setAttribute(TRACE_ATTR.sendOutcome, 'ok')
@@ -181,6 +199,7 @@ export class OutboundPipeline {
       return res
     } finally {
       inflightSends.delete(op)
+      recorded()
     }
   }
 

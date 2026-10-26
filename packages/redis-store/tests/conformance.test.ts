@@ -4,6 +4,7 @@ import { RedisStore, type RedisLikeClient } from '../src/RedisStore.js'
 import { FakeRedisClient, ScanningFakeRedisClient } from './fakeRedis.js'
 import { runStoreConformance } from '../../../test-utils/store-conformance.js'
 import { runUserDataConformance } from '../../../test-utils/user-data-conformance.js'
+import { runStoreModelFuzz } from '../../../test-utils/store-model-fuzz.js'
 
 /** Write a message the way RedisStore did before message keys were escaped. */
 function legacySeeder(client: RedisLikeClient, prefix = 'botwa') {
@@ -43,6 +44,15 @@ runStoreConformance('RedisStore (SCAN client)', {
 })
 
 runUserDataConformance('RedisStore (SCAN client)', {
+  async make() {
+    const store = new RedisStore({ client: new ScanningFakeRedisClient() })
+    await store.start()
+    return { store, teardown: () => store.stop() }
+  },
+})
+
+// Random op sequences against MemoryStore, with ids full of ':' '%' and glob metacharacters.
+runStoreModelFuzz('RedisStore (SCAN client)', {
   async make() {
     const store = new RedisStore({ client: new ScanningFakeRedisClient() })
     await store.start()

@@ -41,9 +41,23 @@ function key(score: number | null): number | null {
   return Math.max(-MAX_KEY, Math.min(MAX_KEY, Math.floor(score)))
 }
 
+let bindKv: (kv: SQLiteDurableKv, db: SQLiteDatabaseLike) => void
+
+/**
+ * Re-point a durable KV at a reopened connection (`SQLiteStore.start()` after a
+ * `stop()`). Package-internal: not exported from the entry point.
+ */
+export function rebindDurableKv(kv: DurableKv, db: SQLiteDatabaseLike): void {
+  if (kv instanceof SQLiteDurableKv) bindKv(kv, db)
+}
+
 /** {@link DurableKv} over one SQLite table. */
 export class SQLiteDurableKv implements DurableKv {
-  private readonly stmts: {
+  static {
+    bindKv = (kv, db) => kv.bind(db)
+  }
+
+  private stmts!: {
     get: BetterSqlite3.Statement
     insert: BetterSqlite3.Statement
     replace: BetterSqlite3.Statement
@@ -57,6 +71,11 @@ export class SQLiteDurableKv implements DurableKv {
    *   declarations do not require `@types/better-sqlite3` in consumer projects.
    */
   constructor(database: SQLiteDatabaseLike) {
+    this.bind(database)
+  }
+
+  /** Create the table and prepare every statement on `database`. */
+  private bind(database: SQLiteDatabaseLike): void {
     const db = database as unknown as BetterSqlite3.Database
     db.exec(DURABLE_SCHEMA)
     this.stmts = {

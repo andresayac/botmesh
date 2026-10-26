@@ -92,15 +92,24 @@ return 0
  * not exist) equals ARGV[1]. ARGV[3] = PX in ms or '' (no expiry). Returns 1 when written,
  * 0 when refused. The JSON is decoded only to read the number: the value written is the
  * caller's exact string.
+ * cjson cannot decode every JSON (`c.state` with a lone UTF-16 surrogate, escaped `\ud83d`, is
+ * refused): the script then returns -1 and the caller decides in JS, then calls again with
+ * the exact stored string as the extra argument — a write that only lands while the key
+ * still holds that string (0 when it changed meanwhile). ARGV[4] = that string.
  */
 export const CAS_CHECKPOINT_SCRIPT = `
 local cur = redis.call('get', KEYS[1])
-local rev = 0
-if cur then
-  local ok, doc = pcall(cjson.decode, cur)
-  if ok and type(doc) == 'table' and type(doc.revision) == 'number' then rev = doc.revision end
+if ARGV[4] then
+  if cur ~= ARGV[4] then return 0 end
+else
+  local rev = 0
+  if cur then
+    local ok, doc = pcall(cjson.decode, cur)
+    if not ok then return -1 end
+    if type(doc) == 'table' and type(doc.revision) == 'number' then rev = doc.revision end
+  end
+  if rev ~= tonumber(ARGV[1]) then return 0 end
 end
-if rev ~= tonumber(ARGV[1]) then return 0 end
 if ARGV[3] ~= '' then
   redis.call('set', KEYS[1], ARGV[2], 'PX', ARGV[3])
 else
@@ -113,14 +122,23 @@ return 1
  * Conditional checkpoint delete (legacy layout, see `IStore.clearCheckpointIf`): DEL
  * KEYS[1] only when its JSON `revision` (0 when absent) equals ARGV[1]. Returns 1 when
  * the key is gone (deleted, or it did not exist), 0 when another revision is stored.
+ * cjson cannot decode every JSON (`c.state` with a lone UTF-16 surrogate, escaped `\ud83d`, is
+ * refused): the script then returns -1 and the caller decides in JS, then calls again with
+ * the exact stored string as the extra argument — a write that only lands while the key
+ * still holds that string (0 when it changed meanwhile). ARGV[2] = that string.
  */
 export const CLEAR_CHECKPOINT_IF_SCRIPT = `
 local cur = redis.call('get', KEYS[1])
 if not cur then return 1 end
-local rev = 0
-local ok, doc = pcall(cjson.decode, cur)
-if ok and type(doc) == 'table' and type(doc.revision) == 'number' then rev = doc.revision end
-if rev ~= tonumber(ARGV[1]) then return 0 end
+if ARGV[2] then
+  if cur ~= ARGV[2] then return 0 end
+else
+  local rev = 0
+  local ok, doc = pcall(cjson.decode, cur)
+  if not ok then return -1 end
+  if type(doc) == 'table' and type(doc.revision) == 'number' then rev = doc.revision end
+  if rev ~= tonumber(ARGV[1]) then return 0 end
+end
 redis.call('del', KEYS[1])
 return 1
 `
