@@ -10,10 +10,12 @@ export type IngressHeaders = Record<string, string | string[] | undefined>
 /**
  * The slice of `IProvider` the ingress drives. `ingest` receives the raw body
  * (a Buffer, or a utf-8 string with `body: 'text'`) plus the request headers,
- * and may return (or resolve to) the HTTP status to answer with.
+ * and may return (or resolve to) the HTTP status to answer with. The third
+ * argument is the request path with its query string (`/hook?token=…`), for
+ * providers that authenticate a token in the URL (WPPConnect, Gupshup).
  */
 export interface WebhookProvider {
-  ingest?(rawEvent: unknown, headers?: IngressHeaders): unknown
+  ingest?(rawEvent: unknown, headers?: IngressHeaders, requestUrl?: string): unknown
   /** GET verification handshake (Meta). Returns the challenge to echo, or null → 403. */
   verifyChallenge?(query: Record<string, string>): string | null | Promise<string | null>
 }

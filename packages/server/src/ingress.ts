@@ -185,7 +185,8 @@ export function createIngress(options: IngressOptions): Ingress {
       }
       let result: unknown
       try {
-        result = route.provider.ingest!(route.body === 'text' ? raw.toString('utf8') : raw, req.headers)
+        const query = req.query.toString()
+        result = route.provider.ingest!(route.body === 'text' ? raw.toString('utf8') : raw, req.headers, query ? `${path}?${query}` : path)
       } catch (err) {
         done()
         return ingestFailure(err, method, path)
