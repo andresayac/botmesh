@@ -24,8 +24,11 @@ What is left to you. The rest of this page explains each point.
   routes: signatures are checked over the received bytes
   ([Webhook server](./server)).
 - **No user text as a media source.** A string or `{ path }` media source is
-  read from local disk. Only pass `{ url }` (fetched through the SSRF-safe
-  client) or Buffers built from data you trust.
+  read from local disk, and so is a non-`http` `{ url }` on Baileys. Pass
+  `https` URLs you checked yourself or Buffers built from data you trust:
+  only Baileys fetches remote media through `@botmesh/http`; the other
+  transports hand the link to their server or platform (see
+  [Residual risks](#residual-risks)).
 - **Personal data stays out of logs and traces.** Keep `logIds: 'hash'`
   (the default) and `telemetry.ids: 'hash'` with a secret `idKey`; leave
   `telemetry.errorMessages` off.

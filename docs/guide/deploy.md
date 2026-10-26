@@ -42,7 +42,7 @@ other token-based channels skip this step.
 
 ```bash
 npm install -g pm2
-pm2 start src/bot.js --name my-bot --node-args="--env-file-if-exists=.env"
+pm2 start src/bot.js --name my-bot --kill-timeout 20000 --node-args="--env-file-if-exists=.env"
 pm2 save
 pm2 startup  # prints the command that starts PM2 on boot
 ```
@@ -50,9 +50,15 @@ pm2 startup  # prints the command that starts PM2 on boot
 ```bash
 pm2 status          # state of every process
 pm2 logs my-bot     # follow the logs
-pm2 restart my-bot  # restart (the bot gets SIGINT and shuts down gracefully)
+pm2 restart my-bot  # restart: PM2 sends SIGINT, then SIGKILL after --kill-timeout
 pm2 stop my-bot
 ```
+
+`pm2 restart` and `pm2 stop` only shut the bot down cleanly if it handles the
+signal: add the handler from [Graceful shutdown](#graceful-shutdown) (neither
+the core nor the generated `bot.js` installs one). PM2 kills the process
+`kill_timeout` ms after `SIGINT` (1600 ms by default), so keep `--kill-timeout`
+longer than the drain timeout.
 
 ## Option 2: Docker
 

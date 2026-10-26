@@ -44,7 +44,7 @@ canales con token se saltan este paso.
 
 ```bash
 npm install -g pm2
-pm2 start src/bot.js --name my-bot --node-args="--env-file-if-exists=.env"
+pm2 start src/bot.js --name my-bot --kill-timeout 20000 --node-args="--env-file-if-exists=.env"
 pm2 save
 pm2 startup  # imprime el comando que arranca PM2 al iniciar el sistema
 ```
@@ -52,9 +52,15 @@ pm2 startup  # imprime el comando que arranca PM2 al iniciar el sistema
 ```bash
 pm2 status          # estado de cada proceso
 pm2 logs my-bot     # seguir los logs
-pm2 restart my-bot  # reiniciar (el bot recibe SIGINT y se apaga ordenadamente)
+pm2 restart my-bot  # reiniciar: PM2 envía SIGINT y SIGKILL pasado --kill-timeout
 pm2 stop my-bot
 ```
+
+`pm2 restart` y `pm2 stop` solo apagan el bot de forma ordenada si atiende la
+señal: añade el manejador de [Apagado ordenado](#apagado-ordenado) (ni el core
+ni el `bot.js` generado instalan uno). PM2 mata el proceso `kill_timeout` ms
+después de `SIGINT` (1600 ms por defecto), así que deja `--kill-timeout` por
+encima del timeout del drain.
 
 ## Opción 2: Docker
 

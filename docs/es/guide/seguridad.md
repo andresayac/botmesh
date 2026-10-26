@@ -26,8 +26,11 @@ Lo que queda en tus manos. El resto de la página explica cada punto.
   rutas de webhooks: las firmas se comprueban sobre los bytes recibidos
   ([Servidor de webhooks](./servidor)).
 - **Nada de texto del usuario como origen de media.** Un string o `{ path }`
-  como media se lee del disco local. Pasa solo `{ url }` (se descarga con el
-  cliente protegido contra SSRF) o Buffers construidos con datos de confianza.
+  como media se lee del disco local, y en Baileys también un `{ url }` que no
+  sea `http`. Pasa URLs `https` que hayas comprobado tú o Buffers construidos
+  con datos de confianza: solo Baileys descarga la media remota con
+  `@botmesh/http`; los demás transportes entregan el enlace a su servidor o a
+  la plataforma (ver [Riesgos residuales](#riesgos-residuales)).
 - **Los datos personales no llegan a logs ni trazas.** Deja
   `logIds: 'hash'` (el valor por defecto) y `telemetry.ids: 'hash'` con un
   `idKey` secreto; no actives `telemetry.errorMessages`.
