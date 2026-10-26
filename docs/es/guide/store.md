@@ -277,7 +277,9 @@ const bot = new Bot({ provider, store, scheduler: { store: store.schedules() } }
 Todos aceptan también un pool o cliente existente (`pool` / `client`), que
 nunca cierran. Con un pool de `pg` inyectado, añade un listener
 `pool.on('error', …)`: node-postgres tumba el proceso cuando se cae una conexión
-ociosa y nadie escucha. Las opciones, el esquema y las tablas de errores están en
+ociosa y nadie escucha. En PostgreSQL, `tablePrefix` admite como mucho 42
+caracteres (el servidor trunca los nombres a 63 bytes; uno más largo lanza
+`RangeError`). Las opciones, el esquema y las tablas de errores están en
 el README de cada paquete: [PostgreSQL](https://www.npmjs.com/package/@botmesh/postgres-store),
 [MySQL/MariaDB](https://www.npmjs.com/package/@botmesh/mysql-store),
 [MongoDB](https://www.npmjs.com/package/@botmesh/mongo-store).

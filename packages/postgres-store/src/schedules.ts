@@ -24,6 +24,7 @@
 import type { ScheduleStore } from '@botmesh/core'
 import type { ClaimResult, CompletePatch, ScheduleKind, ScheduleRecord } from '@botmesh/core/spi'
 import type { NativePostgresPool, PostgresQueryResult } from './PostgresStore.js'
+import { assertTablePrefix } from './prefix.js'
 
 /** What {@link PostgresScheduleStore} needs from a pool: parameterized `query()` only. */
 export interface PostgresQueryable {
@@ -33,11 +34,10 @@ export interface PostgresQueryable {
 export interface PostgresScheduleStoreOptions {
   /** A `pg` Pool (or any {@link PostgresQueryable}). Never ended by this class. */
   pool: PostgresQueryable | NativePostgresPool
-  /** Table-name prefix (plain SQL identifier prefix). Default `''` → table `schedules`. */
+  /** Table-name prefix (plain SQL identifier prefix, at most 42 characters). Default `''` → table `schedules`. */
   tablePrefix?: string
 }
 
-const TABLE_PREFIX_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
 const CATALOG_RACE_CODES = new Set(['23505', '42P07', '42710'])
 const SCHEMA_ATTEMPTS = 5
 /** Bound on register retries when the row is deleted concurrently between its two statements. */
@@ -102,9 +102,7 @@ export class PostgresScheduleStore implements ScheduleStore {
 
   constructor(opts: PostgresScheduleStoreOptions) {
     const prefix = opts.tablePrefix ?? ''
-    if (prefix !== '' && !TABLE_PREFIX_RE.test(prefix)) {
-      throw new Error(`PostgresScheduleStore: invalid tablePrefix ${JSON.stringify(prefix)} — use a plain SQL identifier prefix (letters, digits, underscores)`)
-    }
+    assertTablePrefix('PostgresScheduleStore', prefix)
     if (!opts.pool || typeof (opts.pool as { query?: unknown }).query !== 'function') {
       throw new TypeError('PostgresScheduleStore: `pool` must be a pg Pool (or an object with query())')
     }
