@@ -49,10 +49,14 @@ export interface TicketsPluginConfig extends Omit<TicketDeskOptions, 'storage' |
   onError?: (error: unknown, source: string) => void
 }
 
-/** Replace `{{name}}` placeholders; unknown names render as an empty string. */
+/**
+ * Replace `{{name}}` placeholders with own properties of `vars`; unknown names (and
+ * prototype members such as `constructor`) render as an empty string. Values are not
+ * re-expanded, so a customer's subject containing `{{id}}` stays literal.
+ */
 export function renderTemplate(template: string, vars: Record<string, unknown>): string {
   return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, name: string) => {
-    const v = vars[name]
+    const v = Object.hasOwn(vars, name) ? vars[name] : undefined
     return v === undefined || v === null ? '' : String(v)
   })
 }

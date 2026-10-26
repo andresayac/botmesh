@@ -258,6 +258,16 @@ memoria no cambia. `TicketDesk` también se puede usar sin bot:
 
 - No hay interfaz ni identidad de agentes: `assignee` es un string libre.
   Construye el panel sobre `bot.injectTools.tickets` y protégelo tú.
+- Con `handoffOnAssign`, solo la primera asignación pasa el chat a un
+  humano: una reasignación mantiene el handoff y su `meta.assignee` (lee el
+  ticket para saber el agente actual), y desasignar (`assignee: null`)
+  devuelve el ticket a la cola pero deja el chat en handoff. Llama tú a
+  `bot.resume(chatId)` si el bot debe volver a responder.
+- `meta` tiene que ser un objeto JSON plano (sin `Date`, `Map`, instancias
+  de clases, funciones ni `BigInt`); cualquier otra cosa se rechaza antes
+  de guardar el ticket.
+- En modo compartido cada llamada relee el índice y todos los tickets
+  activos, así que su coste crece con el número de tickets abiertos.
 - `list()` con un filtro que pueda incluir `closed` recorre todos los ids
   desde 1 hasta el último.
 - El almacenamiento por defecto (los cursores del store) no tiene

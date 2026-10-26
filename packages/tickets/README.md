@@ -60,11 +60,12 @@ await tickets.close('1', { reason: 'resolved' })
 | `reuseOpen` | `true` | `create()` returns the chat's unclosed ticket instead of opening another. |
 | `storage` | bot store | Custom `{ get, set, setIf? }` persistence (see [Persistence](#persistence)). |
 | `keyPrefix` | `'tickets:'` | Storage key prefix. |
+| `now` | `Date.now` | Clock (epoch ms) used for timestamps and `withinWorkingHours`; handy in tests. |
 | `maxRetries` | `20` | Shared mode only: compare-and-set attempts per write before `TicketContentionError`. |
 | `onCreate` / `onAssign` / `onClose` / `onUpdate` | — | Callbacks, run after the change is persisted. |
 | `onError` | `warn` log | Callback and notification errors. |
 
-Templates accept `{{id}}`, `{{position}}`, `{{subject}}`, `{{priority}}`, `{{assignee}}`, `{{status}}` and `{{reason}}`; an unknown name renders as an empty string.
+Templates accept `{{id}}`, `{{position}}`, `{{subject}}`, `{{priority}}`, `{{assignee}}`, `{{status}}` and `{{reason}}`; an unknown name renders as an empty string. Values are inserted as-is and never re-expanded, so a customer's subject that contains `{{id}}` stays literal.
 
 ## API (`ctx.tools.tickets`)
 
@@ -82,11 +83,13 @@ Templates accept `{{id}}`, `{{position}}`, `{{subject}}`, `{{priority}}`, `{{ass
 
 States: `open` (queued), `assigned`, `pending` (waiting for the customer, out of the queue) and `closed`. Ids are sequential (`'1'`, `'2'`, …) per bot namespace. `TICKET_STATUSES` and `TICKET_PRIORITIES` list them (frozen).
 
+`meta` must be a plain JSON object (no `Date`, `Map`, class instances, functions or `BigInt`); `create` and `update` reject anything else with a `TypeError` before writing. A stored value that is not valid JSON makes the call reject with an error that names the storage key.
+
 `TicketDesk` works without a bot: `new TicketDesk({ storage: memoryTicketStorage() })`.
 
 ## Working hours
 
-`workingHours` accepts `'9-18'`, `'09:30-18:15'`, `{ days, start, end }` (days `0` = Sunday … `6` = Saturday), an array of windows (split shifts) or a function `(date) => boolean`. The end is exclusive and a window such as `'22-6'` crosses midnight. It is evaluated in `timezone`. Outside working hours `closedMessage` is sent instead of `queueMessage`. `parseWorkingHours()` and `isWithinWorkingHours()` are exported for your own checks.
+`workingHours` accepts `'9-18'`, `'09:30-18:15'`, `{ days, start, end }` (days `0` = Sunday … `6` = Saturday), an array of windows (split shifts) or a function `(date) => boolean`. The end is exclusive (`24`/`'24:00'` is allowed as an end, never as a start) and a window such as `'22-6'` crosses midnight. It is evaluated in `timezone`. Outside working hours `closedMessage` is sent instead of `queueMessage`. `parseWorkingHours()` and `isWithinWorkingHours()` are exported for your own checks.
 
 ## Persistence
 
@@ -106,6 +109,8 @@ The default storage has no compare-and-set, so it is for **one process** per sto
 | Two tickets with the same id across replicas | The default storage is for one process. Use `durableKvTicketStorage(kv)` (or a storage with `setIf`) on every replica. |
 | `TicketContentionError` | Many replicas write the same desk at once; raise `maxRetries` or route ticket writes through fewer processes. |
 | `closedMessage` is sent during office hours | `timezone` is not set and the server runs in another time zone (UTC on most hosts). |
+| The bot stays silent after the ticket is unassigned | Unassigning (`assignee: null`) keeps the handoff: only `close()` resumes (with `resumeOnClose`). Call `bot.resume(chatId)` yourself if the bot should answer while the ticket waits in the queue. |
+| `getHandoff(chatId).meta.assignee` shows the first agent | The handoff is taken on the first assignment and a reassignment does not change it; read the ticket's `assignee`. |
 | The bot keeps answering after `assign()` | `handoffOnAssign` is off (the default): turn it on, or call `bot.handoff()` yourself. |
 | `list({ status: 'closed' })` is slow | Closed tickets are read one by one from storage. Archive them in your own database from `onClose` if you need fast history queries. |
 

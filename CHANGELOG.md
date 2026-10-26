@@ -4,6 +4,12 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### `@botmesh/tickets`: validación de entrada y errores más claros (2026-10)
+- `update()` rechaza un `subject` que no sea string y `close()` un `reason` que no sea string; `create()` y `update()` rechazan un `meta` que no sea un objeto JSON plano (sin `Date`, `Map`, instancias de clases, funciones ni `BigInt`) antes de escribir nada, así que ya no se consume un id.
+- `new TicketDesk()` sin `storage` utilizable e `isOpen()`/`isWithinWorkingHours()` con una `Date` inválida lanzan un `TypeError` que dice qué pasar; un valor guardado que no es JSON válido rechaza la llamada con un error que nombra la clave.
+- Las plantillas de mensajes solo leen campos propios del ticket (`{{constructor}}` sale vacío) y una ventana de horario ya no puede empezar a las `24:00`.
+- Documentado: con `handoffOnAssign`, reasignar o desasignar mantiene el handoff (y su `meta.assignee` de la primera asignación); en modo compartido cada llamada relee todos los tickets activos.
+
 ### Integración de los 26 paquetes promovidos en `main` (2026-10)
 - Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
 - Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).
