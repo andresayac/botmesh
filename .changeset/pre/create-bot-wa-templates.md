@@ -1,5 +1,5 @@
 ---
-"create-bot-wa": minor
+"create-botmesh": minor
 ---
 
 - Generated projects use the `defineBot` + `isMainModule` factory pattern and add `npm run dev` (`bot-wa dev src/bot.js --env-file .env`) to chat with the bot in the terminal.

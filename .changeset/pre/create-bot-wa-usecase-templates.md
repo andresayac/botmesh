@@ -1,5 +1,5 @@
 ---
-"create-bot-wa": minor
+"create-botmesh": minor
 ---
 
 - New use-case templates: `games`, `support`, `store`, `restaurant`, `clinic` and `ai-full` (AI + regex intents + SQLite store + scheduler + slash commands + handoff). All of them use the v2 API, the `defineBot` factory and `npm run dev`.

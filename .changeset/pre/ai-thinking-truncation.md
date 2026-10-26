@@ -1,5 +1,5 @@
 ---
-"@bot-wa/ai": minor
+"@botmesh/ai": minor
 ---
 
 Model-aware Anthropic thinking, safer tool loop, roomier memory extraction and stable source numbers:

@@ -1,5 +1,5 @@
 ---
-"@bot-wa/ai": patch
+"@botmesh/ai": patch
 ---
 
 Robustness fixes across the AI plugin:

@@ -1,5 +1,5 @@
 ---
-"@bot-wa/ai": patch
+"@botmesh/ai": patch
 ---
 
 Tool loop, thinking and sources polish:

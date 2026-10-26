@@ -1,6 +1,6 @@
 ---
-"@bot-wa/core": minor
-"@bot-wa/ai": patch
+"@botmesh/core": minor
+"@botmesh/ai": patch
 ---
 
 `@bot-wa/core`: new optional `IProvider.textFormatFor(chatId)` for providers that serve several channels with different markup through one instance (e.g. Twilio WhatsApp + SMS). It wins over `capabilities.textFormat` (the fallback when it returns `undefined`) and reaches handlers as `ctx.textFormat`. `MockProvider` accepts `textFormatFor`; `ChaosProvider` forwards it.

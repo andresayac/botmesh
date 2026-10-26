@@ -1,5 +1,5 @@
 ---
-"@bot-wa/meta": patch
+"@botmesh/meta": patch
 ---
 
 - `ingest()` answers `400` for a body that is not a JSON object instead of throwing.

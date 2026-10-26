@@ -1,5 +1,5 @@
 ---
-"@bot-wa/baileys": minor
+"@botmesh/baileys": minor
 ---
 
 - Pin `@whiskeysockets/baileys` to `7.0.0-rc14`.

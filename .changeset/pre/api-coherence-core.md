@@ -1,5 +1,5 @@
 ---
-"@bot-wa/core": minor
+"@botmesh/core": minor
 ---
 
 Public API coherence (see `docs/api-review.md`), all backwards compatible:

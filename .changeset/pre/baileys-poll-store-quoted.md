@@ -1,5 +1,5 @@
 ---
-"@bot-wa/baileys": minor
+"@botmesh/baileys": minor
 ---
 
 - New `pollStore` option (`PollStore` / `StoredPoll` types): persist polls so their votes can still be decrypted after a restart. The in-memory cache of 500 polls stays in front of it; a failing store is logged and never breaks a send or receive. The stored entry holds the poll secret, so treat it like the session folder.

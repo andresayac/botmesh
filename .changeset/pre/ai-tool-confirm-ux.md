@@ -1,5 +1,5 @@
 ---
-"@bot-wa/ai": minor
+"@botmesh/ai": minor
 ---
 
 Tool confirmations that read like a person wrote them, and fewer duplicated side effects:

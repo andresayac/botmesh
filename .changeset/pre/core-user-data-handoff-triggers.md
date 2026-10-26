@@ -1,5 +1,5 @@
 ---
-"@bot-wa/core": minor
+"@botmesh/core": minor
 ---
 
 Add the wave-2 engine features:

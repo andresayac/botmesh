@@ -1,5 +1,5 @@
 ---
-"@bot-wa/baileys": patch
+"@botmesh/baileys": patch
 ---
 
 - Wrapped messages (disappearing mode, view once, document with caption) are unwrapped before classification, so they arrive with their real `type`, `body` and `media` instead of `'unknown'`.

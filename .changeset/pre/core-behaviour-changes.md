@@ -1,5 +1,5 @@
 ---
-"@bot-wa/core": minor
+"@botmesh/core": minor
 ---
 
 Behaviour changes:

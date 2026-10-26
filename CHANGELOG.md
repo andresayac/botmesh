@@ -4,6 +4,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### Publicación: changesets archivados con los nombres nuevos (2026-10)
+- **Bug corregido (bloqueaba la siguiente versión):** los 123 changesets que la primera alpha archivó en `.changeset/pre/` seguían nombrando los paquetes antiguos (`@bot-wa/*`, `create-bot-wa`). `pnpm changeset status` (y por tanto `changeset version`) fallaba con `Found changeset … for package @bot-wa/ai which is not in the workspace`, y `changeset pre exit` los habría devuelto a `.changeset/` con esos nombres. Ahora nombran `@botmesh/*` y `create-botmesh`; el texto de las notas no cambia. Un test nuevo de `pnpm test:scripts` (`scripts/smoke/changesets.test.mjs`) comprueba que todo changeset, pendiente o archivado, nombra un paquete del workspace.
+
 ### `@botmesh/core`: revisión de salida de alpha del runtime (2026-10)
 - **Revisión exhaustiva del runtime** (Bot, dispatcher, conversaciones, DSL de flujos, hooks, plugins, i18n, `ctx`, datos de usuario, handoff/listas, triggers, scheduler, kit de testing y simulador `botmesh dev`): los ejemplos de las guías se ejecutaron como tests, el paquete se instaló desde su tarball en un proyecto aparte (typecheck `nodenext` y `bundler` con `skipLibCheck: false`, ejecución con `node` y el simulador por tubería), y se fuzzearon 3000 eventos entrantes malformados sin un solo rechazo no manejado.
 - **Bug corregido (logs):** el dispatcher y el runtime de conversaciones registraban sus errores como `logger.error('dispatch error', error)`. pino ignora un segundo argumento sin placeholder, así que **el error y su stack se perdían** en los logs (solo quedaba el texto). Ahora van al estilo pino (`{ err }` primero), como el resto del core.

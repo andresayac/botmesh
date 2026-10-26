@@ -1,5 +1,5 @@
 ---
-"@bot-wa/graph-core": minor
+"@botmesh/graph-core": minor
 ---
 
 - New `tryParseGraphBody(body)`: non-throwing body parse that returns `{ ok: false, status: 400 }` for anything that is not a JSON object, so `ingest()` handlers can answer 400 to malformed input.

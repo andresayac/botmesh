@@ -1,5 +1,5 @@
 ---
-"@bot-wa/telegram": minor
+"@botmesh/telegram": minor
 ---
 
 - Edited messages: `edited_message` keeps reaching the bot as a message with the new text and the original `ref.id` (replies, reactions and edits target the edited message); `ref.native.edit_date` is now set and the new `isEditedMessage(ctx)` helper tells an edit apart. New `editedMessages: 'deliver' | 'ignore'` option (default `'deliver'`): `'ignore'` stops requesting edits from `getUpdates` and drops them in webhook mode.

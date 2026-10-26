@@ -1,5 +1,5 @@
 ---
-"@bot-wa/redis-store": minor
+"@botmesh/redis-store": minor
 ---
 
 Redis Cluster support (opt-in). Pass a node-redis cluster client, or the new `cluster: { rootNodes, nodeAddressMap?, defaults? }` option (also on `RedisCoordinator` and `RedisDurability`), and `RedisStore`, `coordinator()`, `schedules()`, `leases()` and `RedisDurability` switch to the `'cluster'` key layout (new `layout` option). In that layout every multi-key script stays in one hash slot (hash-tagged key groups), listings read per-bucket index sorted sets instead of `KEYS`/`SCAN`, and `MULTI` is not used. `TRYAGAIN`/`CLUSTERDOWN` and redirects node-redis did not follow are retried (`withClusterRetry`). Without configuration nothing changes: the default `'legacy'` layout keeps every key name, script and command.
