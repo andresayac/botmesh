@@ -25,6 +25,23 @@ export type BrowserConfig = BrowserPreset | [string, string, string]
 /** The browser name every preset advertises; matches Baileys' own default. */
 const BROWSER_NAME = 'Chrome'
 
+const PRESETS: readonly BrowserPreset[] = ['macOS', 'ubuntu', 'windows', 'appropriate']
+
+/**
+ * Reject a `browser` value that would otherwise be silently ignored (an unknown
+ * preset) or break the handshake (a tuple that is not three strings).
+ */
+export function assertBrowserConfig(browser: unknown): asserts browser is BrowserConfig | undefined {
+  if (browser === undefined) return
+  if (Array.isArray(browser)) {
+    if (browser.length === 3 && browser.every((part) => typeof part === 'string' && part.length > 0)) return
+    throw new TypeError("BaileysProvider: browser must be a preset or an [os, browserName, osVersion] tuple of three non-empty strings; better leave it unset")
+  }
+  if (!PRESETS.includes(browser as BrowserPreset)) {
+    throw new TypeError(`BaileysProvider: unknown browser preset ${JSON.stringify(browser)}; use one of ${PRESETS.map((p) => `'${p}'`).join(', ')} or leave it unset (recommended)`)
+  }
+}
+
 /**
  * Resolve the `browser` socket option.
  *

@@ -32,6 +32,30 @@ export function contextInfoOf(content: proto.IMessage | null | undefined): Conte
   return undefined
 }
 
+/**
+ * Content parts that are protocol plumbing, never something a person wrote:
+ * reactions (they arrive again as `messages.reaction`), deletes, edits and
+ * chat settings (`protocolMessage`), sender-key distributions and the
+ * `messageContextInfo` that rides along.
+ */
+const SYSTEM_PARTS = new Set([
+  'protocolMessage', 'senderKeyDistributionMessage', 'messageContextInfo',
+  'reactionMessage', 'encReactionMessage', 'keepInChatMessage',
+])
+
+/**
+ * Whether an upserted stanza is not a user message: no content at all (a
+ * placeholder for a message that failed to decrypt, or a group notice stub), or
+ * content made only of {@link SYSTEM_PARTS}. Baileys upserts every stanza before
+ * processing it, so these must not reach the bot as `type: 'unknown'` messages.
+ */
+export function isSystemMessage(message: WAMessage): boolean {
+  const content = normalizeMessageContent(message.message)
+  if (!content) return true
+  const parts = Object.entries(content).filter(([, value]) => value !== undefined && value !== null).map(([name]) => name)
+  return parts.length === 0 || parts.every((name) => SYSTEM_PARTS.has(name))
+}
+
 /** Plain text of a (quoted) message: its text, or the caption of its media. */
 function textOf(content: proto.IMessage | null | undefined): string {
   const m = normalizeMessageContent(content)
@@ -146,7 +170,7 @@ export function toInbound(message: WAMessage, identity: IdentityStore): InboundM
   const mentions = (qc?.mentionedJid ?? []).map(canonicalUser)
 
   return {
-    ref: { id: key.id ?? '', chatId: from, native: message },
+    ref: { id: typeof key.id === 'string' ? key.id : '', chatId: from, native: message },
     chat,
     senderInfo,
     from,
@@ -157,7 +181,8 @@ export function toInbound(message: WAMessage, identity: IdentityStore): InboundM
     isBroadcast,
     fromMe: !!key.fromMe,
     type,
-    body,
+    // Protobuf guarantees strings; a malformed payload must still not leak a non-string body.
+    body: typeof body === 'string' ? body : '',
     timestamp: timestampOf(message.messageTimestamp),
     mentions,
     quoted,

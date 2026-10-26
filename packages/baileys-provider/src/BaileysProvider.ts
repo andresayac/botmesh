@@ -48,14 +48,14 @@ import {
 } from '@botmesh/core'
 import { classifyDisconnect, backoffDelay, MAX_RECONNECT_ATTEMPTS } from './reconnect.js'
 import { putBounded } from './boundedMap.js'
-import { resolveBrowser, type BrowserConfig } from './browser.js'
+import { assertBrowserConfig, resolveBrowser, type BrowserConfig } from './browser.js'
 import { IdentityStore, canonicalKey, type IdentityKey } from './identity.js'
 import { normalize, isLidUser, isPnUser } from './jid.js'
 import {
   PollTracker, POLL_CACHE_MAX, decryptVote, fromStoredPoll, pollCreationOf, pollUpdateOf, recordVote, tally, toStoredPoll,
   type PollStore, type TrackedPoll,
 } from './polls.js'
-import { contextInfoOf, toInbound } from './toInbound.js'
+import { contextInfoOf, isSystemMessage, toInbound } from './toInbound.js'
 import { parseBaileysMediaRef, serializeBaileysMediaRef } from './mediaRef.js'
 import { toCallEvent } from './toCallEvent.js'
 import { toOutbound } from './toOutbound.js'
@@ -132,6 +132,17 @@ export interface BaileysProviderConfig {
   debug?: boolean
   /** Any `LoggerLike` (pino, `console`, your own). Baileys itself receives a `BaileysLogger` adapter (see {@link toBaileysLogger}). */
   logger?: LoggerLike
+}
+
+/** E.164: a country code plus subscriber number, at most 15 digits. */
+function assertPairingNumber(pairingCode: string | undefined): void {
+  if (pairingCode === undefined) return
+  const digits = typeof pairingCode === 'string' ? pairingCode.replace(/\D/g, '') : ''
+  if (digits.length < 6 || digits.length > 15) {
+    throw new TypeError(
+      "BaileysProvider: pairingCode must be the bot's phone number in international format (country code + number, 6-15 digits), e.g. '+57 300 123 4567'",
+    )
+  }
 }
 
 const cacheKey = (k: WAMessageKey) => `${k.remoteJid}:${k.id}`
@@ -215,6 +226,10 @@ export class BaileysProvider implements IProvider<WAMessage> {
   private callGroups = new Map<string, string>()
   private rateLimiter: RateLimiter
   private listeners = new Set<(e: InboundEvent<WAMessage>) => void | Promise<void>>()
+  /** Bumped by start()/stop(): a start() that sees it change while awaiting gives up. */
+  private generation = 0
+  /** Sockets replaced by a newer start(); their late events are ignored. */
+  private retired = new WeakSet<object>()
 
   constructor(config: BaileysProviderConfig = {}) {
     this.config = config
@@ -225,6 +240,8 @@ export class BaileysProvider implements IProvider<WAMessage> {
     this.rateLimiter = new RateLimiter(config.rateLimit)
     // Validate eagerly, before any filesystem or network operation.
     resolveSessionDirectory(this.config.sessionsDir, this.config.session)
+    assertBrowserConfig(config.browser)
+    assertPairingNumber(config.pairingCode)
     if (Array.isArray(config.browser)) {
       this.logger.warn(
         { browser: config.browser },
@@ -269,19 +286,27 @@ export class BaileysProvider implements IProvider<WAMessage> {
   }
 
   async start(): Promise<void> {
+    // A stop() (or a newer start()) while this one awaits makes it stale: it must not build a socket.
+    const generation = ++this.generation
     this.pairingCodeRequested = false
     this.isShuttingDown = false
+    // Never two sockets on one session: WhatsApp would close one of them with 440.
+    this.retireSocket('restart')
     const sessionDir = assertSessionDirectorySafe(this.config.sessionsDir, this.config.session)
-    this.authState = await useMultiFileAuthState(sessionDir)
+    const authState = await useMultiFileAuthState(sessionDir)
+    if (generation !== this.generation) return
+    this.authState = authState
     // Never throws: on a network/parse failure Baileys falls back to the WA Web
     // version bundled with the installed release (isLatest: false, error set).
     const versionInfo = await fetchLatestBaileysVersion()
+    if (generation !== this.generation) return
     this.version = versionInfo.version
     this.logger.debug({ version: this.version, latest: versionInfo.isLatest, err: versionInfo.error }, 'baileys version')
     await this.buildSocket()
   }
 
   async stop(): Promise<void> {
+    this.generation++
     this.cancelReconnect()
     this.isShuttingDown = true
     this.rateLimiter.reset()
@@ -292,10 +317,24 @@ export class BaileysProvider implements IProvider<WAMessage> {
   }
 
   /**
+   * End the current socket before start() replaces it. Its late events (the
+   * close this causes included) are ignored, so they cannot schedule a reconnect
+   * that would race the new socket.
+   */
+  private retireSocket(reason: string): void {
+    const sock = this.sock
+    if (!sock) return
+    this.retired.add(sock)
+    this.sock = null
+    try { sock.end(new Error(reason)) } catch { /* socket may already be closed */ }
+  }
+
+  /**
    * Explicit destructive logout. Unlike {@link stop}, this unlinks the device
    * and removes its local auth state, so a new QR/pairing flow will be required.
    */
   async logoutAndDeleteSession(): Promise<void> {
+    this.generation++
     this.cancelReconnect()
     this.isShuttingDown = true
     this.rateLimiter.reset()
@@ -384,7 +423,11 @@ export class BaileysProvider implements IProvider<WAMessage> {
   async deleteMessage(ref: MessageRef): Promise<void> {
     if (!this.sock) throw new ProviderError('Provider not connected')
     const key = keyOfRef(ref, true)
-    await this.sock.sendMessage(key.remoteJid ?? ref.chatId, { delete: key })
+    try {
+      await this.sock.sendMessage(key.remoteJid ?? ref.chatId, { delete: key })
+    } catch (err) {
+      throw mapSendError(err, ref.chatId)
+    }
   }
 
   /* Identity resolution (internal) --------------------------------------- */
@@ -440,7 +483,7 @@ export class BaileysProvider implements IProvider<WAMessage> {
     const browser = resolveBrowser(this.config.browser)
 
     const make = (makeWASocket as unknown as { default?: typeof makeWASocket }).default ?? makeWASocket
-    this.sock = make({
+    const sock = make({
       version: this.version,
       logger: this.waLogger,
       auth: { creds: this.authState.state.creds, keys: makeCacheableSignalKeyStore(this.authState.state.keys, this.waLogger) },
@@ -451,8 +494,12 @@ export class BaileysProvider implements IProvider<WAMessage> {
       syncFullHistory: this.config.syncFullHistory ?? false,
       getMessage: async (key: WAMessageKey) => this.msgCache.get(cacheKey(key))?.message ?? undefined,
     }) as ReturnType<typeof makeWASocket>
+    this.sock = sock
 
-    this.sock.ev.process(async (events) => this.handleEvents(events))
+    sock.ev.process(async (events) => {
+      if (this.retired.has(sock)) return
+      await this.handleEvents(events)
+    })
   }
 
   /**
@@ -461,18 +508,28 @@ export class BaileysProvider implements IProvider<WAMessage> {
    * {@link IdentityStore.resolve}), whatever the event kind.
    */
   private async handleEvents(events: Partial<BaileysEventMap>): Promise<void> {
-    if (events['connection.update']) await this.onConnectionUpdate(events['connection.update'])
-    if (events['creds.update']) await this.authState!.saveCreds()
+    // Each event kind is isolated: one that fails (e.g. a malformed payload) is
+    // logged and never drops the rest of the batch.
+    const step = async (eventKind: string, run: () => unknown): Promise<void> => {
+      try {
+        await run()
+      } catch (err) {
+        this.logger.error({ err, eventKind }, 'failed to handle a Baileys event')
+      }
+    }
+    const e = events
+    if (e['connection.update']) await step('connection.update', () => this.onConnectionUpdate(e['connection.update']!))
+    if (e['creds.update']) await step('creds.update', () => this.authState?.saveCreds())
     // Learn new LID↔PN pairs first so the rest of the batch canonicalises with them.
-    if (events['lid-mapping.update']) this.cacheLidMapping(events['lid-mapping.update'])
+    if (e['lid-mapping.update']) await step('lid-mapping.update', () => this.cacheLidMapping(e['lid-mapping.update']))
 
-    if (events['messages.upsert']) await this.onMessagesUpsert(events['messages.upsert'])
+    if (e['messages.upsert']) await step('messages.upsert', () => this.onMessagesUpsert(e['messages.upsert']!))
     // Baileys 7 never fills `messages.update[].update.pollUpdates` (its vote
     // decryption is commented out); votes are decrypted from the upsert instead.
-    if (events['messages.reaction']) await this.onReactions(events['messages.reaction'])
-    if (events['call']) await this.onCalls(events['call'])
-    if (events['group-participants.update']) await this.onGroupParticipants(events['group-participants.update'])
-    if (events['presence.update']) await this.onPresence(events['presence.update'])
+    if (e['messages.reaction']) await step('messages.reaction', () => this.onReactions(e['messages.reaction']!))
+    if (e['call']) await step('call', () => this.onCalls(e['call']!))
+    if (e['group-participants.update']) await step('group-participants.update', () => this.onGroupParticipants(e['group-participants.update']!))
+    if (e['presence.update']) await step('presence.update', () => this.onPresence(e['presence.update']!))
   }
 
   private acceptsChat(jid: string): boolean {
@@ -486,27 +543,38 @@ export class BaileysProvider implements IProvider<WAMessage> {
     // Learn the bot's own LID↔PN pair so mentions of its LID canonicalise to selfId.
     this.self()
     for (const message of messages) {
-      const jid = message.key?.remoteJidAlt ?? message.key?.remoteJid ?? ''
-      const accepted = this.acceptsChat(jid)
-      // Cache upserts, `append` included (Baileys emits the bot's own sends and
-      // offline deliveries as `append`): getMessage() retries and poll vote
-      // decryption both need them. Only messages from chats the bot listens to,
-      // plus its own wherever they are, take a slot in these bounded caches, so
-      // a flood from ignored chats (status, broadcasts, newsletters) cannot
-      // evict the ones that matter.
-      if (accepted || message.key?.fromMe) {
-        this.rememberMessage(message)
-        await this.rememberPoll(message)
+      // One malformed message is logged and skipped; the rest of the batch still arrives.
+      try {
+        await this.onUpsertedMessage(message, type)
+      } catch (err) {
+        this.logger.error({ err, eventKind: 'messages.upsert' }, 'failed to handle an upserted message')
       }
-      if (!accepted) continue
-      // An encrypted vote is a poll-vote event, never a message.
-      if (pollUpdateOf(message)) { await this.onPollVote(message); continue }
-      if (type !== 'notify' || message.key?.fromMe) continue
-      // Seed identity from the authoritative mapping for bare-LID keys.
-      await this.seedIdentity(message.key)
-      await this.seedQuotedIdentity(message)
-      this.fan({ kind: 'message', message: toInbound(message, this.identity) })
     }
+  }
+
+  private async onUpsertedMessage(message: WAMessage, type: BaileysEventMap['messages.upsert']['type']): Promise<void> {
+    const jid = message.key?.remoteJidAlt ?? message.key?.remoteJid ?? ''
+    const accepted = this.acceptsChat(jid)
+    // Cache upserts, `append` included (Baileys emits the bot's own sends and
+    // offline deliveries as `append`): getMessage() retries and poll vote
+    // decryption both need them. Only messages from chats the bot listens to,
+    // plus its own wherever they are, take a slot in these bounded caches, so
+    // a flood from ignored chats (status, broadcasts, newsletters) cannot
+    // evict the ones that matter.
+    if (accepted || message.key?.fromMe) {
+      this.rememberMessage(message)
+      await this.rememberPoll(message)
+    }
+    if (!accepted) return
+    // An encrypted vote is a poll-vote event, never a message.
+    if (pollUpdateOf(message)) { await this.onPollVote(message); return }
+    if (type !== 'notify' || message.key?.fromMe) return
+    // Reactions, deletes, edits, stubs: not user messages (reactions arrive as `messages.reaction`).
+    if (isSystemMessage(message)) return
+    // Seed identity from the authoritative mapping for bare-LID keys.
+    await this.seedIdentity(message.key)
+    await this.seedQuotedIdentity(message)
+    this.fan({ kind: 'message', message: toInbound(message, this.identity) })
   }
 
   private async onPollVote(message: WAMessage): Promise<void> {
@@ -668,13 +736,16 @@ export class BaileysProvider implements IProvider<WAMessage> {
   private async onReactions(reactions: BaileysEventMap['messages.reaction']): Promise<void> {
     for (const { key, reaction } of reactions) {
       // `key` is the REACTED-TO message; `reaction.key` is the reactor's own key.
-      const reactorKey = reaction.key ?? undefined
+      const reactorKey = (reaction.key ?? undefined) as (IdentityKey & { id?: string | null }) | undefined
+      // Same chat filter as messages: statuses, broadcast lists, channels.
+      const chat = reactorKey?.remoteJidAlt ?? reactorKey?.remoteJid ?? key.remoteJid ?? ''
+      if (!this.acceptsChat(chat)) continue
       if (reactorKey) await this.seedIdentity(reactorKey)
       const { chatId, senderId } = canonicalKey(reactorKey ?? { remoteJid: key.remoteJid }, this.identity)
       this.fan({
         kind: 'reaction',
         reaction: {
-          ref: { id: key.id ?? '', chatId, native: key },
+          ref: { id: typeof key.id === 'string' ? key.id : '', chatId, native: key },
           emoji: reaction.text ?? '',
           senderId: reactorKey?.fromMe ? this.self().id : senderId,
           removed: !reaction.text,
@@ -864,6 +935,7 @@ export class BaileysProvider implements IProvider<WAMessage> {
       if (action === 'reconnect-now') { this.scheduleReconnect(0); return }
       if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
         this.logger.error({ statusCode, detail: message, attempts: this.reconnectAttempts }, `giving up after ${MAX_RECONNECT_ATTEMPTS} reconnect attempts`)
+        this.fan({ kind: 'connection', update: { state: 'closed', reason: 'transient', detail: { code: statusCode, message: 'reconnect exhausted' } } })
         return
       }
       const delay = backoffDelay(this.reconnectAttempts)
@@ -943,6 +1015,10 @@ export class BaileysProvider implements IProvider<WAMessage> {
         } catch (err) { this.logger.warn({ err }, `failed to write QR image to ${file}`) }
       })()
     }
-    if (cfg.handler) void cfg.handler(qr)
+    if (cfg.handler) {
+      // A failing handler (sync throw or rejection) is logged; it must never crash the process.
+      const failed = (err: unknown) => this.logger.warn({ err }, 'qr.handler failed')
+      try { void Promise.resolve(cfg.handler(qr)).catch(failed) } catch (err) { failed(err) }
+    }
   }
 }
