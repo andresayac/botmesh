@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/graph-core",
-  "version": "0.2.0-alpha.0",
+  "version": "1.0.0-beta.1",
   "type": "module",
   "description": "Shared Meta Graph helpers (webhook verification, typed error mapping, ingest guard) for @botmesh/meta, @botmesh/messenger and @botmesh/instagram.",
   "main": "lib/index.js",

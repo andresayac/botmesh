@@ -3,15 +3,15 @@
 
 /** Dependency range stamped into scaffolded projects for each public `@botmesh/*` package. */
 export const BOTMESH_VERSIONS = {
-  '@botmesh/ai': '^0.2.0-alpha.0',
-  '@botmesh/baileys': '^0.2.0-alpha.0',
-  '@botmesh/core': '^2.0.0-alpha.2',
-  '@botmesh/graph-core': '^0.2.0-alpha.0',
-  '@botmesh/http': '^0.2.0-alpha.0',
-  '@botmesh/meta': '^0.2.0-alpha.0',
-  '@botmesh/redis-store': '^0.2.0-alpha.0',
-  '@botmesh/sqlite-store': '^0.2.0-alpha.0',
-  '@botmesh/telegram': '^0.2.0-alpha.0',
+  '@botmesh/ai': '^1.0.0-beta.1',
+  '@botmesh/baileys': '^1.0.0-beta.1',
+  '@botmesh/core': '^2.0.0-beta.3',
+  '@botmesh/graph-core': '^1.0.0-beta.1',
+  '@botmesh/http': '^1.0.0-beta.1',
+  '@botmesh/meta': '^1.0.0-beta.1',
+  '@botmesh/redis-store': '^1.0.0-beta.1',
+  '@botmesh/sqlite-store': '^1.0.0-beta.1',
+  '@botmesh/telegram': '^1.0.0-beta.1',
 } as const
 
 /** A public `@botmesh/*` package name. */

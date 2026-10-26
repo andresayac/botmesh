@@ -1,4 +1,58 @@
-# @bot-wa/redis-store
+# @botmesh/redis-store
+
+## 1.0.0-beta.1
+
+### Major Changes
+
+- 79af076: First stable line: the public API of this package is frozen and covered by semver from 1.0.0 (alongside `@botmesh/core` 2.0.0). The breaking changes made during the alpha are listed in the other notes of this release and in the stable migration guides. `@botmesh/baileys` ships stable on the exact `@whiskeysockets/baileys` `7.0.0-rc14` pin, which is upstream's npm `latest` tag (there is no stable Baileys 7.x); moving to a newer upstream release is a minor or patch of `@botmesh/baileys` unless its public API changes (see the README's upstream upgrade policy).
+
+### Minor Changes
+
+- 94c4c4d: **Breaking: `redis` is a peer dependency, and node-redis 5 and 6 are supported.** `redis` moved from `dependencies` to `peerDependencies` with the range `^4.7.0 || ^5.0.0 || ^6.0.0`; npm and pnpm install it on their own when it is missing. The store, the coordinator, the durability backend, the schedule store and the lease provider work with node-redis 4, 5 and 6, on a single node and on Redis Cluster, with RESP2 or RESP3 (the node-redis 6 default). Every real-server suite runs against each major.
+  
+  - `NativeRedisClient` and `NativeRedisClusterClient` are now small structural interfaces instead of `ReturnType<typeof createClient>` / `ReturnType<typeof createCluster>`, so the client of any supported major type-checks. Code that used these types to call Redis commands should use the type from `redis` itself.
+  - Own cluster clients also listen to `node-error`: node-redis 5 and 6 report a dropped node connection with that event instead of `error`, and it was not logged.
+  - The default key prefix stays `'botwa'`: data already stored lives under it.
+- be1feac: **Breaking:** the cluster key-layout internals move to a new subpath without a semver promise, `@botmesh/redis-store/internal`: the key builders (`storeKeys`, `coordKeys`, `scheduleKeys`, `userDataKeys` and their types), `bucketOf`, `encodeSegment`, `INDEX_BUCKETS`, `LAYOUT_MARKER`, `hashSlot`, `hashTagOf`, `assertOneSlot` and `assertLayoutPrefix`. The main entry keeps the `layout` option, `RedisKeyLayout`, `migrateToClusterLayout()`, `inspectKeyspace()`, `isRedisClusterClient()` and `withClusterRetry()`, and still re-exports the five values it used to export (`INDEX_BUCKETS`, `LAYOUT_MARKER`, `bucketOf`, `encodeSegment`, `hashSlot`) as `@deprecated`.
+  
+  **Breaking:** the deprecated `ttl` option (seconds) and `RedisStore.acquireLock()` are removed. Use `sessionTtl` (`ttl: 3600` is `sessionTtl: '1h'`) and `acquireLockFenced(key, ttlMs)` (`(await store.acquireLockFenced(k, ms))?.token` replaces `await store.acquireLock(k, ms)`; same lock key). Passing `ttl` from JavaScript throws a `TypeError`, and calling `acquireLock` rejects with one, both naming the replacement.
+
+### Patch Changes
+
+- 54ebba3: README rework for the stable line: one structure (what it is, install, quick start, options, errors, links), a single note about the prerelease dist-tag instead of hard-coded `@alpha` commands, no stale "alpha/experimental" banners, English examples and canonical option names only. Fixes wrong samples: `secureFetch` resolves `{ url, response, body }` with the body already read (the old sample called `response.json()`), the Meta webhook sample keeps the raw body with `express.raw()` (no `any` casts), the Meta pricing sample was not valid TypeScript, and the Redis Cluster sample passes `rootNodes` as URL strings. Documents the previously missing exports (`assertSafeTarget`, `isAllowedHostUrl`, `isPrivateAddress`, `graphRequest`, `DEFAULT_GRAPH_REQUEST_TIMEOUT_MS`) and the errors users hit (pnpm build scripts, `better-sqlite3` on Node.js 24.19, Graph `190`/`100`/`131030`, Telegram `404`).
+- 5ad624e: The docs site is now published at https://andresayac.github.io/botmesh/. Each package's `homepage` points to its page there (the site root for `@botmesh/core`), and the README links to the guides open the site instead of the Markdown sources on GitHub (the `@botmesh/ai` README link to the side-effecting tools section also had a stale anchor).
+- 8ef7548: Checkpoint compare-and-set (`setCheckpointIf` / `clearCheckpointIf`, used with `BotConfig.coordination`) no longer depends on Redis' cjson decoding the stored checkpoint. A `c.state` holding a lone UTF-16 surrogate (a message cut in the middle of an emoji) made cjson fail, the stored revision read as 0 and every later write of that conversation was refused as if another replica owned it. The scripts now report an undecodable value and the store decides in JS, writing only while the key still holds the exact string it read. Both layouts (legacy and cluster).
+- f0ba7fb: A store that creates its own client, used before `start()` or after `stop()`, now fails with an error that says to call `store.start()` (which `bot.start()` does) instead of node-redis' bare `The client is closed`. An injected client is not affected.
+- ee49c56: Import the backend and transport helpers (`toInboundLocation`, `messageKey`, `KvDurability`, the schedule and form helpers, `I18n`) from the new `@botmesh/core/spi` subpath, so these packages need the `@botmesh/core` version that ships it. No behaviour change. The doc examples use `durability: { backend }` (`journal` is its deprecated name).
+- Updated dependencies [ac11ddf]
+- Updated dependencies [ac11ddf]
+- Updated dependencies [ac11ddf]
+- Updated dependencies [50fb2b6]
+- Updated dependencies [473728a]
+- Updated dependencies [088c920]
+- Updated dependencies [b4c298d]
+- Updated dependencies [c03fb3c]
+- Updated dependencies [a448242]
+- Updated dependencies [a7992c3]
+- Updated dependencies [0864a3b]
+- Updated dependencies [a998e70]
+- Updated dependencies [50fb2b6]
+- Updated dependencies [50fb2b6]
+- Updated dependencies [473728a]
+- Updated dependencies [511589e]
+- Updated dependencies [9bb285a]
+- Updated dependencies [88c0fef]
+- Updated dependencies [59a09d1]
+- Updated dependencies [473728a]
+- Updated dependencies [0c0d203]
+- Updated dependencies [50fb2b6]
+- Updated dependencies [ee49c56]
+- Updated dependencies [2ff24f5]
+- Updated dependencies [50fb2b6]
+- Updated dependencies [b9a9d6a]
+- Updated dependencies [a2c946a]
+- Updated dependencies [5ad624e]
+  - @botmesh/core@2.0.0-beta.3
 
 ## 0.2.0-alpha.0
 

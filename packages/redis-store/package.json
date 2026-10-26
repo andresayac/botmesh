@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/redis-store",
-  "version": "0.2.0-alpha.0",
+  "version": "1.0.0-beta.1",
   "type": "module",
   "description": "Redis IStore for @botmesh/core — distributed state, TTL, per-chat message logs.",
   "main": "lib/index.js",

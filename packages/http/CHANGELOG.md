@@ -1,4 +1,24 @@
-# @bot-wa/http
+# @botmesh/http
+
+## 1.0.0-beta.1
+
+### Major Changes
+
+- 79af076: First stable line: the public API of this package is frozen and covered by semver from 1.0.0 (alongside `@botmesh/core` 2.0.0). The breaking changes made during the alpha are listed in the other notes of this release and in the stable migration guides. `@botmesh/baileys` ships stable on the exact `@whiskeysockets/baileys` `7.0.0-rc14` pin, which is upstream's npm `latest` tag (there is no stable Baileys 7.x); moving to a newer upstream release is a minor or patch of `@botmesh/baileys` unless its public API changes (see the README's upstream upgrade policy).
+
+### Minor Changes
+
+- c60603f: **Breaking (types only):** `SecureFetchOptions` no longer extends `RequestInit`. It holds `method`, `headers`, `body` and `signal` plus the policy options (`allowHttp`, `allowPrivateHosts`, `timeoutMs`, `maxBytes`, `maxRedirects`, `resolver`, `fetch`). `redirect` is gone: it was always overridden with `'manual'`; use `maxRedirects`. Other `RequestInit` fields (`cache`, `keepalive`...) still type-check through a deprecated overload of `secureFetch`/`fetchBuffer` (`LegacySecureFetchOptions`) and are still forwarded to `fetch` until stable. A `ReadableStream` (or async iterable) `body` is sent as a streaming upload with no extra option: the client sets the `duplex: 'half'` fetch requires. `resolvePublicHost` is renamed `resolveHost` (it resolves any host; `assertSafeTarget` judges the answer); the old name stays as a deprecated alias.
+
+### Patch Changes
+
+- 2c9bfb4: `undici` `^8.12.3`: picks up the upstream fixes for the advisories reported against 8.8.
+- 54ebba3: README rework for the stable line: one structure (what it is, install, quick start, options, errors, links), a single note about the prerelease dist-tag instead of hard-coded `@alpha` commands, no stale "alpha/experimental" banners, English examples and canonical option names only. Fixes wrong samples: `secureFetch` resolves `{ url, response, body }` with the body already read (the old sample called `response.json()`), the Meta webhook sample keeps the raw body with `express.raw()` (no `any` casts), the Meta pricing sample was not valid TypeScript, and the Redis Cluster sample passes `rootNodes` as URL strings. Documents the previously missing exports (`assertSafeTarget`, `isAllowedHostUrl`, `isPrivateAddress`, `graphRequest`, `DEFAULT_GRAPH_REQUEST_TIMEOUT_MS`) and the errors users hit (pnpm build scripts, `better-sqlite3` on Node.js 24.19, Graph `190`/`100`/`131030`, Telegram `404`).
+- 5ad624e: The docs site is now published at https://andresayac.github.io/botmesh/. Each package's `homepage` points to its page there (the site root for `@botmesh/core`), and the README links to the guides open the site instead of the Markdown sources on GitHub (the `@botmesh/ai` README link to the side-effecting tools section also had a stale anchor).
+- 949f9fa: A caller-supplied `fetch` works again: `secureFetch(url, { fetch: globalThis.fetch })` used to fail with an opaque `fetch failed` (`UND_ERR_INVALID_ARG`) because the pinned connection belongs to this package's undici. A custom `fetch` now gets no pinned dispatcher; URLs, redirects and DNS answers are still validated, and the docs say that DNS-rebinding protection is then up to that `fetch`. `isPrivateAddress()` also treats fully-qualified names (`localhost.`, `foo.localhost.`) as private.
+- f4b0623: - `isPrivateAddress` (and so `secureFetch`) now judges the IPv4 embedded in an IPv4-translated IPv6 address (`::ffff:0:a.b.c.d`, RFC 2765), so `::ffff:0:127.0.0.1` or `::ffff:0:10.0.0.1` are blocked like their IPv4 forms.
+  - `timeoutMs` now bounds the whole request even when a caller-supplied `fetch` or `resolver` ignores the abort signal: DNS resolution, waiting for the response headers and reading the body (also after a non-2xx status). The call rejects with the `TIMEOUT` error (or the caller's `signal` reason) instead of waiting forever; a response that arrives after the deadline is released unread.
+- 28e8b2b: `secureFetch` now sends a `FormData` body as real `multipart/form-data`. The package's own undici did not recognize Node's global `FormData` and sent the string `"[object FormData]"` with `Content-Type: text/plain`, so every multipart upload made through `secureFetch` (for example TikTok image uploads) reached the server empty. The body is encoded with the runtime's encoder and sent with its boundary; a caller `Content-Type` is replaced because the boundary must match the body. Bodies sent through a custom `fetch` are untouched.
 
 ## 0.2.0-alpha.0
 

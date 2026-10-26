@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/ai",
-  "version": "0.2.0-alpha.0",
+  "version": "1.0.0-beta.1",
   "type": "module",
   "description": "Multi-provider AI autoresponder plugin for @botmesh/core (Anthropic, OpenAI, Google Gemini, Ollama and OpenAI-compatible presets), with per-chat conversation memory, tools and a ctx.tools.ai client.",
   "main": "lib/index.js",

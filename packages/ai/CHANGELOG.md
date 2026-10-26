@@ -1,4 +1,87 @@
-# @bot-wa/ai
+# @botmesh/ai
+
+## 1.0.0-beta.1
+
+### Major Changes
+
+- 79af076: First stable line: the public API of this package is frozen and covered by semver from 1.0.0 (alongside `@botmesh/core` 2.0.0). The breaking changes made during the alpha are listed in the other notes of this release and in the stable migration guides. `@botmesh/baileys` ships stable on the exact `@whiskeysockets/baileys` `7.0.0-rc14` pin, which is upstream's npm `latest` tag (there is no stable Baileys 7.x); moving to a newer upstream release is a minor or patch of `@botmesh/baileys` unless its public API changes (see the README's upstream upgrade policy).
+
+### Minor Changes
+
+- 5f1a3ca: API freeze of `@botmesh/ai` before stable (main entry: 135 names before, 97 after).
+  
+  - **New entries.** `@botmesh/ai/testing` (semver) holds `MockAIProvider`, `MockOptions`, `MockTurn`, `validateArgs` and `ArgsValidation`. `@botmesh/ai/internal` (no semver) holds the plugin's helpers and the names of the SDK request/response shapes. `MockAIProvider`, `MockOptions` and `MockTurn` stay on the main entry as `@deprecated` re-exports.
+  - **Breaking: helpers moved to `@botmesh/ai/internal`** (no longer on the main entry): `aiText`, `defaultConfirmPrompt`, `DEFAULT_MAX_STEPS`, `DEFAULT_TOOL_TIMEOUT_MS`, `toolDefinitions`, `parametersOf`, `isAffirmative`, `humanizeName`, `toolTitle`, `ToolLedger`, `stableKey`, `DEFAULT_DEDUPE_WINDOW_MS`, `DEFAULT_LEDGER_RETENTION_MS`, `toGeminiSchema`, `DEFAULT_MEMORY_NAMESPACE`, `factsSchema`, `parseFacts`, `DEFAULT_RAG_INSTRUCTIONS`, `ragContextBlock`, `citedChunks`, `citedPassages`, `formatSources`. `validateArgs` and `ArgsValidation` moved to `@botmesh/ai/testing`.
+  - **Breaking: wire type names moved to `@botmesh/ai/internal`:** `AnthropicMessage`, `AnthropicContentBlock`, `AnthropicUsage`, `AnthropicStreamEvent`, `AnthropicRequestOptions`, `OpenAIChatCompletion`, `OpenAIChoice`, `OpenAIStreamChunk`, `OpenAIToolCall`, `OpenAIRequestOptions`, `GeminiResponse`, `GeminiUsage`, `GeminiPart`, `GeminiFunctionCall`, `GeminiRequestOptions`, `GoogleGenAIResponse`. The client contracts (`AnthropicLike`, `OpenAILike`, `GeminiLike`, `GeminiModelLike`, `GoogleGenAILike`) stay on the main entry with the same shape, now written inline, so fake clients compile unchanged.
+  - **Breaking: exported data is deep-frozen** and typed `readonly`: `PRESETS`, `DEFAULT_YES`, `DEFAULT_NO`, `AI_MESSAGES`, `AI_LOCALES`. Mutating them used to change the defaults of every bot in the process; extend a copy instead (`[...DEFAULT_YES, 'arre']`). `PresetName` is now an explicit union; `isPreset()` only accepts own keys.
+  - **`onStreamEnd` settled:** `GenerateInput.onStreamEnd` receives the new named type `AIStreamEndInfo` and has a documented, tested contract for every built-in provider and `MockAIProvider`: called exactly once per `stream()`, after the last chunk and before the iteration completes, only when the stream ends normally (never on an error, an abort or an early `break`); an exception thrown by the callback fails the consumer's iteration. The abort rule holds even with a client that ignores `signal`: an aborted stream skips the callback and rejects with the abort reason.
+  - Provider constructors take the new `AIProviderConfig` (`model`, `maxTokens`, `effort`, `thinking`, `baseUrl`) instead of the whole `AIConfig`; an `AIConfig` held in a variable is still accepted, but an object literal with plugin fields (`{ model, persona }`) now fails with TS2353. `toolConfirm.yes`/`.no` accept `readonly string[]`, so `DEFAULT_YES`/`DEFAULT_NO` can be passed unchanged.
+  - `provider: 'openai'` also sends `max_completion_tokens` to Azure OpenAI on `*.cognitiveservices.azure.com` and to Azure AI Foundry `*.services.ai.azure.com` endpoints under `/openai` (before, only `*.openai.azure.com`); the Foundry `/models` inference API keeps `max_tokens`.
+- 0c0d203: **Breaking:** the built-in texts (confirmation prompt, Yes/No buttons, fallback replies, sources line, notes) are English when no language is known, matching the core's new default locale (`'en'`). They used to be Spanish without a context. Inside a bot nothing changes beyond the core default: set `lang: 'es'` (or `i18n: { defaultLocale: 'es' }`) on the `Bot` to keep the Spanish texts, or pass a context with `lang: 'es'` to `aiText()` / `defaultConfirmPrompt()`.
+- 473728a: The `ollama` provider sends `aiPlugin({ apiKey })` as `Authorization: Bearer <key>` (Ollama Cloud at `https://ollama.com`, or an Ollama behind an authenticated proxy). Without `apiKey` no header is sent, as before. The key is never logged nor included in error messages. New exported type `OllamaProviderConfig` (`AIProviderConfig` plus `apiKey`) for `new OllamaProvider(config, fetch?)`.
+- fb81c5d: Fixes for the low-severity defects left open by the alpha exit review:
+  
+  - `toGeminiSchema` now walks `anyOf`/`oneOf`/`allOf`: `oneOf` becomes `anyOf`, a one-element `allOf` is merged, unsupported keywords are dropped at every level, and a `null` alternative (zod `.nullable()`, or `type: [T, 'null']`) becomes `nullable: true`. Tool schemas with nullable fields no longer get rejected by Gemini.
+  - **Behaviour change:** `provider: 'openai'` with a `baseUrl` that is not OpenAI (`api.openai.com`) or Azure OpenAI (`*.openai.azure.com`) now sends the output-token cap as `max_tokens`, which OpenAI-compatible servers (vLLM, LM Studio, gateways) expect, instead of `max_completion_tokens`. The new `maxTokensField` option overrides the guess, for `'openai'` and for the presets. If you point `baseUrl` at a proxy in front of OpenAI with an o-series or gpt-5 model, set `maxTokensField: 'max_completion_tokens'`.
+  - `aiPlugin()` validates `memory.maxFactLength`, `memory.maxFacts` and `memory.ttl` and throws a `RangeError` naming the option (before, a bad `maxFactLength` silently dropped every fact, and a bad `ttl` only failed at `plug()`), and rejects an unknown `maxTokensField`.
+  - Confirmation prompts show argument names and values on one line also when they contain NEL (U+0085) or the line/paragraph separators, and drop bidi control characters.
+  - Aborting a call with your own signal (`/reset` of an autoreply turn, or `signal` passed to `ctx.tools.ai` methods) now releases the caller with an `AbortError` even when the provider ignores the signal, instead of waiting for `timeoutMs` (or forever with `0`).
+  - `timeoutMs` is documented as a total deadline for non-streaming calls and an idle timeout between chunks when streaming.
+  
+  What to change when upgrading: "Upgrade notes: channels and plugins" in the guide (`docs/guide/upgrade-channels-plugins.md`).
+- 50fb2b6: New `'stopping'` bot event: `bot.stop()` on a running bot emits it right after inbound is closed, before the drain and the transport stop (`'stopped'` still comes last; a throwing listener goes to `'error'`). `@botmesh/ai` now aborts its in-flight model calls on `'stopping'` instead of `'stopped'`, so nothing waits on the model while the transport is stopping.
+- 76782b5: **Breaking (defaults): current SDKs and models.**
+  
+  - Gemini now uses `@google/genai` (`^2.0.0`, a new optional peer dependency), the SDK Google maintains. When it is not installed, the deprecated `@google/generative-ai` is still used, with a one-time `DeprecationWarning`. `baseUrl` becomes the SDK's `httpOptions.baseUrl`. New export `fromGoogleGenAI(client)` adapts a `GoogleGenAI` client (Gemini API or Vertex AI) for `new GeminiProvider()`. A blocked Gemini answer is reported as a refusal with both SDKs.
+  - Default models: `claude-opus-5-5` (was `claude-opus-4-8`), `gemini-3.8-flash` (was `gemini-2.0-flash`, shut down by Google), preset `grok` → `grok-4.7` (was `grok-2-latest`), preset `glm` → `glm-5.3` (was `glm-4-plus`). Default models are documented as outside semver; set `model` to pin one.
+  - The SDK peer ranges are verified at both ends: `@anthropic-ai/sdk` 0.68.0 and 1.x, `openai` 6.48.0 and 7.x, `@google/genai` 2.0.0 and 2.x (plain replies, tool calls and streaming against local fakes of each API).
+  - The package description now lists Gemini and the OpenAI-compatible presets.
+
+### Patch Changes
+
+- b9fcc87: `fromGoogleGenAI(new GoogleGenAI(...))` compiles without a cast. `GoogleGenAILike` did not accept a real `@google/genai` client: its `config` parameter was a `Record` (the SDK's `GenerateContentConfig` is an interface) and its responses required `functionCall.name` / `functionResponse.name` (the SDK marks every field optional). The contract now takes `config?: object` and optional names; a function call without a name is dropped, since it cannot be run.
+- 57ab9ea: Hardening found by an end-to-end review of `@botmesh/ai`:
+  
+  - `bot.stop()` now aborts every model call still in flight: the autoreply turns (one-shot and streamed), the background memory extraction and the calls user handlers make through `ctx.tools.ai` (`ask`, `generate`, `stream`, `replyInChat`, `streamReplyInChat`, `runTools`). Those calls reject with an `AbortError`, even when the provider ignores its abort signal, so a slow or hung provider no longer answers into a stopped bot nor keeps the process alive for up to `timeoutMs` (forever with `0`). Calls made after a restart work as usual.
+  - Whitespace-only text messages are no longer sent to the model.
+  - `aiPlugin()` validates its numeric options when the config is built and throws a `RangeError`/`TypeError` naming the option: `timeoutMs`, `toolTimeoutMs`, `rag.timeoutMs` and each tool's `timeoutMs` must be finite and at most 2^31-1 ms (a `NaN` or larger value used to fire after 1 ms), `maxTokens` a positive integer, `context.maxMessages` a non-negative integer (`NaN` never trimmed the history), `maxSteps` a finite number, `dedupe.windowMs` finite, `toolConfirm.timeout` a valid duration (a typo used to cancel every confirmation silently), and every tool needs a `handler`. Values that worked before keep working (`0` or a negative timeout disables it, `maxSteps` below 1 means 1).
+  - With `provider: 'openai'` or `'ollama'` and no `model`, the plugin logs a warning at install instead of failing silently on the first message. Provider error messages are now in English and say how to fix the problem (unknown provider, missing SDK, missing model, Ollama HTTP errors).
+  - Confirmation prompts: argument names coming from the model are shown on one line and clipped, so a crafted key can no longer add lines (for example a fake "Do you confirm?") to the prompt.
+  - Tool arguments are always validated as an object, also when a JSON Schema omits the top-level `type`.
+  - OpenAI-compatible tool calls without an `id` get a synthesized one, so their results still match.
+  - `formatMarkdown`: a bare URL right before a Markdown link no longer leaks an internal placeholder character into the message, and the `'html'` format only turns `http(s)`, `mailto:` and `tel:` URLs into links (a `javascript:` or `data:` link is kept as text).
+- 57ab9ea: The autoreply's fallback replies follow the chat language like the other built-in texts: when `errorMessage` / `refusalMessage` are not set, the plugin answers the new `ai.error` / `ai.refusal` messages (`AI_MESSAGES.error` / `AI_MESSAGES.refusal`), translatable with `bot.locale()`. The Spanish defaults are unchanged (`'⚠️ Ahora no puedo responder, intenta luego.'` / `'No puedo ayudar con eso.'`), so a bot without i18n behaves as before; an English chat now gets `"⚠️ I can't answer right now, please try again later."` / `"I can't help with that."`.
+- e928b87: The optional SDK peers accept the current majors: `@anthropic-ai/sdk` `^0.68.0 || ^1.0.0`, `openai` `^6.48.0 || ^7.0.0` and `@google/generative-ai` up to `0.24.x`. Before, `pnpm add @botmesh/ai@alpha @anthropic-ai/sdk` (or `openai`) installed a version outside the declared range, which pnpm reports as an unmet peer and npm can refuse with `ERESOLVE`. Both the oldest and the newest SDK of each range were checked against local fakes of the three HTTP APIs (text, tool calls with their results, streaming and usage).
+- 5ad624e: The docs site is now published at https://andresayac.github.io/botmesh/. Each package's `homepage` points to its page there (the site root for `@botmesh/core`), and the README links to the guides open the site instead of the Markdown sources on GitHub (the `@botmesh/ai` README link to the side-effecting tools section also had a stale anchor).
+- Updated dependencies [ac11ddf]
+- Updated dependencies [ac11ddf]
+- Updated dependencies [ac11ddf]
+- Updated dependencies [50fb2b6]
+- Updated dependencies [473728a]
+- Updated dependencies [088c920]
+- Updated dependencies [b4c298d]
+- Updated dependencies [c03fb3c]
+- Updated dependencies [a448242]
+- Updated dependencies [a7992c3]
+- Updated dependencies [0864a3b]
+- Updated dependencies [a998e70]
+- Updated dependencies [50fb2b6]
+- Updated dependencies [50fb2b6]
+- Updated dependencies [473728a]
+- Updated dependencies [511589e]
+- Updated dependencies [9bb285a]
+- Updated dependencies [88c0fef]
+- Updated dependencies [59a09d1]
+- Updated dependencies [473728a]
+- Updated dependencies [0c0d203]
+- Updated dependencies [50fb2b6]
+- Updated dependencies [ee49c56]
+- Updated dependencies [2ff24f5]
+- Updated dependencies [50fb2b6]
+- Updated dependencies [b9a9d6a]
+- Updated dependencies [a2c946a]
+- Updated dependencies [5ad624e]
+  - @botmesh/core@2.0.0-beta.3
 
 ## 0.2.0-alpha.0
 

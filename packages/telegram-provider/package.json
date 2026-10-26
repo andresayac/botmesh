@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/telegram",
-  "version": "0.2.0-alpha.0",
+  "version": "1.0.0-beta.1",
   "type": "module",
   "description": "Telegram Bot API transport for @botmesh/core — long-poll or webhook, inline keyboards, native polls.",
   "main": "lib/index.js",

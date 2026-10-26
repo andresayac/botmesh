@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/sqlite-store",
-  "version": "0.2.0-alpha.0",
+  "version": "1.0.0-beta.1",
   "type": "module",
   "description": "Persistent SQLite IStore (better-sqlite3) for @botmesh/core.",
   "main": "lib/index.js",

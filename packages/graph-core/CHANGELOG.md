@@ -1,4 +1,55 @@
-# @bot-wa/graph-core
+# @botmesh/graph-core
+
+## 1.0.0-beta.1
+
+### Major Changes
+
+- 79af076: First stable line: the public API of this package is frozen and covered by semver from 1.0.0 (alongside `@botmesh/core` 2.0.0). The breaking changes made during the alpha are listed in the other notes of this release and in the stable migration guides. `@botmesh/baileys` ships stable on the exact `@whiskeysockets/baileys` `7.0.0-rc14` pin, which is upstream's npm `latest` tag (there is no stable Baileys 7.x); moving to a newer upstream release is a minor or patch of `@botmesh/baileys` unless its public API changes (see the README's upstream upgrade policy).
+
+### Minor Changes
+
+- d43e55c: **Breaking (default): Graph API v26.0.** The Meta providers now call Graph API `v26.0` by default (it was `v21.0`, which Meta retires on 2027-01-21). The default lives in the new `DEFAULT_GRAPH_API_VERSION` export of `@botmesh/graph-core` and follows Meta's current version; the send and webhook payloads the providers use did not change between v21.0 and v26.0. Pass `apiVersion` to stay on a version (`apiVersion: 'v21.0'` restores the previous behaviour).
+  
+  - `@botmesh/meta`: WhatsApp's `played` status (a voice note was listened to) is now reported as a `read` status with `platformData.played: true`; it used to be dropped. Statuses without the `conversation` object (Graph v24.0+) keep working.
+- 51486ac: New `graphRequest(url, init, { timeoutMs?, fetch?, chatId?, contentKind? })` and `DEFAULT_GRAPH_REQUEST_TIMEOUT_MS` (60 s): one Graph API call with a client timeout that covers the body too, errors mapped by `readGraphResponse`, and transport failures or timeouts rejected with a `ProviderError` that never quotes the URL or the token. The Messenger and Instagram providers use it for their `requestTimeoutMs` option.
+- c60603f: `checkGraphSignature` takes one options object: `checkGraphSignature({ body, headers, appSecret, logger })`. The positional form `(body, headers, appSecret, logger?)` is a deprecated overload with the same results. New types `GraphSignatureOptions` and `GraphWebhookHeaders`. graph-core is public and covered by semver like the other public packages.
+
+### Patch Changes
+
+- 54ebba3: README rework for the stable line: one structure (what it is, install, quick start, options, errors, links), a single note about the prerelease dist-tag instead of hard-coded `@alpha` commands, no stale "alpha/experimental" banners, English examples and canonical option names only. Fixes wrong samples: `secureFetch` resolves `{ url, response, body }` with the body already read (the old sample called `response.json()`), the Meta webhook sample keeps the raw body with `express.raw()` (no `any` casts), the Meta pricing sample was not valid TypeScript, and the Redis Cluster sample passes `rootNodes` as URL strings. Documents the previously missing exports (`assertSafeTarget`, `isAllowedHostUrl`, `isPrivateAddress`, `graphRequest`, `DEFAULT_GRAPH_REQUEST_TIMEOUT_MS`) and the errors users hit (pnpm build scripts, `better-sqlite3` on Node.js 24.19, Graph `190`/`100`/`131030`, Telegram `404`).
+- 5ad624e: The docs site is now published at https://andresayac.github.io/botmesh/. Each package's `homepage` points to its page there (the site root for `@botmesh/core`), and the README links to the guides open the site instead of the Markdown sources on GitHub (the `@botmesh/ai` README link to the side-effecting tools section also had a stale anchor).
+- d038a99: `readGraphResponse()` parses the `Retry-After` HTTP-date strictly (IMF-fixdate, RFC 850 and asctime, all as GMT): garbage such as `abc 5`, which the engine's lenient date parser read as a date in 2001 and so as "retry now", falls back to the code's default again. A huge value (seconds or date) is capped at 24 hours, so it can never overflow `setTimeout` and turn a rate limit into an immediate retry storm.
+- db6c410: `readGraphResponse()` reads `Retry-After` safely: a negative value no longer produces a negative `retryAfterMs`, `0` means retry now, and the HTTP-date form is understood (garbage falls back to the code's default). `toGraphError()` maps error codes that arrive as digit strings, ignores a non-string `message`, and adds a hint to code `190` (invalid or expired access token) and `100`/`33` (the configured phone number, page or WABA id does not exist or is not reachable).
+- bf5f3f1: `readGraphResponse` maps an HTTP 413 answer (a request or media upload over Graph's size limit, usually with no specific error code) to `PayloadTooLargeError` instead of a generic `ProviderError`. A specific Graph code in the body (rate limit, window, unreachable) still wins. This applies to the WhatsApp Cloud API, Messenger and Instagram providers.
+- Updated dependencies [ac11ddf]
+- Updated dependencies [ac11ddf]
+- Updated dependencies [ac11ddf]
+- Updated dependencies [50fb2b6]
+- Updated dependencies [473728a]
+- Updated dependencies [088c920]
+- Updated dependencies [b4c298d]
+- Updated dependencies [c03fb3c]
+- Updated dependencies [a448242]
+- Updated dependencies [a7992c3]
+- Updated dependencies [0864a3b]
+- Updated dependencies [a998e70]
+- Updated dependencies [50fb2b6]
+- Updated dependencies [50fb2b6]
+- Updated dependencies [473728a]
+- Updated dependencies [511589e]
+- Updated dependencies [9bb285a]
+- Updated dependencies [88c0fef]
+- Updated dependencies [59a09d1]
+- Updated dependencies [473728a]
+- Updated dependencies [0c0d203]
+- Updated dependencies [50fb2b6]
+- Updated dependencies [ee49c56]
+- Updated dependencies [2ff24f5]
+- Updated dependencies [50fb2b6]
+- Updated dependencies [b9a9d6a]
+- Updated dependencies [a2c946a]
+- Updated dependencies [5ad624e]
+  - @botmesh/core@2.0.0-beta.3
 
 ## 0.2.0-alpha.0
 
