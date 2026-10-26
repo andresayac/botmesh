@@ -1,30 +1,45 @@
-# Migrar a la API estable
+# Actualizar a estable: checklist y cambios de API
 
-`@botmesh/core` 2.0 congela su API pública. Antes de eso, las últimas alphas
-recortaron la entrada principal y eligieron un nombre por concepto. Esta página
-lista cada cambio que puede notar quien usa una alpha, con su reemplazo. La
-mayoría de los renombres conservan un alias `@deprecated`, así que el editor
-los tacha y el código sigue funcionando. Las pocas rupturas reales están
-marcadas como **Ruptura**.
+La línea estable (`@botmesh/core` 2.0.0, los demás paquetes públicos 1.0.0)
+congela la API pública. Si vienes de una alpha de 2.0, casi todo tu código
+sigue funcionando: las APIs renombradas conservan un alias `@deprecated` (tu
+editor las tacha), y las pocas rupturas reales están marcadas como **Ruptura**
+en estas páginas.
 
-El paso de una alpha a la estable se cubre en cuatro páginas; lee todas las que
-te afecten:
+## Checklist de actualización
 
-- esta página: entradas del paquete, nombres canónicos y configuración (API);
-- [cambios de comportamiento](/es/guide/migracion-2): textos en inglés por
-  defecto, `retries` frente a `maxAttempts`, envíos antes de `start()`, ids en
-  logs, logs append-only dañados;
-- [dependencias y nombres](/es/guide/migracion): Baileys/ffmpeg, Graph
-  `v26.0`, `redis` como peer, SDKs y modelos de IA, `botwa` → `botmesh`;
-- [canales y plugins](/es/guide/actualizar-canales-plugins): arreglos por
-  canal, además del contrato común (timestamps en ms, división de textos
-  largos, métodos ausentes para operaciones no soportadas) en
-  [Canales](/es/guide/canales).
+Síguelo en orden; cada paso enlaza a los detalles.
+
+1. **Actualiza todos los paquetes `@botmesh/*` a la vez**, a la misma línea de
+   versiones. No se soporta mezclar un core antiguo con paquetes de canal
+   nuevos.
+2. **Dependencias** ([detalles](./migracion)): instala ffmpeg si tu bot de
+   Baileys envía notas de voz, pasa los bots de Gemini a `@google/genai`,
+   revisa el rango del peer `redis` y la versión de la Graph API, y actualiza
+   los dashboards que leen métricas `botwa_*`.
+3. **Pasa el verificador de tipos** (`tsc --noEmit`) y corrige lo que reporte
+   ([detalles abajo](#entradas-del-paquete)): imports que se movieron a
+   `@botmesh/core/spi`, `/testing` o `/internal`, `@botmesh/ai/testing`,
+   `@botmesh/baileys/internal` y las APIs eliminadas de `RedisStore`.
+4. **Reemplaza los nombres obsoletos** ([tabla](#un-nombre-por-concepto)):
+   `ctx.reply` en vez de `ctx.say`, `flow` en vez de `addKeyword`,
+   `bot.send`, `bot.plug` para plugins, `bot.trigger`, `onType`… Siguen
+   funcionando, pero se eliminan en la v3.
+5. **Revisa los cambios de comportamiento** ([detalles](./migracion-2)). Los
+   dos que necesitan casi todos los bots: `lang: 'es'` si tu bot habla
+   español (los textos internos ahora están en inglés) y `maxAttempts: N`
+   donde una espera usaba `retries: N`.
+6. **Lee las notas de tus canales y plugins**
+   ([detalles](./actualizar-canales-plugins)).
+7. **Pasa tus tests** y arranca el bot una vez con un listener
+   `bot.on('error', …)`. Atento al aviso único de `retries` y a
+   `ConfigValidationError`, que ahora nombra cualquier opción de duración
+   inválida.
 
 ## Entradas del paquete
 
 La entrada principal (`@botmesh/core`) ahora solo exporta lo que necesita una
-aplicación: 512 nombres antes, 372 después (368 tras el recorte, más `BotNotRunningError`, `InvalidProviderEventError`, `RateLimitRetryOptions` y `SplitTextOptions` de los demás cambios para estable). Todo lo demás pasó a un subpath:
+aplicación (372 nombres, antes 512). Todo lo demás pasó a un subpath:
 
 | Importa de | Qué contiene |
 | --- | --- |
@@ -128,7 +143,7 @@ nombraba la opción, y unas pocas aceptaban `null`.
 El contrato `LoggerLike` no cambia, y su convención de llamada queda
 documentada: los paquetes llaman `logger.warn('mensaje')` o
 `logger.warn({ err, ...contexto }, 'mensaje')`, como pino. Ver
-[Logger](./conceptos#logger).
+[Logs](./configuracion#logs).
 
 ## Paquetes de canales y stores
 
@@ -341,6 +356,7 @@ const files = TEMPLATES.telegram.files('my-bot')
 // Después
 import { getTemplate } from 'create-botmesh'
 const files = getTemplate('telegram').files('my-bot')
+```
 
 ## Token de la API del sandbox
 
@@ -356,3 +372,9 @@ const files = getTemplate('telegram').files('my-bot')
 - Una entrada incorrecta es ahora un 4xx: se rechazan los campos desconocidos,
   los tipos erróneos y un cuerpo que no sea un objeto JSON, y `toUserInput()`
   lanza `SandboxInputError`.
+
+## Siguientes pasos
+
+- [Actualizar a estable: dependencias](./migracion)
+- [Actualizar a estable: cambios de comportamiento](./migracion-2)
+- [Notas de actualización: canales y plugins](./actualizar-canales-plugins)

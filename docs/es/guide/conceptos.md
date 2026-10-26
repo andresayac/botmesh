@@ -1,432 +1,370 @@
 # Conceptos básicos
 
-Las piezas con las que compones un bot, cómo se enruta hacia ellas cada
-mensaje entrante y las opciones que comparten todos los bots (duraciones,
-logger, entradas del paquete).
+Un bot es un `Bot` más un **provider** (el transporte), y las piezas que
+registras en él: handlers, flujos, hooks y plugins. Esta página muestra cada
+pieza, el objeto `ctx` que recibe todo handler y el orden en que un mensaje
+entrante pasa por ellas.
 
 ## Las piezas
 
-### 1. Bot + Provider — el centro
+### Bot y provider
 
 ```ts
 import { Bot } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
 
-const bot = new Bot({ provider: new BaileysProvider({ session: 'my-bot' }) })
+const bot = new Bot({ provider: new BaileysProvider({ session: 'mi-bot' }) })
+// registra aquí handlers, flujos, hooks y plugins, y después:
 await bot.start()
 ```
 
-El `Bot` (de `@botmesh/core`) es el motor agnóstico de transporte: ejecuta
-el Dispatcher, los hooks, los flujos, las conversaciones y el scheduler.
-El **provider** es la frontera del transporte — `@botmesh/baileys` se
-conecta a WhatsApp; `@botmesh/meta` (Cloud API oficial), `@botmesh/telegram`
-y los transportes experimentales de Messenger, Instagram y Discord se
-enchufan al mismo motor. Todos los transportes
-alimentan al bot con los mismos eventos normalizados.
+El `Bot` (de `@botmesh/core`) es el motor agnóstico de transporte: ejecuta el
+dispatcher, los hooks, los flujos, las conversaciones y el scheduler. El
+**provider** es el transporte: `@botmesh/baileys` (WhatsApp Web),
+`@botmesh/meta` (WhatsApp Cloud API), `@botmesh/telegram` y los
+[demás canales](./canales) entregan al bot los mismos eventos normalizados, así
+que el código que registras funciona en cualquiera de ellos. Todas las opciones
+de `new Bot()` están en la [referencia de configuración](./configuracion).
 
-Los envíos necesitan el bot en marcha: antes de `bot.start()` y después de
-`bot.stop()`, `bot.send()`, `ctx.reply()` y `ctx.delete()` rechazan con
-`BotNotRunningError` y no llega nada al provider (un listener de `'ready'` ya
-puede enviar). Las señales de presencia (`ctx.typing()`, `ctx.markRead()`, el
-indicador automático de escritura) son de mejor esfuerzo: mientras el
-transporte está desconectado o parado se omiten sin error, se registran en
-debug y se cuentan en `metrics().presenceSkipped`. Las llamadas concurrentes a
-`start()` / `stop()` se ejecutan de una en una, en orden; cada `stop()` de un
-bot en marcha emite `'stopping'` antes del drenado y de parar el transporte, y
-después `'stopped'`. Un evento que rompe el contrato del provider se descarta y
-se informa en `'error'` como `InvalidProviderEventError`; un evento de un tipo
-que el core no conoce (un provider más nuevo) se ignora.
-
-### 2. when — respuestas simples
+### `when`: respuestas simples
 
 ```ts
 bot.when('hola', async (ctx) => {
-  await ctx.reply('👋 Hello!')
+  await ctx.reply('👋 ¡Hola!')
 })
 ```
 
-**Cuando** el mensaje coincide con el trigger, ejecuta esta función. La
-estrategia de coincidencia por defecto es **igualdad normalizada**:
-minúsculas, sin acentos, espacios colapsados — `'hola'` coincide con
-"hola"/"Hóla ", pero NO con "/hola" ni "hola amigo". Los triggers aceptan
-texto, una lista, un regex, un predicado, o un objeto explícito
-`{ pattern, match, scope }`:
+Cuando un mensaje coincide con el trigger, se ejecuta el handler. Un texto
+simple compara por **igualdad normalizada**: se ignoran mayúsculas, tildes y
+espacios de más, así que `'hola'` coincide con "Hola" y "  hóla ", pero no con
+"/hola" ni con "hola amigo". Los triggers admiten otras formas:
+
+| Trigger | Coincide con |
+| --- | --- |
+| `'hola'` | el texto, normalizado |
+| `['chao', 'adiós']` | cualquiera de ellos |
+| `/\d{4,}/` | una expresión regular |
+| `{ pattern: 'factura', match: 'contains', scope: 'dm' }` | `match`: `'equals'` (por defecto), `'contains'`, `'startsWith'` o `'endsWith'`; `scope`: `'dm'`, `'group'` o `'all'` |
+| `(m) => m.body.length > 200` | un predicado síncrono sobre `{ body, isGroup }` |
+| `IMAGE`, `LOCATION`, `WELCOME`, `CALL`… | tipos de mensaje y eventos especiales, ver [Triggers especiales](./triggers) |
+
+`bot.command('ayuda', handler)` registra un comando `/ayuda` (el prefijo es
+`commandPrefix`), y `bot.onMessage(handler)` es el catch-all para lo que nada
+más manejó.
+
+### `flow` y `conversation`: conversaciones de varios pasos
 
 ```ts
-bot.when('hola', handler)
-bot.when(['bye', 'goodbye'], handler)
-bot.when(/\d{4,}/, handler)
-bot.when({ pattern: 'factura', match: 'contains' }, handler) // coincidencia por subcadena
+import { flow } from '@botmesh/core'
+
+const registro = flow('registro')
+  .ask('¿Tu nombre?', 'name')
+  .say((_ctx, c) => `Hola ${c.state.name}`)
+
+bot.use(registro)
 ```
 
-### 3. flow / conversation — conversaciones multi-paso
+Un **flujo** es la descripción encadenable de una conversación: el bot
+pregunta, el usuario responde, `c.state` guarda la respuesta y el flujo sigue,
+con validación, reintentos, menús y timeouts. Compila al mismo runtime que
+`bot.conversation(nombre, async (c, ctx) => { ... })`, que escribes a mano
+cuando necesitas bucles o lógica arbitraria. Ver
+[Flujos conversacionales](./flujos).
 
-```ts
-const register = flow('registrar')
-  .ask('Name?', 'name')
-  .say((_ctx, c) => `Hi ${c.state.name}`)
-
-bot.use(register)
-```
-
-Un **flow** compila a una conversación async real: el bot pregunta, el
-usuario responde, `c.state` lo guarda y el flujo continúa — con
-validación, reintentos, branching (`choose`) y timeouts. Para tener control
-manual total puedes saltarte el DSL y escribir directamente
-`bot.conversation(name, async (c, ctx) => {...})`.
-
-### 4. Hooks — middleware (before / after / onError)
+### Hooks: middleware
 
 ```ts
 bot.before('message', async (ctx, next) => {
-  console.log('📥', ctx.from, ctx.body)
-  await next()
-})
-
-bot.after('message', async (ctx) => {
-  console.log('📤 processed')
+  bot.logger.debug({ type: ctx.type }, 'mensaje entrante')
+  await next()                      // sin next() el mensaje se detiene aquí
 })
 
 bot.onError('message', async (ctx, error) => {
-  console.error('💥 error:', error)
+  await ctx?.reply('😅 Algo salió mal, inténtalo de nuevo.')
 })
 ```
 
-Los hooks se ejecutan **antes** o **después** de cada mensaje, como el
-middleware de Express. `'message'` es el evento principal de hooks;
-`'send'` se dispara en cada envío saliente. Un hook `before` que vuelve sin
-llamar a `next()` detiene el evento, igual que `ctx.abort()`.
+Los hooks `before` corren antes del enrutado y pueden detener o reescribir un
+mensaje; los `after` corren cuando ya se manejó; los `onError` cuando un
+handler lanza un error. Los hooks de `'send'` ven cada mensaje saliente. Ver
+[Hooks](./hooks).
 
-### 5. Plugins — funcionalidad empaquetada
+### Plugins: funciones empaquetadas
 
 ```ts
-bot.plug(slashCommandsPlugin, { greeting: 'Hi!' })
+import { slashCommandsPlugin } from '@botmesh/core'
+
+const unplug = bot.plug(slashCommandsPlugin, { greeting: '¡Hola! Envía /help.' })
 ```
 
-Un plugin es un paquete reutilizable que puede registrar hooks, handlers y
-herramientas. `bot.plug()` devuelve una función `unplug()` que revierte lo que
-registró vía `ctx.bot` (handlers, hooks, plugins anidados, flows en caliente y
-callbacks de `onDispose`; listeners, herramientas, idiomas y tareas programadas
-necesitan un `onDispose`, ver [Plugins](./plugins.md)).
+Un plugin agrupa handlers, hooks y herramientas. `bot.plug()` devuelve una
+función `unplug()` que deshace lo que registró el plugin. Un `name` de plugin
+se puede enchufar una vez por bot, salvo que su spec ponga `multiple: true`.
+Ver [Plugins](./plugins).
 
-Un plugin se enchufa una vez por bot: enchufar un plugin cuyo `name` ya está
-enchufado lanza un error, salvo que todas las instancias pongan
-`multiple: true` en su spec.
+## El objeto `ctx`
+
+Todo handler recibe un `MessageContext`. Lo que te **dice**:
+
+| Campo | Qué contiene |
+| --- | --- |
+| `ctx.body` | El texto, o el caption de un mensaje con media (`''` si no hay). |
+| `ctx.type` | `'text'`, `'image'`, `'video'`, `'audio'`, `'voice'`, `'document'`, `'sticker'`, `'location'`, `'contact'`, `'poll'`, `'buttons'`, `'call'`… |
+| `ctx.from` | El id del chat: adonde van las respuestas. |
+| `ctx.sender` | Quién lo envió: igual a `from` en un privado, el participante en un grupo. |
+| `ctx.senderInfo` | `{ id, displayName?, language?, … }` tal como lo reporta el provider. |
+| `ctx.isGroup`, `ctx.isPrivate` | Tipo de chat. |
+| `ctx.timestamp` | Cuándo se envió, en milisegundos epoch en todos los canales. |
+| `ctx.ref` | `{ id, chatId }` de este mensaje, para citarlo, reaccionar, editarlo o borrarlo. |
+| `ctx.quoted`, `ctx.mentions` | El mensaje al que responde y los usuarios que menciona. |
+| `ctx.media`, `ctx.sharedLocation` | Metadatos de la media (descárgala con `loadMediaOf(ctx)`) y una ubicación recibida. |
+| `ctx.interaction` | Un toque en un botón o lista: `{ id, data }`. |
+| `ctx.lang`, `ctx.user`, `ctx.tools` | El idioma resuelto, los [datos persistentes](./datos-usuario) del usuario y las [herramientas inyectadas](./di). |
+
+Lo que **hace**:
+
+| Método | Qué hace |
+| --- | --- |
+| `ctx.reply(texto)` | Envía texto al chat. |
+| `ctx.photo()`, `ctx.video()`, `ctx.audio()`, `ctx.voice()`, `ctx.file()`, `ctx.sticker()` | Envía media. |
+| `ctx.location()`, `ctx.contact()`, `ctx.poll()`, `ctx.buttons()` | Envía una ubicación, un contacto, una encuesta o botones. |
+| `ctx.quote(texto)`, `ctx.react(emoji)`, `ctx.edit(…)`, `ctx.delete()` | Responde citando el mensaje, reacciona, edita o borra un mensaje. |
+| `ctx.stream(fuente)` | Envía texto a medida que se genera. Ver [Streaming](./streaming). |
+| `ctx.typing()`, `ctx.recording()`, `ctx.markRead()` | Señales de presencia (sin garantía). |
+| `ctx.supports(función)` | Si el canal puede hacer algo, antes de intentarlo. |
+| `ctx.t(clave, params)`, `ctx.setLang(código)` | Traduce y cambia el idioma del usuario. Ver [i18n](./i18n). |
+| `ctx.handoff()` | Pasa el chat a un humano. Ver [Handoff](./handoff). |
+| `ctx.pass()`, `ctx.abort()` | Deja que el siguiente handler tome el mensaje; lo detiene (en hooks `before`). |
+
+Todos los helpers de envío están en [Mensajes y media](./mensajes).
+
+## Ids de chat y remitente
+
+`ctx.from` (chat) y `ctx.sender` (usuario) son **strings opacos** que elige el
+provider; el core nunca los interpreta. Guárdalos y compáralos tal como
+llegan. En WhatsApp (Baileys) son JIDs:
+
+| Tipo | Formato | Ejemplo |
+| --- | --- | --- |
+| Usuario | `numero@s.whatsapp.net` | `573001234567@s.whatsapp.net` |
+| Grupo | `id@g.us` | `120363xxx@g.us` |
+| Canal | `id@newsletter` | `120363xxx@newsletter` |
+
+Telegram usa ids numéricos, la Cloud API números de teléfono, etc. El provider
+también resuelve los alias: la misma persona llega siempre con el mismo
+`ctx.sender`, aunque WhatsApp alterne entre su número y un LID.
 
 ## El pipeline de entrada
 
-Todo mensaje entrante pasa por el mismo pipeline, en este orden. Los cuatro
-primeros pasos corren en el `Bot` en cuanto el provider emite el evento; el
-resto corre dentro del Dispatcher, en una **cola FIFO por chat** (dos
-mensajes del mismo chat nunca se procesan en paralelo). Lo primero que
-**consume** el mensaje gana y detiene el enrutado:
+Todo mensaje entrante pasa por los mismos pasos, en este orden. Los cuatro
+primeros corren en cuanto el provider emite el evento; el resto corre en una
+**cola FIFO por chat**, así que dos mensajes del mismo chat nunca se procesan a
+la vez. El primer handler que **consume** el mensaje detiene el enrutado:
 
 ```mermaid
 flowchart TD
-    A[Entra un mensaje] --> ACL{"¿En la blacklist /<br/>fuera de la whitelist?"}
-    ACL -->|Sí| X1[Descartado: sin persistir, sin hooks,<br/>no se marca como visto]
+    A[Mensaje entrante] --> ACL{"¿En blacklist /<br/>fuera de la whitelist?"}
+    ACL -->|Sí| X1[Descartado: no se guarda, sin hooks,<br/>no se marca como visto]
     ACL -->|No| DD{"¿Ya visto?<br/>(dedupe: chatId + id)"}
     DD -->|Sí| X0[Descartado]
-    DD -->|No| P[Persistir chat, contacto, mensaje]
+    DD -->|No| P[Guardar chat, contacto, mensaje]
     P --> GM{"Filtro groupMode"}
     GM -->|Ignorado| X2[Se detiene aquí]
     GM -->|OK| L["Resolver ctx.lang (i18n)"]
-    L --> B["hooks before('message')<br/>(ctx.lang se re-resuelve si un hook cambió ctx.body)"]
+    L --> B["Hooks before('message')<br/>(ctx.lang se re-resuelve si un hook reescribió ctx.body)"]
     B --> HO{"¿Chat en handoff<br/>con un humano?"}
     HO -->|"Sí (salvo allowCommands)"| J
-    HO -->|No| C{"¿Es un comando? ej. /reset"}
+    HO -->|No| C{"¿Comando? p. ej. /reset"}
     C -->|Sí| D[Handler del comando]
-    C -->|No| E{¿Hay una conversación activa<br/>para este participante?}
-    E -->|Sí| F[Continúa el paso de la conversación / flujo]
-    E -->|No| R{¿Checkpoint dormido de un<br/>flujo persistente?}
+    C -->|No| E{¿Conversación activa<br/>de este participante?}
+    E -->|Sí| F[Sigue el paso de la conversación / flujo]
+    E -->|No| R{¿Checkpoint dormido<br/>de un flujo persistente?}
     R -->|Sí| F
     R -->|No| G{"Matchers por especificidad<br/>(WELCOME primero)"}
-    G -->|Sí| H[Se ejecuta el handler]
-    G -->|"Sin match / ctx.pass()"| I[onMessage catch-all]
-    D --> J["hooks after('message')"]
+    G -->|Sí| H[Corre el handler]
+    G -->|"Sin coincidencia / ctx.pass()"| I[Catch-all onMessage]
+    D --> J["Hooks after('message')"]
     F --> J
     H --> J
     I --> J
-    J --> K["se emite el evento 'message'"]
+    J --> K["Se emite el evento 'message'"]
 ```
 
 Antes del paso 1 el bot descarta sus propios mensajes (`fromMe`) y, con
 [`echoFilter`](#filtro-de-ecos) activo, los ecos de sus envíos.
 
 1. **Blacklist / whitelist**: un remitente o chat bloqueado se descarta en
-   silencio, antes que nada. No se persiste, no corren hooks, no se emite
-   `'message'` y el dedupe **no lo marca como visto**, así que una
-   re-entrega después de desbloquearlo se procesa. Ver
-   [Handoff y listas de acceso](./handoff#blacklist-y-whitelist).
-2. **Dedupe de entrada**: un mensaje o interacción re-entregado (mismo
-   `chatId` + id, por reintentos de webhook o por la resincronización
-   offline de Baileys) se descarta. Activado por defecto; ver
+   silencio. No se guarda, no corre ningún hook, no se emite `'message'` y
+   **no se marca como visto**, así que una reentrega tras desbloquearlo se
+   procesa. Ver [Handoff y listas de acceso](./handoff#blacklist-y-whitelist).
+2. **Dedupe de entrada**: un mensaje reenviado (mismo `chatId` + id, por un
+   reintento de webhook o una reconexión) se descarta. Ver
    [Dedupe de entrada](#dedupe-de-entrada). Con el
-   [procesamiento durable](./durabilidad) activado (opt-in), después el
-   mensaje se anota en el inbox antes de que corra nada más, se confirma
-   cuando sus pasos de conversación se asentaron y se reprocesa desde el
-   paso 1 tras una caída.
-3. **Persistencia**: se guardan el chat, el contacto y el mensaje en el store.
+   [procesamiento durable](./durabilidad) activo, el evento se escribe después
+   en el journal de entrada, así que tras una caída se reproduce desde el paso 1.
+3. **Persistencia**: el chat, el contacto y el mensaje se guardan en el store.
 4. **Filtro `groupMode`**: un mensaje de grupo que el bot debe ignorar se
-   detiene aquí (sí se persiste).
-5. **Resolución del idioma y hooks `before('message')`**: con el
-   [i18n](./i18n) activado, primero se resuelve `ctx.lang` (preferencia
-   guardada en `ctx.user` → idioma que informa el provider → `detect` →
-   idioma por defecto), así que hooks y handlers ya lo ven (`ctx.langSource`
-   dice cuál ganó). Después corren los hooks, que pueden hacer `abort()` del
-   mensaje. Si un hook reescribió `ctx.body` (p. ej. la transcripción del
-   plugin de voz) y el idioma salió de `detect` o del valor por defecto, se
-   vuelve a resolver para que `detect` vea el texto final (se respeta un
-   `ctx.lang` que el hook haya puesto a mano).
-6. **Gate de handoff**: mientras un chat está [en manos de un humano](./handoff),
-   se saltan los pasos 7–11 (salvo los comandos de `handoff.allowCommands`).
-   El mensaje se sigue persistiendo, los hooks siguen corriendo y
-   `'message'` se sigue emitiendo.
-7. **Los comandos** (`/reset`, `/help`, ...) siempre ganan, incluso sobre
-   una conversación activa. Eso es lo que le permite a `/reset` escapar de
-   un flujo atascado.
-8. **Conversación activa**: si este participante ya inició un `flow` o un
-   `bot.conversation` que está esperando una respuesta, el mensaje va ahí.
-9. **Reanudación dormida**: si un flujo `.persistent()` quedó guardado como
-   checkpoint en el store (p. ej. antes de un reinicio), el flujo se reanuda
-   en el paso guardado.
-10. **Matchers** registrados con `bot.when(...)`, por especificidad: primero
-    [`WELCOME`](./triggers#welcome) (solo el primer contacto), luego los
-    triggers de texto (una coincidencia exacta/`equals` gana a
-    `startsWith`, a un regex o a `contains`), luego las funciones
-    predicado, luego los triggers de un tipo (`IMAGE`, `onType('image')`...) y por
-    último los multi-tipo (`MEDIA`). Con la misma especificidad gana el
-    registrado primero.
-11. **`bot.onMessage()`**: el catch-all (también `aiPlugin`). Se ejecuta
-    **solo** si nada de lo anterior consumió el mensaje.
-12. **Cierre**: hooks `after('message')` y luego el evento `'message'` (aquí
-    se rearman los temporizadores de `bot.onIdle`).
+   detiene aquí (se guarda igual).
+5. **Idioma y después hooks `before('message')`**: con [i18n](./i18n) activo,
+   primero se resuelve `ctx.lang`, así que hooks y handlers ya lo ven. Luego
+   corren los hooks, que pueden hacer `abort()` del mensaje. Si un hook
+   reescribió `ctx.body` (la transcripción de `@botmesh/voice`, por ejemplo) y
+   el idioma salió de `detect` o del valor por defecto, se resuelve otra vez
+   sobre el texto nuevo.
+6. **Puerta de handoff**: mientras un chat está
+   [en manos de un humano](./handoff), se saltan los pasos 7–11 (salvo
+   `handoff.allowCommands`). El mensaje se guarda igual, los hooks corren y
+   `'message'` se emite.
+7. **Comandos** (`/reset`, `/help`…): siempre ganan, incluso a una
+   conversación activa. Por eso `/reset` sirve para salir de un flujo atascado.
+8. **Conversación activa**: si este participante está en un flujo o en una
+   `bot.conversation` esperando respuesta, el mensaje va ahí.
+9. **Reanudación dormida**: un flujo `.persistent()` con checkpoint en el
+   store (por ejemplo antes de un reinicio) se reanuda en el paso guardado.
+10. **Matchers** registrados con `bot.when()` y `bot.onType()`, por
+    especificidad: [`WELCOME`](./triggers#welcome) (solo el primer contacto),
+    luego texto exacto, `startsWith`, `endsWith`, regex, `contains`,
+    predicados, tipo único (`IMAGE`) y triggers multi-tipo (`MEDIA`). A igual
+    especificidad gana el registrado primero. Ver
+    [Precedencia](./triggers#precedencia).
+11. **`bot.onMessage()`**: el catch-all (`aiPlugin` es uno). Corre **solo** si
+    nada de lo anterior consumió el mensaje.
+12. **Final**: hooks `after('message')` y después el evento `'message'` (aquí
+    se rearman los timers de `bot.onIdle`).
 
-Cuando el bot corre como una de varias réplicas ([`coordination`](./replicas)),
-hay un paso más entre el 4 y el 5: el mensaje tomó un turno en la cola FIFO
-del chat compartida entre réplicas al encolarse, y espera ahí su **turno**.
-Solo una réplica tiene el turno de un chat a la vez y los turnos siguen el
-orden de llegada, así que la cola FIFO por chat se mantiene entre réplicas.
-Un mensaje que no consigue su turno se descarta y se informa como `'error'`
-(su id de dedupe se libera). El turno se suelta cuando la conversación que
-recibió el mensaje vuelve a esperar o termina.
+Si un handler lanza un error, corren los hooks `onError('message')` y el error
+se emite en `bot.on('error', ({ error, ctx }) => ...)`, haya o no un hook de
+error.
 
-Las **llamadas** entrantes siguen un camino aparte: los gates de listas de
-acceso y handoff van **primero** y bloquean la llamada por completo (sin
-hooks `'call'`, sin evento `'call'` ni trigger `CALL`; cuenta en
-`metrics().dropped`). Una llamada admitida corre los hooks
-`before`/`after('call')` y el evento `'call'`, después la misma resolución
-del idioma y solo los [triggers `CALL`](./triggers#call). Sin hooks de
-mensaje, comandos ni evento `'message'`.
+### Los handlers consumen por defecto
 
-`bot.trigger(name, { chatId })` (arrancar un flujo sin mensaje entrante)
-también va por su propio camino: las listas de acceso, después el turno de
-la cola FIFO del chat, el gate de handoff, la resolución del idioma y el
-inicio de la conversación. Sin dedupe, persistencia, hooks de mensaje,
-matchers ni evento `'message'`.
-
-Si un handler lanza, corren los hooks `onError('message')` y el error se
-emite siempre en `bot.on('error', ({ error, ctx }) => ...)`, aunque no haya
-ningún hook de error registrado.
-
-Los handlers **consumen por defecto**: una vez que uno se ejecuta, el
-pipeline se detiene ahí. Llama a `ctx.pass()` dentro de un handler para
-ceder el turno al siguiente handler que coincida en lugar de detenerse —
-así es como los handlers de baja especificidad como `onType`
-cooperan con un `when` más amplio:
+En cuanto corre un handler, el enrutado se detiene ahí. Llama a `ctx.pass()`
+para entregar el mensaje al siguiente handler que coincida:
 
 ```ts
 bot.when(/.+/, async (ctx) => {
-  if (ctx.type === 'image') { ctx.pass(); return } // cede el turno al siguiente handler
-  await ctx.reply('text received')
+  if (ctx.type === 'image') { ctx.pass(); return } // que lo tome el handler de imágenes
+  await ctx.reply('texto recibido')
 })
 
 bot.onType('image', async (ctx) => {
-  await ctx.reply('image received') // ahora se alcanza, porque el handler de arriba hizo pass
+  await ctx.reply('imagen recibida')
 })
 ```
+
+### El evento `'message'` vs `onMessage()`
+
+- `bot.on('message', ctx => ...)` se dispara con **cada** mensaje que el
+  dispatcher terminó, incluidos los que consumió un comando, una conversación
+  o un `when`. Úsalo para logs e integraciones de bandeja de entrada.
+- `bot.onMessage(ctx => ...)` es el handler **catch-all**: solo corre cuando
+  nada más consumió el mensaje.
+
+### Llamadas, `bot.trigger()` y réplicas
+
+- Las **llamadas** siguen un camino más corto: las listas de acceso y la
+  puerta de handoff van **primero** y bloquean la llamada por completo (sin
+  hooks `'call'`, evento ni trigger `CALL`; cuenta en `metrics().dropped`). Una
+  llamada admitida corre los hooks `before`/`after('call')` y el evento
+  `'call'`, y después solo los [triggers `CALL`](./triggers#call): sin hooks de
+  mensaje, comandos ni evento `'message'`.
+- **`bot.trigger(nombre, { chatId })`** inicia un flujo sin mensaje entrante
+  (ver [Iniciar un flujo desde código](./mensajes#iniciar-un-flujo-desde-codigo)).
+  Comprueba las listas de acceso, espera el turno FIFO del chat, comprueba la
+  puerta de handoff, resuelve el idioma e inicia la conversación. Sin dedupe,
+  persistencia, hooks de mensaje, matchers ni evento `'message'`.
+- **Con [`coordination`](./replicas)** (varias réplicas) hay un paso más entre
+  el 4 y el 5: el mensaje espera el **turno** de su chat, así que el FIFO por
+  chat se mantiene entre réplicas. Un mensaje que no consigue su turno se
+  descarta y se reporta en `'error'` (su id de dedupe se libera, así que una
+  reentrega se procesa).
+
+## Las conversaciones de grupo son por participante
+
+En un grupo, dos participantes que hablan con el bot tienen **conversaciones
+independientes** por defecto: uno puede estar a mitad de un registro mientras
+el otro pide el menú. Usa `conversationScope: 'chat'` para tener una sola
+conversación compartida por grupo:
+
+```ts
+const bot = new Bot({ provider, conversationScope: 'chat' })
+```
+
+El handoff, `groupMode` y el evento `'message'` siguen siendo por chat en
+ambos casos.
 
 ## Dedupe de entrada
 
-Los transportes por webhook (Cloud API, Messenger, Instagram, Telegram en
-modo webhook) reintentan una entrega cuando no reciben un 2xx a tiempo, y
-Baileys puede reenviar mensajes recientes al reconectar. Sin protección, un
-mismo mensaje arrancaría un flujo dos veces o se consumiría como la
-respuesta a la *siguiente* pregunta de una conversación. El `Bot` descarta
-las re-entregas antes de que lleguen a ningún handler. Viene **activado por
-defecto**:
+Los transportes por webhook (Cloud API, Messenger, Instagram, webhook de
+Telegram) reintentan una entrega cuando no reciben un 2xx a tiempo, y Baileys
+puede reenviar mensajes recientes tras reconectar. Sin protección, el mismo
+mensaje arrancaría un flujo dos veces, o se tomaría como respuesta a la
+*siguiente* pregunta. El bot descarta las reentregas antes de que las vea
+ningún handler. Está **activado por defecto**:
 
 ```ts
 new Bot({ provider })                                     // por defecto: { size: 1000 }, sin TTL
-new Bot({ provider, dedupe: { size: 5000, ttl: '1h' } })  // ajustar
-new Bot({ provider, dedupe: false })                      // desactivar
+new Bot({ provider, dedupe: { size: 5000, ttl: '1h' } })  // ajustarlo
+new Bot({ provider, dedupe: false })                      // desactivarlo
 ```
 
-- La clave de un mensaje es `chatId` + `ref.id`, porque algunos transportes
-  solo garantizan ids únicos por chat (p. ej. el `message_id` de Telegram).
-  La de una interacción (pulsar un botón o una fila de lista) es su
-  `interactionId`, así que dos pulsaciones en el mismo menú son dos eventos.
-- Ediciones: el mismo id con **otro** cuerpo (`edited_message` de Telegram)
-  se procesa; un reintento idéntico se descarta. Solo se guarda un hash del
-  cuerpo, nunca el texto.
+- Un mensaje se identifica por `chatId` + `ref.id` (algunos transportes solo
+  garantizan ids únicos por chat). Un toque en un botón o lista se identifica
+  por su `interactionId`, así que dos toques en el mismo menú son dos eventos.
+- **Ediciones**: el mismo id con un cuerpo **distinto** (una edición de
+  Telegram) se procesa; un reintento idéntico se descarta. Solo se guarda un
+  hash del cuerpo.
 - Los eventos con id vacío nunca se deduplican.
-- Las listas de acceso van antes: un mensaje o interacción de un remitente
-  o chat bloqueado nunca se registra, así que el mismo id re-entregado
-  después de desbloquearlo se procesa (y, mientras siga bloqueado, cuenta
-  como `blocked`, no como `duplicate`).
-- Si falla la persistencia antes de los handlers (store caído), la clave se
-  libera y el reintento del transporte sí se procesa.
-- Un mensaje que seguía en la cola de su chat cuando se llamó a
-  `bot.stop()` se descarta sin procesar y su clave se libera, así que el
-  mismo id re-entregado después de `bot.start()` sí se procesa.
-- `size` es un LRU; `ttl` (ms o `'30s'`/`'10m'`/`'1h'`) cuenta desde la
-  primera aceptación.
-- **Límite:** vive en la memoria del proceso. No deduplica entre réplicas
-  ni tras un reinicio.
+- Un mensaje bloqueado nunca se registra, así que el mismo id reenviado tras
+  desbloquear se procesa.
+- Si la persistencia falla antes de los handlers (store caído), o el mensaje
+  sigue en cola cuando corre `bot.stop()`, la clave se libera para que una
+  reentrega se procese.
+- `size` limita un LRU; `ttl` (una [duración](./configuracion#duraciones))
+  cuenta desde la primera aceptación.
+- **Límite:** vive en la memoria del proceso, así que no deduplica entre
+  réplicas ni tras un reinicio. Eso lo cubre el
+  [procesamiento durable](./durabilidad).
 
-Los providers deben dar a cada evento entrante un id que nombre exactamente
-un evento lógico, que no cambie cuando se re-entrega y que sea `''` cuando
-el transporte no pueda garantizarlo. Es el **contrato de ids de entrada**,
-documentado en `IProvider`. El deduper en sí (`InboundDeduper`,
-`inboundDedupeKey`…) es un interno del motor (`@botmesh/core/internal`).
+Los providers deben dar a cada evento entrante un id que nombre exactamente un
+evento, no cambie cuando se reenvía y sea `''` cuando el transporte no pueda
+garantizarlo (el **contrato de ids de entrada** de `IProvider`).
 
 ## Filtro de ecos
 
-Cada provider marca sus propios mensajes con `fromMe`, y el core los descarta
-antes que nada. Algunos transportes solo conocen su propio id tras un
-handshake, y un buzón o una pasarela puede devolver un mensaje que el bot
-acaba de enviar sin esa marca. `echoFilter` complementa a `fromMe` (no lo
-sustituye): el bot recuerda los refs de sus envíos correctos y descarta un
-mensaje entrante cuyo ref esté recordado, antes de las listas de acceso, el
-dedupe y el journal, así que un eco nunca cuenta como tráfico entrante.
+Todo provider marca los mensajes del propio bot con `fromMe`, y el core los
+descarta primero. Algunos transportes solo conocen su propio id tras un
+handshake, y un buzón o gateway puede devolver un mensaje que el bot acaba de
+enviar sin esa marca. `echoFilter` añade una segunda protección: el bot
+recuerda las refs de sus envíos correctos y descarta un mensaje entrante que
+traiga una de ellas, antes de las listas de acceso, el dedupe y el journal.
 
 ```ts
 new Bot({ provider, echoFilter: true })                       // 1000 refs, sin TTL
-new Bot({ provider, echoFilter: { size: 5000, ttl: '10m' } }) // ajustar
+new Bot({ provider, echoFilter: { size: 5000, ttl: '10m' } }) // ajustarlo
 ```
 
-Los descartes cuentan en `metrics().dropped.echo` (Prometheus:
-`botmesh_dropped_total{reason="echo"}`) y solo con la opción activa (viene
-desactivada). El anillo vive en memoria (por proceso) y cada ref recordado lo consume el primer eco que coincide; una
-re-entrega posterior es cosa del dedupe.
-
-## El evento `'message'` vs `onMessage()`
-
-Se parecen pero no son lo mismo:
-
-- `bot.on('message', ctx => ...)` se dispara para **todo** mensaje que el
-  Dispatcher terminó de procesar — incluyendo los que un comando, una
-  conversación activa, o un handler `when` ya consumieron.
-- `bot.onMessage(ctx => ...)` es el **catch-all** — solo se ejecuta cuando
-  nada más consumió el mensaje.
-
-## Las conversaciones de grupo son por participante por defecto
-
-En un grupo, dos participantes distintos que le hablan al bot en el mismo
-chat obtienen **conversaciones independientes** por defecto (indexadas
-internamente por `${from}:${sender}`). Usa `conversationScope: 'chat'` si
-quieres una única conversación compartida por chat de grupo:
-
-```ts
-const bot = new Bot({
-  provider: new BaileysProvider({ session: 'my-bot' }),
-  conversationScope: 'chat',
-})
-```
-
-## El objeto ctx — tu mejor amigo
-
-```ts
-bot.when('hola', async (ctx) => {
-  console.log(ctx.body)        // texto del mensaje
-  console.log(ctx.from)        // id del chat (opaco; un JID en WhatsApp/Baileys)
-  console.log(ctx.sender)      // id del remitente (= from en DMs, participant en grupos)
-  console.log(ctx.type)        // 'text', 'image', 'audio', ...
-  console.log(ctx.isGroup)     // ¿es un grupo?
-
-  await ctx.reply('text')
-  await ctx.photo(url, 'caption')
-  await ctx.poll('Question?', ['A', 'B'])
-  await ctx.react('👍')
-
-  const db = ctx.tools.db  // herramienta inyectada
-  await ctx.user.set('lang', 'es')   // perfil persistente por usuario
-})
-```
-
-## Ids de chat y remitente
-
-`ctx.from` (chat) y `ctx.sender` (usuario) son **strings opacos** que el
-provider resuelve — el core nunca inspecciona su forma. Para el transporte
-Baileys resultan ser **JIDs** (Jabber IDs) de WhatsApp:
-
-| Tipo | Formato | Ejemplo |
-|---|---|---|
-| Usuario | `number@s.whatsapp.net` | `573001234567@s.whatsapp.net` |
-| Grupo | `id@g.us` | `120363xxx@g.us` |
-| Newsletter | `id@newsletter` | `120363xxx@newsletter` |
-
-No necesitas memorizar esto — `ctx.from` te da el id correcto en cualquier
-transporte. Si necesitas la clave nativa del mensaje entrante (para
-citarlo/editarlo/borrarlo con llamadas del provider), usa `ctx.ref`
-(`{ id, chatId, native? }`).
-
-## Duraciones
-
-Toda opción de duración acepta un texto de duración (`'500ms'`, `'30s'`,
-`'2m'`, `'1h'`, `'1d'`, `'1w'`, `'5 minutes'`) o un número de milisegundos.
-Eso incluye **todas las opciones cuyo nombre termina en `Ms`**:
-`typing.minMs`, `durability.inbox.backoff.baseMs`,
-`coordination.turnWaitMs`, `scheduler.tickMs` y el resto.
-
-```ts
-const bot = new Bot({
-  provider,
-  typing: { minMs: '800ms', maxMs: '3s' },
-  durability: { pollMs: '1s', outbox: { inlineMaxMs: '15s', backoff: { baseMs: '1s', capMs: '1m' } } },
-})
-```
-
-`new Bot()` revisa todas las opciones de duración de `BotConfig`. Un valor
-inválido lanza un `ConfigValidationError` cuyo `field` es la ruta de la
-opción, así que el mensaje dice cuál corregir:
-
-```text
-ConfigValidationError: Invalid config.durability.pollMs: expected a duration ('500ms', '30s', '10m', '1h') or milliseconds, got string ("soon")
-```
-
-`parseDuration()` expone la misma gramática.
-
-## Logger
-
-`BotConfig.logger` (y la opción `logger` de cada provider y store) acepta un
-`LoggerLike`: pino, `console` o cualquier objeto con `debug`, `info`, `warn`
-y `error`. Los paquetes siempre lo llaman al estilo pino, así que un logger
-propio solo tiene que manejar dos formas:
-
-```ts
-logger.warn('provider reconnected')                  // un mensaje
-logger.error({ err, chatId }, 'dispatch error')      // primero el objeto de contexto, luego el mensaje
-```
-
-Un error va siempre bajo la clave `err`. Los paquetes nunca ponen un objeto
-después del mensaje (pino lo descartaría), y `child(bindings)` es opcional.
+Está desactivado por defecto. Los descartes cuentan en
+`metrics().dropped.echo` (Prometheus: `botmesh_inbound_dropped_total{reason="echo"}`).
+La memoria es por proceso, y cada ref recordada se consume con el primer eco
+que coincide.
 
 ## Entradas del paquete
 
-| Importa de | Para |
+| Importa desde | Para |
 | --- | --- |
 | `@botmesh/core` | Aplicaciones: el `Bot`, el DSL de flujos, los tipos de mensaje, las opciones y los errores que puedes capturar. |
-| `@botmesh/core/testing` | Tests: `createTestBot`, `MockProvider`, el kit de caos, las transcripciones doradas, la simulación de caídas y `MemoryCoordinator`. |
-| `@botmesh/core/spi` | Autores de stores, backends de durabilidad, schedule stores, coordinadores, integraciones de trazas y transportes: `KvDurability`, `MemoryKv`, `MemoryScheduleStore`, `messageKey`, `toInboundLocation`, los tipos de registro… Con garantía semver. |
-| `@botmesh/core/dev` | El simulador de terminal `botmesh dev`. |
+| `@botmesh/core/testing` | Tests: `createTestBot`, `MockProvider`, el kit de caos, transcripciones doradas, simulación de caídas y `MemoryCoordinator`. Ver [Testing](./testing). |
+| `@botmesh/core/testing/vitest` | Matchers de Vitest (`toHaveReplied`…). |
+| `@botmesh/core/spi` | Autores de stores, backends de durabilidad, stores de tareas, coordinadores, integraciones de trazas y transportes: `KvDurability`, `MemoryKv`, `MemoryScheduleStore`, `messageKey`, `toInboundLocation`, los tipos de registro… Cubierto por semver. |
+| `@botmesh/core/dev` | El [simulador en la terminal](./simulador) `botmesh dev`. |
 | `@botmesh/core/internal` | Clases del motor (`Dispatcher`, `ConversationRuntime`, `HookSystem`…). Sin garantía semver: no lo uses desde una aplicación. |
 
 ## Siguientes pasos
 
-- [Mensajes y media](./mensajes) — todos los tipos de respuesta
-- [Flujos conversacionales](./flujos) — conversaciones complejas
-- [Hooks](./hooks) — middleware y logging
-- [Triggers especiales](./triggers) — WELCOME, tipos de mensaje y CALL
-- [Handoff y listas de acceso](./handoff) — pausar el bot para un humano, bloquear remitentes
-- [Ejemplos](/es/ejemplos/mensajes) — recetas prácticas
+- [Referencia de configuración](./configuracion): todas las opciones de `new Bot()`, eventos, logs y errores
+- [Mensajes y media](./mensajes): todos los tipos de respuesta
+- [Flujos conversacionales](./flujos): conversaciones de varios pasos
+- [Triggers especiales](./triggers): WELCOME, tipos de mensaje y CALL
+- [Hooks](./hooks): middleware
+- [Ejemplos](/es/ejemplos/mensajes): recetas prácticas

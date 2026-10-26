@@ -58,7 +58,7 @@ the `ctx` is a full `MessageContext`, so `ctx.user` works directly.
 | `clear()` | Removes every key of **this** namespace for this user. |
 | `ns(name)` | Same API scoped to namespace `name` (flat: `ns('a').ns('b')` is `'b'`). |
 
-`ctx.user` is the `'default'` namespace (`DEFAULT_USER_NAMESPACE`).
+`ctx.user` itself is the `'default'` namespace.
 
 ## Paths and values
 
@@ -109,18 +109,19 @@ the `ctx` is a full `MessageContext`, so `ctx.user` works directly.
 
 ## Stores
 
-All six bundled stores support it: `MemoryStore`, `SQLiteStore`,
-`RedisStore`, `MongoStore`, `PostgresStore` and `MysqlStore`. See
+Every bundled store supports it: `MemoryStore` (core), `SQLiteStore` and
+`RedisStore`, and the experimental `MongoStore`, `PostgresStore` and
+`MysqlStore`. See
 [Persistent store](./store#user-data-tables) for the tables and keys they
 use.
 
 A custom `IStore` without the optional user-data methods makes `ctx.user`
 reject with `UserDataError('UNSUPPORTED_STORE')`; subject export and
 deletion keep working (`userData: []` / `0`). `supportsUserData(store)`
-tells you which case you are in. To implement it, add `getUserData`,
-`setUserData`, `deleteUserData`, `listUserData` and `purgeExpiredUserData`
-and pass the shared suite `runUserDataConformance` from
-`test-utils/user-data-conformance.ts`.
+(from `@botmesh/core/spi`) tells you which case you are in. To implement it,
+add `getUserData`, `setUserData`, `deleteUserData`, `listUserData` and
+`purgeExpiredUserData`; the botmesh repository checks every bundled store
+with the same shared suite (`test-utils/user-data-conformance.ts`).
 
 ## Privacy: export and erasure
 

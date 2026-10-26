@@ -1,5 +1,6 @@
-# Migrating to 2.0
+# Upgrade to stable: behaviour changes
 
+Step 5 of the [upgrade checklist](./stable-migration#upgrade-checklist).
 `@botmesh/core` 2.0 leaves the alpha series with a few deliberate behaviour
 changes. This page lists each one, what changed and how to keep the old
 behaviour where that is still possible. Most bots need at most two edits:
@@ -259,3 +260,8 @@ window; a template is required` and `Recipient unreachable`. The id is still on
   treated as parts). A custom `OutboxJournal` should store `previousPart` from `put()`
   and honour the new `markFailed(..., { refund: true })` option (give the claimed attempt
   back); one that ignores them keeps the parts unordered on retries, as before.
+
+## Next steps
+
+- [Upgrade notes: channels & plugins](./upgrade-channels-plugins)
+- [Upgrade to stable: checklist and API changes](./stable-migration)

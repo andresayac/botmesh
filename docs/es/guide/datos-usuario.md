@@ -59,7 +59,7 @@ lo construyó un bot. En `bot.conversation(name, async (c, ctx) => ...)` el
 | `clear()` | Borra todas las claves de **este** namespace para este usuario. |
 | `ns(name)` | La misma API en el namespace `name` (plano: `ns('a').ns('b')` es `'b'`). |
 
-`ctx.user` es el namespace `'default'` (`DEFAULT_USER_NAMESPACE`).
+`ctx.user` en sí es el namespace `'default'`.
 
 ## Paths y valores
 
@@ -113,18 +113,20 @@ lo construyó un bot. En `bot.conversation(name, async (c, ctx) => ...)` el
 
 ## Stores
 
-Los seis stores incluidos lo soportan: `MemoryStore`, `SQLiteStore`,
-`RedisStore`, `MongoStore`, `PostgresStore` y `MysqlStore`. En
+Todos los stores incluidos lo soportan: `MemoryStore` (core), `SQLiteStore` y
+`RedisStore`, y los experimentales `MongoStore`, `PostgresStore` y
+`MysqlStore`. En
 [Store persistente](./store#tablas-de-datos-de-usuario) están las tablas y
 claves que usa cada uno.
 
 Un `IStore` propio sin los métodos opcionales de datos de usuario hace que
 `ctx.user` rechace con `UserDataError('UNSUPPORTED_STORE')`; la exportación
 y el borrado de sujeto siguen funcionando (`userData: []` / `0`).
-`supportsUserData(store)` te dice en qué caso estás. Para implementarlo,
-añade `getUserData`, `setUserData`, `deleteUserData`, `listUserData` y
-`purgeExpiredUserData` y pasa la suite compartida `runUserDataConformance`
-de `test-utils/user-data-conformance.ts`.
+`supportsUserData(store)` (de `@botmesh/core/spi`) te dice en qué caso estás.
+Para implementarlo, añade `getUserData`, `setUserData`, `deleteUserData`,
+`listUserData` y `purgeExpiredUserData`; el repositorio de botmesh comprueba
+cada store incluido con la misma suite compartida
+(`test-utils/user-data-conformance.ts`).
 
 ## Privacidad: exportación y borrado
 

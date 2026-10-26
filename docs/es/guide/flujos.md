@@ -10,12 +10,37 @@ continúa.
 ```ts
 import { flow } from '@botmesh/core'
 
-const greet = flow('hola')
-  .ask('👋 Hello! What is your name?', 'name')
-  .say((_ctx, c) => `Nice to meet you, ${c.state.name}!`)
+const saludo = flow('hola')
+  .ask('👋 ¡Hola! ¿Cómo te llamas?', 'name')
+  .say((_ctx, c) => `¡Mucho gusto, ${c.state.name}!`)
 
-bot.use(greet)
+bot.use(saludo)
 ```
+
+Cuando alguien escribe "hola", el bot pide el nombre, espera la respuesta, la
+guarda en `c.state.name` y lo saluda. `flow()` acepta cualquier
+[trigger](./conceptos#when-respuestas-simples): un texto, una lista, una regex,
+un predicado, o `WELCOME`, `IMAGE` y los demás
+[triggers especiales](./triggers).
+
+## Registrar e iniciar flujos
+
+| Llamada | Qué hace |
+| --- | --- |
+| `bot.use(flujo)` / `bot.use([a, b])` | Registra flujos; cada uno arranca cuando coincide su trigger. |
+| `bot.registerFlow(flujo)` | Igual, y devuelve el id del flujo (para iniciarlo o reemplazarlo después). |
+| `bot.trigger(id, { chatId })` | Inicia un flujo desde código: una tarea programada, un webhook, una acción de administración. Ver [Iniciar un flujo desde código](./mensajes#iniciar-un-flujo-desde-codigo). |
+| `bot.abortConversation(ctx)` | Cancela la conversación en curso de ese usuario (lo que hace `/reset`). Acepta un `ctx` o `{ from, sender, isGroup }`. |
+
+El id de un flujo es su trigger de texto, normalizado (`flow('Hola')` es
+`'hola'`; una lista usa su primer texto). Un flujo construido con una regex, un
+predicado o un trigger especial necesita `.id('nombre')` para iniciarlo por
+nombre, usarlo como destino de `goto` o hacerlo `.persistent()`.
+
+Mientras un usuario está dentro de un flujo, sus mensajes van al flujo, no a
+otros triggers. Los comandos siguen ganando, así que `/reset` (con
+[`slashCommandsPlugin`](./plugins#incluido-slashcommands)) siempre saca al
+usuario.
 
 ## Métodos del DSL
 
@@ -38,7 +63,7 @@ Node (2^31 − 1 ms, unos 24 días), lanza un error al construir el flow.
 Terminar la conversación (`/reset`, un reemplazo, `bot.stop()`) cancela el
 delay pendiente.
 
-### ask — enviar un mensaje y esperar la respuesta
+### ask — enviar un mensaje y esperar la respuesta {#ask}
 
 ```ts
 flow('x').ask('What is your name?', 'name')  // guarda la respuesta en c.state.name
@@ -51,14 +76,24 @@ flow('x').ask('Email?', 'email', {
 })
 ```
 
-Si `validate` devuelve un string de error, el bot lo envía de vuelta y
-vuelve a preguntar. `maxAttempts` es el total de respuestas que acepta la
-espera, la primera incluida (por defecto 3); la última inválida lanza
-`RetriesExceeded` y la conversación termina con `retriesMessage`.
-`retries: N` es el mismo límite contado después de la primera respuesta
-(`retries: 2` = `maxAttempts: 3`); pasa solo uno de los dos. En las alphas de
-2.0 `retries: N` significaba N respuestas en total: consulta la
-[guía de migración](./migracion-2#retries-y-maxattempts).
+Si `validate` devuelve un texto de error, el bot lo envía y vuelve a
+preguntar. Las opciones son las mismas en todas las esperas (`.ask()`,
+`.choose()`, y `c.ask()`, `c.waitText()`, `c.choose()`… en conversaciones):
+
+| Opción | Por defecto | Qué hace |
+| --- | --- | --- |
+| `validate(body, msg)` | ninguna | Devuelve `true` para aceptar, o un texto de error que se envía antes de volver a preguntar. Puede ser async. |
+| `schema` | ninguna | Un schema compatible con zod; se guarda el valor **parseado** (ver abajo). |
+| `maxAttempts` | `3` | Respuestas que acepta la espera en total, la primera incluida. `Infinity` = sin límite. |
+| `retries` | | El mismo límite contado después de la primera respuesta: `retries: 2` es `maxAttempts: 3`. Pasa solo uno de los dos. |
+| `otherwise` | el mensaje de `validate` o del schema | Texto que se envía cuando se rechaza una respuesta sin mensaje propio. |
+| `timeout` | `conversation.timeout` (`'5m'`) | Cuánto esperar esta respuesta. |
+| `filter(msg)` | ninguna | Un mensaje que no pasa no lo toma la espera: sigue hacia los demás handlers y no gasta intento. |
+| `delay` | ninguna | Pausa antes de enviar la pregunta (solo en pasos de flujo). |
+
+Cuando se rechaza el último intento, la conversación termina con
+`retriesMessage` ("❌ Too many attempts. Conversation ended." por defecto; con
+`lang: 'es'`, en español).
 
 #### Validación con schema (compatible con zod)
 
@@ -104,8 +139,7 @@ flow('x')
 `location`. La fuente puede ser una URL, una ruta, un `Buffer` o una
 función `(ctx, c) => fuente` calculada en tiempo de ejecución. El cuarto
 argumento acepta `delay` y opciones por tipo (`filename`, `ptv`,
-`gifPlayback`, `pack`, `author`). La forma antigua de dos argumentos,
-`.media(fuente, caption?)`, sigue enviando una imagen.
+`gifPlayback`, `pack`, `author`).
 
 ### choose — branching (menú numerado)
 
@@ -300,20 +334,49 @@ bot.use(register)
 
 ## Más allá del DSL
 
-Para control de flujo arbitrario — loops, branching personalizado, llamar a
-una API externa a mitad de la conversación — sáltate el DSL y escribe la
-conversación directamente con `bot.conversation(name, async (c, ctx) =>
-{...})`, usando `c.ask`/`c.waitText`/`c.waitMedia`/`c.choose`/`c.goto`/`c.end`.
-Los flows construidos con `flow()` compilan exactamente a este runtime.
+Para control de flujo arbitrario (bucles, ramas propias, llamar a una API
+externa a mitad de la conversación) escribe la conversación como una función
+async. Los flujos construidos con `flow()` compilan exactamente a este
+runtime.
 
-`c.waitMedia(tipos?, opts?)` espera `image`, `video`, `audio`, `document` o
-`sticker` por defecto; las notas de voz, solo si las pides
-(`c.waitMedia(['voice'])` o `c.waitMedia(['audio', 'voice'])`). Resuelve con el
-mensaje; descarga sus bytes con
-[`loadMediaOf()`](./mensajes#acceder-al-contenido-del-media).
+```ts
+bot.conversation('quiz', async (c, ctx) => {
+  let aciertos = 0
+  for (const [pregunta, respuesta] of [['¿2 + 2?', '4'], ['¿Capital de Francia?', 'paris']]) {
+    const r = await c.ask(pregunta, { timeout: '1m' })
+    if (r.trim().toLowerCase() === respuesta) aciertos++
+  }
+  await ctx.reply(`Puntuación: ${aciertos}/2`)
+}, { trigger: 'quiz' })
+```
 
-`c.waitLocation(opts?)` espera una ubicación compartida y resuelve con su
-`InboundLocation` normalizado (ver [Recibir una ubicación](./mensajes#recibir-una-ubicacion)).
+Sin `{ trigger }`, iníciala con `bot.trigger('quiz', { chatId })` o con
+`c.goto('quiz')` desde otra conversación. El objeto `c`:
+
+| Miembro | Qué hace |
+| --- | --- |
+| `c.ask(texto, opts?)` | Envía `texto` y espera una respuesta de texto. Resuelve con la respuesta (el valor parseado con `schema`). |
+| `c.waitText(opts?)` | Espera un mensaje de texto, sin pregunta. |
+| `c.choose(pregunta, opciones, opts?)` | Envía un menú numerado y resuelve con la clave elegida. |
+| `c.waitMedia(tipos?, opts?)` | Espera media y resuelve con el mensaje. Por defecto `image`, `video`, `audio`, `document` o `sticker`; las notas de voz solo si las pides (`['voice']`). Descarga los bytes con [`loadMediaOf()`](./mensajes#acceder-al-contenido-del-media). |
+| `c.waitLocation(opts?)` | Espera una ubicación compartida y resuelve con su `InboundLocation` (ver [Recibir una ubicación](./mensajes#recibir-una-ubicacion)). |
+| `c.waitAny(opts?)` | Espera cualquier mensaje. |
+| `c.say(texto)` | Envía texto (igual que `ctx.reply`, tipado para la conversación). |
+| `c.state` | Objeto plano que dura toda la conversación (se persiste en flujos `.persistent()`). |
+| `c.retry(mensaje?)` | Repite la última espera. Ver [abajo](#c-retry-repetir-la-ultima-espera). |
+| `c.idle(duración, fn)` / `c.idleClear()` | Vigilante de inactividad. Ver [abajo](#c-idle-inactividad-dentro-de-una-conversacion). |
+| `c.goto(nombre, args?)` | Sale de esta conversación e inicia otra. |
+| `c.end(despedida?)` | Termina la conversación, opcionalmente con un último mensaje. |
+| `c.t(clave, params?)`, `c.lang` | Traduce en el idioma actual del usuario. Ver [i18n](./i18n#conversaciones). |
+
+`opts` acepta las [opciones de espera](#ask)
+(`timeout`, `validate`, `maxAttempts`, `otherwise`, `filter`, `schema`).
+
+::: warning No captures las señales de control
+`c.goto()`, `c.end()`, un timeout y el exceso de intentos funcionan lanzando un
+`ConversationError`. Si envuelves esperas en `try/catch`, relánzalo:
+`if (e instanceof ConversationError) throw e`.
+:::
 
 ## `ctx` en `bot.conversation()` es un `MessageContext` completo
 
@@ -331,9 +394,7 @@ bot.conversation('foto', async (c, ctx) => {
 })
 ```
 
-El tipo público es `ConversationHandler<TTools = DefaultTools>`; los
-handlers tipados con el obsoleto `ConversationFn<ConversationControls>`
-siguen compilando. En el DSL (`flow().do((ctx, c) => ...)`) `ctx` sigue
+El tipo del handler es `ConversationHandler<TTools = DefaultTools>`. En el DSL (`flow().do((ctx, c) => ...)`) `ctx` sigue
 siendo un `RuntimeMessage`; ahí usa `userOf(ctx)` y `bot.handoff(ctx.from)`.
 
 ## `c.retry()`: repetir la última espera

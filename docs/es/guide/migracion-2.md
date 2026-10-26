@@ -1,5 +1,6 @@
-# Migrar a 2.0
+# Actualizar a estable: cambios de comportamiento
 
+Paso 5 del [checklist de actualización](./migracion-estable#checklist-de-actualizacion).
 `@botmesh/core` 2.0 sale de la serie alpha con unos pocos cambios de
 comportamiento deliberados. Esta página explica cada uno, qué cambió y cómo
 mantener el comportamiento anterior cuando todavía es posible. La mayoría de
@@ -273,3 +274,8 @@ mensaje que pase el provider se conserva tal cual.
   `previousPart` en `put()` y respetar la nueva opción `markFailed(..., { refund: true })`
   (devolver el intento reclamado); si las ignora, las partes siguen sin orden en los
   reintentos, como antes.
+
+## Siguientes pasos
+
+- [Notas de actualización: canales y plugins](./actualizar-canales-plugins)
+- [Actualizar a estable: checklist y cambios de API](./migracion-estable)
