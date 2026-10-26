@@ -278,25 +278,89 @@ describe.skipIf(!enabled)('MysqlStore — real MySQL integration', () => {
       }
     })
 
-    it('an oversized ctx.user value fails alone: the next statement still works (MariaDB max_allowed_packet)', async () => {
-      const { store, teardown } = await makeStore()
+    /**
+     * A real one-connection pool that records what the store does with it: every rejected
+     * `pool.query` (a statement that hit a dead pooled connection shows up here, even when the
+     * store's resend rescues it) and every connection checked out for a statement of its own.
+     */
+    async function makeObservedStore(): Promise<{
+      store: MysqlStore
+      maxPacket: number
+      poolFailures: unknown[]
+      ownConnections: () => number
+      teardown: () => Promise<void>
+    }> {
+      const real = createPool({ uri: MYSQL_URL, connectionLimit: 1 })
+      const poolFailures: unknown[] = []
+      let checkedOut = 0
+      const pool: MysqlPoolLike = {
+        query: (sql, params) =>
+          (real.query(sql, params as unknown[]) as unknown as Promise<MysqlQueryResult>).catch((err: unknown) => {
+            poolFailures.push(err)
+            throw err
+          }),
+        getConnection: async () => {
+          checkedOut++
+          return (await real.getConnection()) as unknown as Awaited<ReturnType<MysqlPoolLike['getConnection']>>
+        },
+        end: () => real.end(),
+      }
+      const prefix = nextPrefix()
+      const store = new MysqlStore({ pool, tablePrefix: prefix })
+      await store.start()
+      const [rows] = await admin.query<RowDataPacket[]>('SELECT @@max_allowed_packet AS p')
+      return {
+        store,
+        maxPacket: Number(rows[0]?.p),
+        poolFailures,
+        ownConnections: () => checkedOut,
+        teardown: async () => {
+          await store.stop()
+          await real.end()
+          await dropTables(prefix)
+        },
+      }
+    }
+
+    it('a ctx.user value just under the 16 MiB limit is written, or fails alone where it exceeds max_allowed_packet', async () => {
+      const { store, maxPacket, poolFailures, ownConnections, teardown } = await makeObservedStore()
       try {
-        const value = 'v'.repeat(17 * 1024 * 1024)
-        await expect(store.setUserData({ userId: 'u', namespace: 'n', key: 'k', value, updatedAt: 1 })).rejects.toThrow(RangeError)
+        // 16 MiB or more never reaches the server.
+        await expect(
+          store.setUserData({ userId: 'u', namespace: 'n', key: 'k', value: 'v'.repeat(16 * 1024 * 1024), updatedAt: 1 }),
+        ).rejects.toThrow(RangeError)
+        // JSON of 16 MiB - 1 bytes: the statement exceeds MariaDB's 16 MiB packet, not MySQL's 64 MiB.
+        const value = 'v'.repeat(16 * 1024 * 1024 - 3)
+        const before = ownConnections()
+        const write = store.setUserData({ userId: 'u', namespace: 'n', key: 'k', value, updatedAt: 1 })
+        if (maxPacket <= 16 * 1024 * 1024) {
+          await expect(write).rejects.not.toBeInstanceOf(RangeError)
+        } else {
+          await write
+          expect((await store.getUserData('u', 'n', 'k'))?.value).toBe(value)
+        }
+        expect(ownConnections()).toBe(before + 1) // it ran on a connection of its own
+        poolFailures.length = 0
         await store.setCursor('k', 'v')
         expect(await store.getCursor('k')).toBe('v')
+        expect(poolFailures).toEqual([]) // no dead connection was left for the next statement
       } finally {
         await teardown()
       }
     })
 
-    it('a statement after one the server rejected for max_allowed_packet still works', async () => {
-      const { store, teardown } = await makeStore()
+    it('a statement the server rejects for max_allowed_packet leaves no dead connection in the pool', async () => {
+      const { store, maxPacket, poolFailures, ownConnections, teardown } = await makeObservedStore()
       try {
-        // MariaDB's default packet limit is 16 MiB (it closes the connection); MySQL's is 64 MiB.
-        await store.saveMessage(msg('c', 'big', 'z'.repeat(17 * 1024 * 1024), 1)).catch(() => undefined)
+        // Over the limit on every server (16 MiB on MariaDB, 64 MiB on MySQL): the server closes the connection.
+        const before = ownConnections()
+        await expect(store.saveMessage(msg('c', 'big', 'z'.repeat(maxPacket + 1024 * 1024), 1))).rejects.toThrow()
+        expect(ownConnections()).toBe(before + 1)
+        expect(poolFailures).toEqual([])
         for (let i = 0; i < 3; i++) await store.setCursor(`k${i}`, 'v')
         expect(await store.getCursor('k2')).toBe('v')
+        // The next statements found a live connection: none needed the write-error resend.
+        expect(poolFailures).toEqual([])
       } finally {
         await teardown()
       }

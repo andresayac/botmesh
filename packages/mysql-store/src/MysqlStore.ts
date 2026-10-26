@@ -185,6 +185,16 @@ function checkUri(uri: string): void {
   if (url.hash !== '') {
     throw new TypeError('MysqlStore: `uri` contains "#", which ends the URL there. Percent-encode it (# → %23) in the user name or password.')
   }
+  // The authority ends at the first '/' or '?': an unencoded one in the password still parses,
+  // with the user name as the host, the start of the password as the port and the rest
+  // (including the real '@host') as the database path or the query, which errors would print.
+  if (url.pathname.includes('@') || url.search.includes('@')) {
+    throw new TypeError(
+      'MysqlStore: `uri` has an "@" after the host, so the user name or password holds an unencoded "/" or "?" ' +
+        `(expected ${URI_SHAPE}). Percent-encode reserved characters in the user name and password ` +
+        '(/ → %2F, ? → %3F, @ → %40, # → %23, : → %3A).',
+    )
+  }
 }
 
 /** Where a connection config points, for error messages: never the user or the password. */

@@ -35,7 +35,7 @@ const bot = new Bot({ provider: new BaileysProvider({ session: 'my-bot' }), stor
 await bot.start() // starts the store too: creates the pool and the tables
 ```
 
-Discrete connection options work too: `new MysqlStore({ host: 'db.internal', port: 3306, user: 'bot', password: process.env.MYSQL_PASSWORD, database: 'botwa' })`. Combined with `uri` they override the matching parts of it, so `new MysqlStore({ uri: process.env.MYSQL_URL, password: process.env.MYSQL_PASSWORD })` keeps the URI's host and database. In a URI, percent-encode reserved characters in the user name and password (`#` → `%23`, `@` → `%40`, `/` → `%2F`, `:` → `%3A`). Using the store before it is started fails with an error that tells you to call `start()`.
+Discrete connection options work too: `new MysqlStore({ host: 'db.internal', port: 3306, user: 'bot', password: process.env.MYSQL_PASSWORD, database: 'botwa' })`. Combined with `uri` they override the matching parts of it, so `new MysqlStore({ uri: process.env.MYSQL_URL, password: process.env.MYSQL_PASSWORD })` keeps the URI's host and database. In a URI, percent-encode reserved characters in the user name and password (`#` → `%23`, `@` → `%40`, `/` → `%2F`, `?` → `%3F`, `:` → `%3A`); a URI with an unencoded `#`, or an `@` after the host (left there by an unencoded `/` or `?` in the password), is rejected. Using the store before it is started fails with an error that tells you to call `start()`.
 
 ### Bring your own pool
 
@@ -115,7 +115,7 @@ ALTER TABLE `{p}cursors` MODIFY `key` VARBINARY(1024) NOT NULL;
 | `ER_BAD_DB_ERROR` (unknown database) | Create the database first: the store creates tables, not databases. |
 | `CONSTRAINT … failed` on MariaDB | MariaDB stores `JSON` as `LONGTEXT` with a `json_valid()` check, which rejects documents nested deeper than 32 levels (a message's `raw` payload or a checkpoint's state). MySQL has no such limit. |
 | `MysqlStore: cannot connect to MySQL at host:port (database "…"): ECONNREFUSED (…)` | No server is listening there, or a firewall drops the connection. The message names the target and the original error is the `cause` (`err.code` is kept). |
-| ``MysqlStore: `uri` is not a valid URL`` / ``MysqlStore: `uri` contains "#"`` | Fix the URI shape (`mysql://user:password@host:3306/database`) and percent-encode reserved characters in the user name and password. |
+| ``MysqlStore: `uri` is not a valid URL`` / ``MysqlStore: `uri` contains "#"`` / ``MysqlStore: `uri` has an "@" after the host`` | Fix the URI shape (`mysql://user:password@host:3306/database`) and percent-encode reserved characters in the user name and password. |
 | `No database selected` (`ER_NO_DB_ERROR`) | The URI has no `/database` path, or the discrete options have no `database`. |
 | `RangeError: … key columns hold at most 1024 bytes` | An id or key longer than 1024 bytes in UTF-8 (the `VARBINARY(1024)` columns). Nothing is written. |
 | `RangeError: a ctx.user value is … bytes` | A `ctx.user` value whose JSON is 16 MiB or more (the `MEDIUMTEXT` column). |

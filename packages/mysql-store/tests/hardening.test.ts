@@ -80,6 +80,32 @@ describe('MysqlStore — connection URI', () => {
     }
   })
 
+  it('rejects a uri whose unencoded / or ? moved the password into the host, path or query', () => {
+    // WHATWG still parses these: the authority ends at the first '/' or '?', so the user name
+    // becomes the host, the start of the password the port and the rest the database/query.
+    for (const uri of [
+      'mysql://root:12/S3CRETx@127.0.0.1:3306/botwa',
+      'mysql://root:99/S3CRET@x@127.0.0.1:3306/botwa',
+      'mysql://root:7?S3CRETx@127.0.0.1:3306/botwa',
+      'mysql://root:pa@ss/S3CRET@127.0.0.1:3306/botwa',
+    ]) {
+      let err: unknown
+      try {
+        new MysqlStore({ uri })
+      } catch (e) {
+        err = e
+      }
+      expect(err, uri).toBeInstanceOf(TypeError)
+      expect((err as Error).message).toMatch(/percent-encode/i)
+      expect((err as Error).message).toMatch(/%2F/)
+      expect((err as Error).message).not.toContain('S3CRET')
+      expect(JSON.stringify(err)).not.toContain('S3CRET')
+    }
+    // Encoded, the same passwords are fine.
+    expect(() => new MysqlStore({ uri: 'mysql://root:12%2FS3CRETx@127.0.0.1:3306/botwa' })).not.toThrow()
+    expect(() => new MysqlStore({ uri: 'mysql://root:7%3FS3CRETx@127.0.0.1:3306/botwa?charset=utf8mb4' })).not.toThrow()
+  })
+
   it('explains how to percent-encode a password with reserved characters', () => {
     expect(() => new MysqlStore({ uri: 'mysql://root:p#ss@db:3306/botwa' })).toThrow(/percent-encode/i)
   })

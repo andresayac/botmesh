@@ -5,7 +5,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 ## [Unreleased]
 
 ### `@botmesh/mysql-store`: prueba de release contra MySQL 8.4 y MariaDB 11 (2026-10)
-- Un `uri` mal formado (o que no empieza por `mysql://`/`mariadb://`, o con un `#` sin codificar) lanza un `TypeError` desde el constructor que nunca repite la URI. Antes `start()` rechazaba con el `Invalid URL` de Node, cuyo campo `input` llevaba la contraseña a los logs.
+- Un `uri` mal formado (o que no empieza por `mysql://`/`mariadb://`, o con un `#` sin codificar, o con una `@` después del host, señal de un `/` o `?` sin codificar en la contraseña, que movía parte de la contraseña al puerto, a la base de datos o a la query que luego imprimía el error de conexión) lanza un `TypeError` desde el constructor que nunca repite la URI. Antes `start()` rechazaba con el `Invalid URL` de Node, cuyo campo `input` llevaba la contraseña a los logs.
 - `uri` y las opciones sueltas (`host`, `port`, `user`, `password`, `database`) se combinan: las sueltas sobrescriben la parte correspondiente de la URI. Antes, `{ uri: process.env.MYSQL_URL, password }` descartaba la URI entera y conectaba a `localhost` sin base de datos.
 - Si `start()` no llega al servidor, el error dice `host:port` y la base de datos (sin credenciales) y conserva `err.code` y el original como `cause`: con `localhost` caído, mysql2 rechazaba con un `AggregateError` de mensaje vacío.
 - `tablePrefix` admite como máximo 43 caracteres (55 en `MysqlScheduleStore`): con 44 a 51, `start()` creaba la mitad de las tablas y fallaba en el índice de `user_data`.
