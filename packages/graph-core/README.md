@@ -27,7 +27,7 @@ No extra dependencies: only `@botmesh/core` and Node ≥ 22's native `crypto`.
 | `tryParseGraphBody<T>(body)` | Like `parseGraphBody`, but never throws: `{ ok: true, body }` or `{ ok: false, status: 400 }` when the body is not a JSON object. Use it in `ingest()` to answer 400 to a malformed body. |
 | `parseGraphBody<T>(body)` | Turns the body (string, `Buffer`/`Uint8Array` or an already-parsed object) into `T`. Throws `SyntaxError` when the raw body is not JSON. |
 | `toGraphError(err, { chatId?, retryAfterMs?, contentKind? })` | Translates a Graph error into the core's `ProviderError` subclasses. |
-| `readGraphResponse<T>(res, opts?)` | Reads a Graph `fetch` response: resolves to the JSON body, or rejects with the `toGraphError` mapping when the status fails or the body has an `error`. A `Retry-After` header (seconds or an HTTP-date) sets `retryAfterMs`. |
+| `readGraphResponse<T>(res, opts?)` | Reads a Graph `fetch` response: resolves to the JSON body, or rejects with the `toGraphError` mapping when the status fails or the body has an `error`. A `Retry-After` header (seconds or a strict HTTP-date; garbage falls back to the code's default) sets `retryAfterMs`, capped at 24 hours so it never overflows a timer. |
 | `META_MEDIA_HOSTS`, `serializeUrlMediaRef`, `rehydrateUrlMediaRef` | Durable media references for the URL-token transports (Messenger, Instagram): only an allow-listed URL is journaled, and a stored value is validated again when read back. |
 
 ## Usage

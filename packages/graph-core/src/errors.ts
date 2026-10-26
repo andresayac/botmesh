@@ -116,17 +116,64 @@ function graphNumber(value: unknown): number | undefined {
 }
 
 /**
+ * Upper bound of a server-sent `Retry-After` (24 h). Callers feed
+ * `retryAfterMs` straight into timers, and a delay above 2^31-1 ms makes
+ * `setTimeout` fire after 1 ms: a broken proxy would turn a rate limit into a
+ * retry storm.
+ */
+const MAX_RETRY_AFTER_MS = 86_400_000
+
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+/** IMF-fixdate: `Sun, 06 Nov 1994 08:49:37 GMT`. */
+const IMF_FIXDATE = /^(?:mon|tue|wed|thu|fri|sat|sun), (\d{1,2}) ([a-z]{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2}) gmt$/i
+/** Obsolete RFC 850: `Sunday, 06-Nov-94 08:49:37 GMT`. */
+const RFC_850 = /^(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday), (\d{1,2})-([a-z]{3})-(\d{2}) (\d{2}):(\d{2}):(\d{2}) gmt$/i
+/** Obsolete asctime: `Sun Nov  6 08:49:37 1994` (always GMT). */
+const ASCTIME = /^(?:mon|tue|wed|thu|fri|sat|sun) ([a-z]{3}) (\d{1,2}) (\d{2}):(\d{2}):(\d{2}) (\d{4})$/i
+
+/**
+ * An HTTP-date (RFC 9110 §5.6.7: IMF-fixdate, RFC 850 or asctime) as epoch ms,
+ * or `NaN`. Strict on purpose: the engine's lenient `Date.parse` reads
+ * garbage like `"abc 5"` as a date in 2001.
+ */
+function parseHttpDate(text: string): number {
+  const value = text.replace(/\s+/g, ' ')
+  // Normalized as [day, month, year, hours, minutes, seconds].
+  let parts: string[]
+  let match: RegExpExecArray | null
+  if ((match = IMF_FIXDATE.exec(value))) {
+    parts = match.slice(1)
+  } else if ((match = RFC_850.exec(value))) {
+    parts = match.slice(1)
+    // A two-digit year more than 50 years in the future is in the past century.
+    let year = 2000 + Number(parts[2])
+    if (year > new Date().getUTCFullYear() + 50) year -= 100
+    parts[2] = String(year)
+  } else if ((match = ASCTIME.exec(value))) {
+    const [month, day, hh, mm, ss, year] = match.slice(1) as [string, string, string, string, string, string]
+    parts = [day, month, year, hh, mm, ss]
+  } else {
+    return Number.NaN
+  }
+  const month = MONTHS.indexOf(parts[1]!.toLowerCase())
+  const [day, year, hh, mm, ss] = [parts[0], parts[2], parts[3], parts[4], parts[5]].map(Number) as [number, number, number, number, number]
+  if (month < 0 || day < 1 || hh > 23 || mm > 59 || ss > 60) return Number.NaN
+  const at = Date.UTC(year, month, day, hh, mm, Math.min(ss, 59))
+  // Reject a day the month does not have (`31 Feb` would roll into March).
+  return new Date(at).getUTCDate() === day ? at : Number.NaN
+}
+
+/**
  * `Retry-After` in ms: delay-seconds (`"7"`, also fractional) or an HTTP-date
  * (a past date means now). `undefined` when absent or unparsable, so the code's
- * default applies; never negative.
+ * default applies; never negative and never above {@link MAX_RETRY_AFTER_MS}.
  */
 function retryAfterMs(header: string | null): number | undefined {
   const text = header?.trim()
   if (!text) return undefined
-  if (/^\d+(?:\.\d+)?$/.test(text)) return Math.round(Number(text) * 1000)
-  // An HTTP-date always spells the day/month (`Date.parse("-5")` would read a year).
-  const at = /[a-z]/i.test(text) ? Date.parse(text) : Number.NaN
-  return Number.isNaN(at) ? undefined : Math.max(0, at - Date.now())
+  if (/^\d+(?:\.\d+)?$/.test(text)) return Math.min(MAX_RETRY_AFTER_MS, Math.round(Number(text) * 1000))
+  const at = parseHttpDate(text)
+  return Number.isNaN(at) ? undefined : Math.min(MAX_RETRY_AFTER_MS, Math.max(0, at - Date.now()))
 }
 
 /** The subset of a fetch `Response` that {@link readGraphResponse} reads. */

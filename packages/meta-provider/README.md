@@ -71,6 +71,8 @@ const provider = new CloudAPIProvider({ /* ... */ requestTimeoutMs: 20_000 })
 |---|---|
 | Text, image, video, audio, document, sticker, location, contact | ✅ (when you upload a `Buffer`, the MIME type comes from the document's `mimetype`, the extension, the bytes or the content type; never `application/octet-stream` for image, audio, video or sticker) |
 | **Reply buttons** (`ctx.buttons`, max 3; more rejects with `UnsupportedContentError` instead of dropping options, so send a list) | ✅ native (titles cut to 20 characters, never inside an emoji) |
+| **URL button** (a `Button` with `url`) | ✅ native `cta_url` (one per message, label cut to 20 characters; several links, or a link mixed with reply buttons, reject with `UnsupportedContentError`) |
+| **Cards** (kind `card`) | ✅ text, or an image with the title and body as caption; with buttons, an interactive message with the image as header (same button rules as above: nothing is dropped) |
 | **Lists** (list `OutboundContent`) | ✅ native |
 | **Templates** (kind `template`, e.g. outside the 24h window) | ✅ |
 | Reactions, read receipts | ✅ |

@@ -6,6 +6,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { OutsideSessionWindowError, ProviderError, RateLimitedError, RecipientUnreachableError } from '@botmesh/core'
 import { readGraphResponse, toGraphError } from '../src/index.js'
 
+/** The documented cap of a server-sent Retry-After (24 h). */
+const MAX_RETRY_AFTER_MS = 86_400_000
+
 const res = (status: number, body: unknown, retryAfter?: string) => ({
   ok: status >= 200 && status < 300,
   status,
@@ -77,5 +80,26 @@ describe('toGraphError — actionable hints for setup mistakes', () => {
   it('points an unknown object (100/33) at the configured ids', () => {
     const err = toGraphError({ code: 100, error_subcode: 33, message: "Unsupported post request. Object with ID '123' does not exist" })
     expect(err.message).toMatch(/\(code 100\/33\).*phone number id/)
+  })
+})
+
+describe('readGraphResponse — Retry-After edge cases', () => {
+  it('ignores garbage that only looks like a date to a lenient parser', async () => {
+    for (const value of ['abc 5', 'x 1', 'soon 2001', 'Mon', 'tomorrow 10', 'Sat, 31 Feb 2026 07:28:30 GMT', 'Wed, 21 Oct 2026 25:00:00 GMT']) {
+      expect((await rateLimited(value)).retryAfterMs).toBe(60_000)
+    }
+  })
+
+  it('accepts the RFC 850 and asctime HTTP-date forms', async () => {
+    vi.useFakeTimers({ now: new Date('2026-10-21T07:28:00Z') })
+    expect((await rateLimited('Wednesday, 21-Oct-26 07:28:30 GMT')).retryAfterMs).toBe(30_000)
+    expect((await rateLimited('Wed Oct 21 07:28:30 2026')).retryAfterMs).toBe(30_000)
+  })
+
+  it('caps a huge delay so it never overflows a timer', async () => {
+    expect((await rateLimited('999999999')).retryAfterMs).toBe(MAX_RETRY_AFTER_MS)
+    vi.useFakeTimers({ now: new Date('2026-10-21T07:28:00Z') })
+    expect((await rateLimited('Fri, 21 Oct 2050 07:28:00 GMT')).retryAfterMs).toBe(MAX_RETRY_AFTER_MS)
+    expect(MAX_RETRY_AFTER_MS).toBeLessThan(2 ** 31 - 1)
   })
 })
