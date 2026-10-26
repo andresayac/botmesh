@@ -124,6 +124,35 @@ describe('long-poll lifecycle', () => {
     expect(calls.filter((c) => c.url.includes('/getUpdates')).length).toBeGreaterThanOrEqual(2)
     await p.stop()
   })
+
+  it('null / non-object entries in a getUpdates batch are skipped without wedging the loop', async () => {
+    const msg = (id: number, text: string) => ({
+      update_id: id,
+      message: { message_id: id, date: 1, chat: { id: 1, type: 'private' }, from: { id: 1, is_bot: false, first_name: 'a' }, text },
+    })
+    const offsets: unknown[] = []
+    mockFetch((call) => {
+      if (call.url.includes('/getUpdates')) {
+        const body = JSON.parse(call.init!.body as string) as { offset?: number }
+        offsets.push(body.offset)
+        if (body.offset == null) return { body: { ok: true, result: [msg(1, 'hi'), null, undefined, 'junk', 42, msg(3, 'after')] } }
+        return { body: { ok: true, result: [] } }
+      }
+      return { body: { ok: true, result: {} } }
+    })
+    const p = new TelegramProvider({ token: TOKEN, selfId: '9', errorBackoffMs: 1, pollIdleMs: 1 })
+    const states: string[] = []
+    const bodies: string[] = []
+    p.onEvent((e) => {
+      if (e.kind === 'connection') states.push(e.update.state)
+      if (e.kind === 'message') bodies.push(e.message.body)
+    })
+    await p.start()
+    await waitFor(() => states.includes('ready') && offsets.length >= 2, 1000)
+    await p.stop()
+    expect(bodies).toEqual(['hi', 'after'])
+    expect(offsets[1]).toBe(4) // advanced past the whole batch, never re-polled from scratch
+  })
 })
 
 describe('outbound requests', () => {

@@ -333,7 +333,10 @@ export class TelegramProvider implements IProvider<unknown> {
         this.pollErrors = 0 // a successful round resets the backoff ramp
         const batch = Array.isArray(updates) ? updates : []
         for (const u of batch) {
-          if (u && typeof u.update_id === 'number' && Number.isSafeInteger(u.update_id)) this.offset = u.update_id + 1
+          // A null / non-object entry (buggy or hostile server, proxy) is skipped:
+          // throwing here would fail the whole round and re-poll the same batch forever.
+          if (!u || typeof u !== 'object') continue
+          if (typeof u.update_id === 'number' && Number.isSafeInteger(u.update_id)) this.offset = u.update_id + 1
           if (this.handleDraftStopped(u)) continue
           this.dispatchUpdate(u)
         }
@@ -686,6 +689,7 @@ export class TelegramProvider implements IProvider<unknown> {
 
   /** Route a `stopped_message_generation` update to its draft's stop callback. */
   private handleDraftStopped(update: TelegramUpdate): boolean {
+    if (!update || typeof update !== 'object') return false
     const stopped = update.stopped_message_generation as { chat?: { id?: number | string }; draft_id?: number } | undefined
     if (!stopped || typeof stopped !== 'object') return false
     const key = `${stopped.chat?.id ?? ''}:${stopped.draft_id ?? ''}`
