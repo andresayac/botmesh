@@ -31,6 +31,13 @@ export interface PostgresDurabilityOptions {
   connectionString?: string
   /** Table-name prefix (plain SQL identifier prefix). Default `''` → table `durable`. */
   tablePrefix?: string
+  /**
+   * Receives the connection errors of idle clients of a pool this backend creates
+   * (`connectionString`, no `pool`): the pool replaces the dead client on the next query.
+   * An injected pool's 'error' events are the caller's to handle (node-postgres crashes
+   * the process without a listener).
+   */
+  logger?: { error?: (...args: unknown[]) => void }
 }
 
 const TABLE_PREFIX_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
@@ -71,9 +78,7 @@ export class PostgresDurableKv implements DurableKv {
   }
 
   async start(): Promise<void> {
-    if (!this.pool) {
-      this.pool = new Pool({ connectionString: this.opts.connectionString ?? 'postgres://localhost:5432/botwa' }) as unknown as PostgresPoolLike
-    }
+    if (!this.pool) this.pool = this.createOwnPool()
     for (const statement of this.schemaStatements()) {
       for (let attempt = 1; ; attempt++) {
         try {
@@ -86,6 +91,17 @@ export class PostgresDurableKv implements DurableKv {
         }
       }
     }
+  }
+
+  private createOwnPool(): PostgresPoolLike {
+    const pool = new Pool({ connectionString: this.opts.connectionString ?? 'postgres://localhost:5432/botwa' })
+    // pg emits 'error' on the pool when an IDLE client loses its connection (server
+    // restart, failover, pg_terminate_backend). With no listener that is an uncaught
+    // exception that took the whole bot down; the pool already discards the dead client.
+    if (typeof pool.on === 'function') {
+      pool.on('error', (err: Error) => this.opts.logger?.error?.({ err }, 'PostgresDurability idle client error (the pool reconnects on the next query)'))
+    }
+    return pool as unknown as PostgresPoolLike
   }
 
   async stop(): Promise<void> {

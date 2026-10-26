@@ -76,4 +76,23 @@ describe.skipIf(!URL)('PostgresDurability — real PostgreSQL', () => {
     expect(new Set(ids).size).toBe(ids.length)
     expect(ids).toHaveLength(30)
   })
+  it('an own pool (connectionString) survives the server dropping its idle connections', async () => {
+    const { tablePrefix } = fresh()
+    // A distinct application_name so only THIS backend's connections are terminated.
+    const app = `botwa-dur-own-${randomBytes(3).toString('hex')}`
+    const target = new globalThis.URL(URL!)
+    target.searchParams.set('application_name', app)
+    const errors: unknown[] = []
+    const kv = new PostgresDurableKv({ connectionString: target.toString(), tablePrefix, logger: { error: (...a: unknown[]) => errors.push(a) } })
+    await kv.start()
+    try {
+      expect(await kv.insert('inbox', 'a', '{}', { due: 1, done: null })).toBe('1')
+      await pool.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name = $1', [app])
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      expect(errors.length).toBeGreaterThan(0) // reported, not an uncaught exception
+      expect((await kv.get('inbox', 'a'))?.version).toBe('1') // the pool reconnects
+    } finally {
+      await kv.stop()
+    }
+  })
 })
