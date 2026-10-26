@@ -76,8 +76,22 @@ export interface SQLiteDatabaseLike {
   transaction(fn: (...args: never[]) => unknown): unknown
 }
 
+let bindSchedules: (store: SQLiteScheduleStore, db: SQLiteDatabaseLike) => void
+
+/**
+ * Re-point a schedule store at a reopened connection (`SQLiteStore.start()` after a
+ * `stop()`). Package-internal: not exported from the entry point.
+ */
+export function rebindScheduleStore(store: SQLiteScheduleStore, db: SQLiteDatabaseLike): void {
+  bindSchedules(store, db)
+}
+
 export class SQLiteScheduleStore implements ScheduleStore {
-  private readonly stmts: {
+  static {
+    bindSchedules = (store, db) => store.bind(db)
+  }
+
+  private stmts!: {
     get: BetterSqlite3.Statement
     insert: BetterSqlite3.Statement
     respec: BetterSqlite3.Statement
@@ -87,20 +101,22 @@ export class SQLiteScheduleStore implements ScheduleStore {
     delete: BetterSqlite3.Statement
     list: BetterSqlite3.Statement
   }
-  private readonly registerTx: (rec: Pick<ScheduleRecord, 'id' | 'kind' | 'spec' | 'nextRunAt'>, now: number) => ScheduleRecord
-  private readonly claimTx: (id: string, owner: string, now: number, leaseMs: number) => ClaimResult | null
-  private readonly completeTx: (id: string, token: number, patch: CompletePatch, now: number) => boolean
-  private readonly deleteTx: (id: string) => void
-
-  private readonly db: BetterSqlite3.Database
+  private registerTx!: (rec: Pick<ScheduleRecord, 'id' | 'kind' | 'spec' | 'nextRunAt'>, now: number) => ScheduleRecord
+  private claimTx!: (id: string, owner: string, now: number, leaseMs: number) => ClaimResult | null
+  private completeTx!: (id: string, token: number, patch: CompletePatch, now: number) => boolean
+  private deleteTx!: (id: string) => void
 
   /**
    * @param database An open better-sqlite3 `Database`. Typed structurally so the emitted
    *   declarations do not require `@types/better-sqlite3` in consumer projects.
    */
   constructor(database: SQLiteDatabaseLike) {
+    this.bind(database)
+  }
+
+  /** Create the table and prepare every statement and transaction on `database`. */
+  private bind(database: SQLiteDatabaseLike): void {
     const db = database as unknown as BetterSqlite3.Database
-    this.db = db
     db.exec(SCHEDULES_SCHEMA)
     this.stmts = {
       get: db.prepare('SELECT * FROM schedules WHERE id = ?'),

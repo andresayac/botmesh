@@ -55,6 +55,8 @@ pnpm add @botmesh/sqlite-store@alpha better-sqlite3
 
 The supported range is `^11.7.0 || ^12.0.0 || ^13.0.0` (tested against 11.10.0, 12.11.1 and 13.0.3). `npm` picks a compatible major and only warns; `pnpm` installs the latest one and ignores the range.
 
+`better-sqlite3` is a native module: its install script downloads (or builds) the binary. **pnpm 10 and later skip dependency build scripts** until you approve them, and the store then fails at construction with `better-sqlite3 is installed but its native module was never built`. Approve it once with `pnpm approve-builds` (or list it under `onlyBuiltDependencies` in `pnpm-workspace.yaml`) and reinstall. After a Node.js upgrade, `npm rebuild better-sqlite3` fixes a binary built for the previous version. The directory of `file` must exist: SQLite creates the file, not its folders.
+
 ```ts
 import { Bot } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
@@ -114,7 +116,9 @@ bot.use(
 )
 ```
 
-If the process crashes mid-flow, the next message from that user **resumes at the exact step** where it left off.
+If the process crashes mid-flow, the next message from that user **resumes at the exact step** where it left off: it asks the pending question again (`¿Tu email?` above) and the flow goes on with the state it had. The checkpoint is written when a step completes, so a flow still waiting on its **first** question has nothing saved yet: after a restart, the user starts it again with its trigger.
+
+`bot.stop()` and a failed `bot.start()` close the database; the next `bot.start()` reopens it, so a bot can be stopped and started again with the same `SQLiteStore` (and the `schedules()` / `durability()` backends it handed out).
 
 ## RedisStore (distributed)
 

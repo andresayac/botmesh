@@ -29,8 +29,9 @@ import type {
 } from '@botmesh/core'
 import { legacyMessageKey, messageKey } from '@botmesh/core'
 import { SqliteUserData } from './userData.js'
-import { SQLiteScheduleStore } from './schedules.js'
-import { SQLiteDurability } from './durability.js'
+import { SQLiteScheduleStore, rebindScheduleStore } from './schedules.js'
+import { SQLiteDurability, rebindDurableKv } from './durability.js'
+import { openError } from './openError.js'
 
 export interface SQLiteStoreOptions {
   /** Path to the SQLite database file. Default: './bot.db' */
@@ -101,15 +102,19 @@ interface Statements {
 }
 
 export class SQLiteStore implements IStore {
-  private db: BetterSqlite3.Database
+  private db!: BetterSqlite3.Database
   private readonly maxMessagesPerChat?: number
   private readonly logger?: { error?: (...args: unknown[]) => void }
-  private readonly userData: SqliteUserData
-  private readonly stmts: Statements
-  private readonly deleteChatTx: (chatId: string) => void
-  private readonly saveMessageTx: (msg: StoredMessage) => void
-  private readonly mergeChatTx: (chat: StoredChat) => void
-  private readonly mergeContactTx: (contact: StoredContact) => void
+  private readonly file: string
+  private readonly wal: boolean
+  private readonly purgeBatchSize?: number
+  private readonly DatabaseCtor: typeof BetterSqlite3
+  private userData!: SqliteUserData
+  private stmts!: Statements
+  private deleteChatTx!: (chatId: string) => void
+  private saveMessageTx!: (msg: StoredMessage) => void
+  private mergeChatTx!: (chat: StoredChat) => void
+  private mergeContactTx!: (contact: StoredContact) => void
 
   constructor(opts: SQLiteStoreOptions = {}) {
     if (opts.maxMessagesPerChat != null && !(Number.isInteger(opts.maxMessagesPerChat) && opts.maxMessagesPerChat >= 0)) {
@@ -120,19 +125,39 @@ export class SQLiteStore implements IStore {
     }
     this.logger = opts.logger
     this.maxMessagesPerChat = opts.maxMessagesPerChat
-    let DatabaseCtor: typeof BetterSqlite3
     try {
-      DatabaseCtor = createRequire(import.meta.url)('better-sqlite3') as typeof BetterSqlite3
+      this.DatabaseCtor = createRequire(import.meta.url)('better-sqlite3') as typeof BetterSqlite3
     } catch {
       throw new Error(
-        "SQLiteStore requires the optional peer dependency 'better-sqlite3'. Install it: npm i better-sqlite3",
+        "SQLiteStore requires the peer dependency 'better-sqlite3'. Install it: pnpm add better-sqlite3 (or npm i better-sqlite3)",
       )
     }
-    this.db = new DatabaseCtor(opts.file ?? './bot.db')
-    if (opts.wal !== false) this.db.pragma('journal_mode = WAL')
-    this.db.pragma('synchronous = NORMAL')
-    this.migrate()
-    this.userData = new SqliteUserData(this.db, opts.purgeBatchSize)
+    this.file = opts.file ?? './bot.db'
+    this.wal = opts.wal !== false
+    this.purgeBatchSize = opts.purgeBatchSize
+    this.open()
+  }
+
+  /**
+   * Open the database file and (re)build everything bound to the connection: schema,
+   * prepared statements, transactions and the user-data table. Runs in the
+   * constructor and again from `start()` after a `stop()` closed the connection.
+   */
+  private open(): void {
+    let db: BetterSqlite3.Database | undefined
+    try {
+      db = new this.DatabaseCtor(this.file)
+      if (this.wal) db.pragma('journal_mode = WAL')
+      db.pragma('synchronous = NORMAL')
+      this.db = db
+      this.migrate()
+    } catch (err) {
+      // e.g. SQLITE_NOTADB surfaces on the first statement: release the handle (Windows
+      // keeps the file locked otherwise) and name the file in the error.
+      try { db?.close() } catch { /* already unusable */ }
+      throw openError(err, this.file)
+    }
+    this.userData = new SqliteUserData(this.db, this.purgeBatchSize)
     const stmts = (this.stmts = this.prepare())
     // Write under the escaped key and drop the legacy-key copy an older version
     // may have written (else the message would be listed twice), atomically.
@@ -443,8 +468,22 @@ export class SQLiteStore implements IStore {
     return (this.durabilityBackend ??= new SQLiteDurability(this.db))
   }
 
-  async start(): Promise<void> {}
+  /**
+   * Reopens the database when a previous `stop()` closed it (the Bot calls `stop()`
+   * on `bot.stop()` and when a start fails, then `start()` on the next `bot.start()`),
+   * re-pointing the `schedules()` and `durability()` backends at the new connection.
+   * A no-op while open.
+   */
+  async start(): Promise<void> {
+    if (this.db.open) return
+    this.open()
+    if (this.scheduleStore) rebindScheduleStore(this.scheduleStore, this.db)
+    if (this.durabilityBackend) rebindDurableKv(this.durabilityBackend.kv, this.db)
+  }
+
+  /** Closes the database (idempotent; `start()` reopens it). A close failure goes to `logger.error`. */
   async stop(): Promise<void> {
+    if (!this.db.open) return
     try { this.db.close() } catch (err) { this.logger?.error?.({ err }, 'SQLiteStore failed to close') }
   }
 }
