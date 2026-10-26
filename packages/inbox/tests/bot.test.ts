@@ -96,8 +96,10 @@ describe.each(stores)('attachInbox over %s', (_name, makeStore) => {
 })
 
 describe('attachInbox without an error listener', () => {
-  it('never crashes the process when the projection fails', async () => {
-    t = await createTestBot()
+  it('never crashes the process when the projection fails, and logs it instead', async () => {
+    const logged: unknown[][] = []
+    const logger = { debug() {}, info() {}, warn() {}, error: (...args: unknown[]) => { logged.push(args) } }
+    t = await createTestBot({ logger })
     t.bot.onMessage(async (ctx) => { await ctx.say('ok') })
     const failing = Object.assign(Object.create(new MemoryInboxStore()) as InboxStore, {
       applyMessage: () => Promise.reject(new Error('backend down')),
@@ -111,6 +113,7 @@ describe('attachInbox without an error listener', () => {
       await t.chat.expectReply('ok')
       await new Promise((resolve) => setTimeout(resolve, 20))
       expect(unhandled).toEqual([])
+      expect(logged.filter((args) => args[1] === 'inbox projection failed')).toHaveLength(2)
     } finally {
       process.off('unhandledRejection', onUnhandled)
     }
