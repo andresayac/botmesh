@@ -52,8 +52,9 @@ teléfono ni una URL pública.
 Los tres canales **En npm** se instalan con `pnpm add` y siguen semver. Los
 demás llevan `"private": true` en su `package.json`: están implementados y con
 tests, pero **no se publican en npm** y su API todavía puede cambiar. Úsalos
-desde un clon del monorepo (`"workspace:*"`). Lo mismo vale para
-[`@botmesh/server`](/es/guide/servidor) y el [sandbox](/es/guide/sandbox).
+desde un clon del monorepo (`"workspace:*"`). Lo mismo vale para el
+[sandbox](/es/guide/sandbox). El ingress de webhooks,
+[`@botmesh/server`](/es/guide/servidor), sí está en npm.
 
 ## Elegir un canal
 
@@ -99,12 +100,23 @@ es un chat) y `@botmesh/tiktok` (comentarios en tus propios videos y DMs).
   el **body crudo** y las cabeceras a `provider.ingest()`, que verifica la
   firma o el token y devuelve el status HTTP con el que responder.
   [`@botmesh/server`](/es/guide/servidor) resuelve ese cableado (body crudo,
-  límites de tamaño, timeouts, endpoints de salud) para `node:http`, Express,
-  Fastify y Hono; todavía no está en npm.
+  límites de tamaño, timeouts, límite de concurrencia, endpoints de salud) para
+  `node:http`, Express, Fastify y Hono.
 
-Con los paquetes publicados basta una ruta en cualquier framework. Lee el body
-**como bytes** (la firma cubre los bytes exactos, así que nunca pases un objeto
-JSON re-serializado) y responde con el status que devuelve `ingest()`:
+La forma recomendada es `@botmesh/server` (`pnpm add @botmesh/server`): una
+ruta por provider, y el handshake `GET` y los `POST` firmados quedan resueltos:
+
+```ts
+import { createServer } from 'node:http'
+import { createIngress, createNodeHandler } from '@botmesh/server'
+
+const ingress = createIngress({ routes: [{ path: '/webhook', provider }], bot })
+createServer(createNodeHandler(ingress)).listen(3000) // también /healthz y /readyz
+```
+
+Sin él basta una ruta en cualquier framework. Lee el body **como bytes** (la
+firma cubre los bytes exactos, así que nunca pases un objeto JSON
+re-serializado) y responde con el status que devuelve `ingest()`:
 
 ```ts
 import { createServer } from 'node:http'

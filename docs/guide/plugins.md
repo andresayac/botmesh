@@ -214,7 +214,7 @@ Besides `slashCommandsPlugin`, these packages ship ready-made plugins:
 - [Integrations](/guide/integrations) — experimental `@botmesh/chatwoot`,
   `@botmesh/tickets`, `@botmesh/moderation`, `@botmesh/dialogflow` and
   `@botmesh/nlu` (local intent matching).
-- [Tracing](/guide/tracing) — experimental `@botmesh/otel`
+- [Tracing](/guide/tracing) — `@botmesh/otel`
   (`otelMetricsPlugin`): `bot.metrics()` and the bot's spans in OpenTelemetry.
 
 Only `@botmesh/ai` is published to npm; the experimental packages are private

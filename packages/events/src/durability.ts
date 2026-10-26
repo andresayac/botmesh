@@ -48,7 +48,7 @@ import {
 import {
   EventNotFoundError, FileEventJournal, StaleLeaseError as EventStaleLeaseError,
   type EventContext, type EventEnvelope, type EventRecord, type LeasedEventJournal, type SidecarHandle,
-} from './index.js'
+} from './journal.js'
 
 /** Options of {@link eventsDurability}. */
 export interface EventsDurabilityOptions {

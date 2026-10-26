@@ -20,8 +20,14 @@ channel POSTs events to **your** HTTP server, and you hand each request to
 - **No framework dependencies**: adapters for `node:http`, Express, Fastify,
   Hono and fetch-style runtimes, typed structurally.
 
-> `@botmesh/server` is **experimental**: the package is `private`, not
-> published to npm. Use it from this monorepo (`"workspace:*"`).
+It is the recommended way to host webhook channels. It has no dependencies:
+
+```bash
+pnpm add @botmesh/server
+```
+
+While the packages are in prerelease, add the dist-tag shown in
+[Getting started](/guide/getting-started).
 
 Socket providers (Baileys, Discord, Telegram in polling mode, Email over
 IMAP) need no ingress.
@@ -254,7 +260,8 @@ framework and call `provider.ingest(body, headers, req.originalUrl)` /
   read a raw body with a byte limit and a timeout.
 - `BodyTooLargeError`, `BodyTimeoutError`, `BodyUnavailableError`,
   `BodyAbortedError`: the errors those readers reject with.
-- `normalizePath(path)`, `splitUrl(url)`: path helpers.
+- `normalizePath(path)`, `splitUrl(url)`: path helpers, in
+  `@botmesh/server/internal` (no semver promise).
 
 ## See also
 

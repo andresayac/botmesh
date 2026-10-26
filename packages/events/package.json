@@ -1,9 +1,8 @@
 {
   "name": "@botmesh/events",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
-  "description": "Versioned event envelopes, idempotent journals and retry/DLQ primitives for BotWA.",
+  "description": "Versioned event envelopes, leased journals with fencing tokens, an at-least-once worker with retries and a dead-letter state, and a durability backend for @botmesh/core.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "exports": {
@@ -16,8 +15,21 @@
       "default": "./lib/durability.js"
     }
   },
-  "engines": { "node": ">=22" },
-  "keywords": ["botmesh", "events", "inbox", "outbox", "idempotency", "dlq"],
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "botmesh",
+    "bot",
+    "events",
+    "journal",
+    "inbox",
+    "outbox",
+    "idempotency",
+    "dlq",
+    "fencing",
+    "durability"
+  ],
   "author": "Andres Aya",
   "license": "MIT",
   "repository": {
@@ -25,7 +37,9 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/events"
   },
-  "files": ["./lib/**/*"],
+  "files": [
+    "./lib/**/*"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
@@ -33,17 +47,25 @@
     "typecheck": "tsc -p tsconfig.test.json"
   },
   "peerDependencies": {
-    "@botmesh/core": "workspace:*"
+    "@botmesh/core": "workspace:^"
   },
   "peerDependenciesMeta": {
-    "@botmesh/core": { "optional": true }
+    "@botmesh/core": {
+      "optional": true
+    }
   },
   "devDependencies": {
-    "@botmesh/core": "workspace:*",
+    "@botmesh/core": "workspace:^",
     "@types/node": "^26.1.1",
     "typescript": "^7.0.2",
     "vite": "^7.3.7",
     "vitest": "^4.1.12"
   },
-  "publishConfig": { "access": "public" }
+  "homepage": "https://andresayac.github.io/botmesh/guide/operations#event-processing",
+  "bugs": {
+    "url": "https://github.com/andresayac/botmesh/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

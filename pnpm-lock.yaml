@@ -452,7 +452,7 @@ importers:
   packages/events:
     devDependencies:
       '@botmesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@types/node':
         specifier: ^26.1.1
@@ -916,7 +916,7 @@ importers:
   packages/otel:
     dependencies:
       '@botmesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
     devDependencies:
       '@opentelemetry/api':
@@ -1104,13 +1104,13 @@ importers:
   packages/server:
     devDependencies:
       '@botmesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@botmesh/meta':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../meta-provider
       '@botmesh/telegram':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../telegram-provider
       '@types/express':
         specifier: ^5.0.6

@@ -264,7 +264,7 @@ createServer((req, res) => {
   not restart them for it.
 - Bind the port to a private interface or protect it: `bot.metrics()` holds no
   personal data, but it describes your traffic.
-- `@botmesh/server` (in the repository, not on npm yet) serves `/healthz` and
+- `@botmesh/server` serves `/healthz` and
   `/readyz` next to the webhook routes: see [Webhook server](./server).
 
 ```yaml

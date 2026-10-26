@@ -6,10 +6,13 @@ export const BOTMESH_VERSIONS = {
   '@botmesh/ai': '^1.0.0-beta.1',
   '@botmesh/baileys': '^1.0.0-beta.1',
   '@botmesh/core': '^2.0.0-beta.3',
+  '@botmesh/events': '^0.1.0',
   '@botmesh/graph-core': '^1.0.0-beta.1',
   '@botmesh/http': '^1.0.0-beta.1',
   '@botmesh/meta': '^1.0.0-beta.1',
+  '@botmesh/otel': '^0.1.0',
   '@botmesh/redis-store': '^1.0.0-beta.1',
+  '@botmesh/server': '^0.1.0',
   '@botmesh/sqlite-store': '^1.0.0-beta.1',
   '@botmesh/telegram': '^1.0.0-beta.1',
 } as const

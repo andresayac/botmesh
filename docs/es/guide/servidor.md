@@ -22,8 +22,15 @@ hecha:
 - **Sin dependencias de frameworks**: adaptadores para `node:http`, Express,
   Fastify, Hono y runtimes estilo fetch, tipados estructuralmente.
 
-> `@botmesh/server` es **experimental**: el paquete es `private` y no se
-> publica en npm. Úsalo desde este monorepo (`"workspace:*"`).
+Es la forma recomendada de alojar los canales por webhook. No tiene
+dependencias:
+
+```bash
+pnpm add @botmesh/server
+```
+
+Mientras los paquetes estén en prerelease, añade el dist-tag que indica
+[Inicio](/es/guide/inicio).
 
 Los providers por socket (Baileys, Discord, Telegram en modo polling, Email
 por IMAP) no necesitan ingress.
@@ -256,7 +263,8 @@ tu framework y llama tú a `provider.ingest(body, headers, req.originalUrl)` /
   leen un body crudo con límite de bytes y timeout.
 - `BodyTooLargeError`, `BodyTimeoutError`, `BodyUnavailableError`,
   `BodyAbortedError`: los errores con los que rechazan esos lectores.
-- `normalizePath(path)`, `splitUrl(url)`: helpers de rutas.
+- `normalizePath(path)`, `splitUrl(url)`: helpers de rutas, en
+  `@botmesh/server/internal` (sin garantía semver).
 
 ## Ver también
 

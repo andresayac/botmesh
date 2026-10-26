@@ -1,9 +1,8 @@
 {
   "name": "@botmesh/server",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
-  "description": "Webhook ingress for @botmesh providers — raw-body capture, size limits, timeouts, concurrency limit and health endpoints for node:http, Express, Fastify and Hono (no framework dependencies).",
+  "description": "Webhook ingress for @botmesh providers: raw-body capture, size limits, timeouts, a concurrency cap and health endpoints for node:http, Express, Fastify and Hono (no framework dependencies).",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "exports": {
@@ -22,6 +21,10 @@
     "./hono": {
       "types": "./lib/adapters/hono.d.ts",
       "default": "./lib/adapters/hono.js"
+    },
+    "./internal": {
+      "types": "./lib/internal.d.ts",
+      "default": "./lib/internal.js"
     }
   },
   "engines": {
@@ -29,8 +32,12 @@
   },
   "keywords": [
     "botmesh",
+    "bot",
+    "chatbot",
     "webhook",
     "ingress",
+    "raw-body",
+    "health-check",
     "express",
     "fastify",
     "hono"
@@ -42,7 +49,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/server"
   },
-  "homepage": "https://github.com/andresayac/botmesh/tree/main/packages/server#readme",
+  "homepage": "https://andresayac.github.io/botmesh/guide/server",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },
@@ -56,9 +63,9 @@
     "typecheck": "tsc -p tsconfig.test.json"
   },
   "devDependencies": {
-    "@botmesh/core": "workspace:*",
-    "@botmesh/meta": "workspace:*",
-    "@botmesh/telegram": "workspace:*",
+    "@botmesh/core": "workspace:^",
+    "@botmesh/meta": "workspace:^",
+    "@botmesh/telegram": "workspace:^",
     "@types/express": "^5.0.6",
     "@types/node": "^26.1.1",
     "express": "^5.3.0",

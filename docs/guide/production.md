@@ -88,11 +88,11 @@ All of these are opt-in: without the option, the bot runs exactly as before.
 
 The npm packages are `@botmesh/core`, `@botmesh/baileys`, `@botmesh/meta`,
 `@botmesh/telegram`, `@botmesh/sqlite-store`, `@botmesh/redis-store`,
-`@botmesh/ai`, `@botmesh/http`, `@botmesh/graph-core` and `create-botmesh`.
+`@botmesh/ai`, `@botmesh/http`, `@botmesh/graph-core`, `@botmesh/server`,
+`@botmesh/events`, `@botmesh/otel` and `create-botmesh`.
 Some pages also describe packages that live only in the
 [repository](https://github.com/andresayac/botmesh/tree/main/packages) for now
-(the PostgreSQL, MySQL and MongoDB stores, `@botmesh/server`, `@botmesh/otel`,
-`@botmesh/events`, the other channels…). Each of those pages says so. Plan a
+(the PostgreSQL, MySQL and MongoDB stores, the other channels…). Each of those pages says so. Plan a
 production deployment on the published ones.
 
 ## Before each release of your bot

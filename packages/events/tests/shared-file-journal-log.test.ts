@@ -8,7 +8,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { SharedFileEventJournal, __testing, createEnvelope } from '../src/index.js'
+import { SharedFileEventJournal, createEnvelope } from '../src/index.js'
+import { __testing } from '../src/journal.js'
 
 const context = { tenantId: 't', environmentId: 'e', botId: 'b', providerId: 'p', connectionId: 'c' }
 const env = (id: string, occurredAt = 1) => createEnvelope({ eventId: id, eventType: 'test.event', occurredAt, context, payload: { id } })

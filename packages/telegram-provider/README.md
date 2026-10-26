@@ -124,9 +124,21 @@ app.listen(3000)
 string or the parsed object, and plain or Fetch `Headers` (any case). It
 returns the HTTP status to answer with (Telegram retries anything non-2xx); an
 Update the provider cannot normalize is logged (without its content) and
-acknowledged with 200, since a retry would fail the same way. With
+acknowledged with 200, since a retry would fail the same way.
+
+The recommended host is
 [`@botmesh/server`](https://andresayac.github.io/botmesh/guide/server)
-mount the provider as a route; no extra wiring is needed.
+(`pnpm add @botmesh/server`): mount the provider as a route and it adds body
+limits, timeouts, a concurrency cap and health endpoints; no extra wiring is
+needed:
+
+```ts
+import { createServer } from 'node:http'
+import { createIngress, createNodeHandler } from '@botmesh/server'
+
+const ingress = createIngress({ routes: [{ path: '/telegram', provider, body: 'text' }], bot })
+createServer(createNodeHandler(ingress)).listen(3000)
+```
 
 ## Media
 
