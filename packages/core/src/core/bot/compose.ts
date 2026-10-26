@@ -121,6 +121,7 @@ export function composeBot(host: ComposeHost, inputConfig: BotConfig, fields: Co
   k.chatWrites = new KeyedQueue()
   k.externalSends = new ExternalSendClock()
   k.inflightSends = new Set()
+  k.ledgerWrites = new Set()
   k.inflightEvents = new Set()
   // Tracing (opt-in): `null` without `config.telemetry`, and every site then runs its original code.
   k.tracing = createTracing(inputConfig.telemetry, logger.child({ module: 'telemetry' }))

@@ -133,7 +133,8 @@ flowchart LR
 producen trabajo nuevo (scheduler, barrido de durabilidad), opcionalmente drena los
 envíos en curso (`stop({ drain: true })`), cierra los envíos pausados y aborta las
 conversaciones (los checkpoints se conservan), y después detiene el resto de pasos en
-orden inverso. Si `start()` falla, los pasos ya arrancados se deshacen en orden
+orden inverso (el paso `storage` deja antes que se escriban, hasta 5 s, las filas del
+log de los envíos que el provider ya aceptó, y luego cierra el store). Si `start()` falla, los pasos ya arrancados se deshacen en orden
 inverso y el error se relanza.
 
 Una función opcional añade un **paso de ciclo de vida**; no reparte `if`s por el código

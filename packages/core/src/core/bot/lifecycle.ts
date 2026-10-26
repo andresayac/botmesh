@@ -59,6 +59,27 @@ export interface LifecycleStep {
   pause?(): void
 }
 
+/** Longest `stop()` waits for pending ledger writes (see `BotKernel.ledgerWrites`) before closing the store. */
+const LEDGER_SETTLE_MS = 5_000
+
+/**
+ * Wait (bounded) for the after-send hooks and ledger rows of sends the provider already
+ * settled: closing the store under them lost the bot's last replies from the message log
+ * and reported the store's "closed" error on the 'error' event.
+ */
+async function settleLedgerWrites(k: BotKernel): Promise<void> {
+  if (k.ledgerWrites.size === 0) return
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    await Promise.race([
+      Promise.allSettled([...k.ledgerWrites]),
+      new Promise<void>((resolve) => { timer = setTimeout(resolve, LEDGER_SETTLE_MS) }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 /** Start order: storage → [coordination] → restore → [durability] → transport → jobs (bracketed: opt-in). */
 export function defaultLifecycleSteps(k: BotKernel): LifecycleStep[] {
   return [
@@ -66,7 +87,8 @@ export function defaultLifecycleSteps(k: BotKernel): LifecycleStep[] {
       name: 'storage',
       start: () => k.store.start(),
       rollback: guardedRollback(k, 'store start rollback failed', () => k.store.stop()),
-      stop: () => k.store.stop(),
+      // The ledger rows of sends the provider already settled land before the store closes.
+      stop: async () => { await settleLedgerWrites(k); await k.store.stop() },
     },
     // Multi-replica coordination (`BotConfig.coordination`) only: the coordinator starts
     // right after the store and stops right before it (after the transport).

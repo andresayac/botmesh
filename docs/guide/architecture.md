@@ -131,7 +131,9 @@ flowchart LR
 `stop()` closes inbound and cancels broadcasts, stops or pauses the steps that
 produce new work (scheduler, durability sweeper), optionally drains in-flight sends
 (`stop({ drain: true })`), closes paced sends and aborts conversations (checkpoints
-are kept), then stops the remaining steps in reverse order. If `start()` fails, the
+are kept), then stops the remaining steps in reverse order (the `storage` step first
+lets the ledger rows of sends the provider already accepted land, up to 5 s, before
+it closes the store). If `start()` fails, the
 steps already started are rolled back in reverse order and the error is rethrown.
 
 An opt-in feature adds a **lifecycle step**; it does not scatter `if`s through the
