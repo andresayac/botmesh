@@ -9,7 +9,7 @@ runs. The few hard breaks are marked **Breaking**.
 ## Package entries
 
 The main entry (`@botmesh/core`) now exports only what an application needs:
-512 names before, 368 after. Everything else moved to a subpath:
+512 names before, 372 after (368 after the trim, plus `BotNotRunningError`, `InvalidProviderEventError`, `RateLimitRetryOptions` and `SplitTextOptions` from the other stable changes). Everything else moved to a subpath:
 
 | Import from | What it holds |
 | --- | --- |

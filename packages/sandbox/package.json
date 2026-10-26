@@ -62,7 +62,7 @@
     "@botmesh/tiktok": "workspace:*",
     "@botmesh/twilio": "workspace:*",
     "pino": "^10.3.1",
-    "ws": "^8.18.0"
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "@botmesh/chatwoot": "workspace:*",
@@ -72,7 +72,7 @@
     "@types/node": "^26.1.1",
     "@types/ws": "^8.5.13",
     "typescript": "^7.0.2",
-    "vite": "^7.3.6",
-    "vitest": "^4.1.10"
+    "vite": "^7.3.7",
+    "vitest": "^4.1.12"
   }
 }

@@ -10,7 +10,7 @@ marcadas como **Ruptura**.
 ## Entradas del paquete
 
 La entrada principal (`@botmesh/core`) ahora solo exporta lo que necesita una
-aplicación: 512 nombres antes, 368 después. Todo lo demás pasó a un subpath:
+aplicación: 512 nombres antes, 372 después (368 tras el recorte, más `BotNotRunningError`, `InvalidProviderEventError`, `RateLimitRetryOptions` y `SplitTextOptions` de los demás cambios para estable). Todo lo demás pasó a un subpath:
 
 | Importa de | Qué contiene |
 | --- | --- |
