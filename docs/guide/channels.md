@@ -237,8 +237,8 @@ text menu, `ctx.edit` sends a new message, `ctx.react` resolves
   (`ctx.sendNative('<provider id>', payload)`) as an escape hatch to the
   channel's own API, with a provider-specific payload. Baileys rejects it
   with `UnsupportedContentError`. Discord, Messenger, Instagram, Evolution,
-  WPPConnect, Twilio, Gupshup and HighLevel also reject a payload addressed to
-  another provider id instead of posting it.
+  WPPConnect, Twilio, Gupshup, HighLevel, Email and TikTok also reject a payload
+  addressed to another provider id instead of posting it.
 
 ## Cross-channel contract
 
@@ -287,8 +287,10 @@ Provider authors check them with the helpers of `@botmesh/core/testing`
   the voter and `vote.options` the current tally of every option with its `voters`.
 - **One naming scheme for low-level helpers.** Each provider's error mapper is
   `to<Channel>Error` (`toTelegramError`, `toDiscordError`, `toTwilioError`…; the Meta
-  channels share `toGraphError` from `@botmesh/graph-core`); the older `toProviderError`
-  names remain as deprecated aliases. `ingest()` returns the HTTP status to answer with
+  channels share `toGraphError` from `@botmesh/graph-core`). Telegram, TikTok and the
+  Cloud API keep their older `toProviderError` (and Email its `toEmailProviderError`) as
+  deprecated aliases; the channels first published in the beta have only the new names.
+  `ingest()` returns the HTTP status to answer with
   (a `number`); WPPConnect returns it as a `Promise<number>` (it resolves unknown LIDs
   through the gateway before emitting, never waiting for your handlers) and email's `ingest()` takes a raw message, not a webhook, and returns
   an `EmailIngestResult`.
@@ -401,6 +403,8 @@ const provider = new CloudAPIProvider({
   provider has no `typing()` or `deleteMessage()`, so `ctx.typing()` and
   `ctx.delete()` do nothing (see the [cross-channel contract](#cross-channel-contract)).
 - Text over 4096 characters is split into several messages by the core.
+- While the bot is stopped, `ingest()` answers `503`, so Meta redelivers the
+  webhook after the restart.
 - `publishForm()` bakes the default submit label of a form into the Flow in
   the provider's `lang` (default `'en'`; set it to your bot's `BotConfig.lang`),
   or in `publishForm(def, { lang })` for one Flow. A form's own `submitLabel`
@@ -516,6 +520,8 @@ const provider = new MessengerProvider({
 - Message tags: `bot.send(psid, text, { platformData: { tag: 'HUMAN_AGENT' } })`
   sends after the 24-hour window (`messaging_type`, `notification_type` and
   `persona_id` are accepted too).
+- While the bot is stopped, `ingest()` answers `503`, so Meta redelivers the
+  webhook after the restart.
 
 ```bash
 pnpm add @botmesh/core @botmesh/messenger
@@ -908,9 +914,10 @@ and [Migrating to the stable API](/guide/stable-migration).
   `editedMessages: 'ignore'`.
 - **Renamed helpers** (the old names are deprecated aliases until v3): Telegram
   `pollTimeout` (seconds) → `pollTimeoutMs`; `toProviderError` → `toTelegramError`,
-  `toDiscordError`, `toMessengerError`, `toInstagramError`, `toTikTokError`;
-  `toEmailProviderError` → `toEmailError`; `@botmesh/meta`'s `toProviderError` →
-  `toGraphError` from `@botmesh/graph-core`.
+  `toTikTokError`; `toEmailProviderError` → `toEmailError`; `@botmesh/meta`'s
+  `toProviderError` → `toGraphError` from `@botmesh/graph-core`. Discord, Messenger and
+  Instagram dropped their alpha `toProviderError` before their first npm release: use
+  `toDiscordError`, `toMessengerError` and `toInstagramError`.
 
 :::
 

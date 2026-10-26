@@ -17,7 +17,7 @@ El limiter usa un algoritmo de **token bucket** con dos buckets independientes:
 - **Por chat** — limita qué tan rápido puedes enviar a una *sola* conversación.
 - **Global** — limita tu throughput saliente *total* entre todos los chats.
 
-Cuando un bucket se vacía, los mensajes se **encolan** (nunca se descartan) y se liberan conforme los tokens se recargan. Un **jitter** opcional agrega un delay aleatorio tipo humano entre envíos.
+Cuando un bucket se vacía, los mensajes se **encolan** (no se descartan) y se liberan conforme los tokens se recargan; un chat frenado no retiene a los demás. Un envío que espera en la cola más de `maxWait` (30 s por defecto) rechaza con `RateLimiterTimeout`, un `RateLimitedError`, así que quien envía nunca se queda colgado. Un **jitter** opcional agrega un delay aleatorio tipo humano entre envíos.
 
 ```mermaid
 flowchart LR
@@ -59,6 +59,8 @@ const bot = new Bot({
 | `jitter.min` | `number` | `0` | Delay mínimo entre envíos (ms) |
 | `jitter.max` | `number` | `0` | Delay máximo entre envíos (ms) |
 | `enabled` | `boolean` | `true` | Pon `false` para desactivar completamente |
+| `maxWait` | `string \| number` | `'30s'` | Espera máxima en la cola antes de que el envío rechace con `RateLimiterTimeout` (`0` espera sin límite) |
+| `maxChats` | `number` | `5000` | Buckets por chat que se guardan en memoria (se expulsan primero los inactivos, así que nunca se levanta un límite activo) |
 
 ## Desactivar el rate limiting
 

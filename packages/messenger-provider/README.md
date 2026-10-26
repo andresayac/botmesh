@@ -8,7 +8,7 @@ The **Facebook Messenger** transport for [`@botmesh/core`](https://github.com/an
 pnpm add @botmesh/core @botmesh/messenger
 ```
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older version. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/messenger@beta` during the beta (`npm view @botmesh/messenger dist-tags` lists the tags). Once stable, the plain command above works.
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build (or to none). Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/messenger@beta` during the beta (`npm view @botmesh/messenger dist-tags` lists the tags). Once stable, the plain command above works.
 
 Nothing else to install: Graph calls use Node.js 22's native `fetch` and `crypto`, and inbound attachments are downloaded through the SSRF-safe [`@botmesh/http`](https://www.npmjs.com/package/@botmesh/http) (a dependency).
 
@@ -52,7 +52,7 @@ app.listen(3000)
 
 The same two routes work in any framework (or with the [webhook server](https://andresayac.github.io/botmesh/guide/server)): answer the `GET` with `verifyChallenge(query)` and hand the raw `POST` body and headers to `ingest()`, which does not wait for your handlers.
 
-`ingest(body, headers)` returns the HTTP status to answer with and never throws: `200` accepted, `400` for a body that is not a JSON object (or one already parsed while `appSecret` is set), `403` for a bad signature. Fields of the wrong type inside a valid body are ignored, never trusted.
+`ingest(body, headers)` returns the HTTP status to answer with and never throws: `200` accepted, `400` for a body that is not a JSON object (or one already parsed while `appSecret` is set), `403` for a bad signature, `503` while the provider is stopped (after `bot.stop()`, until the next `bot.start()`), so Meta delivers the webhook again later instead of it being lost. Fields of the wrong type inside a valid body are ignored, never trusted.
 
 ## Options
 
@@ -91,7 +91,7 @@ The same two routes work in any framework (or with the [webhook server](https://
 | Inbound media download (`MediaRef.token` is the attachment URL) | ✅ |
 | Text over 2000 characters (`maxTextLength`) | ✅ split into several messages by `@botmesh/core` |
 | `ctx.sendNative('messenger', message)` | ✅ posts a Send API `message` object as is |
-| Polls, stickers, location, contact, templates, sending reactions | ❌ `UnsupportedContentError` (no Send API for them) |
+| Sending polls, stickers, location, contact, templates or reactions | ❌ `UnsupportedContentError` (no Send API for them) |
 | Groups, presence, editing or deleting messages | ❌ (not in the API) |
 
 - **Media by public URL only.** The Send API refers to attachments by URL; this provider does not implement the chunked upload. A `Buffer`, a path or a stream rejects with `UnsupportedContentError`: host the file and pass `'https://…'` or `{ url }`.
@@ -123,6 +123,7 @@ Sends reject with the typed errors of `@botmesh/core` (mapping in [`@botmesh/gra
 | Meta says the callback URL could not be verified | The `GET` route answered `403`: the `verify_token` set in Meta differs from `verifyToken`, or the route does not return `verifyChallenge(query)` as plain text. |
 | Every webhook `POST` gets `403` | The signature check failed: `appSecret` is not the app's secret, or the body reached `ingest()` re-serialized (parse nothing before it; pass the raw bytes). See [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting#webhook-signature-mismatch-403). |
 | Webhook `POST`s get `400` | The body is not a JSON object, or a parsed object was passed while `appSecret` is set. |
+| Webhook `POST`s get `503` | The bot is stopped (`bot.stop()` without a new `bot.start()`). Meta retries the delivery. |
 | The webhook verifies but no message arrives | The Page is not subscribed to the app's `messages` field, or the app is in development mode and the sender has no role in it. |
 | Button presses never arrive | `messaging_postbacks` is not subscribed. |
 | Reactions never arrive | `message_reactions` is not subscribed. |

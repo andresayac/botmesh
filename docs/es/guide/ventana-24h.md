@@ -28,14 +28,14 @@ decides qué hacer:
 import { OutsideSessionWindowError } from '@botmesh/core'
 
 try {
-  await bot.send(chatId, 'Your order shipped')
+  await bot.send(chatId, 'Tu pedido ya va en camino')
 } catch (err) {
   if (!(err instanceof OutsideSessionWindowError)) throw err
   await bot.send(chatId, {
     kind: 'template',
     name: 'order_update',
-    language: 'en',
-    components: [/* template parameters, Graph format */],
+    language: 'es',
+    components: [/* parámetros de la plantilla, en formato de Graph */],
   })
 }
 ```
@@ -54,11 +54,11 @@ const provider = new CloudAPIProvider({
   verifyToken: process.env.META_VERIFY_TOKEN!,
   appSecret: process.env.META_APP_SECRET!,
   sessionWindow: {
-    reopenTemplate: { kind: 'template', name: 'resume_conversation', language: 'en' },
+    reopenTemplate: { kind: 'template', name: 'resume_conversation', language: 'es' },
     reopenTemplateByKind: {
-      document: { kind: 'template', name: 'document_ready', language: 'en' },
+      document: { kind: 'template', name: 'document_ready', language: 'es' },
     },
-    onReport: (r) => logger.info({ chatId: r.chatId, outcome: r.outcome }, 'session window'),
+    onReport: (r) => logger.info({ chatId: r.chatId, outcome: r.outcome }, 'ventana de sesión'),
   },
 })
 ```
@@ -105,10 +105,10 @@ directamente.
 import { SessionWindowReopenedError } from '@botmesh/meta'
 
 try {
-  await bot.send(chatId, 'Your invoice is attached')
+  await bot.send(chatId, 'Te enviamos tu factura')
 } catch (err) {
   if (err instanceof SessionWindowReopenedError) {
-    // err.template went out; err.queued === true → delivered when the user replies
+    // err.template ya salió; err.queued === true → se entrega cuando el usuario responda
   } else throw err
 }
 ```
@@ -225,7 +225,7 @@ const windows = new SessionWindowManager({ store, reopenTemplate })
 const sales = new CloudAPIProvider({ /* ... */ phoneNumberId: 'SALES_ID', sessionWindow: windows })
 const support = new CloudAPIProvider({ /* ... */ phoneNumberId: 'SUPPORT_ID', sessionWindow: windows })
 
-sales.sessionWindow === windows.forScope('SALES_ID') // true (memoised)
+sales.sessionWindow === windows.forScope('SALES_ID') // true (memoizado)
 ```
 
 ## Consultar un chat
@@ -236,10 +236,10 @@ sales.sessionWindow === windows.forScope('SALES_ID') // true (memoised)
 ```ts
 const sw = provider.sessionWindow!
 await sw.state(chatId)     // 'open' | 'closed' | 'unknown'
-await sw.isOpen(chatId)    // true only when known open
-await sw.expiresAt(chatId) // epoch ms when the window closes, or undefined
-sw.pending(chatId)         // sends queued for the chat
-sw.clearPending(chatId)    // drop them (each reported as 'dropped')
+await sw.isOpen(chatId)    // true solo si se sabe abierta
+await sw.expiresAt(chatId) // epoch ms en que se cierra la ventana, o undefined
+sw.pending(chatId)         // envíos encolados del chat
+sw.clearPending(chatId)    // los descarta (cada uno se notifica como 'dropped')
 ```
 
 También se exportan `SESSION_WINDOW_MS` (24 h) y `SESSION_WINDOW_ERROR_CODE`
@@ -290,13 +290,13 @@ por chat y por categoría. Meta repite el pricing en `sent`, `delivered` y
 ```ts
 const provider = new CloudAPIProvider({
   /* ... */
-  usage: { rates: { marketing: 0.0625, utility: 0.008 } }, // price per billable message
+  usage: { rates: { marketing: 0.0625, utility: 0.008 } }, // precio por mensaje facturable
 })
 
 provider.usage!.forChat(chatId) // { messages, billable, free, estimatedCost, byCategory } | undefined
-provider.usage!.totals()        // the same, across every chat
-provider.usage!.chats()         // chats with counters, least recently updated first
-provider.usage!.reset(chatId)   // clear one chat (totals kept); reset() clears everything
+provider.usage!.totals()        // lo mismo, sumando todos los chats
+provider.usage!.chats()         // chats con contadores, del actualizado hace más tiempo al más reciente
+provider.usage!.reset(chatId)   // limpia un chat (los totales se conservan); reset() lo limpia todo
 ```
 
 | Opción de `usage` | Por defecto | Descripción |

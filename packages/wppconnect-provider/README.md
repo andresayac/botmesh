@@ -31,7 +31,7 @@ through webhooks.
 pnpm add @botmesh/core @botmesh/wppconnect
 ```
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older alpha. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/wppconnect@beta` during the beta (`npm view @botmesh/wppconnect dist-tags` lists the tags). Once stable, the plain command above works.
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build (or to none). Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/wppconnect@beta` during the beta (`npm view @botmesh/wppconnect dist-tags` lists the tags). Once stable, the plain command above works.
 
 You also need a running `wppconnect-server` (tested with `wppconnect/server-cli:1.3.50`)
 and a session paired with a WhatsApp number. Node.js 22 or later, ESM only.

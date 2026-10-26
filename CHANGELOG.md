@@ -4,6 +4,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### Canales: revisión de contenido de las guías y READMEs (2026-10)
+- **`@botmesh/meta` y `@botmesh/messenger`:** con el bot parado, `ingest()` respondía `200` y el mensaje se perdía; ahora responde `503` (como `@botmesh/instagram` y `@botmesh/telegram`) y Meta lo reenvía tras `bot.start()`.
+- Guía de canales (EN/ES): Email y TikTok también rechazan un payload `native` dirigido a otro provider; los alias `toProviderError` solo quedan en Telegram, TikTok y la Cloud API (Discord, Messenger e Instagram los quitaron antes de su primera publicación).
+- Rate limiting (EN/ES): documentadas `maxWait` (30 s, rechaza con `RateLimiterTimeout`) y `maxChats` (5000) del limitador de Baileys; la cola ya no se describe como "nunca descarta".
+- Servidor de webhooks (EN/ES): sin el ingress, Twilio también recibe la URL (`ingest(body, headers, url)` con `webhookPath` o `ingestRequest()`).
+- Ventana de 24 h y sub-APIs (ES): los ejemplos usan textos en español y plantillas con `language: 'es'`.
+- READMEs: los ejemplos de `@botmesh/server` con Telegram ya no pasan `body: 'text'`; `@botmesh/graph-core` nombra a Messenger e Instagram; Twilio explica que el core divide el texto de más de 1600 caracteres; Gupshup, Messenger y Evolution corrigen descripciones (`webhookTokenParam`, envíos no soportados, votos de encuesta); las notas de prerelease de los paquetes nuevos en la beta ya no hablan de una alpha anterior.
+
 ### `@botmesh/messenger`: prueba de release de la beta (2026-10)
 - **Texto saliente sin recortes:** una lista envía su texto antes de la plantilla genérica (que no tiene encabezado y lo perdía); el texto de `buttons` que pasa de los 640 caracteres de la plantilla de botones sale antes como texto plano (Graph rechazaba el envío); `buttons` sin botones es texto; el texto de una tarjeta o lista de más de 2000 caracteres se divide en varios mensajes.
 - Las etiquetas de botones y plantillas se cortan en límites de grafema (una secuencia de emoji con ZWJ se partía en otro símbolo).

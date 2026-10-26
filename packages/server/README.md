@@ -19,7 +19,7 @@ pnpm add @botmesh/server
 
 Node.js 22 or later, ESM only. It has no dependencies: bring the framework you already use, or none (`node:http` works).
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/server@beta` during the beta (`npm view @botmesh/server dist-tags` lists the tags). Once stable, the plain command above works.
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build (or to none). Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/server@beta` during the beta (`npm view @botmesh/server dist-tags` lists the tags). Once stable, the plain command above works.
 
 ## Quick start (`node:http`)
 
@@ -41,7 +41,7 @@ bot.when('hi', (ctx) => ctx.reply('Hello!'))
 const ingress = createIngress({
   routes: [
     { path: '/webhook/whatsapp', provider: whatsapp },
-    // Telegram in webhook mode: { path: '/webhook/telegram', provider: telegram, body: 'text' },
+    // Telegram in webhook mode: { path: '/webhook/telegram', provider: telegram },
   ],
   bot, // /readyz answers 200 only while bot.getConnectionState() === 'ready'
 })

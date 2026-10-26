@@ -63,7 +63,7 @@ import { expressIngress } from '@botmesh/server/express'
 app.use(expressIngress(createIngress({ routes: [{ path: '/webhook', provider }], bot }))) // before express.json()
 ```
 
-`ingest(body, headers)` returns the HTTP status to answer with and never throws: `200` accepted, `400` for a body that is not a JSON object (or one already parsed while `appSecret` is set), `403` for a bad signature.
+`ingest(body, headers)` returns the HTTP status to answer with and never throws: `200` accepted, `400` for a body that is not a JSON object (or one already parsed while `appSecret` is set), `403` for a bad signature, `503` while the provider is stopped (after `bot.stop()`, until the next `bot.start()`), so Meta delivers the webhook again later instead of it being lost.
 
 > **Webhook signature.** `appSecret` is required: `ingest` checks `X-Hub-Signature-256` (constant-time
 > HMAC-SHA256 over the raw bytes) and rejects forged bodies with `403`. If every webhook gets `403`, the body was
@@ -299,6 +299,7 @@ Sends reject with the typed errors of `@botmesh/core` (mapping in [`@botmesh/gra
 | Meta says the callback URL could not be verified | The `GET` route answered `403`: the `verify_token` set in Meta differs from `verifyToken`, or the route does not return `verifyChallenge(query)` as plain text. |
 | Every webhook `POST` gets `403` | The signature check failed: `appSecret` is not the app's secret, or the body reached `ingest()` re-serialized (parse nothing before it; pass the raw bytes). |
 | Webhook `POST`s get `400` | The body is not a JSON object, or a parsed object was passed while `appSecret` is set. |
+| Webhook `POST`s get `503` | The bot is stopped (`bot.stop()` without a new `bot.start()`). Meta retries the delivery. |
 | The webhook verifies but no message arrives | The app is not subscribed to the `messages` field, or the number is not linked to the app (WhatsApp → API Setup). |
 
 ## Links

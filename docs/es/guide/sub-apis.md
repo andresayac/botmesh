@@ -53,10 +53,10 @@ bot.on('ready', async () => {
   if (!sock) return
 
   // Equivalente de bot.groups.create(...) de v1:
-  const group = await sock.groupCreate('My group', ['573001234567@s.whatsapp.net'])
+  const group = await sock.groupCreate('Mi grupo', ['573001234567@s.whatsapp.net'])
 
   // bot.profile.setName(...) de v1:
-  await sock.updateProfileName('My Bot')
+  await sock.updateProfileName('Mi Bot')
 
   // bot.privacy.setLastSeen(...) de v1:
   await sock.updateLastSeenPrivacy('all')
