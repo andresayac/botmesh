@@ -10,13 +10,25 @@
  */
 
 import type { DurableKv, DurableKvIndex } from '@botmesh/core'
-import { assertTenantId, encodeSegment } from './encode.js'
+import { assertDocId, assertTenantId, encodeSegment } from './encode.js'
 
 /** Thrown when a stored document is not valid JSON or fails the caller's `parse`. The message never includes the contents. */
 export class CorruptDocumentError extends Error {
   constructor(readonly table: string, readonly id: string, options?: { cause?: unknown }) {
     super(`corrupt document ${JSON.stringify(id)} in table ${JSON.stringify(table)}`, options)
     this.name = 'CorruptDocumentError'
+  }
+}
+
+/**
+ * Thrown before a write whose document the family's own `parse` would reject, so a bad
+ * write can never leave an unreadable document behind. Extends `TypeError`; the message
+ * never includes the contents (the validation error is the `cause`).
+ */
+export class InvalidDocumentError extends TypeError {
+  constructor(readonly table: string, readonly id: string, options?: { cause?: unknown }) {
+    super(`refusing to write invalid document ${JSON.stringify(id)} to table ${JSON.stringify(table)}`, options)
+    this.name = 'InvalidDocumentError'
   }
 }
 
@@ -87,6 +99,19 @@ export class DocTable<T> {
     return { due, done: this.opts.active ? this.opts.active(doc) : null }
   }
 
+  /** The JSON text of `doc`, after checking that `parse` accepts what a read would decode. */
+  private encode(id: string, doc: T): string {
+    let text: string | undefined
+    try {
+      text = JSON.stringify(doc)
+      if (text === undefined) throw new TypeError('document is not JSON-serializable')
+      this.opts.parse(JSON.parse(text))
+    } catch (error) {
+      throw new InvalidDocumentError(this.table, id, { cause: error })
+    }
+    return text
+  }
+
   private decode(id: string, raw: string): T {
     try {
       return this.opts.parse(JSON.parse(raw))
@@ -97,24 +122,28 @@ export class DocTable<T> {
 
   /** The document and its version, or `undefined` when absent. */
   async get(id: string): Promise<Versioned<T> | undefined> {
+    assertDocId(id)
     const entry = await this.kv.get(this.table, id)
     return entry ? { doc: this.decode(id, entry.value), version: entry.version } : undefined
   }
 
   /** Create `id`; `undefined` when it already exists. */
   async insert(id: string, doc: T): Promise<Versioned<T> | undefined> {
-    const version = await this.kv.insert(this.table, id, JSON.stringify(doc), this.indexOf(doc))
+    assertDocId(id)
+    const version = await this.kv.insert(this.table, id, this.encode(id, doc), this.indexOf(doc))
     return version === undefined ? undefined : { doc, version }
   }
 
   /** Replace `id` only when its stored version is `version`; `undefined` when the compare-and-set lost. */
   async replace(id: string, version: string, doc: T): Promise<Versioned<T> | undefined> {
-    const next = await this.kv.replace(this.table, id, version, JSON.stringify(doc), this.indexOf(doc))
+    assertDocId(id)
+    const next = await this.kv.replace(this.table, id, version, this.encode(id, doc), this.indexOf(doc))
     return next === undefined ? undefined : { doc, version: next }
   }
 
   /** Delete `id` only when its stored version is `version`. */
-  remove(id: string, version: string): Promise<boolean> {
+  async remove(id: string, version: string): Promise<boolean> {
+    assertDocId(id)
     return this.kv.remove(this.table, id, version)
   }
 
@@ -125,6 +154,7 @@ export class DocTable<T> {
    * @throws {KvContentionError} after `attempts` lost compare-and-sets.
    */
   async update(id: string, fn: (current: T | undefined) => T | undefined): Promise<Versioned<T> | undefined> {
+    assertDocId(id)
     const attempts = this.opts.attempts ?? DEFAULT_ATTEMPTS
     for (let attempt = 0; attempt < attempts; attempt++) {
       await backoff(attempt)
@@ -142,6 +172,7 @@ export class DocTable<T> {
    * call deleted a document.
    */
   async delete(id: string): Promise<boolean> {
+    assertDocId(id)
     const attempts = this.opts.attempts ?? DEFAULT_ATTEMPTS
     for (let attempt = 0; attempt < attempts; attempt++) {
       await backoff(attempt)
@@ -163,7 +194,8 @@ export class DocTable<T> {
       throw new RangeError('list(): limit must be a non-negative integer')
     }
     if (limit === 0) return []
-    const ids = await this.kv.range(this.table, index, options.max ?? Number.POSITIVE_INFINITY, limit)
+    // Real backends (SQL LIMIT, Redis ZRANGE … LIMIT) only take integers: "no limit" is the largest safe one.
+    const ids = await this.kv.range(this.table, index, options.max ?? Number.POSITIVE_INFINITY, Number.isFinite(limit) ? limit : Number.MAX_SAFE_INTEGER)
     const docs: T[] = []
     for (const id of ids) {
       const entry = await this.kv.get(this.table, id)

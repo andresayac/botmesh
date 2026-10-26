@@ -19,3 +19,13 @@ export function isTenantId(value: unknown): value is string {
 export function assertTenantId(value: unknown, what = 'tenantId'): asserts value is string {
   if (!isTenantId(value)) throw new TypeError(`${what} must be a non-empty string`)
 }
+
+/**
+ * @throws {TypeError} unless `value` is a non-empty string without NUL characters (a
+ * document id is stored as is, and PostgreSQL `TEXT` cannot hold NUL).
+ */
+export function assertDocId(value: unknown, what = 'document id'): asserts value is string {
+  if (typeof value !== 'string' || value === '' || value.includes('\u0000')) {
+    throw new TypeError(`${what} must be a non-empty string without NUL characters`)
+  }
+}
