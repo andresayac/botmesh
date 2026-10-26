@@ -48,25 +48,27 @@
     "@botmesh/core": "workspace:^",
     "@botmesh/http": "workspace:^",
     "@cacheable/node-cache": "^1.5.0",
-    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@hapi/boom": "^10.0.1",
     "@whiskeysockets/baileys": "7.0.0-rc14",
-    "fluent-ffmpeg": "^2.1.3",
-    "follow-redirects": "^1.16.0",
-    "mime-types": "^3.0.2",
     "pino": "^10.3.1",
     "qr-image": "^3.2.0",
     "qrcode-terminal": "^0.12.0",
-    "sharp": "^0.35.3"
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
-    "@types/fluent-ffmpeg": "^2.1.28",
-    "@types/mime-types": "^3.0.1",
     "@types/node": "^26.1.1",
     "@types/qrcode-terminal": "^0.12.2",
     "typescript": "^7.0.2",
-    "vite": "^7.3.6",
-    "vitest": "^4.1.10"
+    "vite": "^7.3.7",
+    "vitest": "^4.1.12"
+  },
+  "peerDependencies": {
+    "ffmpeg-static": "^5.2.0"
+  },
+  "peerDependenciesMeta": {
+    "ffmpeg-static": {
+      "optional": true
+    }
   },
   "publishConfig": { "access": "public" }
 }
