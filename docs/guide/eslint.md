@@ -86,8 +86,8 @@ replacement in the message:
 | `endFlow()` | return from the step, or `c.end(message)` |
 
 ```js
-addKeyword('hola').addAnswer('Your name?', { capture: true })   // reported
-flow('hola').ask('Your name?', 'name', { timeout: '5m' })        // ok
+addKeyword('hi').addAnswer('Your name?', { capture: true })   // reported
+flow('hi').ask('Your name?', 'name', { timeout: '5m' })       // ok
 ```
 
 No options.

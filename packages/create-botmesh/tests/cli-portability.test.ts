@@ -9,7 +9,7 @@ import { join } from 'node:path'
 
 import { scaffold } from '../src/scaffold.js'
 // Plain-JS bin; typed through its JSDoc because tsconfig sets `allowJs`.
-import { copyEnvCommand, main, nodeVersionWarning } from '../src/cli.js'
+import { copyEnvCommand, createCommand, main, nodeVersionWarning } from '../src/cli.js'
 
 const dirs: string[] = []
 afterEach(async () => { while (dirs.length) await rm(dirs.pop()!, { recursive: true, force: true }) })
@@ -54,5 +54,28 @@ describe('Node version check', () => {
     expect(nodeVersionWarning('20.11.1')).toMatch(/22\.12/)
     expect(nodeVersionWarning('22.12.0')).toBeUndefined()
     expect(nodeVersionWarning('24.1.0')).toBeUndefined()
+  })
+})
+
+describe('the help text names the right dist-tag', () => {
+  it('derives the tag from the prerelease of the CLI version', () => {
+    expect(createCommand('1.0.0-beta.1')).toBe('npm create botmesh@beta')
+    expect(createCommand('2.0.0-rc.0')).toBe('npm create botmesh@rc')
+    expect(createCommand('1.2.3')).toBe('npm create botmesh')
+  })
+
+  it('--help prints the tag of this package version, never a stale one', async () => {
+    const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }
+    const lines: string[] = []
+    const spy = vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => { lines.push(args.join(' ')) })
+    try {
+      await main(['--help'])
+    } finally {
+      spy.mockRestore()
+    }
+    const text = lines.join('\n')
+    expect(text).toContain(`${createCommand(version)} my-bot`)
+    const tag = /-([0-9A-Za-z]+)/.exec(version)?.[1]
+    for (const stale of ['alpha', 'beta', 'rc'].filter((t) => t !== tag)) expect(text).not.toContain(`botmesh@${stale}`)
   })
 })

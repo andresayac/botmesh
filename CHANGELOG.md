@@ -4,6 +4,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### Docs de tooling y `create-botmesh`: revisión de contenido de la beta (2026-10)
+- `create-botmesh --help` decía `npm create botmesh@alpha`; ahora toma el dist-tag de la versión que se ejecuta (`@beta` durante la beta, sin tag en una estable).
+- Guías de testing, transcripciones doradas, sandbox, inspección de flujos, ESLint, esquema JSON de flujos y arquitectura (EN/ES): los ejemplos en inglés usan textos en inglés y los de español fijan `lang: 'es'`; la grabación de transcripciones ya no dice que se importa de `@botmesh/core` (es `@botmesh/core/testing`); el bot demo del sandbox documenta sus palabras clave reales; la arquitectura añade `logger.ts`, `handover.ts`, el filtro `fromMe`/ecos de la entrada y `wa-gateway-kit`/`server` en la infra compartida; la versión en español de la guía de ESLint aclara que `meta.docs.url` enlaza la guía en inglés.
+- README de `@botmesh/core`, `@botmesh/flow-schema` y `@botmesh/sandbox`: ejemplos en inglés, el enlace a la guía del sandbox es absoluto y la opción `fetch` de `compileFlowDocument` documenta su firma (la de `secureFetch`).
+
 ### `@botmesh/messenger`: prueba de release de la beta (2026-10)
 - **Texto saliente sin recortes:** una lista envía su texto antes de la plantilla genérica (que no tiene encabezado y lo perdía); el texto de `buttons` que pasa de los 640 caracteres de la plantilla de botones sale antes como texto plano (Graph rechazaba el envío); `buttons` sin botones es texto; el texto de una tarjeta o lista de más de 2000 caracteres se divide en varios mensajes.
 - Las etiquetas de botones y plantillas se cortan en límites de grafema (una secuencia de emoji con ZWJ se partía en otro símbolo).

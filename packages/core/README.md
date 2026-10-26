@@ -31,7 +31,7 @@ const bot = new Bot({
   }),
 })
 
-bot.when('hola', (ctx) => ctx.reply('👋 Hello!'))
+bot.when('hi', (ctx) => ctx.reply('👋 Hello!'))
 
 bot.use(
   flow('signup')
