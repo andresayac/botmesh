@@ -358,4 +358,4 @@ remembered ref is consumed by the first echo that matches it.
 - [Conversation flows](./flows): multi-step conversations
 - [Special triggers](./triggers): WELCOME, message types and CALL
 - [Hooks](./hooks): middleware
-- [Examples](/examples/messages): practical recipes
+- [Examples](/examples/): practical recipes

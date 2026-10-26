@@ -172,4 +172,4 @@ rechazan con `BotNotRunningError`.
 - [Conceptos básicos](./conceptos): cómo se enruta un mensaje, `ctx`, ids y opciones
 - [Flujos conversacionales](./flujos): ramas, reintentos, flujos persistentes
 - [Testing](./testing): comprueba este flujo en un test unitario con `createTestBot`
-- [Ejemplos](/es/ejemplos/mensajes): más recetas
+- [Ejemplos](/es/ejemplos/): más recetas

@@ -114,11 +114,25 @@ const enSidebar = {
   ],
   '/examples/': [
     {
-      text: 'Recipes',
+      text: 'Overview',
+      items: [{ text: 'All examples', link: '/examples/index' }],
+    },
+    {
+      text: 'Beginner',
       items: [
+        { text: 'Greeting bot', link: '/examples/greeting-bot' },
+        { text: 'FAQ bot', link: '/examples/faq-bot' },
         { text: 'Send messages', link: '/examples/messages' },
-        { text: 'Send media', link: '/examples/media' },
+        { text: 'Menu bot', link: '/examples/menu-bot' },
+        { text: 'Poll bot', link: '/examples/poll-bot' },
+        { text: 'Media replies', link: '/examples/media' },
+        { text: 'Reminder bot', link: '/examples/reminders' },
         { text: 'Registration flow', link: '/examples/registration-flow' },
+      ],
+    },
+    {
+      text: 'Intermediate',
+      items: [
         { text: 'Shopping flow', link: '/examples/shopping-flow' },
         { text: 'Support with timeout', link: '/examples/support-flow' },
         { text: 'Plugin: rate limiter', link: '/examples/rate-limiter' },
@@ -204,11 +218,25 @@ const esSidebar = {
   ],
   '/es/ejemplos/': [
     {
-      text: 'Recetas',
+      text: 'Resumen',
+      items: [{ text: 'Todos los ejemplos', link: '/es/ejemplos/index' }],
+    },
+    {
+      text: 'Principiante',
       items: [
+        { text: 'Bot de saludo', link: '/es/ejemplos/bot-saludo' },
+        { text: 'Bot de FAQ', link: '/es/ejemplos/bot-faq' },
         { text: 'Enviar mensajes', link: '/es/ejemplos/mensajes' },
-        { text: 'Enviar media', link: '/es/ejemplos/media' },
+        { text: 'Bot de menú', link: '/es/ejemplos/bot-menu' },
+        { text: 'Bot de encuestas', link: '/es/ejemplos/bot-encuesta' },
+        { text: 'Respuestas con media', link: '/es/ejemplos/media' },
+        { text: 'Bot de recordatorios', link: '/es/ejemplos/recordatorios' },
         { text: 'Flujo de registro', link: '/es/ejemplos/flujo-registro' },
+      ],
+    },
+    {
+      text: 'Intermedio',
+      items: [
         { text: 'Flujo de compra', link: '/es/ejemplos/flujo-compra' },
         { text: 'Soporte con timeout', link: '/es/ejemplos/flujo-soporte' },
         { text: 'Plugin: rate limiter', link: '/es/ejemplos/rate-limiter' },
@@ -374,7 +402,7 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Guide', link: '/guide/getting-started' },
-          { text: 'Examples', link: '/examples/messages' },
+          { text: 'Examples', link: '/examples/' },
           // TypeDoc output is plain HTML, not a VitePress page: bypass the SPA router.
           { text: 'API', link: '/api/', target: '_self' },
         ],
@@ -395,7 +423,7 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Guía', link: '/es/guide/inicio' },
-          { text: 'Ejemplos', link: '/es/ejemplos/mensajes' },
+          { text: 'Ejemplos', link: '/es/ejemplos/' },
           { text: 'API', link: '/api/', target: '_self' },
         ],
         sidebar: esSidebar,

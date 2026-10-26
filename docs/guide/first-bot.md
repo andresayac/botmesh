@@ -168,4 +168,4 @@ on Baileys); `bot.on('ready')` fires once the transport is connected. After
 - [Core concepts](./concepts): how a message is routed, `ctx`, ids and options
 - [Conversation flows](./flows): branching, retries, persistent flows
 - [Testing](./testing): assert this flow in a unit test with `createTestBot`
-- [Examples](/examples/messages): more recipes
+- [Examples](/examples/): more recipes

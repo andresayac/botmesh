@@ -1,166 +1,130 @@
 # Plugin: Rate Limiter
 
-A complete plugin that limits how many messages a user can send per time window.
+Build a reusable plugin that limits how many messages each user can send
+per time window, and plug it into a bot.
 
-## The plugin
+**Level:** Intermediate · **Tags:** WhatsApp, Telegram, Plugins, Hooks
 
-```ts
-import { Bot, definePlugin } from '@botmesh/core'
+**Features shown:** [`definePlugin()`](/guide/plugins#create-a-plugin) ·
+[`before('message')` hooks](/guide/hooks) ·
+[`ctx.abort()`](/guide/hooks) ·
+[`ctx.onDispose()` and unplug](/guide/plugins#configurable-plugin-with-cleanup) ·
+[plugin config](/guide/plugins#configurable-plugin-with-cleanup)
+
+## Prerequisites
+
+Node.js 22.12 or newer and a folder with `"type": "module"` (see
+[Getting started](/guide/getting-started#requirements), which also explains
+the prerelease tags). Then install:
+
+```bash
+npm install @botmesh/core @botmesh/baileys
+```
+
+## The complete bot
+
+```js
+// bot.js
+import { Bot, definePlugin, defineBot, isMainModule } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
 
-interface RateLimitConfig {
-  max?: number
-  windowMs?: number
-}
-
-const rateLimitPlugin = definePlugin<RateLimitConfig>({
+const rateLimitPlugin = definePlugin({
   name: 'rate-limit',
   version: '1.0.0',
-  description: 'Limit messages per user — max N messages per window',
+  description: 'At most N messages per user per window',
   install(ctx, config = {}) {
     const max = config.max ?? 10
-    const windowMs = config.windowMs ?? 60000
-    const counts = new Map<string, { count: number; resetAt: number }>()
+    const windowMs = config.windowMs ?? 60_000
+    const counts = new Map() // sender → { count, resetAt }
 
-    ctx.bot.before('message', async (msgCtx, next) => {
+    // Runs before routing: abort() drops the message, next() lets it through
+    ctx.bot.before('message', async (msg, next) => {
       const now = Date.now()
-      let entry = counts.get(msgCtx.from)
-
+      let entry = counts.get(msg.sender)
       if (!entry || entry.resetAt < now) {
         entry = { count: 0, resetAt: now + windowMs }
-        counts.set(msgCtx.from, entry)
+        counts.set(msg.sender, entry)
       }
-
       entry.count++
-
-      if (entry.count > max) {
-        const wait = Math.ceil((entry.resetAt - now) / 1000)
-        await msgCtx.reply(`⏳ Too many messages. Wait ${wait}s.`)
-        msgCtx.abort()
-        return
-      }
-
+      if (entry.count === max + 1) await msg.reply(`⏳ Slow down: at most ${max} messages every ${windowMs / 1000}s.`)
+      if (entry.count > max) return msg.abort()
       await next()
     })
 
-    // The before('message') hook above is unregistered automatically when the
-    // plugin is unplugged. Use onDispose() for anything else that needs
-    // cleanup — here, a periodic sweep of expired counters.
-    const gc = setInterval(() => {
+    // Hooks are removed on unplug; anything else is cleaned up here
+    const sweep = setInterval(() => {
       const now = Date.now()
-      for (const [chatId, entry] of counts) {
-        if (entry.resetAt < now) counts.delete(chatId)
-      }
+      for (const [sender, entry] of counts) if (entry.resetAt < now) counts.delete(sender)
     }, windowMs)
-    ctx.onDispose(() => clearInterval(gc))
-
-    ctx.logger.info(`Rate limit active: ${max} msg / ${windowMs / 1000}s`)
+    ctx.onDispose(() => clearInterval(sweep))
   },
 })
 
-const bot = new Bot({
-  provider: new BaileysProvider({ session: 'demo-bot', qr: { terminal: true, small: true } }),
+const createBot = defineBot((provider) => {
+  const bot = new Bot({ provider })
+
+  // plug() returns unplug(): it removes the hook and runs onDispose()
+  bot.plug(rateLimitPlugin, { max: 3, windowMs: 60_000 })
+
+  bot.onMessage((ctx) => ctx.reply(`✅ Got "${ctx.body}"`))
+
+  return bot
 })
 
-// Default config (10 msg / 60s)
-const unplug = bot.plug(rateLimitPlugin)
+export default createBot
 
-// Custom config:
-// bot.plug(rateLimitPlugin, { max: 20, windowMs: 60000 })
+// `node bot.js` connects to WhatsApp; `npx botmesh dev bot.js` skips this block
+if (isMainModule(import.meta)) {
+  const bot = await createBot(new BaileysProvider({ session: 'rate-limit-bot' }))
+  bot.on('ready', () => console.log('✅ Connected. Send a few messages in a row.'))
+  await bot.start()
+}
+```
 
-// Later, to fully remove it (unregisters the hook and clears the interval):
-// unplug()
+## Sample transcript
 
-await bot.start()
+Captured with `npx botmesh dev bot.js`; the fifth message is dropped
+silently, so the user is warned only once per window:
+
+```text
+user › one
+bot › ✅ Got "one"
+user › two
+bot › ✅ Got "two"
+user › three
+bot › ✅ Got "three"
+user › four
+bot › ⏳ Slow down: at most 3 messages every 60s.
+user › five
 ```
 
 ## How it works
 
-1. Each sender gets a counter with a reset time (`resetAt`)
-2. Every incoming message increments the counter for `msgCtx.from`
-3. If the counter exceeds `max` within `windowMs`:
-   - the bot replies `⏳ Too many messages. Wait Xs.`
-   - `msgCtx.abort()` stops the pipeline — no other handler runs for this message
-4. Once `resetAt` passes, the next message starts a fresh window
-5. `bot.plug()` returns an `unplug()` function that reverts everything the
-   plugin registered through `ctx.bot` (the hook), plus anything queued with
-   `ctx.onDispose()` (the GC interval)
+- **`definePlugin({ name, install })`** packages the feature; `install` gets
+  the plugin context and the config passed to `bot.plug(plugin, config)`. It
+  must be synchronous.
+- **`ctx.bot.before('message', (msg, next) => ...)`** runs before routing.
+  Call `next()` to continue; `msg.abort()` stops the message, so no handler,
+  flow or catch-all sees it.
+- **Per sender.** `msg.sender` is the user's stable id, so in a group each
+  participant has their own counter.
+- **Cleanup.** Hooks and handlers registered through `ctx.bot` are undone by
+  the function `bot.plug()` returns; timers and outside resources go in
+  `ctx.onDispose()`.
+- **Outbound too.** A `before('send')` hook sees every message the bot sends
+  (`{ chatId, content }`) and can `abort()` it in the same way. For WhatsApp
+  anti-ban pacing, `@botmesh/baileys` already rate-limits sends (see
+  [Rate limiting](/guide/rate-limiting)).
 
-## Variants
+## Run it on WhatsApp or Telegram
 
-### Groups only
-
-```ts
-ctx.bot.before('message', async (msgCtx, next) => {
-  if (!msgCtx.isGroup) { await next(); return }
-  // ... rate limit logic ...
-})
-```
-
-### With a temporary ban
-
-```ts
-const bans = new Map<string, { until: number }>()
-
-ctx.bot.before('message', async (msgCtx, next) => {
-  const now = Date.now()
-  const ban = bans.get(msgCtx.from)
-  if (ban && ban.until > now) {
-    await msgCtx.reply(`🚫 Blocked for ${Math.ceil((ban.until - now) / 1000)}s.`)
-    msgCtx.abort()
-    return
-  }
-
-  // ... increment the per-sender counter as in "The plugin" above ...
-  const entry = counts.get(msgCtx.from)!
-  if (entry.count > max) {
-    bans.set(msgCtx.from, { until: now + 5 * 60 * 1000 })
-    await msgCtx.reply('🚫 Too many messages. Blocked for 5 minutes.')
-    msgCtx.abort()
-    return
-  }
-  await next()
-})
-```
-
-### With a whitelist
-
-```ts
-const whitelist = new Set(['573001112233@s.whatsapp.net'])
-
-ctx.bot.before('message', async (msgCtx, next) => {
-  if (whitelist.has(msgCtx.from)) { await next(); return }
-  // ... rate limit logic ...
-})
-```
-
-### Limit the bot's own outbound sends
-
-`before('send')` fires for every outbound message (`bot.send`, `ctx.reply`,
-`ctx.photo`, ...). Its payload is `{ chatId, content, options }` (where
-`content` is the transport-neutral `OutboundContent`) and it can be aborted
-the same way, skipping the send entirely:
-
-```ts
-ctx.bot.before('send', async (payload, next) => {
-  const now = Date.now()
-  let entry = counts.get(payload.chatId)
-
-  if (!entry || entry.resetAt < now) {
-    entry = { count: 0, resetAt: now + windowMs }
-    counts.set(payload.chatId, entry)
-  }
-
-  entry.count++
-  if (entry.count > max) {
-    payload.abort() // nothing gets transmitted for this send
-    return
-  }
-  await next()
-})
-```
+`node bot.js` prints a QR: scan it in WhatsApp → Linked devices. For
+Telegram, install `@botmesh/telegram` and swap the provider as shown in
+[Or connect Telegram](/guide/getting-started#or-connect-telegram); the
+plugin works the same on every channel.
 
 ## Next steps
 
-- [Plugins](/guide/plugins) — full plugin guide
-- [Hooks](/guide/hooks) — middleware and before/after
+- [Plugins](/guide/plugins): `requires`, `multiple` and plugin packages
+- [Hooks](/guide/hooks): every hook point and its payload
+- [Handoff & access lists](/guide/handoff): block or allow senders without code
