@@ -274,13 +274,14 @@ export class IntentEngine {
   private scoreAll(text: string): IntentMatch[] {
     const input = normalizeText(text)
     if (!input) return []
-    const inputSet = new Set(input.split(' '))
+    const inputTokens = input.split(' ')
+    const inputSet = new Set(inputTokens)
     const padded = ` ${input} ` // word-boundary containment checks
     const out: IntentMatch[] = []
     for (const [intent, utterances] of this.registry) {
       let best: IntentMatch | undefined
       for (const u of utterances) {
-        const scored = this.scoreUtterance(u, input, padded, inputSet)
+        const scored = this.scoreUtterance(u, input, padded, inputSet, inputTokens.length)
         if (scored.confidence > 0 && (!best || scored.confidence > best.confidence)) {
           best = { intent, confidence: scored.confidence, ...(scored.entities ? { entities: scored.entities } : {}) }
         }
@@ -296,6 +297,7 @@ export class IntentEngine {
     input: string,
     padded: string,
     inputSet: Set<string>,
+    inputCount: number,
   ): { confidence: number; entities?: Record<string, string> } {
     // Slot utterances: a full pattern match scores 1 and captures entities.
     if (u.regex) {
@@ -317,7 +319,10 @@ export class IntentEngine {
     for (const t of u.tokens) if (inputSet.has(t)) intersection++
     if (intersection === 0) return { confidence: 0 }
 
-    const union = u.tokens.length + inputSet.size - intersection
+    // Utterance tokens are distinct; the input keeps its repeats so that saying a
+    // word or phrase twice is not a perfect (1.0) partial match. Still <= 1:
+    // intersection <= |inputSet| <= inputCount.
+    const union = u.tokens.length + inputCount - intersection
     const jaccard = intersection / union // token-overlap symmetry
     const coverage = intersection / u.tokens.length // how much of the utterance the input covers
     const contains = u.normalized.length > 0 && padded.includes(u.bounded) ? 1 : 0 // whole words only

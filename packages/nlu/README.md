@@ -130,7 +130,7 @@ extract entities.
      score = 0.3 × jaccard + 0.5 × coverage + 0.2 × contains
      ```
 
-     - `jaccard` = `|input ∩ utterance| / |input ∪ utterance|` (overlap of the distinct words, so a repeated word counts once),
+     - `jaccard` = `|input ∩ utterance| / |input ∪ utterance|` (the utterance's distinct words against every word of the input: a word repeated in the utterance counts once, while a word or phrase repeated in the input lowers the score, so it never reaches `1` without an exact match),
      - `coverage` = fraction of the utterance's tokens present in the input,
      - `contains` = `1` when the whole normalized utterance appears in the input as whole
        words (`my order` is in `hi my order 5`, not in `my orders`), else `0`.

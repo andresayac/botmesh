@@ -285,6 +285,18 @@ describe('IntentEngine — repeated words', () => {
     // A repeated word in the input must not beat an exact match of another intent.
     expect(new IntentEngine().define('a', ['hola hola']).define('b', ['hola']).match('hola')?.intent).toBe('b')
   })
+
+  it('does not give a partial match a perfect score when the input repeats a word or phrase', () => {
+    const nlu = new IntentEngine().define('greet', ['hola']).define('double', ['hola hola'])
+    expect(nlu.rank('hola hola')[0]).toEqual({ intent: 'double', confidence: 1 })
+    expect(nlu.rank('hola hola')[1]?.confidence).toBeLessThan(1)
+    expect(nlu.match('hola hola')?.intent).toBe('double')
+    const ab = new IntentEngine({ threshold: 0 }).define('a', ['a b'])
+    expect(ab.match('a b a')?.confidence).toBeLessThan(1)
+    expect(ab.match('a b a b')?.confidence).toBeLessThan(1)
+    // Only an exact phrase scores 1.
+    expect(ab.match('a b')?.confidence).toBe(1)
+  })
 })
 
 describe('IntentEngine — containment respects word boundaries', () => {
