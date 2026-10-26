@@ -7,6 +7,20 @@ mayoría de los renombres conservan un alias `@deprecated`, así que el editor
 los tacha y el código sigue funcionando. Las pocas rupturas reales están
 marcadas como **Ruptura**.
 
+El paso de una alpha a la estable se cubre en cuatro páginas; lee todas las que
+te afecten:
+
+- esta página: entradas del paquete, nombres canónicos y configuración (API);
+- [cambios de comportamiento](/es/guide/migracion-2): textos en inglés por
+  defecto, `retries` frente a `maxAttempts`, envíos antes de `start()`, ids en
+  logs, logs append-only dañados;
+- [dependencias y nombres](/es/guide/migracion): Baileys/ffmpeg, Graph
+  `v26.0`, `redis` como peer, SDKs y modelos de IA, `botwa` → `botmesh`;
+- [canales y plugins](/es/guide/actualizar-canales-plugins): arreglos por
+  canal, además del contrato común (timestamps en ms, división de textos
+  largos, métodos ausentes para operaciones no soportadas) en
+  [Canales](/es/guide/canales).
+
 ## Entradas del paquete
 
 La entrada principal (`@botmesh/core`) ahora solo exporta lo que necesita una

@@ -414,7 +414,7 @@ const res = await bot.broadcast(chatIds, '🎉 New promo!', {
   batchSize: 10,          // chats per batch (default 10)
   delayBetween: '2s',     // pause between batches (ms or '2s', '1m'; default 0)
   concurrency: 1,         // parallel sends per batch (default 1)
-  maxRetries: 3,          // retries per chat after a RateLimitedError (default 3)
+  retries: 3,             // retries per chat after a RateLimitedError (default 3)
   onProgress: (done, total) => bot.logger.info(`${done}/${total}`),
   onFail: (chatId, error) => bot.logger.warn({ chatId, err: error }, 'broadcast failed'),
   signal: ac.signal,      // abort to stop early

@@ -110,6 +110,12 @@ A plugin manifest declares its runtime range in `botmesh` (`"botmesh": "^2.0.0"`
 Manifests with the old `botwa` field are still accepted, and validation returns
 them with `botmesh`.
 
+### `eslint-plugin-botmesh`: type names
+
+The exported types are `BotMeshConfigs` and `BotMeshPlugin`. The old
+`BotWaConfigs` and `BotWaPlugin` are kept as deprecated aliases of the same
+types, so existing imports keep compiling; rename them when convenient.
+
 ## Names that stay
 
 Some identifiers from the project's former name live in stored data. Renaming

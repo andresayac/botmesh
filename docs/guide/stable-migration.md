@@ -6,6 +6,18 @@ change an alpha user may hit, with the replacement. Most renames keep a
 `@deprecated` alias, so your editor shows a strike-through and the code still
 runs. The few hard breaks are marked **Breaking**.
 
+Moving from an alpha to stable is covered by four pages; read all that apply:
+
+- this page: package entries, canonical names and configuration (API surface);
+- [behaviour changes](/guide/migration-2): English default texts, `retries` vs
+  `maxAttempts`, sends before `start()`, log ids, append-log corruption;
+- [dependencies and names](/guide/migration): Baileys/ffmpeg, Graph `v26.0`,
+  `redis` as a peer, AI SDKs and default models, `botwa` → `botmesh`;
+- [channels and plugins](/guide/upgrade-channels-plugins): per-channel fixes,
+  plus the cross-channel contract (epoch-ms timestamps, long-text splitting,
+  absent methods for unsupported operations) in
+  [Channels](/guide/channels).
+
 ## Package entries
 
 The main entry (`@botmesh/core`) now exports only what an application needs:

@@ -112,6 +112,13 @@ Un manifiesto de plugin declara su rango de runtime en `botmesh`
 (`"botmesh": "^2.0.0"`). Los manifiestos con el campo antiguo `botwa` se siguen
 aceptando, y la validación los devuelve con `botmesh`.
 
+### `eslint-plugin-botmesh`: nombres de los tipos
+
+Los tipos exportados son `BotMeshConfigs` y `BotMeshPlugin`. Los antiguos
+`BotWaConfigs` y `BotWaPlugin` se mantienen como alias obsoletos de los mismos
+tipos, así que los imports existentes siguen compilando; renómbralos cuando
+te venga bien.
+
 ## Nombres que se mantienen
 
 Algunos identificadores del nombre anterior del proyecto viven en datos ya
