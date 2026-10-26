@@ -757,6 +757,8 @@ const provider = new GoHighLevelProvider({
 - HighLevel's public key is bundled (`GHL_WEBHOOK_PUBLIC_KEY`), so no
   webhook secret is needed. `ingest()` needs the **raw** body.
 - Media only from public URLs; `template` maps to `templateId`.
+- An Email's HTML body arrives as plain text in `ctx.body`; `ctx.raw.body`
+  keeps the HTML and `ctx.chat.platformData.subject` the subject.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/gohighlevel-provider)
 
