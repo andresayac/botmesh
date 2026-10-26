@@ -8,6 +8,13 @@ import { Agent, FormData as UndiciFormData, fetch as undiciFetch } from 'undici'
 const defaultFetch = undiciFetch as unknown as typeof globalThis.fetch
 
 /** A FormData that is not this package's undici FormData (e.g. Node's global one). */
+/** A streaming body (web `ReadableStream` or async iterable), which fetch only sends with `duplex: 'half'`. */
+function isStreamBody(body: unknown): boolean {
+  if (typeof body !== 'object' || body === null) return false
+  if (typeof ReadableStream !== 'undefined' && body instanceof ReadableStream) return true
+  return typeof (body as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] === 'function'
+}
+
 function isForeignFormData(body: unknown): body is FormData {
   return typeof body === 'object' && body !== null && !(body instanceof UndiciFormData) &&
     Object.prototype.toString.call(body) === '[object FormData]'
@@ -59,7 +66,12 @@ export interface SecureFetchOptions {
   method?: string
   /** Request headers. Credential headers are dropped when a redirect changes origin. */
   headers?: RequestInit['headers']
-  /** Request body. A 303 (or a 301/302 after a POST) continues as a body-less `GET`. */
+  /**
+   * Request body. A 303 (or a 301/302 after a POST) continues as a body-less `GET`.
+   * A `ReadableStream` (or async iterable) body is sent as a streaming upload: the
+   * client sets the `duplex: 'half'` fetch requires for it. A stream cannot be
+   * replayed, so a 307/308 redirect after a streaming upload fails.
+   */
   body?: RequestInit['body']
   /** Aborts the request; it rejects with the signal's `reason`. */
   signal?: AbortSignal | null
@@ -169,6 +181,7 @@ export async function secureFetch(input: string | URL, options: LegacySecureFetc
           method,
           body,
           headers,
+          ...(isStreamBody(body) ? { duplex: 'half' } : {}),
           redirect: 'manual',
           signal: controller.signal,
           ...(dispatcher ? { dispatcher } : {}),

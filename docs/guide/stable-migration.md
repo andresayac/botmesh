@@ -164,6 +164,9 @@ client honours (`method`, `headers`, `body`, `signal`) and its policy
 - The other `RequestInit` fields (`cache`, `keepalive`, `integrity`...) still
   type-check through a `@deprecated` overload (`LegacySecureFetchOptions`) and
   are still forwarded to `fetch`. They stop being accepted at stable.
+- Streaming uploads need no extra field: with a `ReadableStream` (or async
+  iterable) `body`, the client sets the `duplex: 'half'` that fetch requires.
+  Drop an explicit `duplex` along with the other `RequestInit` fields.
 - A variable typed `SecureFetchOptions` no longer accepts browser fields
   (`mode`, `credentials`, `window`...). Remove them.
 - `resolvePublicHost` is now `resolveHost`: it resolves any host and leaves the

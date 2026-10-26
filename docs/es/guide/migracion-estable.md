@@ -170,6 +170,10 @@ el cliente respeta (`method`, `headers`, `body`, `signal`) y su política
 - Los demás campos de `RequestInit` (`cache`, `keepalive`, `integrity`...) siguen
   compilando con una sobrecarga `@deprecated` (`LegacySecureFetchOptions`) y se
   siguen pasando a `fetch`. Dejan de aceptarse en la estable.
+- Las subidas en streaming no necesitan ningún campo extra: con un `body`
+  `ReadableStream` (o iterable asíncrono), el cliente pone el `duplex: 'half'`
+  que exige fetch. Quita el `duplex` explícito junto con los demás campos de
+  `RequestInit`.
 - Una variable con tipo `SecureFetchOptions` ya no admite campos de navegador
   (`mode`, `credentials`, `window`...). Quítalos.
 - `resolvePublicHost` pasa a llamarse `resolveHost`: resuelve cualquier host y
