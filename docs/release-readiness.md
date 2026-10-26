@@ -1,436 +1,341 @@
-# Release readiness: stable
+# Release readiness: the beta with 36 public packages
 
-Go/no-go report for moving the public `@botmesh/*` packages to a **stable** release
-(core `2.0.0`, the others at a version the maintainer picks). It covers the 36 public
-packages: the ten public since the alpha and the 26 promoted during the beta (Messenger and
-Instagram, the WhatsApp REST gateways, the five channels, the [store promotion round](#store-promotion-round),
-the infrastructure and plugin rounds and the [tooling round](#promotion-round-tooling)). It closes the
-stable-readiness campaign of October 2026: six workstreams, each tested by one agent and
-checked by a reviewer, merged into `main` and verified together. The previous report
-(the alpha → beta campaign, base `9bcba20`) gave **GO for beta** and **NO-GO for stable**
-because the API freeze was still open; this campaign took those API decisions.
+Go/no-go report for the next publish of `@botmesh/*`: the first beta that ships all **36 public
+packages** (the 10 already on npm under `alpha` plus the 26 promoted during the beta, which have
+never been published), and the outlook for the later stable release (`pre exit`).
 
-Date: 2026-10-26. Base: `e148ea2`. Result: six `merge: stable readiness <key>` commits,
-six `fix: integrate <key>` commits, one docs commit tying the migration guides together
-(see [Integration](#integration)), and this report. A closeout round then merged three
-more branches on top of `2726645` (`co/core`, `co/channels`, `co/sandbox`; see
-[Closeout round](#closeout-round)). A final **API freeze round** then merged four more
-branches on top of `4487b43` (`af/ai`, `af/baileys`, `af/meta-net`, `af/redis`; see
-[API freeze round](#api-freeze-round)); the verdicts and numbers below are from after it,
-except the three promoted stores, whose figures are in the
-[store promotion round](#store-promotion-round). Nothing was published or pushed.
-
-**Channel promotion (branch `pp/channels`, after the beta versioning `cda0ebe`).** Five
-channels left the private set and are public from the beta on: `@botmesh/discord`,
-`@botmesh/twilio`, `@botmesh/gupshup`, `@botmesh/email` and `@botmesh/gohighlevel`
-(changeset `promote-channels.md`, `major` from 0.1.0, so `1.0.0-beta.x` in beta mode and
-`1.0.0` after `pre exit`). That makes **15 public packages**. Their API freeze follows the
-other providers (semver main entry, wire mappers and clients in `/internal`, entry-pin
-tests, `debug` deprecated, no `ws`/`imapflow`/`nodemailer` type on a semver entry in
-`api-check`, every entry imported by `pack:smoke`). Unlike the first ten, none of them has
-been exercised against the live service by a real bot; see their rows below.
-`@botmesh/tiktok` stays private (approval-gated API, no public spec).
+Date: 2026-10-26. Base: `main` after the per-package release tests (`merge: test <key>`, 26
+packages) and the docs content review (`merge: docs review <key>`, 9 branches), plus this
+report. Nothing was published or pushed. All numbers below come from that tree, on Windows 11
+with pnpm 11.9.0 and Node 24.13.0 unless the row says Node 22.
 
 ## Verdict
 
 | Step | Decision | Why |
 | --- | --- | --- |
-| **alpha → beta** | **GO** | Still GO. Every check below is green on the merged `main`, including all real-server suites, the Docker sandbox suites and a full build and test run on Node 22. |
-| **beta → stable, `@botmesh/core`** | **GO after one beta** | The API freeze is done for core: the main entry went from 512 to 372 names, engine internals moved to `/internal`, a semver-covered `/spi` exists for backend authors, every concept has one canonical name (the others are `@deprecated`), and the behaviour decisions (English default, `retries`/`maxAttempts`, sends need a running bot, long-text splitting, epoch-ms timestamps, presence while disconnected, the `'stopping'` event) are taken, tested and documented with migration pages. No core item from the previous report is left open; what remains is a beta used by a real bot (see [core](#core)). |
-| **beta → stable, the five promoted channels** | **GO after one beta with a live test each** | `discord`, `twilio`, `gupshup`, `email` and `gohighlevel` went through the same API freeze (see the channel promotion note at the top and their rows below), and their suites, `api-check` and `pack:smoke` pass. What they lack compared with the first ten is live use: none has been run against the real service by a bot yet, so each needs at least one live test during beta before `pre exit`. |
-| **beta → stable, the other nine public packages** | **GO after one beta** | The API freeze is done for every public package. Each one has a semver-covered main entry, and the packages that had engine helpers on it now have an `/internal` entry with no semver (`ai`, `baileys`, `redis-store`, `create-botmesh`) and, for `ai`, a `/testing` entry. Mutable exports are frozen, the option names are settled and the old names are `@deprecated` aliases. Each break has a migration note. No package has an open HIGH or MEDIUM item. |
-| **beta → stable, `postgres-store`, `mysql-store`, `mongo-store`** | **GO after one beta** | Promoted from private in the [store promotion round](#store-promotion-round) and frozen like `sqlite-store`/`redis-store`: drivers are lazy-loaded peers, no driver type reachable from a `.d.ts` (`api-check`), `logger: Partial<LoggerLike>`, store and schedule conformance suites plus the real-server suites. They first ship in this beta (`1.0.0-beta.0`), so their beta period starts now; no open HIGH or MEDIUM item. |
-| **Still blocking, exactly** | **Nothing but the beta** | Decided 2026-10-26: `@botmesh/baileys` ships stable on the exact `@whiskeysockets/baileys` `7.0.0-rc14` pin, which is upstream's own npm `latest` tag (the only stable line, `6.7.x` `legacy`, lacks LID addressing). The pin and the upgrade policy are in its README. The stable line is `@botmesh/core` 2.0.0 and **1.0.0 for the other nine public packages** (changeset `first-stable-1-0.md`; with minor bumps they would have stayed on 0.2.0, which semver does not treat as stable). Nothing else blocks `pre exit` except the beta itself (see [Before stable](#before-stable-pre-exit)). |
+| **Publish the beta (36 packages)** | **GO** | Every check is green on the merged `main`: build, typecheck and 8,461 unit tests on Node 24 and Node 22; 9,517 tests with every real-server suite (Postgres, MySQL, Mongo, Redis, Redis Cluster with chaos, GreenMail, and the Docker suites for Evolution, WPPConnect, Chatwoot and Mailpit); `api-check`, `pack:smoke`, `test:scripts`, `bench:soak`, both docs builds and `docs:check`. No HIGH defect is open in any public package. **`pnpm version-packages` must run before `pnpm release`** (see [Maintainer release steps](#maintainer-release-steps)): without it the 26 new packages would go out as `0.1.0`. |
+| **Stable (`pre exit`), the 10 original packages** | **GO after this beta**, with real use | API frozen in the earlier rounds; what is left is a few weeks of a real bot on the beta (Baileys, Cloud API, Telegram). |
+| **Stable, the 26 promoted packages** | **NO-GO yet** | Their beta period starts with this publish. Several have only run against fakes or simulators (see [Live verification](#live-verification)); each needs its live check, and the [API-freeze notes](#api-freeze-notes) need a decision, before `pre exit`. A package that misses its live check stays on a prerelease instead of shipping 1.0.0. |
 
-Per package:
+## Release plan
 
-| Package | Stable verdict | Blocking before `pre exit` |
-| --- | --- | --- |
-| `@botmesh/core` | GO after one beta | None. Every core item of the previous report is closed (see [core](#core)). |
-| `@botmesh/ai` | GO after one beta | None. Helpers and wire type names in `/internal`, `MockAIProvider` and `validateArgs` in `/testing` (deprecated main alias for the mock), exported data frozen, `onStreamEnd` contract fixed and enforced on abort, provider constructors take `AIProviderConfig`, Azure heuristic widened (main entry 135 → 97). Not blocking: confirm the Kimi default model during beta (default models are outside semver). |
-| `@botmesh/baileys` | GO after one beta (rc pin accepted 2026-10-26) | Done: native values typed as opaque `unknown` aliases (no Baileys type in the main entry's `.d.ts`, enforced by `api-check`), JID helpers, identity store and mappers in `/internal` (deprecated aliases on main, `toInbound`/`toOutbound` only in `/internal`), `pairingPhoneNumber` (alias `pairingCode`), `debug` deprecated, ffmpeg-static hint loop fixed. Left: upstream is still `7.0.0-rc14` (no stable 7.x on npm as of 2026-10-26); the pin and upgrade policy are documented in the README. Decision: ship stable on that pin; a later upstream release is a deliberate patch/minor after the full identity suite and a real login. |
-| `@botmesh/meta` | GO after one beta | None. `GraphClient`, `toProviderError`, the verify re-exports and `debug` are `@deprecated`; `phoneNumberId` is `string \| number`; `lang` for Flow labels. Session window decided: the configuration and query surface (`SessionWindowManager`, `SessionWindowOptions`, `SessionWindowStore`, `MemorySessionWindowStore`, report types) is public with semver; the provider plumbing (`send`, `noteInbound`, `noteFailedStatus`, `RawSend`) is `@experimental`. |
-| `@botmesh/telegram` | GO after one beta | None. `pollTimeoutMs` (alias `pollTimeout`), `toTelegramError`, `@experimental` wire helpers, `debug` deprecated, poll votes parsed. |
-| `@botmesh/sqlite-store` | GO after one beta | None. Schema migrations via `PRAGMA user_version`, newer files refused untouched (`SQLiteSchemaVersionError`), DDL exports deprecated, `logger: Partial<LoggerLike>`, `busyTimeoutMs`. The schedules and durable tables are part of the schema since version 2 (a v2 file is refused by the previous alpha; rollback documented). |
-| `@botmesh/redis-store` | GO after one beta | None. The cluster layout internals moved to `@botmesh/redis-store/internal` (deprecated re-exports kept on the main entry); the deprecated `ttl` option and `acquireLock` were removed. Real single-node and Cluster suites (chaos on) pass with node-redis 4, 5 and 6. |
-| `@botmesh/postgres-store` | GO after one beta (first public in this beta) | None. `pg` is a lazy-loaded peer (only when the store or `PostgresDurability` builds its own pool, with an install hint); `NativePostgresPool` is structural, so `@types/pg` is no longer a dependency; `logger: Partial<LoggerLike>`. Main entry 11 names, no `/internal`. |
-| `@botmesh/mysql-store` | GO after one beta (first public in this beta) | None. `mysql2` is a lazy-loaded peer; `PoolLike`/`ConnectionLike` renamed `MysqlPoolLike`/`MysqlConnectionLike` (hard rename: the package was private); a statement picked as deadlock victim is retried (up to 5 times; MariaDB gap locks on concurrent save + trim). Main entry 9 names. |
-| `@botmesh/mongo-store` | GO after one beta (first public in this beta) | None. `mongodb` 6.x and 7.x accepted as a lazy-loaded peer; `deleteChat` falls back to two deletes on a standalone 7.x server; `ScheduleDoc` renamed `MongoScheduleDoc`, `MongoLikeSession` exported; a store that builds its own client rejects calls before `start()`. Main entry 12 names. |
-| `@botmesh/http`, `@botmesh/graph-core` | GO after one beta | None. `SecureFetchOptions` no longer extends `RequestInit` (no `redirect`; other `RequestInit` fields through a deprecated overload until stable); `resolveHost` (alias `resolvePublicHost`); `checkGraphSignature({ ... })` (positional form deprecated); graph-core is covered by semver. |
-| `create-botmesh` | GO after one beta | None. `TEMPLATES`, `agentsMd` and `findBotMeshMonorepo` live in `create-botmesh/internal` (no semver), deprecated on the main entry. |
-| `@botmesh/discord` | GO after one beta with a live test | A live test against a real Discord application (gateway login, intents, interactions, `autoAcknowledgeMs`, polls). Done: gateway/REST clients, mappers and payload types in `/internal`, `GatewayIntents` frozen, `debug` deprecated, `MESSAGE_UPDATE` edits parsed. Not blocking: votes need `MESSAGE_POLL_VOTE_ADD` parsing. |
-| `@botmesh/twilio` | GO after one beta with a live test | A live test on a real WhatsApp sender and on SMS. The typing indicator uses Twilio's `POST /v3/Indicators/Typing.json`, which is a **public beta** endpoint (best-effort: it never rejects, a 4xx turns it off for the chat for 30 min); decide before stable whether to keep it or mark it `@experimental`. Not blocking: webhook replay window (no signed timestamp; dedupe by id). |
-| `@botmesh/gupshup` | GO after one beta with a live test | Confirm with a live account that the **v1 send endpoints** (`/wa/api/v1/msg`, `/wa/api/v1/template/msg`) and v2 callbacks are still the ones Gupshup supports for new apps (there is no official machine-readable spec). Not blocking: callbacks are authenticated only by a shared `webhookToken` (Gupshup does not sign) and have a replay window. |
-| `@botmesh/email` | GO after one beta with a live test | A live test against a real IMAP/SMTP provider (the GreenMail suite, `BOTWA_TEST_EMAIL`, is the only server test today). Done: `imapflow`/`nodemailer` lazy-loaded optional peers with clear errors (checked by `pack:smoke`), MIME helpers in `/internal`. |
-| `@botmesh/gohighlevel` | GO after one beta with a live test | A live test on a real HighLevel location (OAuth/API token, conversation webhooks). Not blocking: webhook replay window (no signed timestamp) and inbound media typed `application/octet-stream`. |
-| `@botmesh/flow-schema` (promoted, `pp/tooling`) | GO after one beta | None. Main entry 59 → 43; expression engine and step-source metadata in `/internal`; nested `delay`/`form` steps use the new semver hooks of `@botmesh/core/spi` instead of `/internal`; schema and migration table deep-frozen. |
-| `@botmesh/mcp` (promoted, `pp/tooling`) | GO after one beta | None. Main entry 40 → 19; framing, tool catalogue and docs search in `/internal`; `botmesh-mcp --help`/`--version`; version read from `package.json`. Exercised over stdio by the tests and the pack smoke test; not yet driven by a real MCP client (Claude Code, Cursor) from the packed tarball. |
-| `eslint-plugin-botmesh` (promoted, `pp/tooling`) | GO after one beta | None. Entry 14 → 8 (rule modules only through `rules`); `meta.version` from `package.json`; `meta.docs.url` per rule. |
+`pnpm changeset status --verbose` (49 pending changesets) and `pnpm changeset publish-plan`.
+Pre mode `beta`, so every package is published under the `beta` dist-tag.
 
-## What changed
+`publish-plan` reads the **current** `package.json` versions, so before `version-packages` it
+lists the 26 promoted packages at `0.1.0` (and core at `2.0.0-beta.3`, meta/telegram/graph-core/
+create-botmesh at `1.0.0-beta.1`). The versions that will actually be published are the ones
+`changeset status` plans, after `pnpm version-packages`:
 
-### API decisions taken (core)
-
-- **Package entries.** `@botmesh/core` keeps only what an application needs (372 names,
-  30 of them `@deprecated` aliases). Engine classes and helpers (`Dispatcher`,
-  `ConversationRuntime`, `HookSystem`, `Scheduler`, `InboundDeduper`, `checkAccess`,
-  `cronNextRun`, `findSplitPoint`…) are in `@botmesh/core/internal` (no semver, 79
-  names). The backend and transport SPI (`KvDurability`, `MemoryKv`, journal and schedule
-  record types, `MemoryScheduleStore`, `MemoryLeaseProvider`, `messageKey`,
-  `toInboundLocation`, `I18n`, the W3C traceparent helpers…) is the new semver-covered
-  `@botmesh/core/spi` (93 names). `MemoryCoordinator`/`MemoryCoordinationHub` moved to
-  `/testing`. The deprecated main-entry re-exports of internals were removed.
-- **One name per concept**, the rest `@deprecated` with the replacement in their TSDoc:
-  `ctx.reply`, `flow`, `bot.send`, `bot.plug` (plugins) / `bot.use` (flows),
-  `bot.trigger`, `onType`/`when(IMAGE)`, `BotConfig`, `AccessList`,
-  `durability.backend` (was `journal`), `BotConfig.store` (was `storeConfig`),
-  `ConversationHandler`, broadcast `retries` (was `maxRetries`).
-- **Configuration.** Every `BotConfig` duration option, including every `*Ms` option,
-  takes a duration string; `new Bot()` validates all 21 duration paths and throws
-  `ConfigValidationError` naming the option. A plugin name can be plugged once unless
-  every instance sets `PluginSpec.multiple`.
-- **Behaviour.** Built-in texts default to English (`BotConfig.lang: 'es'` keeps
-  Spanish). `retries` always means attempts after the first; the new `maxAttempts` is
-  the total (default budget unchanged), with a one-time warning for legacy `retries`
-  and flow-schema documents migrated to v2. Sends, edits and stream updates before
-  `start()` or after `stop()` reject with `BotNotRunningError`. `choose()` and state
-  keys are validated when the flow is defined. Malformed provider events become
-  `InvalidProviderEventError`. A before-hook calling `next()` twice keeps the first
-  dispatch. Log lines hash chat and sender ids by default (`logIds`). A corrupt middle
-  line in an append log is refused (`APPEND_LOG_CORRUPT`). `MemoryCoordinationHub`
-  evicts idle chats. Rate-limited `ctx` sends retry once (`rateLimitRetry`).
-- **Channel contract.** Timestamps are epoch milliseconds on all 13 channels. Text over
-  `maxTextLength`/`maxTextBytes` is split by the core (graphemes, links and markup kept
-  whole; hooks run once; durable parts journaled in order). An unsupported operation is
-  an absent method plus a `false` capability flag. Too many options reject with
-  `UnsupportedContentError`. Interactions on transports that require an ack are
-  acknowledged by the core exactly once. Contract checks
-  (`assertInboundContract`, `assertCapabilityContract`) run against every provider.
-
-### API decisions taken (API freeze round)
-
-The same pattern as core's `/internal` and `/testing`: a subpath in `package.json`
-`exports`, covered by `pnpm api-check` (semver rules skip `/internal`) and imported from
-the tarball by `pnpm pack:smoke`; a `@deprecated` re-export on the main entry wherever users
-may already import the name; an entry-pin test listing each entry's runtime names.
-
-- **`@botmesh/ai`.** Main entry 135 → 97 names (3 of them `@deprecated`). New
-  `@botmesh/ai/testing` (semver, 5 names: `MockAIProvider`, `MockOptions`, `MockTurn`,
-  `validateArgs`, `ArgsValidation`) and `@botmesh/ai/internal` (no semver, 39 names: 22
-  plugin helpers, 16 SDK wire type names, `openAIMaxTokensField`). The client contracts
-  (`AnthropicLike`, `OpenAILike`, `GeminiLike`, `GeminiModelLike`, `GoogleGenAILike`) stay
-  on the main entry with the same shape. `PRESETS`, `DEFAULT_YES`, `DEFAULT_NO`,
-  `AI_MESSAGES` and `AI_LOCALES` are deep-frozen; `toolConfirm.yes`/`.no` accept
-  `readonly string[]`, so the defaults can be passed unchanged. `onStreamEnd` receives
-  `AIStreamEndInfo`, runs once after the last chunk and only on a normal end (never on an
-  error, an abort or an early `break`). Provider constructors take `AIProviderConfig`.
-  Azure: `max_completion_tokens` also for `*.cognitiveservices.azure.com` and Foundry
-  `*.services.ai.azure.com/openai`.
-- **`@botmesh/baileys`.** Main entry 55 → 56 names, 22 of them not deprecated: the rest
-  are `@deprecated` aliases of the new `@botmesh/baileys/internal` (no semver, 58 names:
-  JID helpers, `IdentityStore`, mappers, media, reconnect and session helpers,
-  `socketOf`/`authStateOf`). Native values are opaque (`BaileysNativeMessage`,
-  `BaileysSocket`, `BaileysAuthState`, all `unknown`); no `.d.ts` reachable from the main
-  entry imports `@whiskeysockets/baileys`, and `api-check` now fails if one does
-  (`SEMVER_FORBIDDEN_IMPORTS`). `toInbound`/`toOutbound` are only in `/internal` (the one
-  hard break). `pairingPhoneNumber` replaces `pairingCode` (alias), `debug` is deprecated,
-  JID predicates return `boolean`.
-- **`@botmesh/http`.** `SecureFetchOptions` is a closed set (no `redirect`; other
-  `RequestInit` fields through the `@deprecated` `LegacySecureFetchOptions` overload until
-  stable); stream bodies get `duplex: 'half'` automatically; `resolveHost` (alias
-  `resolvePublicHost`). Main entry 12 → 14 names (4 deprecated).
-- **`@botmesh/graph-core`.** `checkGraphSignature({ body, headers, appSecret, logger })`;
-  the positional form is a `@deprecated` overload. graph-core is covered by semver. 22 → 24
-  names.
-- **`@botmesh/meta`.** The session-window configuration and query surface is semver;
-  `send`, `noteInbound`, `noteFailedStatus` and `RawSend` are `@experimental`. 67 names,
-  unchanged.
-- **`@botmesh/redis-store`.** New `@botmesh/redis-store/internal` (no semver, 17 names:
-  key builders, hash-slot and layout helpers). The main entry keeps 34 names, 5 of them
-  `@deprecated` re-exports (`INDEX_BUCKETS`, `LAYOUT_MARKER`, `bucketOf`, `encodeSegment`,
-  `hashSlot`). The deprecated `ttl` option and `acquireLock()` were removed (a JavaScript
-  call throws a `TypeError` naming `sessionTtl` / `acquireLockFenced`).
-- **`@botmesh/sqlite-store`.** Schema version 2 creates the schedules, schedule fences and
-  durable tables in the migrations. The previous alpha refuses a v2 file; the rollback path
-  is documented.
-- **`create-botmesh`.** New `create-botmesh/internal` (no semver: `TEMPLATES`, `agentsMd`,
-  `AgentsMdInfo`, `findBotMeshMonorepo`), re-exported `@deprecated` by the main entry
-  (13 names, 9 not deprecated). `create-botmesh` is now in `api-check`.
-
-Export counts from `node scripts/api-check.cjs surface`, before (`4487b43`) and after:
-
-| Package | Main entry before | Main entry after (deprecated) | New entries |
+| Package | Version to publish | Bump | dist-tag |
 | --- | --- | --- | --- |
-| `@botmesh/core` | 372 | 372 (30) | none (`/internal` 79, `/spi` 93, `/testing` 118, `/testing/vitest` 6, `/dev` 52, all unchanged) |
-| `@botmesh/ai` | 135 | 97 (3) | `/testing` 5, `/internal` 39 |
-| `@botmesh/baileys` | 55 | 56 (34) | `/internal` 58 |
-| `@botmesh/meta` | 67 | 67 (5) | none |
-| `@botmesh/telegram` | 27 | 27 (1) | none |
-| `@botmesh/sqlite-store` | 10 | 10 (2) | none |
-| `@botmesh/redis-store` | 34 | 34 (5) | `/internal` 17 |
-| `@botmesh/http` | 12 | 14 (4) | none |
-| `@botmesh/graph-core` | 22 | 24 (1) | none |
-| `create-botmesh` | 13 | 13 (4) | `/internal` 4 |
+| `@botmesh/core` | `2.0.0-beta.4` | minor | `beta` |
+| `@botmesh/ai` | `1.0.0-beta.1` | none pending (versioned, unpublished) | `beta` |
+| `@botmesh/baileys` | `1.0.0-beta.1` | none pending (versioned, unpublished) | `beta` |
+| `@botmesh/http` | `1.0.0-beta.1` | none pending (versioned, unpublished) | `beta` |
+| `@botmesh/redis-store` | `1.0.0-beta.1` | none pending (versioned, unpublished) | `beta` |
+| `@botmesh/sqlite-store` | `1.0.0-beta.1` | none pending (versioned, unpublished) | `beta` |
+| `@botmesh/meta` | `1.0.0-beta.2` | patch | `beta` |
+| `@botmesh/telegram` | `1.0.0-beta.2` | patch | `beta` |
+| `@botmesh/graph-core` | `1.0.0-beta.2` | patch | `beta` |
+| `create-botmesh` | `1.0.0-beta.2` | patch | `beta` |
+| `@botmesh/messenger` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/instagram` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/wa-gateway-kit` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/evolution` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/wppconnect` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/discord` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/twilio` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/gupshup` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/email` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/gohighlevel` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/postgres-store` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/mysql-store` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/mongo-store` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/server` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/events` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/otel` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/rag` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/voice` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/nlu` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/dialogflow` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/chatwoot` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/tickets` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/moderation` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/flow-schema` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `@botmesh/mcp` | `1.0.0-beta.0` | major (first publish) | `beta` |
+| `eslint-plugin-botmesh` | `1.0.0-beta.0` | major (first publish) | `beta` |
 
-### Breaking changes and where they are documented
+`publish-plan` found none of these versions in the registry ("0 packages are already published"),
+so all 36 will be published. `create-botmesh/src/versions.ts` stamps `^0.1.0` for the 26 promoted
+packages until `version-packages` regenerates it; `pnpm release` runs `clean` + `build` after
+versioning, so the published scaffolder stamps the right ranges.
 
-Each breaking change has a changeset, a Spanish entry under `[Unreleased]` in
-`CHANGELOG.md`, and a section in the EN/ES migration guides. The four guides form one
-set in both sidebars:
+## Maintainer release steps
 
-| Guide (EN / ES) | Covers |
-| --- | --- |
-| [Migrating to stable: API surface](guide/stable-migration.md) / [Migrar a estable: API](es/guide/migracion-estable.md) | Entry layout (`/internal`, `/spi`, `/testing`), every moved name, canonical names, `storeConfig`, plugin uniqueness, durations, logger convention. |
-| [Migrating to stable: behaviour](guide/migration-2.md) / [Migrar a estable: comportamiento](es/guide/migracion-2.md) | English default, `retries` vs `maxAttempts`, `BotNotRunningError`, flow definition errors, `logIds`, append-log corruption, hub eviction, meta Flow labels in English. |
-| [Migrating to stable: dependencies](guide/migration.md) / [Migrar a estable: dependencias](es/guide/migracion.md) | Baileys ffmpeg, Graph `v26.0`, `redis` peer `^4.7 \|\| ^5 \|\| ^6`, `@google/genai` and the new default models, `botwa` → `botmesh` renames (and the names that stay). |
-| [Upgrade notes: channels & plugins](guide/upgrade-channels-plugins.md) / [Notas de actualización: canales y plugins](es/guide/actualizar-canales-plugins.md) | Per-channel and plugin fixes (Baileys edits and `toJid`, meta limits, Telegram webhook after `stop()`, sqlite surrogates, Discord bare `interactionId`…). The cross-channel contract is in [Channels](guide/channels.md) / [Canales](es/guide/canales.md). |
+Run in `main`, on a clean tree. Publishing to npm cannot be undone.
 
-Breaking changes in public packages, by package:
+```bash
+git push                                   # the merged main (docs review, per-package fixes, this report)
 
-- **core**: entry layout and removed re-exports; `MemoryCoordinator*` to `/testing`;
-  plugin uniqueness; duration validation; English default; `retries` meaning;
-  `BotNotRunningError`; flow definition errors; hashed log ids; `APPEND_LOG_CORRUPT`;
-  hub eviction; epoch-ms `ctx.timestamp`; long text split (`splitLongText: false`
-  restores the old rejection); `toPrometheus()` names `botmesh_*`
-  (`{ prefix: 'botwa_' }` keeps the old ones).
-- **ai**: English built-in texts without a chat context; Gemini prefers
-  `@google/genai`; new default models (outside semver); `max_tokens` for non-OpenAI
-  `baseUrl`s; memory options validated in `aiPlugin()`.
-- **baileys**: epoch-ms timestamps; ffmpeg no longer bundled; text edits delivered as
-  messages (`editedMessages: 'ignore'` restores); strict `toJid`.
-- **meta**: Graph `v26.0` default; `played` reported as `read`; no-op `typing()` and
-  `deleteMessage()` removed; interactive limits checked locally; unknown interactive
-  replies arrive as `unknown`; Flow labels default to English.
-- **telegram**: epoch-ms button timestamps; no-op `markRead()` removed; webhook
-  `ingest()` after `stop()` answers 503.
-- **sqlite-store**: lone surrogates rejected in ids and cursors.
-- **redis-store**: `redis` is a peer; `NativeRedisClient*` are structural interfaces.
-- **graph-core**: HTTP 413 maps to `PayloadTooLargeError` (a subclass of the old error).
-- **create-botmesh**: generated Spanish bots set `lang: 'es'`.
+pnpm changeset status --verbose            # expect the versions in the release plan above
+pnpm version-packages                      # changeset version + create-botmesh versions.ts (REQUIRED: else the 26 new packages publish as 0.1.0)
+git add -A && git commit -m "chore(release): version packages for the beta"
+pnpm changeset publish-plan                # now lists the versions of the table above, all with (beta)
+pnpm pack:smoke                            # optional re-check on the versioned tree
+pnpm release                               # clean + build + changeset publish (dist-tag beta, creates the tags)
+git push --follow-tags
 
-Added by the API freeze round (each in the "Channel and store packages", "`@botmesh/ai`
-entries" and "HTTP, Graph and scaffolder packages" sections of the stable migration guides,
-EN and ES):
+# npm's `latest` still points at the first alpha of the 10 original names (and, for the 26 new
+# names, at whatever npm sets on the first publish). Point it at this beta for every package:
+npm dist-tag add @botmesh/core@2.0.0-beta.4 latest
+npm dist-tag add @botmesh/ai@1.0.0-beta.1 latest
+npm dist-tag add @botmesh/baileys@1.0.0-beta.1 latest
+npm dist-tag add @botmesh/http@1.0.0-beta.1 latest
+npm dist-tag add @botmesh/redis-store@1.0.0-beta.1 latest
+npm dist-tag add @botmesh/sqlite-store@1.0.0-beta.1 latest
+npm dist-tag add @botmesh/meta@1.0.0-beta.2 latest
+npm dist-tag add @botmesh/telegram@1.0.0-beta.2 latest
+npm dist-tag add @botmesh/graph-core@1.0.0-beta.2 latest
+npm dist-tag add create-botmesh@1.0.0-beta.2 latest
+npm dist-tag add @botmesh/messenger@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/instagram@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/wa-gateway-kit@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/evolution@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/wppconnect@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/discord@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/twilio@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/gupshup@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/email@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/gohighlevel@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/postgres-store@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/mysql-store@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/mongo-store@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/server@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/events@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/otel@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/rag@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/voice@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/nlu@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/dialogflow@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/chatwoot@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/tickets@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/moderation@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/flow-schema@1.0.0-beta.0 latest
+npm dist-tag add @botmesh/mcp@1.0.0-beta.0 latest
+npm dist-tag add eslint-plugin-botmesh@1.0.0-beta.0 latest
 
-- **ai**: helpers and SDK wire type names only in `/internal`; `validateArgs` only in
-  `/testing`; frozen exported data; `AIProviderConfig` rejects object literals with plugin
-  fields (`TS2353`); `onStreamEnd` skipped on abort.
-- **baileys**: `toInbound`/`toOutbound` only in `/internal`; opaque native types
-  (`socket`, `auth`, `raw`/`native`); JID predicates return `boolean`.
-- **http**: `redirect` and browser-only fields no longer in `SecureFetchOptions` (types only).
-- **redis-store**: `ttl` and `acquireLock()` removed.
-- **sqlite-store**: schema version 2 (a v2 file cannot be opened by the previous alpha).
+pnpm docs:deploy                           # GitHub Pages (gh-pages branch); try --dry-run first
+```
 
-Deprecated aliases kept for a soft path (removal planned for v3): `ctx.say/answer/text`,
-`addKeyword`, `bot.sendText/sendTo`, `bot.use(plugin)`, `bot.useFlow`,
-`bot.triggerFlow`, `bot.enterConversation(name, ctx)`, `onImage`…`onPoll`, `Config`,
-`Whitelist`, `ConversationFn`, `durability.journal`, `storeConfig`, broadcast
-`maxRetries`, the transcript helpers on the main entry, the
-eslint-plugin `BotWa*` types and the `botwa` hub manifest field.
+If `changeset status` shows other versions than the table (for example after more changesets
+land), use the versions from `pnpm changeset publish-plan` run **after** `version-packages` in
+the `dist-tag` commands. Afterwards, `npm dist-tag ls @botmesh/core` should show `alpha`,
+`beta` and `latest`; the `install with @alpha` notes in `AGENTS.md` and the README can then say
+`@beta` or drop the tag.
 
-## Integration
+## Per-package verdicts
 
-The branches were merged in the requested order with `git merge --no-ff`. After each
-merge, `pnpm build && pnpm typecheck && pnpm test` passed. Test totals (no servers):
+"Beta" is the verdict for this publish; "stable" is the outlook for `pre exit`. Main entry =
+runtime and type names exported from `.` (`node scripts/api-check.cjs surface`); `(n dep.)` =
+names tagged `@deprecated`.
 
-| After merge | Passed | Skipped | Failed |
+### The 10 original packages (on npm under `alpha`)
+
+| Package | Beta | Stable | Main entry (other entries) | Notes |
+| --- | --- | --- | --- | --- |
+| `@botmesh/core` | GO | GO after this beta | 372 (31 dep.); `/internal` 79, `/spi` 95, `/testing` 118, `/testing/vitest` 6, `/dev` 52 | New in this beta: `/spi` flow-interpreter hooks (`pauseControls`, `runFormStep`), `bot.plug(plugin, config)` typed by the plugin, `/testing` doubles that compile under `exactOptionalPropertyTypes`. Open LOWs below. |
+| `@botmesh/ai` | GO | GO after this beta | 98 (3 dep.); `/internal` 39, `/testing` 5 | Kimi default model unconfirmed (outside semver). |
+| `@botmesh/baileys` | GO | GO after this beta (rc pin accepted) | 56 (34 dep.); `/internal` 58 | Upstream still `7.0.0-rc14`; pin and upgrade policy in the README. |
+| `@botmesh/meta` | GO | GO after this beta | 67 (5 dep.) | `ingest()` now answers 503 while the bot is stopped (was 200, so the webhook was lost). Typing indicator not implemented. |
+| `@botmesh/telegram` | GO | GO after this beta | 27 (1 dep.) | Poll-vote tracker in memory only. |
+| `@botmesh/sqlite-store` | GO | GO after this beta | 10 (2 dep.) | |
+| `@botmesh/redis-store` | GO | GO after this beta | 34 (5 dep.); `/internal` 17 | Real single-node and Cluster suites (chaos on) green with node-redis 4, 5 and 6. |
+| `@botmesh/http` | GO | GO after this beta | 14 (4 dep.) | |
+| `@botmesh/graph-core` | GO | GO after this beta | 24 (1 dep.) | |
+| `create-botmesh` | GO | GO after this beta | 13 (4 dep.); `/internal` 4 | `--help` now names the dist-tag of the running version (`npm create botmesh@beta`). |
+
+### The 26 promoted packages (first publish, `1.0.0-beta.0`)
+
+| Package | Beta | Stable | Main entry (other entries) | Release test (this campaign) and what is left |
+| --- | --- | --- | --- | --- |
+| `@botmesh/messenger` | GO | after a live test | 10; `/internal` 3 | Fixed: button text over 640 chars, list text dropped, card/list text over 2,000 chars, message tags through `platformData`, `message_edits`, multi-attachment messages, shared links, grapheme-safe labels, 503 while stopped. Left: guessed inbound mimetypes, multi-part sends can be half sent. |
+| `@botmesh/instagram` | GO | after a live test | 13; `/internal` 6 | Fixed: captions and card images dropped (card text now first, image second), multi-photo DMs, 503 while stopped, config validation, quick-reply rules, `selfId`. Left: `message_edit`, read/delivery and referral webhooks ignored; 200 before the first `start()`. |
+| `@botmesh/wa-gateway-kit` | GO | after the persistence decision | 17 | Fixed: `{ url }` is link-only (no local file reads), credential masking, quadratic `normalizeJid`, config validation, RFC 9110 `Retry-After`. Left: synchronous `IdentityPersistence` (MEDIUM design), positional `WaIdentityStore` constructor. |
+| `@botmesh/evolution` | GO | after a paired-number test | 10; `/internal` 14 | Fixed against a real Evolution v2.3.4: `refused` pairing, `fromMe` default on delete, poll limits, "not connected" errors (including logged-out `Connection Closed`). Left: LID-only DMs from upstream (MEDIUM), no paired-number round trip (MEDIUM). |
+| `@botmesh/wppconnect` | GO | after a paired-number test | 9; `/internal` 12 | Fixed against a real server-cli 1.3.50: false ready on `inChat`, `disconnectedMobile`/`phoneNotConnected`, LID lookups on every message and after cache eviction, secret redaction, bounded HTML error parsing. Left: no paired-number round trip; `ingest()` returns a promise. |
+| `@botmesh/discord` | GO | after a live test | 11; `/internal` 25 | Fixed (HIGH, security): REST path injection through ids, missing `allowed_mentions` (mass pings from echoed text); overlapping gateways after `start()`/`stop()`. Left: poll votes, type-5 defer replacement on a real server. |
+| `@botmesh/twilio` | GO | after a live test | 14; `/internal` 10 | Fixed: prototype-named webhook params, `webhookPath` query, credential checks. Left: typing indicator uses a public-beta endpoint; replay window. |
+| `@botmesh/gupshup` | GO | after a live test | 12; `/internal` 6 | Fixed: token in the ingress URL, raw base64 tokens, labels cut to limits. Left: v1 send API to confirm with a live account; shared-token auth with a replay window. |
+| `@botmesh/email` | GO | after a live test | 28 (1 dep.); `/internal` 16 | Fixed: hostile headers, real-world mimetypes, legacy Message-IDs, actionable connection errors. Real GreenMail and Mailpit suites pass; no real mail provider yet. |
+| `@botmesh/gohighlevel` | GO | after a live test | 13; `/internal` 8 | Fixed: prototype-named entities/channels leaking source text, email HTML bodies, token validation. Left: inbound media typed `application/octet-stream`; replay window. |
+| `@botmesh/postgres-store` | GO | GO after one beta | 11 | Fixed: long `tablePrefix`, stop during start, injected pools after `stop()`, lone-surrogate ids. Real PostgreSQL 16 suite green. |
+| `@botmesh/mysql-store` | GO | GO after one beta | 9 | Fixed: password leaks from malformed URIs, oversized statements poisoning the pool, prefix limits, unreachable-server errors. Real MySQL 8.4 suite green (MariaDB 11 in the release test). |
+| `@botmesh/mongo-store` | GO | GO after one beta | 12 | Fixed: arrays under prototype-named keys read back as raw BSON. Real Mongo 7 suite green with drivers 7 and 6. |
+| `@botmesh/server` | GO | GO after one beta | 28; `/express` 3, `/fastify` 5, `/hono` 3, `/internal` 2 | Fixed: invalid `ingest()` statuses, `/readyz` when the state throws, result headers casing and framing headers. |
+| `@botmesh/events` | GO | GO after one beta | 32; `/durability` 4 | Fixed: non-JSON envelopes and invalid records poisoning file journals. The shared-journal "concurrent claimers" tests passed in every run of this round (they timed out on a loaded machine before). |
+| `@botmesh/otel` | GO | GO after one beta | 12; `/internal` 2 | Fixed: histogram buckets in seconds, mixed clocks in span durations, `dropped.echo` reported. |
+| `@botmesh/rag` | GO | after a live embedder call | 41; `/internal` 8 | Fixed: cubic heading parser, embedder switch, persistence errors. OpenAI and Ollama embedders only run against fakes. |
+| `@botmesh/voice` | GO | after live STT/TTS calls | 41; `/internal` 8 | Fixed: OGG duration sniffed from bytes (cost cap bypass), per-call timeouts, limits validation. OpenAI, Deepgram and ElevenLabs only run against fakes. |
+| `@botmesh/nlu` | GO | GO after one beta | 8 | Fixed: confidence over 1, repeated input words, normalization across scripts. |
+| `@botmesh/dialogflow` | GO | after a live ES and CX call | 21 (1 dep.); `/internal` 7 | Fixed: per-participant sessions in groups, config errors, 401 retry, text cap. Left: the never-published `dialogflowContext` alias is still exported as `@deprecated`. Google OAuth and `detectIntent` only run against fakes. |
+| `@botmesh/chatwoot` | GO | GO after one beta | 22; `/internal` 5 | Fixed against a real Chatwoot 4.7: exact contact lookup, re-linking lost mappings, deleted conversations. Real round-trip suite green. |
+| `@botmesh/tickets` | GO | GO after one beta | 28; `/internal` 2 | Fixed: input validation and corrupt-storage errors. Left: `list()` with closed tickets scans every id. |
+| `@botmesh/moderation` | GO | GO after one beta | 23; `/internal` 6 | Fixed: formatted invites, config validation, throwing `isAdmin`. Left: `kick` degrades to `mute` (no groups capability yet; `GroupAdminApi` is `@experimental`); state in memory. |
+| `@botmesh/flow-schema` | GO | GO after one beta | 44; `/internal` 16 | Fixed: media URLs from `c.state` (local paths, private hosts, plain http), `http` step hardening, validator matches the JSON schema (differential fuzz against ajv). |
+| `@botmesh/mcp` | GO | GO after one beta | 21; `/internal` 29 | Fixed: tool input schemas enforced, EPIPE handling, bounded lines. Not yet driven by a real MCP client from the packed tarball. |
+| `eslint-plugin-botmesh` | GO | GO after one beta | 8 (2 dep.) | Rules aligned with the real API (`choose`/`waitAny` timeouts, `flow([])`, read-only lookups). |
+
+## Open defects by severity
+
+No **HIGH** defect is open in any public package. The two HIGH findings of this campaign
+(Discord REST path injection and missing `allowed_mentions`) and the HIGH Messenger
+button-template rejection are fixed and tested.
+
+**MEDIUM** (none blocks the beta; each must be fixed or accepted before `pre exit`):
+
+- `@botmesh/evolution`: Evolution v2.3.4 (Baileys `7.0.0-rc.3` inside) overwrites
+  `key.remoteJid` with `remoteJidAlt`, so a DM that arrives without `remoteJidAlt` is LID-only
+  and gets a different `senderId`. The provider never sees the LID/PN pair; a fix needs a lookup
+  through the Evolution API, which cannot be checked without a paired number.
+- `@botmesh/evolution`, `@botmesh/wppconnect`: no real round trip with a paired number (message,
+  media download, `exists:false`, reactions/edits/deletes/read on real keys); those paths are
+  covered by fixtures only.
+- `@botmesh/wa-gateway-kit`: `IdentityPersistence` is synchronous, so it cannot be backed directly
+  by Redis/Postgres/Mongo (preload or cache it). Async persistence after 1.0 would need a new
+  interface: decide before stable.
+- Live verification missing for the promoted channels and the paid-API plugins (see
+  [Live verification](#live-verification)): a wrong request shape or auth header would ship
+  as 1.0.
+
+**LOW** (selected; full lists in the per-package `CHANGELOG [Unreleased]` sections and the
+package READMEs):
+
+- core: an edit replaces the content fingerprint the deduper keeps for its id, so a late
+  redelivery of the original after an edit is processed again (Telegram and Messenger); edits
+  reach an active conversation as answers (documented, `isEditedMessage()` filters them). The
+  earlier core LOWs remain (`markRead` under coordination after `stop()` rejects, a re-split
+  journaled part's order not pinned by a test, `@botmesh/ai` aborting on `'stopping'` before the
+  drain, `ctx.edit` text not split).
+- core ergonomics: scheduler callbacks (`bot.delay/every/schedule`) are typed
+  `() => void | Promise<void>`, so `() => bot.resume(chatId)` (returns `Promise<boolean>`) does not
+  type-check; `AIToolContext.ctx` is optional although autoreply always sets it.
+- messenger/instagram: inbound mimetypes guessed from the attachment type; multi-part sends can be
+  half sent and a durable retry repeats the first part; Instagram answers 200 before the first
+  `start()`.
+- messenger: invalid `platformData` throws a plain `TypeError` (the durable outbox retries it); a
+  `tag` with an explicit `messaging_type` other than `MESSAGE_TAG` is posted as is.
+- wa-gateway-kit: a throwing `IdentityPersistence` fails that webhook; inline media of about
+  400 MB fails with Node's `ERR_STRING_TOO_LONG`; paths and streams are read fully into memory;
+  malformed `data:` URIs produce empty media.
+- evolution: poll votes and `messages.edited` are not delivered; the 401 warning is logged on
+  every unauthenticated request; `saysNoSession` matches any "Cannot read properties of
+  undefined" TypeError.
+- wppconnect: one slow `pn-lid` lookup delays the next webhooks (up to `lidLookupTimeoutMs`);
+  `start()` still treats a `status-session` of `inChat` as ready; numeric-string coordinates
+  are rejected.
+- webhooks of Twilio, Gupshup and HighLevel have a replay window (no signed timestamp; dedupe by
+  id).
+- `@botmesh/ai` tests: `tests/entry-layout.test.ts` can fail with `ENOENT` when a docs-example
+  test creates and deletes `packages/ai/.docs-example-*` in parallel (it did not fail in this
+  round); the upper-range SDK suite has no `@google/genai` case.
+- `@botmesh/manager` (private): `POST /bots/{id}/trigger` maps every `triggerFlow` rejection to
+  409.
+
+Fixed while writing this report: VitePress rendered `docs/guide/flow-schema.md` (EN/ES) without
+content because Vue interpolated the inline `{{ user.name }}`, and the inline templates in the
+integrations guides rendered as empty code. They now use `<code v-pre>`, and `docs:check` fails on
+any `{{ }}` outside a code fence or `<code v-pre>` (tests in `scripts/smoke/docs-check.test.mjs`).
+
+## Live verification
+
+What has run against the real service, and what only against fakes or simulators. "Fakes" means
+injected `fetch`/sockets shaped after the public API docs; "simulator" means the
+`@botmesh/sandbox` HTTP simulators (Twilio and Discord requests validated against vendored
+official OpenAPI fragments).
+
+| Package | Real service | Self-hosted real server (Docker) | Fakes / simulators only |
 | --- | --- | --- | --- |
-| core-surface | 6,768 | 890 | 0 |
-| core-behaviour (+ fix) | 6,858 | 890 | 0 |
-| channels-normalize (+ fix) | 6,992 | 890 | 0 |
-| deps | 7,034 | 890 | 0 |
-| open-defects (+ fix) | 7,173 | 908 | 0 |
-| sandbox (+ fix) | 7,318 | 923 | 0 |
+| `baileys` | Real WhatsApp login during the alpha (not repeated in this round) | | Unit tests and the identity suites |
+| `meta` (Cloud API) | Real use during the alpha (not repeated in this round) | | Sandbox simulator |
+| `telegram` | Real use during the alpha (not repeated in this round) | | Sandbox simulator |
+| `messenger`, `instagram` | **Never** | | Fakes and the sandbox simulator |
+| `evolution` | **Never with a paired number** | Evolution API v2.3.4: instance, QR and connection webhooks, `jwt_key` webhooks, typed errors | Message round trip, media, reactions/edits/deletes: fixtures only |
+| `wppconnect` | **Never with a paired number** | server-cli 1.3.50: token, session start, QR, typed errors | Message round trip and live status transitions: mapped from source, fixtures only |
+| `wa-gateway-kit` | via the two above | via the two above | |
+| `discord`, `twilio`, `gupshup`, `gohighlevel` | **Never** | | Fakes and the sandbox simulator |
+| `email` | **Never** with a real mail provider | GreenMail 2.1.3 (IMAP IDLE + SMTP) and Mailpit 1.27 (SMTP) | |
+| `chatwoot` | | Chatwoot 4.7.0: full round trip, agent reply, handoff, resolve | |
+| `dialogflow` | **Never** (Google OAuth JWT exchange, ES and CX `detectIntent`) | | Fakes |
+| `voice` | **Never** (OpenAI, Deepgram, ElevenLabs) | | Fakes |
+| `rag` | **Never** (OpenAI `/embeddings`, Ollama `/api/embed`) | | Fakes |
+| `ai` | No paid API in this round; Ollama live suite exists (opt-in, not run this round) | | The real SDKs against local HTTP fakes, oldest and newest peer versions |
+| stores (5), `events`, `server`, `otel` | | PostgreSQL 16, MySQL 8.4, Mongo 7, Redis 7, Redis Cluster 7.0.10 (chaos) | |
+| `nlu`, `tickets`, `moderation`, `flow-schema`, `mcp`, `eslint-plugin`, `http`, `graph-core`, `create-botmesh` | n/a (no external service), `mcp` not driven by a real MCP client | | |
 
-- **Conflicts that kept both sides:** `CHANGELOG.md` (every section), `llms.txt` (each
-  changed line taken from its own branch, combined where both changed a line), the
-  sidebars (every new migration page), the core main entry (moved names stay moved; new
-  error classes and option types added), `validateConfig` (duration checks plus the
-  `lang` checks), `outbound.ts` (`assertRunning` plus the split send path).
-- **Duplicate work merged into one implementation.** channels-normalize and
-  open-defects both fixed Discord auto-ack and timeouts, Messenger/Instagram limits and
-  timeouts, unreadable local media, the Gupshup list label and the Telegram
-  `retry_after` cap. Kept: Discord's token map (bare `interactionId`, token never
-  leaves the provider) with the learnt application id and the rejection when no id is
-  known, `autoAcknowledgeMs` as the option (the alpha `autoAckMs` alias and `"<id>:<token>"`
-  form were removed before the first publish), REST 60 s /
-  uploads 5 min, autocomplete never deferred; graph-core's `graphRequest` for
-  Messenger and Instagram; one local-media helper per provider; meta `v26.0` with the
-  numeric `phoneNumberId` fix and the `played` status.
-- **`fix: integrate core-behaviour`:** new tests imported moved names from the main
-  entry (now `/internal`, `/spi`, `/testing`); `BotNotRunningError` and
-  `InvalidProviderEventError` added to the main-entry pin.
-- **`fix: integrate channels-normalize`:** `findSplitPoint` imported from `/internal`;
-  `core/bot/outbound.ts` grew past the 500-line limit with both branches, so the
-  rate-limit retry moved to `core/bot/rateLimitRetry.ts` (architecture guides updated).
-- **`fix: integrate open-defects`:** SPI imports in the new core and tickets tests; new
-  flow-schema/manager test documents bumped to `FLOW_DOCUMENT_VERSION` 2; Discord docs
-  name `autoAcknowledgeMs` and the 60 s timeout.
-- **`fix: integrate sandbox`:** the sandbox's `ws`/`vite`/`vitest` floors aligned with
-  the audited versions; the final main-entry size stated (372).
-- **`docs: tie the stable migration guides together`:** sidebar labels and cross-links,
-  plus stale references left by the workstreams (traceparent helpers on `/spi`,
-  broadcast `retries`, `botmesh_dropped_total`, the `follow-redirects` audit note, the
-  eslint-plugin renames).
-- **Cleanup:** the six `sr/*` branches were deleted, `git worktree prune` was run, no
-  `C:/laragon/www/sr-*` directory was left, and only this campaign's containers
-  (`sr-integ-*` and the `sr-integ-sb` compose project with its volumes and network) were
-  removed.
+## API-freeze notes
 
-### Closeout round
+To decide before `pre exit`; none blocks the beta. Most concern packages never published, where
+a change is still cheap.
 
-Three more branches were merged on top of `2726645`, one at a time with
-`git merge --no-ff` (`merge: stable closeout <key>`), each followed by a green
-`pnpm build && pnpm typecheck && pnpm test`:
-
-| After merge | Passed | Skipped | Failed |
-| --- | --- | --- | --- |
-| co/core | 7,379 | 923 | 0 |
-| co/channels | 7,416 | 925 | 0 |
-| co/sandbox (+ fix) | 7,495 | 925 | 0 |
-| + sqlite-store declarations fix | 7,496 | 925 | 0 |
-
-- **co/core**: `ChaosProvider`/`RecordingProvider.selfId`; first-`ask` checkpoint of
-  `.persistent()` flows; the `'stopping'` event (and `@botmesh/ai` aborting on it); one
-  presence policy while disconnected (`metrics().presenceSkipped`); no chat id in two
-  error messages; durable outbox split parts kept in order, linked by
-  `OutboxRecord.previousPart`, with `markFailed({ refund })` so waiting behind an
-  earlier part costs no retry; TypeDoc on `index`/`spi`/`testing` with 0 warnings; the
-  low items (required `acknowledge`, `ctx.delete()` after stop, unknown event kinds,
-  `es`/`es-MX`, `logIds`, alias tests).
-- **co/channels**: Telegram poll votes (`poll_answer` → `'poll'`, non-anonymous polls by
-  default, channel fallback to anonymous); Discord edits (`MESSAGE_UPDATE` with
-  `edited_timestamp`, repeats dropped); meta `lang` for Flow labels and deprecations;
-  `to<Channel>Error` mapper names with deprecated aliases; sqlite-store schema
-  versioning; redis-store chaos tests in their own ordered vitest project, discovery
-  seeded with every node and retried.
-- **co/sandbox**: hub API guarded (Host/Origin, per-run token, body limits, 4xx on bad
-  input, fuzzed); simulators always on 127.0.0.1; Twilio and Discord validated against
-  vendored official OpenAPI fragments, which caught Discord's numeric attachment id.
-- **Conflicts that kept both sides:** `CHANGELOG.md` (core and channels sections), both
-  stable migration guides (the channel/store table and the sandbox token section) and
-  this report (sandbox item, without the Discord-edit item the channels branch closed).
-- **`fix: integrate sandbox`:** Telegram now parses `poll_answer`, so the sandbox's
-  `POLL_VOTE_PARSING` lists `telegram` (its own test failed as designed), the hub sends a
-  native vote there and the text on Discord; `/api/channels` is asserted per channel;
-  the sandbox's Telegram config uses `pollTimeoutMs`.
-- **`fix(sqlite-store): keep better-sqlite3 types out of schema.d.ts`:** `pnpm pack:smoke`
-  failed in the consumer type check with `skipLibCheck: false` (TS7016) because the new
-  migrations were typed with `BetterSqlite3.Database`. They now use a structural
-  `SchemaDatabase`, and `tests/declarations.test.ts` walks the declarations reachable
-  from `lib/index.d.ts`.
-- **Cleanup:** the `co/core`, `co/channels` and `co/sandbox` branches were deleted,
-  `git worktree prune` was run, no `C:/laragon/www/co-*` directory was left, and only this
-  round's containers (`co-closeout-*` and the `co-closeout-sandbox` compose project with
-  its volumes and network) were removed.
-
-### API freeze round
-
-Four branches merged on top of `4487b43` (`fix(ci): use better-sqlite3 13…`), one at a
-time with `git merge --no-ff` (`merge: api freeze <key>`): `af/ai`, `af/baileys`,
-`af/meta-net`, `af/redis`. After each merge `pnpm build && pnpm typecheck && pnpm test`
-passed (exit code 0 for all three, every time); the final total is 7,595 passed, 925
-skipped, 0 failed.
-
-- **Conflicts that kept both sides:** `CHANGELOG.md` (every section), both stable
-  migration guides (the Baileys and redis-store sections were placed under "Channel and
-  store packages", before the `@botmesh/ai` and HTTP/Graph/scaffolder sections), this
-  report (each package's row and bullet taken from the branch that owned it),
-  `docs/public/llms.txt` (the Baileys line from `af/baileys`, the meta line from
-  `af/meta-net`) and `scripts/pack-smoke.mjs` (one `refs` list with every branch's
-  imports, and all the type checks).
-- **`fix: integrate ai`:** the soak script loads `MockAIProvider` from
-  `@botmesh/ai/testing`.
-- **`fix: integrate meta-net`:** the eslint-plugin template test imports `TEMPLATES` from
-  `create-botmesh/internal`.
-- A stray leading space before `GenerateInput.onStreamEnd` in both migration guides was
-  removed in the baileys merge.
-- **Cleanup:** the four `af/*` branches were deleted and `git worktree prune` was run
-  (it also dropped a stale `docs-gh-pages` worktree entry whose folder no longer existed;
-  the `docs/gh-pages` branch is kept). No `C:/laragon/www/af-*` folder was left. Only
-  this round's containers (`af-integ-*`, the `af-integ-sb` compose project with its
-  network and volumes, and their anonymous volumes) were removed.
-
-### Store promotion round
-
-Branch `pp/stores` (on top of `cda0ebe`, the beta versioning commit) made
-`@botmesh/postgres-store`, `@botmesh/mysql-store` and `@botmesh/mongo-store` public
-(changeset `stores-public.md`, `major` from `0.1.0`). Same freeze as the other stores:
-
-- **Drivers as peers.** `pg`, `mysql2` and `mongodb` are peer dependencies, loaded with
-  `await import()` only when a store (or `PostgresDurability`) creates its own pool or
-  client; a missing driver fails with an install hint. Injected pools and clients need
-  nothing else.
-- **No driver types in the API.** `NativePostgresPool`, `NativeMysqlPool` and
-  `NativeMongoClient` are structural interfaces; `api-check` forbids driver imports
-  reachable from the semver entries (`SEMVER_FORBIDDEN_IMPORTS`), and each package has a
-  native-types test.
-- **Names.** `logger: Partial<LoggerLike>` everywhere; mysql `PoolLike`/`ConnectionLike` →
-  `MysqlPoolLike`/`MysqlConnectionLike`; mongo `ScheduleDoc` → `MongoScheduleDoc`,
-  `MongoLikeSession` exported. No `@deprecated` aliases: the packages were never published.
-- **Fixes found by the real-server suites.** mysql retries an auto-committed statement picked
-  as deadlock victim; mongo recognises the 7.x driver's standalone "no transactions" error.
-- **Coverage.** Entry-pin and packaging tests per package; `pack:smoke` installs the three
-  tarballs, imports their entry and compiles a TypeScript consumer; READMEs, guides (EN/ES),
-  `llms.txt`, README, AGENTS and CONTRIBUTING list them as public.
-
-Export counts from `node scripts/api-check.cjs surface`:
-
-| Package | Main entry before | Main entry after (deprecated) | New entries |
-| --- | --- | --- | --- |
-| `@botmesh/postgres-store` | 11 | 11 (0) | none |
-| `@botmesh/mysql-store` | 9 | 9 (0) (2 renamed) | none |
-| `@botmesh/mongo-store` | 11 | 12 (0) | none |
-
-Checks on `pp/stores`: `pnpm api-check` OK (totals postgres-store 11, mysql-store 9,
-mongo-store 12); `pnpm changeset status --verbose` plans **major** →
-`1.0.0-beta.0` for the three; `pnpm pack:smoke` OK for the 13 public packages (the three stores pack at `0.1.0` until `version-packages` applies the changeset). Nothing published.
-
-### Promotion round: tooling
-
-Branch `pp/tooling` on top of `cda0ebe` promotes `@botmesh/flow-schema`, `@botmesh/mcp` and
-`eslint-plugin-botmesh` (changesets `major`, so `1.0.0-beta.0` in the beta pre mode) and
-adds a `minor` changeset for `@botmesh/core` (`2.0.0-beta.4`): `/spi` exports the
-flow-interpreter hooks `pauseControls` and `runFormStep` (`/spi` 93 → 95 names, also still
-in `/internal`). A public package must not import `@botmesh/core/internal`: its ranges
-(`^2.x`) would let a core minor remove a name it imports.
-
-| Package | Main entry before | Main entry after (deprecated) | New entries |
-| --- | --- | --- | --- |
-| `@botmesh/flow-schema` | 59 | 43 (0) | `/internal` 16 |
-| `@botmesh/mcp` | 40 | 19 (0) | `/internal` 23 |
-| `eslint-plugin-botmesh` | 14 | 8 (2) | none |
-
-`mcp` depends on `flow-schema`, so both move together. `@botmesh/manager` (which also
-consumes `flow-schema`), `sandbox` and the product packages stay private.
+- **Positional error mappers.** `toMessengerError(err, retryAfterMs?, chatId)`,
+  `toInstagramError(...)` and `toEvolutionError(status, body, chatId, retryAfterMs?)` take
+  positional arguments while graph-core's `toGraphError` takes an options object. Mapper names
+  are not uniform either (`toWppError`, `toGhlError`).
+- **`debug` option.** The never-published channels ship the deprecated `debug` option ("removal in
+  v3") only for consistency; it could be removed before 1.0.
+- **Deprecated alias in a new package.** `@botmesh/dialogflow` exports the `@deprecated`
+  `dialogflowContext`; it could be removed before its first publish instead.
+- **Wire types on semver entries.** Messenger's `PageWebhookBody`, `MessagingEvent`,
+  `MessengerMessage`, `MessengerAttachment`, and Instagram's `InstagramSendResponse` (which also
+  carries an `error` field) are on the main entry, which freezes their shape.
+- **wa-gateway-kit.** `WaIdentityStore(maxEntries, persistence)` is positional; the entry exports
+  generic helpers (`isRecord`, `describeErrorBody`, `parseRetryAfter`) that become frozen;
+  `IdentityPersistence` is synchronous (see MEDIUM).
+- **`ingest()` return types** still differ (`Promise<number>` on WPPConnect because it waits for
+  LID lookups); documented, not unified.
+- **Multi-attachment ids** use `<mid>#<n>` on Messenger and Instagram but `MessageSid:i` on Twilio.
+- **core scheduler callback type** (`() => void | Promise<void>` vs `() => unknown`) and
+  `AIToolContext.ctx` optionality (see LOW).
+- Earlier rounds' follow-ups still stand: entry-pin tests check runtime names only; no
+  `/internal` import guard outside core; `@botmesh/ai` entries are not in TypeDoc.
 
 ## Verification
-
-All numbers come from the merged `main` after the API freeze round (`b7330b9` plus this
-report), on Windows 11 with Node 24.13.0 and pnpm 11.9.0, unless the row says Node 22. Real
-servers ran in Docker on `127.0.0.1`.
 
 | Check | Command | Result |
 | --- | --- | --- |
 | Build | `pnpm build` | OK, 46 workspace projects (45 packages + the example) |
 | Typecheck | `pnpm typecheck` | OK (src + tests, every package) |
-| Unit tests, no servers | `pnpm test` | **7,595 passed**, 925 skipped (opt-in suites), 0 failed, 582 test files |
-| Node 22 | `pnpm build && pnpm test` with portable **Node v22.23.4** (official zip, SHA-256 checked) first on `PATH` | OK: build green; **7,595 passed**, 925 skipped, 0 failed, 582 test files (same as Node 24) |
-| Unit and real-server tests | `pnpm test` with every `BOTWA_TEST_*` variable | **8,639 passed**, 16 skipped, 0 failed |
-| Script tests | `pnpm test:scripts` | 19/19 |
-| Public API | `pnpm api-check` | OK: no missing exported types, no `any`, no `@internal`, no transport SDK type reachable from a semver entry. Totals over all entries: core 720, ai 141, baileys 114, meta 67, redis-store 51, telegram 27, graph-core 24, create-botmesh 17, http 14, sqlite-store 10 (per entry in [API decisions taken (API freeze round)](#api-decisions-taken-api-freeze-round)). |
-| Tarballs | `pnpm pack:smoke` | OK for the 10 public packages. Entries imported from the tarballs: core `.`, `testing`, `testing/vitest`, `dev`, `spi`, `internal`; ai `.`, `testing`, `internal`; baileys `.`, `internal`; redis-store `.`, `internal`; create-botmesh `.`, `internal`; the 10 create-botmesh templates install and boot. Nothing published. |
-| Release plan | `pnpm changeset status --verbose` | OK: 77 pending changesets. core **major** → `2.0.0-alpha.3`; ai, baileys, graph-core, http, meta, redis-store, sqlite-store, telegram, create-botmesh **major** → `1.0.0-alpha.1` (after `first-stable-1-0.md`; before it, minor → `0.2.0-alpha.1`). |
-| Soak | `pnpm bench:soak` | 7 rounds of about 2,000 messages, 5,768 to 7,302 msg/s, p99 lag 35 to 46 ms, 0 errors. Heap 16.6 → 24.6 MB (936 KB/round), 22.0 MB after erasing the fresh chats. Stop under load 5 ms, no conversations left, only the 2 stdio pipes active. |
-| Docs | `pnpm run docs`, `pnpm run docs:site`, `pnpm docs:check` | OK. **TypeDoc: 0 warnings.** docs-check: 0 errors, 0 warnings. Vite still prints its advisory about chunks over 1 MB (not a docs warning). |
+| Unit tests, no servers (Node 24.13.0) | `pnpm test` | **8,461 passed**, 940 skipped (opt-in suites), 0 failed, 688 test files |
+| Node 22 | `pnpm build && pnpm typecheck && pnpm test` with portable **Node v22.23.4** first on `PATH` | OK: build and typecheck green; **8,461 passed**, 940 skipped, 0 failed, 688 test files (same as Node 24) |
+| Unit and real-server tests | `pnpm test` with every `BOTWA_TEST_*` variable below | **9,517 passed**, 19 skipped, 0 failed, 688 test files |
+| redis-store, other clients | `BOTWA_TEST_REDIS_CLIENT=v4` / `v5`, same servers, chaos on | 1,051 passed / 11 skipped each (v6 in the full run: the same) |
+| mongo-store, driver 6 | `BOTWA_TEST_MONGO_DRIVER=v6` | 263 passed |
+| Script tests | `pnpm test:scripts` | 24/24 before this report's docs-check change, 26/26 after |
+| Public API | `pnpm api-check` | OK: no missing exported types, no `any`, no `@internal`, no transport SDK or driver type reachable from a semver entry. Export totals over all entries in [Per-package verdicts](#per-package-verdicts). |
+| Tarballs | `node scripts/pack-smoke.mjs` | OK for all **36** public packages (nothing published). Tarballs inspected (no `@internal`, no test files); a clean npm consumer type-checks (nodenext and bundler, `skipLibCheck` true and false) and runs a scenario across core, ai, the stores on injected pools, server, events, plugins, flow documents and MCP; `@botmesh/otel` imports without `@opentelemetry/api` and fails clearly on use; every entry imported from the tarballs (core `.`, `testing`, `testing/vitest`, `dev`, `spi`, `internal`; ai `.`, `testing`, `internal`; server `.`, `express`, `fastify`, `hono`, `internal`; the `internal` entries of the channels and plugins); the 10 `create-botmesh` templates install from a local registry and boot in `botmesh dev`. The 26 promoted packages pack at `0.1.0` until `version-packages`. |
+| Release plan | `pnpm changeset status --verbose`, `pnpm changeset publish-plan` | OK: 49 pending changesets; see [Release plan](#release-plan) |
+| Soak | `pnpm bench:soak` | 7 rounds of about 2,000 messages, 4,614 to 6,364 msg/s, p99 lag 41 to 77 ms, 0 errors, 600 tool runs. Heap 16.5 → 24.5 MB (946 KB/round), 21.9 MB after erasing the 700 fresh chats. Stop under load 10 ms, no conversations or active resources left. |
+| Docs | `pnpm run docs`, `pnpm docs:check` (base `/`), `DOCS_BASE=/botmesh/ pnpm run docs`, `pnpm docs:check` | OK. TypeDoc: 0 warnings. `docs:check`: 0 errors, 0 warnings with base `/` and with base `/botmesh/` (after this report's `{{ }}` fix; before it, the flow-schema guide rendered empty). Vite still prints its advisory about chunks over 1 MB (not a docs warning). |
+| Deploy dry run | `node scripts/docs-deploy.mjs --dry-run --force-branch` | OK: build with `DOCS_BASE=/botmesh/`, docs-check clean, a single `gh-pages` commit prepared in a temp repo (1,134 files, 35.4 MiB, `.nojekyll` present); nothing pushed, temp repo deleted. |
 
-Servers for the real-server run:
+Per-package totals in the real-server run: core 2,446 (5 skipped), redis-store 1,051
+(11 skipped), ai 495 (2 skipped: the Ollama live suite), postgres-store 375, mysql-store 351
+(1 skipped, MariaDB-only), baileys 282, mongo-store 263, events 249, meta 234, sandbox 220 (all
+Docker suites), sqlite-store 208, telegram 165, email 162 (GreenMail), discord 160, messenger 118,
+twilio 108, instagram 106, voice 101, flow-schema 100, moderation 95, mcp 87, evolution 84, rag 77,
+graph-core 77, wppconnect 75, server 73, wa-gateway-kit 71, gohighlevel 68, http 66, gupshup 63,
+dialogflow 57, tickets 54, nlu 51, chatwoot 48, otel 31; private: hub 153, inbox 145, manager 144,
+eslint-plugin 140, deployments 138, tiktok 132, create-botmesh 116, campaigns 108, crm 97,
+bakery-ai 43, tenant-kv 30. No test was skipped or retried to get these results.
+
+Servers (all on `127.0.0.1`, removed afterwards):
 
 | Variables | Server |
 | --- | --- |
 | `BOTWA_TEST_POSTGRES_URL` | `postgres:16` |
 | `BOTWA_TEST_MYSQL_URL` | `mysql:8.4` |
-| `BOTWA_TEST_MONGO_URL` | `mongo:7` |
+| `BOTWA_TEST_MONGO_URL` | `mongo:7` (standalone) |
 | `BOTWA_TEST_REDIS_URL` | `redis:7` |
 | `BOTWA_TEST_REDIS_CLUSTER_URL` + `BOTWA_TEST_REDIS_CLUSTER_CHAOS=1` | `grokzen/redis-cluster:7.0.10`, 3 masters + 3 replicas |
 | `BOTWA_TEST_EMAIL` (+ host and ports) | `greenmail/standalone:2.1.3` |
@@ -438,297 +343,108 @@ Servers for the real-server run:
 | `BOTWA_TEST_WPPCONNECT_*` | WPPConnect server-cli `1.3.50` (sandbox compose) |
 | `BOTWA_TEST_CHATWOOT_*` | Chatwoot `v4.7.0` (sandbox compose, token from `chatwoot-token.mjs`) |
 | `BOTWA_TEST_MAILPIT_*` | Mailpit `v1.27` (sandbox compose) |
-| `BOTWA_TEST_OLLAMA_URL` + `BOTWA_TEST_OLLAMA_MODEL` | `ollama/ollama` with `qwen2.5:0.5b` |
-| `BOTWA_TEST_SDK_UPPER_DIR` | `@anthropic-ai/sdk` 1.3.0, `openai` 7.43.0, `@google/generative-ai` 0.24.1 installed in a scratch folder |
+| `BOTWA_TEST_SDK_UPPER_DIR` | `@anthropic-ai/sdk` 1.3.0, `openai` 7.43.0, `@google/generative-ai` 0.24.1 in a scratch folder |
 
-Per-package totals in that run: core 2,361 (5 skipped), redis-store 1,051 (11 skipped),
-ai 465 (Ollama live and upper-range SDK suites included), postgres-store 356,
-mysql-store 317, baileys 282, mongo-store 248, meta 229, sandbox 205 (all Docker suites
-included), events 192, sqlite-store 190, telegram 164, hub 153, inbox 145. The 16 skipped
-are by design: core's 5 environment-gated cases and redis-store's 11 (legacy-row cases and
-the single-node-only `kill -9` case). The redis-store chaos suite and the inbox/deployments
-cluster suites ran in the same workspace run.
+Not run in this round: the Ollama live suite (`BOTWA_TEST_OLLAMA_*`) and any paid AI or
+messaging API.
 
-redis-store against every node-redis major, same servers, chaos on:
-`BOTWA_TEST_REDIS_CLIENT=v6` (default, in the full run) 1,051 passed / 11 skipped; `v4`
-1,051 / 11; `v5` 1,051 / 11. **No test was skipped or retried to get these results.**
+## Integration of this round
 
-## Remaining open items
+The docs review branches were merged into `main` one at a time with `git merge --no-ff`
+(`merge: docs review <key>`): `rd/start`, `rd/core`, `rd/channels`, `rd/ai`, `rd/data-prod`,
+`rd/tooling`, `rd/reference-upgrade`, `rd/examples-a`, `rd/examples-b`.
 
-### core
+- **Conflicts:** `CHANGELOG.md` in `channels`, `data-prod`, `tooling`, `reference-upgrade` and
+  `examples-b` (every section kept). `rd/start` and `rd/tooling` both fixed the stale
+  `npm create botmesh@alpha` in `create-botmesh --help` with two different `createCommand()`
+  helpers; the merge keeps one implementation, the `rd/tooling` one (the tag comes from the
+  CLI's own `package.json` version, which is what `npm create botmesh@<tag>` resolves), its test
+  and its changeset.
+- **Code fixed by the docs review** (each with tests): `@botmesh/meta` and `@botmesh/messenger`
+  `ingest()` answer 503 while stopped; `@botmesh/otel` reports `dropped.echo`; `create-botmesh
+  --help` dist-tag.
+- **Cleanup:** the nine `rd/*` branches were deleted, `git worktree prune` was run, and the
+  review folders in the scratch directory were removed. Only this round's containers
+  (`ra-final-*` and the `ra-final-sb` compose project with its volumes and network) were
+  removed.
 
-Closed in the closeout round (`co/core`; see the `[Unreleased]` section of the changelog
-and the migration guides):
+## History
 
-- `ChaosProvider.selfId` (and `RecordingProvider.selfId`) return `UserId | null`:
-  no TS2420 under `exactOptionalPropertyTypes`.
-- `.persistent()` flows checkpoint when they start, so a restart at the first `.ask()`
-  resumes (tested with `SQLiteStore` and a restart).
-- New `'stopping'` lifecycle event, before the drain and the transport stop;
-  `@botmesh/ai` aborts in-flight model calls on it.
-- One presence policy while disconnected: `typing`/`markRead` are a best-effort no-op,
-  logged at debug and counted in `metrics().presenceSkipped` (and
-  `botmesh.presence.skipped` in `@botmesh/otel`), written into the `IProvider` contract
-  and checked by `assertPresenceWhileDisconnected` in every channel-contract test.
-- `OutsideSessionWindowError` / `RecipientUnreachableError` default messages carry no
-  chat id.
-- Durable outbox: split parts keep their order on retries, are linked by
-  `OutboxRecord.previousPart` (a user key ending in `#<n>` is never coupled to another
-  send), waiting behind an earlier part refunds the attempt (`markFailed({ refund })`),
-  and the sweeper splits an over-limit journaled record with deterministic part keys.
-- TypeDoc documents `/spi` and `/testing` (named modules); `pnpm run docs` reports 0
-  warnings.
-- `IMessageContext.acknowledge` is required in the type; `ctx.delete()` after `stop()`
-  rejects with `BotNotRunningError`; unknown event kinds are ignored; `lang` vs
-  `i18n.defaultLocale` accepts `es` / `es-MX`; the `logIds` default no longer reuses a
-  `'raw'` span policy; tests for the remaining deprecated aliases.
+Earlier rounds, kept short; their full reports are in the git history of this file.
 
-Still open (all LOW):
+- **Alpha → beta and the stable-readiness campaign** (base `9bcba20` → `e148ea2`, then the
+  closeout round and the API freeze round): the core entry layout (`/internal`, `/spi`,
+  `/testing`), one canonical name per concept, behaviour decisions (English default,
+  `retries`/`maxAttempts`, `BotNotRunningError`, long-text splitting, epoch-ms timestamps),
+  the API freeze of `ai`, `baileys`, `http`, `graph-core`, `meta`, `redis-store`,
+  `sqlite-store` and `create-botmesh`, and the stable line (core `2.0.0`, `1.0.0` for the
+  rest). The migration guides (EN/ES) document every break.
+- **Promotion rounds** (after the beta versioning commit `cda0ebe`): Messenger and Instagram;
+  the WhatsApp REST gateways (`wa-gateway-kit`, `evolution`, `wppconnect`); five channels
+  (`discord`, `twilio`, `gupshup`, `email`, `gohighlevel`); the stores (below);
+  infrastructure (`server`, `events`, `otel`); seven plugins (`rag`, `voice`, `nlu`,
+  `dialogflow`, `chatwoot`, `tickets`, `moderation`); tooling (`flow-schema`, `mcp`,
+  `eslint-plugin-botmesh`). Each got an `/internal` entry where needed, frozen data, an
+  entry-pin test, `api-check` and `pack:smoke` coverage and a changeset (`major` →
+  `1.0.0-beta.0`).
+- **Per-package release tests** (26 `merge: test <key>` commits): each promoted package was
+  tested as a demanding user and as an attacker, fixed with TDD, and checked by a reviewer
+  (see [Per-package verdicts](#per-package-verdicts)).
 
-- With `BotConfig.coordination`, `ctx.markRead()` runs `assertCoordinated` before the
-  presence gate, so after `stop()` or a lost turn it rejects (`LeaseLostError`) instead of
-  being a no-op.
-- `presenceSkipped` counts a skip even on a transport that has no `typing` method.
-- A journaled split part that is itself over the limit is re-split by the sweeper into
-  `X#2#2...`; its order against parts that `enqueue` journals later is not pinned by a
-  test.
-- `@botmesh/ai` now aborts on `'stopping'`, before `stop({ drain: true })` waits, so an
-  autoreply that would have finished during the drain is cut; the guides do not say so
-  next to `drain` yet.
-- The guides say the 13 providers follow the presence policy; email and Gupshup follow
-  it trivially (no presence methods), and the Baileys contract test passes even without
-  its gate (no socket).
-- The automatic defer of a Discord slash command is type 5 ("thinking..."), which a later
-  plain channel message may not replace (channel item; confirm on a real server).
-- `ctx.edit` text over the limit is not split (by design).
+### Store promotion round
 
-### Other public packages
-
-- **ai**: the Kimi default model (`moonshot-v1-8k`) is unconfirmed (outside semver).
-  Closed: helpers and wire type names moved to `/internal`, `MockAIProvider` and
-  `validateArgs` to `/testing`; `PRESETS`/`DEFAULT_YES`/`DEFAULT_NO`/`AI_MESSAGES`/`AI_LOCALES`
-  deep-frozen; `onStreamEnd` contract documented and tested; provider constructors take
-  `AIProviderConfig`; the Azure heuristic covers `*.cognitiveservices.azure.com` and
-  Foundry `/openai` endpoints.
-- **baileys**: upstream `7.0.0-rc14` (no stable 7.x; pin and upgrade policy in the
-  README). Closed: native types are opaque (`BaileysNativeMessage`, `BaileysSocket`,
-  `BaileysAuthState`), JID helpers and mappers in `/internal`, `pairingPhoneNumber`,
-  `debug` deprecated, the ffmpeg-static hint no longer loops. The `read`/`played` receipt
-  note does not apply to the provider today: it emits no receipt events (no
-  `messages.update` / `message-receipt.update` mapping).
-- **meta**: the Cloud API typing indicator is not implemented (feature after stable).
-  Closed: `GraphClient`, `toProviderError` and the verify re-exports are deprecated,
-  `phoneNumberId` is typed `string | number`, and the session-window plumbing (`send`,
-  `noteInbound`, `noteFailedStatus`, `RawSend`) is `@experimental` while the configuration
-  and query surface stays public with semver.
-- **telegram**: `callback_data` cut at 64 bytes (documented); the poll-vote tracker is
-  in memory only (last 500 polls; votes on polls sent before a restart, or by another
-  replica or webhook process, are dropped) and rebuilds the tally on each vote
-  (O(voters x options)). Closed: `pollTimeoutMs`, `toTelegramError`, `@experimental`
-  wire helpers, `debug` deprecated, `poll_answer` parsed.
-- **sqlite-store**: `MemoryStore` and the other stores still accept lone surrogates.
-  Closed: schema versioning, `LoggerLike` logger, `busyTimeoutMs`, the schedules/schedule_fences
-  and durable tables folded into the migrations (schema version 2).
-- **redis-store**: extra round trips with `maxMessagesPerChat`; the cluster test helper's connect retry does not
-  destroy a client whose `connect()` failed. Closed: the node-redis 5 flake did not come
-  back (v5 twice, plus v4 and v6, all green with chaos on), and a test asserts which
-  major `BOTWA_TEST_REDIS_CLIENT` loads; the layout internals moved to
-  `@botmesh/redis-store/internal`; the deprecated `ttl` option and `acquireLock` were removed.
-- **http / graph-core**: the 413 override in graph-core only applies when the mapped
-  error is a plain `ProviderError` (kept on purpose: a Graph code that says more wins).
-  Closed: `SecureFetchOptions` is a closed set (no `redirect`; the other `RequestInit`
-  fields through a deprecated overload until stable), `resolveHost` (alias
-  `resolvePublicHost`), `checkGraphSignature({ body, headers, appSecret, logger })`
-  (positional form deprecated), and graph-core is covered by semver.
-- **create-botmesh**: `slashCommandsPlugin({ greeting })` still replaces the whole `/help`.
-  Closed: `TEMPLATES`, `agentsMd` and `findBotMeshMonorepo` moved to
-  `create-botmesh/internal`, deprecated on the main entry.
-- **discord, twilio, gupshup, email, gohighlevel** (promoted on `pp/channels`): none has
-  been tested live yet; one live test each is required before `pre exit` (see the
-  per-package table). Twilio's typing indicator relies on a public-beta endpoint;
-  Gupshup's v1 send API needs confirming against a current account; Twilio, Gupshup and
-  HighLevel webhooks have a replay window (no signed timestamp, dedupe by id); HighLevel
-  inbound media stays `application/octet-stream`.
-- **Across providers**: error mappers are named `to<Channel>Error` except meta, whose
-  mapper is deprecated in favour of graph-core's `toGraphError`; `ingest()` return
-  types still differ (documented, not unified); `debug` is deprecated in Telegram, meta
-  and Baileys but not in the private providers. A `'poll'` vote event reaches the
-  hooks without the access-list check, which now matters on Telegram too.
-
-Follow-ups from the API freeze reviews (all LOW, none blocks stable):
-
-- **Entry pins check runtime names only.** The pin tests of ai, baileys and redis-store
-  list `Object.keys()` of each entry; type-only exports (`AnthropicLike`,
-  `AIProviderConfig`, `BaileysNativeMessage`, `RedisKeyLayout`, the key types…) are not
-  pinned. `api-check surface` lists them; a snapshot of it would pin them.
-- **No `/internal` import guard outside core.** ai, baileys and redis-store have no
-  equivalent of core's `internal-imports` test, so a file-path import such as
-  `ai/lib/index.js` is not caught.
-- **ai:** `validateArgs`/`ArgsValidation` left the main entry without an alias (cheap to
-  add); `AI_LOCALES` is deep-frozen at runtime but its `readonly` type is shallow; the
-  Azure heuristic needs `/openai` on `*.services.ai.azure.com` but not on
-  `*.cognitiveservices.azure.com`; the `@botmesh/ai` entries are not in TypeDoc.
-- **baileys:** `sameUser` keeps Baileys' behaviour for strings that are not JIDs; the
-  `logger` JSDoc has a typo ("Any`LoggerLike`") in the published `.d.ts`; the ffmpeg
-  hint loop is fixed for `ffmpeg-static` but not for an `FFMPEG_PATH` that points to a
-  missing file; core comments in `provider.ts` and `validateConfig.ts` still say
-  `pairingCode`.
-- **http / graph-core:** `checkGraphSignature` treats an options object passed with any
-  extra argument as the positional form; with the deprecated overload last,
-  `Parameters<typeof secureFetch>[1]` resolves to `LegacySecureFetchOptions`; the
-  `@ts-expect-error` assertions on `redirect`/`mode` are only checked by `pnpm typecheck`.
-- **redis-store:** the `acquireLock` stub is a real prototype function (`'acquireLock' in
-  store` is true); the `ttl` `TypeError` hint is built from the raw value even for values
-  that were invalid before; migration 2 of sqlite-store runs the exported, mutable
-  `SCHEDULES_SCHEMA`/`DURABLE_SCHEMA` constants.
-- **Repo instructions:** `AGENTS.md` still says `MockAIProvider` comes from `@botmesh/ai`
-  (it works through the deprecated alias; `@botmesh/ai/testing` is the documented path).
-
-### Promoted plugins (beta)
-
-`@botmesh/rag`, `@botmesh/voice`, `@botmesh/nlu`, `@botmesh/dialogflow`,
-`@botmesh/chatwoot`, `@botmesh/tickets` and `@botmesh/moderation` went public after this
-report (branch `pp/plugins`, changeset `promote-plugins.md`, `1.0.0-beta.0`). They depend
-only on `@botmesh/core` and `@botmesh/http`; each one got the same freeze as the other
-public packages (an `/internal` entry except `nlu`, frozen data, an entry-pin test,
-`api-check` and `pack:smoke` coverage, a README in the shared layout). Main entry before →
-after: rag 49 → 41, voice 49 → 41, nlu 8 → 8, dialogflow 28 → 21 (`dialogflowContext`
-deprecated), chatwoot 25 → 20, tickets 30 → 28, moderation 29 → 23. Verdict: **GO after one
-beta and the live calls below**, with these honest limits:
-
-- **Live verification (blocks `pre exit`).** Chatwoot passed the real round trip against a
-  self-hosted Chatwoot 4.7 (Docker suite of `@botmesh/sandbox`). Dialogflow (Google OAuth
-  JWT exchange plus ES and CX `detectIntent`), the OpenAI, Deepgram and ElevenLabs voice
-  adapters and the OpenAI (`/embeddings`) and Ollama (`/api/embed`) embedders were **never
-  run against the real services**: every test uses injected `fetch` fakes shaped after the
-  public API docs. A wrong request shape or auth header would ship as 1.0, so one real call
-  of each is a hard exit criterion (see [Before stable](#before-stable-pre-exit)). If one
-  cannot be run before `pre exit`, hold that package at a prerelease instead of shipping it
-  as 1.0.0.
-- **moderation:** `kick` and provider admin lists need a `groups` namespace that no bundled
-  provider exposes yet, so `kick` degrades to `mute`. `GroupAdminApi` and
-  `ModerationProvider.groups` are `@experimental` (outside semver, pinned by
-  `tests/group-admin-stability.test.ts`) until core defines a groups capability; the rest of
-  the moderation API is frozen. State lives in memory (not shared between replicas).
-- **chatwoot:** `handleWebhook({ query })` takes `URLSearchParams` or any parsed query object
-  (`Record<string, unknown>`, so Express `req.query` type-checks); only a string `token` is
-  read.
-- **tickets:** `list()` with closed tickets scans every id in storage.
-
-### Private packages
-
-Discord, Twilio, Gupshup, email and HighLevel were promoted (see above), and so were the
-other promotion rounds listed in this report. Promoting another private package still means removing `"private"`, switching
-`workspace:*` to `workspace:^`, the API freeze above, a changeset and a README section.
-
-- **channels**: TikTok stays private (approval-gated API, no public spec) and its
-  inbound media stays `application/octet-stream`; the promoted channels' open items are
-  under [Other public packages](#other-public-packages). Closed: Discord `MESSAGE_UPDATE` edits are parsed, and
-  Discord sends `attachments[].id` as a string, as the official spec requires.
-- **sandbox**: the hub API checks Host/Origin, needs a per-run token on POST, bounds
-  bodies and answers bad input with a 4xx (fuzzed in `pnpm test`); Twilio and Discord
-  requests are validated against vendored official OpenAPI fragments; the simulators
-  always bind to 127.0.0.1; Telegram poll buttons send native votes. Still open: some
-  provider error-mapping regexes are only checked against wording the sandbox itself
-  produces; Meta, Gupshup, HighLevel, TikTok and Telegram have no official
-  machine-readable spec; Discord votes wait for the provider to parse
-  `MESSAGE_POLL_VOTE_ADD`; `token: ''` turns authentication off, and a token containing
-  `$&` is spliced unescaped into the page; every simulator error is reported as 422; a
-  cross-site top-level GET of the UI is refused.
-- **manager**: still calls the deprecated `bot.triggerFlow`; three overlapping HTTP
-  APIs; `putFlow`/`removeFlow` persist first but have no rollback if going live fails.
-- **product**: `attachInbox` without `tenantId` now uses the bot's tenant (no data
-  migration for conversations stored under `'local'`); the new `after` cursors need the
-  cursor item to still exist; the hub manifest range type became optional.
-- **plugins**: the private plugins depend on core through `workspace:*`; the chatwoot, tickets,
-  moderation, dialogflow and inbox-projection plugins have fixed names, so plugging two
-  instances now throws unless they set `multiple`.
+`@botmesh/postgres-store`, `@botmesh/mysql-store` and `@botmesh/mongo-store` became public
+(changeset `stores-public.md`). `pg`, `mysql2` and `mongodb` are lazy-loaded peers; no driver
+type is reachable from a `.d.ts` (`api-check` `SEMVER_FORBIDDEN_IMPORTS`); `logger:
+Partial<LoggerLike>`; mysql `PoolLike`/`ConnectionLike` → `MysqlPoolLike`/`MysqlConnectionLike`,
+mongo `ScheduleDoc` → `MongoScheduleDoc` (no aliases: never published). Main entries:
+postgres-store 11, mysql-store 9, mongo-store 12.
 
 ## Exit checklist
 
-### Before `pre enter beta`
+### Before this publish
 
-- [x] The six workstreams, the three closeout branches and the four API freeze branches
-  merged; `pnpm build && pnpm typecheck && pnpm test` pass (7,595 tests).
-- [x] Every real-server suite, the sandbox Docker suites, Ollama and the upper-range SDK
-  suites pass (8,639 tests); redis-store is green on node-redis 4, 5 and 6.
-- [x] `pnpm api-check`, `pnpm pack:smoke`, `pnpm test:scripts`, `pnpm bench:soak`,
-  `pnpm run docs`, `pnpm docs:site` and `pnpm docs:check` pass.
-- [x] `pnpm changeset status --verbose` succeeds (77 pending changesets).
-- [x] Bump types decided (2026-10-26): the nine 0.x public packages move to `1.0.0`
-  (changeset `first-stable-1-0.md`, `major`); `pnpm changeset status` now plans
-  `1.0.0-alpha.1` for them in alpha mode, `1.0.0-beta.0` after `pre enter beta` and
-  `1.0.0` after `pre exit`.
-- [x] `pnpm build && pnpm test` on Node 22 (v22.23.4: 7,595 passed, 0 failed).
+- [x] Docs review branches merged; `pnpm build && pnpm typecheck && pnpm test` green on Node 24
+  and Node 22 (8,461 tests).
+- [x] Every real-server suite and the sandbox Docker suites pass (9,517 tests); redis-store green
+  on node-redis 4, 5 and 6; mongo-store on drivers 6 and 7.
+- [x] `pnpm api-check`, `pack:smoke`, `test:scripts`, `bench:soak`, `pnpm run docs`,
+  `docs:check` (both bases) and the deploy dry run pass.
+- [ ] Maintainer: `pnpm version-packages` and commit, then `pnpm release` and the `dist-tag`
+  commands ([Maintainer release steps](#maintainer-release-steps)).
 
 ### During beta
 
-- [x] Fix or record as permanent each item of the per-package table in
-  [Verdict](#verdict) (the API freeze round closed them; only the Baileys rc decision
-  is left).
-- [x] Fix `ChaosProvider.selfId` (TS2420) and decide the first-`ask` checkpoint (both fixed).
-- [ ] Settle `debug` vs `logger` in the private providers (Telegram, meta and Baileys
-  are done; the error-mapper names are done and the ingest return types documented).
-- [x] Add sqlite-store schema versioning.
-- [ ] Watch upstream Baileys for a stable 7.x (checked 2026-10-26: `latest` is still
-  `7.0.0-rc14`; policy in the Baileys README), then decide: stable on the rc pin, or
-  hold only `@botmesh/baileys` at a prerelease.
-- [ ] Accept only fixes and the decisions above in the public packages.
+- [ ] Decide the [API-freeze notes](#api-freeze-notes) for the 26 promoted packages (cheap now,
+  semver-breaking after 1.0).
+- [ ] Watch upstream Baileys for a stable 7.x (`latest` is still `7.0.0-rc14`).
+- [ ] Accept only fixes and those decisions in the public packages.
 
 ### Before stable (`pre exit`)
 
-- [ ] No open HIGH or MEDIUM defect in any public package.
-- [ ] One real call, with real credentials, of each promoted-plugin path that has only
-  run against `fetch` fakes: Dialogflow ES and CX `detectIntent` (including the Google
-  OAuth JWT exchange), voice STT/TTS on OpenAI, Deepgram and ElevenLabs, and the rag
-  embedders on OpenAI `/embeddings` and Ollama `/api/embed`. Record the date and result
-  here. A package whose call was not run stays at a prerelease (do not ship it as 1.0.0).
-- [ ] At least one beta used for a few weeks by a real bot on Baileys, the Cloud API
-  and Telegram, with no new MEDIUM defect.
-- [ ] One live test each for the promoted channels (Discord, Twilio, Gupshup, email,
-  HighLevel); Twilio typing-indicator decision (public-beta endpoint) and Gupshup v1
-  API confirmed.
-- [ ] Version policy chosen: core to `2.0.0`; the 0.x packages to `1.0.0` (a `major`
-  changeset for each) or kept at 0.x with that choice documented.
-- [ ] Review the archived changesets in `.changeset/pre/`: `changeset pre exit` moves
-  them back and they become the stable changelogs.
+- [ ] No open HIGH or MEDIUM defect in any public package (today: the Evolution LID-only DMs,
+  the paired-number round trips and the `IdentityPersistence` decision).
+- [ ] At least one beta used for a few weeks by a real bot on Baileys, the Cloud API and
+  Telegram, with no new MEDIUM defect.
+- [ ] One live test each for Messenger, Instagram, Discord, Twilio, Gupshup, email (real mail
+  provider) and HighLevel; a paired-number round trip on Evolution and WPPConnect; Twilio
+  typing-indicator decision (public-beta endpoint) and Gupshup v1 API confirmed.
+- [ ] One real call of each plugin path that only ran against fakes: Dialogflow ES and CX
+  (including the Google OAuth JWT exchange), voice STT/TTS on OpenAI, Deepgram and ElevenLabs,
+  the rag embedders on OpenAI and Ollama. A package whose call was not run stays on a
+  prerelease.
+- [ ] Review the archived changesets in `.changeset/pre/`; `changeset pre exit` moves them back.
 - [ ] `create-botmesh` stamps caret ranges without a prerelease tag (regenerated by
   `version-packages`).
 
-### Maintainer commands (not run by this campaign, the closeout round or the API freeze round)
-
-Run them in `main`, on a clean tree, after the checks above. Publishing to npm cannot
-be undone.
-
-From alpha to beta (Changesets v3 refuses `pre enter` while in pre mode, so leave alpha
-first):
-
-```bash
-pnpm changeset status --verbose     # review the bump types first
-pnpm changeset pre exit
-pnpm changeset pre enter beta
-pnpm changeset status --verbose     # expect core 2.0.0-beta.N and x.y.z-beta.N for the rest
-pnpm changeset publish-plan
-pnpm version-packages               # changeset version + create-botmesh versions.ts
-git add -A && git commit -m "chore(release): version packages for the first beta"
-pnpm pack:smoke
-pnpm release                        # clean + build + changeset publish (dist-tag beta)
-git push --follow-tags
-```
-
-From beta to stable:
+From beta to stable (maintainer, later):
 
 ```bash
 pnpm changeset pre exit
 pnpm changeset status --verbose     # expect stable versions, published under latest
-pnpm changeset publish-plan
 pnpm version-packages
 git add -A && git commit -m "chore(release): version packages for the stable release"
 pnpm pack:smoke
 pnpm release
 git push --follow-tags
 ```
-
-After the first stable publish, check `npm dist-tag ls @botmesh/core` (and the same for
-the other packages): `latest` should point to the stable version. Keep `alpha` and
-`beta` on their last prerelease, or remove them with `npm dist-tag rm`.
