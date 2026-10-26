@@ -100,7 +100,7 @@ export class DeploymentRegistry {
         ...(outcome.summary !== undefined ? { summary: outcome.summary } : {}),
         runId: run.id,
       }
-      const deployment = await this.store.commit({ tenantId, botId, version, artifact, gate: gateRecord, reserved: true })
+      const deployment = await this.store.commit({ tenantId, botId, version, artifact, gate: gateRecord, reserved: true, reservedUntil })
       committed = true
       return deployment
     } finally {

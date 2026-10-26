@@ -24,6 +24,23 @@ export interface CommitInput {
    * refuses the commit with `DeploymentExistsError`.
    */
   reserved?: boolean
+  /**
+   * With `reserved`, the `until` the caller passed to {@link DeploymentStore.reserve}. Once
+   * that reservation expired and another publish holds a live one, the commit is refused
+   * with `DeploymentExistsError` instead of taking the version from its new owner.
+   */
+  reservedUntil?: number
+}
+
+/**
+ * Whether the live reservation `live` (the stored expiry of the version, if any) belongs to
+ * someone other than the caller of a commit, which must then be refused.
+ * @internal
+ */
+export function heldByOther(input: CommitInput, live: number | undefined, now: number): boolean {
+  if (live === undefined || live <= now) return false
+  if (!input.reserved) return true
+  return input.reservedUntil !== undefined && live !== input.reservedUntil
 }
 
 export interface DeploymentStore {

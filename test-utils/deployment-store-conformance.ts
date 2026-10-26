@@ -94,6 +94,24 @@ export function runDeploymentStoreConformance(name: string, harness: DeploymentS
       expect((await store.list('a', 'bot')).map((d) => d.version)).toEqual(['0.9.0', '2.0.0'])
     })
 
+    it('a reserved commit naming an expired reservation is refused once another publish holds a live one', async () => {
+      const mine = now + 100
+      expect(await store.reserve('a', 'bot', '3.0.0', mine)).toBe(true)
+      now += 200
+      const theirs = now + 1000
+      expect(await store.reserve('a', 'bot', '3.0.0', theirs)).toBe(true)
+      await expect(store.commit({ tenantId: 'a', botId: 'bot', version: '3.0.0', artifact: 'late', reserved: true, reservedUntil: mine }))
+        .rejects.toMatchObject({ name: 'DeploymentExistsError' })
+      expect(await store.get('a', 'bot', '3.0.0')).toBeUndefined()
+      expect(await store.commit({ tenantId: 'a', botId: 'bot', version: '3.0.0', artifact: 'owner', reserved: true, reservedUntil: theirs }))
+        .toMatchObject({ artifact: 'owner', active: true })
+      // An expired reservation nobody took over still commits (nothing else owns the version).
+      expect(await store.reserve('a', 'bot', '3.1.0', now + 10)).toBe(true)
+      now += 50
+      expect(await store.commit({ tenantId: 'a', botId: 'bot', version: '3.1.0', artifact: 'h', reserved: true, reservedUntil: now - 40 }))
+        .toMatchObject({ version: '3.1.0' })
+    })
+
     it('concurrent commits of one version with different artifacts: one wins and its artifact is the one stored', async () => {
       for (let i = 0; i < 20; i++) {
         const version = `5.0.${i}`
