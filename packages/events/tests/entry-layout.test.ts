@@ -35,6 +35,17 @@ describe('@botmesh/events entry layout', () => {
     }
   })
 
+  it('EventsDurability can only be built through eventsDurability() (private constructor, not @internal)', () => {
+    // `@internal` is stripped from the published .d.ts, which would leave an implicit public
+    // zero-argument constructor that crashes at runtime; a `private constructor` survives the strip.
+    const src = readFileSync(new URL('../src/durability.ts', import.meta.url), 'utf8')
+    expect(src).toMatch(/private constructor\(/)
+    expect(src).not.toMatch(/@internal[^\n]*\n\s*(?:private )?constructor\(/)
+    // @ts-expect-error the constructor is private: use eventsDurability()
+    const build = () => new durability.EventsDurability()
+    expect(build).toThrow()
+  })
+
   it('package.json exposes ./durability next to the main entry', () => {
     const pj = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { exports: Record<string, unknown> }
     expect(Object.keys(pj.exports).sort()).toEqual(['.', './durability'])
