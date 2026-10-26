@@ -220,3 +220,93 @@ describe('sendCampaign', () => {
     }
   })
 })
+
+/** A provider that answers with the canonical form of the chat id (as real channels may). */
+class CanonicalizingProvider extends MockProvider {
+  override async send(chatId: string, content: OutboundContent, options?: SendOptions): Promise<SendResult> {
+    const result = await super.send(chatId, content, options)
+    return { ...result, ref: { ...result.ref, chatId: `${chatId}@s.whatsapp.net` } }
+  }
+}
+
+describe('sendCampaign settles by target, not by the provider ref', () => {
+  it('counts a send whose ref carries a different (canonical) chat id as sent', async () => {
+    const bot = new Bot({ provider: new CanonicalizingProvider() })
+    await bot.start()
+    try {
+      const planner = new CampaignPlanner()
+      const run = await sendCampaign(bot, planner, { id: 'sale', tenantId: 'a' }, [recipient({ id: 'p1', chatId: '57300' }), recipient({ id: 'p2', chatId: '57301' })], 'promo')
+      expect(run.deliveries.map((d) => d.state)).toEqual(['sent', 'sent'])
+      expect(await planner.sentCount('a', 'sale', 'p1')).toBe(1)
+      // A re-run must not message them again.
+      const again = await sendCampaign(bot, planner, { id: 'sale', tenantId: 'a' }, [recipient({ id: 'p1', chatId: '57300' })], 'promo')
+      expect(again.deliveries[0]).toMatchObject({ state: 'skipped', reason: 'duplicate' })
+      expect(again.broadcast.total).toBe(0)
+    } finally {
+      await bot.stop()
+    }
+  })
+
+  it('settles a hook-skipped send as failed and a sent one as sent with concurrency', async () => {
+    const bot = new Bot({ provider: new CanonicalizingProvider() })
+    bot.before('send', (payload: { chatId: string }, next: () => Promise<void>) => (payload.chatId === 'blocked' ? undefined : next()))
+    await bot.start()
+    try {
+      const planner = new CampaignPlanner()
+      const recipients = Array.from({ length: 30 }, (_, i) => recipient({ id: `p${i}`, chatId: i % 3 === 0 ? 'blocked' : `c${i}` }))
+      const run = await sendCampaign(bot, planner, { id: 'sale', tenantId: 'a' }, recipients, 'promo', { concurrency: 4, batchSize: 7 })
+      const byId = new Map(run.deliveries.map((d) => [d.recipientId, d]))
+      expect(byId.get('p1')).toMatchObject({ state: 'sent' })
+      expect(byId.get('p0')).toMatchObject({ state: 'failed', error: 'skipped' })
+      expect(byId.get('p3')).toMatchObject({ state: 'failed', error: 'duplicate chatId' })
+      expect(run.deliveries.filter((d) => d.state === 'sent')).toHaveLength(20)
+      expect(run.settleErrors).toEqual([])
+    } finally {
+      await bot.stop()
+    }
+  })
+
+  it('uses the chat of the first occurrence of a repeated recipient (the one that was queued)', async () => {
+    const provider = new MockProvider()
+    const bot = new Bot({ provider })
+    await bot.start()
+    try {
+      const run = await sendCampaign(bot, new CampaignPlanner(), { id: 'sale', tenantId: 'a' },
+        [recipient({ id: 'p', chatId: 'first' }), recipient({ id: 'p', chatId: 'second' })], 'promo')
+      expect(run.broadcast.messages.map((m) => m.ref.chatId)).toEqual(['first'])
+      expect(run.deliveries.map((d) => d.state)).toEqual(['sent', 'skipped'])
+    } finally {
+      await bot.stop()
+    }
+  })
+
+  it('releases every reservation when the broadcast itself rejects (bad options), so a retry can send', async () => {
+    const bot = new Bot({ provider: new MockProvider() })
+    await bot.start()
+    try {
+      const planner = new CampaignPlanner()
+      await expect(sendCampaign(bot, planner, { id: 'sale', tenantId: 'a' }, [recipient({ id: 'p' })], 'promo', { batchSize: 0 })).rejects.toThrow(RangeError)
+      const retry = await sendCampaign(bot, planner, { id: 'sale', tenantId: 'a' }, [recipient({ id: 'p' })], 'promo')
+      expect(retry.deliveries[0]).toMatchObject({ state: 'sent' })
+    } finally {
+      await bot.stop()
+    }
+  })
+})
+
+describe('plan validates the whole batch before reserving anything', () => {
+  it('rejects a recipient without an id and leaves no reservation behind', async () => {
+    const planner = new CampaignPlanner()
+    const good = recipient({ id: 'r1' })
+    await expect(planner.plan({ id: 'c', tenantId: 'a' }, [good, recipient({ id: '' })])).rejects.toThrow(/recipient/)
+    expect((await planner.plan({ id: 'c', tenantId: 'a' }, [good]))[0]).toMatchObject({ state: 'queued' })
+  })
+
+  it('rejects an invalid campaign or a non-array recipient list with a clear error', async () => {
+    const planner = new CampaignPlanner()
+    await expect(planner.plan({ id: '', tenantId: 'a' }, [])).rejects.toThrow(/campaign id/)
+    await expect(planner.plan({ id: 'c', tenantId: '' }, [])).rejects.toThrow(/tenantId/)
+    await expect(planner.plan({ id: 'c', tenantId: 'a' }, 'p1' as never)).rejects.toThrow(/recipients/)
+    await expect(planner.plan({ id: 'c', tenantId: 'a' }, [null] as never)).rejects.toThrow(/recipient/)
+  })
+})
