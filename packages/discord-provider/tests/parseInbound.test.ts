@@ -78,6 +78,58 @@ describe('parseDispatch', () => {
     expect(m.quoted?.senderId).toBe('U9')
   })
 
+  it('a forward reads the snapshot content and is not a quoted reply', () => {
+    const m = messageOf(parseDispatch('MESSAGE_CREATE', msg({
+      content: '',
+      message_reference: { type: 1, message_id: 'M9', channel_id: 'C2' },
+      message_snapshots: [{ message: { content: 'reenviado', attachments: [] } }],
+    }), null))
+    expect(m.type).toBe('text')
+    expect(m.body).toBe('reenviado')
+    expect(m.quoted).toBeUndefined()
+  })
+
+  it('a forward of an attachment carries the snapshot media', () => {
+    const m = messageOf(parseDispatch('MESSAGE_CREATE', msg({
+      content: '',
+      message_reference: { type: 1, message_id: 'M9', channel_id: 'C2' },
+      message_snapshots: [{ message: {
+        content: 'foto',
+        attachments: [{ id: 'A1', filename: 'p.png', content_type: 'image/png', url: 'https://cdn.discord.com/p.png' }],
+      } }],
+    }), null))
+    expect(m.type).toBe('image')
+    expect(m.body).toBe('foto')
+    expect(m.media?.token).toBe('https://cdn.discord.com/p.png')
+    expect(m.quoted).toBeUndefined()
+  })
+
+  it('a forward with nothing readable is unknown, never an empty text', () => {
+    const m = messageOf(parseDispatch('MESSAGE_CREATE', msg({
+      content: '',
+      message_reference: { type: 1, message_id: 'M9', channel_id: 'C2' },
+      message_snapshots: [{ message: { content: '', embeds: [{}] } }],
+    }), null))
+    expect(m.type).toBe('unknown')
+    expect(m.body).toBe('')
+  })
+
+  it('a poll arrives as type poll with its question as body', () => {
+    const m = messageOf(parseDispatch('MESSAGE_CREATE', msg({
+      content: '',
+      poll: { question: { text: '¿Pizza o pasta?' }, answers: [] },
+    }), null))
+    expect(m.type).toBe('poll')
+    expect(m.body).toBe('¿Pizza o pasta?')
+  })
+
+  it('a reply (message_reference.type 0 or absent) still sets quoted', () => {
+    const m = messageOf(parseDispatch('MESSAGE_CREATE', msg({
+      message_reference: { type: 0, message_id: 'M0', channel_id: 'C1' },
+    }), null))
+    expect(m.quoted?.ref?.id).toBe('M0')
+  })
+
   it('INTERACTION_CREATE button → interaction with "<id>:<token>" and respondBy', () => {
     const i = interactionOf(parseDispatch('INTERACTION_CREATE', {
       id: '175928847299117063',

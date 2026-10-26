@@ -306,6 +306,9 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
   shows "This interaction failed".
 - System messages (member joins, pins, boosts...) and messages from bots are
   not routed.
+- A forwarded message carries the forwarded text and media (from its
+  snapshot), not a quoted reply; one with nothing readable arrives as
+  `unknown`. A native poll arrives as `type: 'poll'` with its question as body.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/discord-provider)
 

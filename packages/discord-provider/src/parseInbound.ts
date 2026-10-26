@@ -64,7 +64,29 @@ export function parseDispatch(t: string, d: unknown, selfId?: string | null): In
 
 /* --- MESSAGE_CREATE -------------------------------------------------------- */
 
+/** `message_reference.type` of a forward (0 / absent is a reply). */
+const REFERENCE_FORWARD = 1
+
+const isForward = (d: DiscordMessagePayload): boolean =>
+  rec<{ type?: unknown }>(d.message_reference)?.type === REFERENCE_FORWARD
+
 function describeContent(d: DiscordMessagePayload): { type: MessageType; body: string; media?: MediaRef } {
+  const poll = rec<NonNullable<DiscordMessagePayload['poll']>>(d.poll)
+  if (poll) return { type: 'poll', body: str(rec<{ text?: unknown }>(poll.question)?.text) ?? '' }
+  if (isForward(d)) {
+    // A forward has an empty `content`: the text and files are in the snapshot.
+    const snapshot = rec<DiscordMessagePayload>(rec<{ message?: unknown }>(arr(d.message_snapshots)[0])?.message)
+    const described = describeAttachment(snapshot ?? {})
+    // Nothing readable (embeds, stickers…): never an empty text, which would
+    // answer an ask() or trigger WELCOME.
+    return described.type === 'text' && described.body === '' ? { type: 'unknown', body: '' } : described
+  }
+  return describeAttachment(d)
+}
+
+function describeAttachment(
+  d: Pick<DiscordMessagePayload, 'content' | 'attachments'>,
+): { type: MessageType; body: string; media?: MediaRef } {
   const body = typeof d.content === 'string' ? d.content : ''
   const att = rec<DiscordAttachment>(arr(d.attachments)[0])
   if (!att) return { type: 'text', body }
@@ -139,7 +161,7 @@ function parseMessageCreate(d: DiscordMessagePayload | undefined, selfId?: strin
 
   const reference = rec<NonNullable<DiscordMessagePayload['message_reference']>>(d.message_reference)
   const quotedId = str(reference?.message_id)
-  if (quotedId) {
+  if (quotedId && !isForward(d)) {
     const referenced = rec<DiscordMessagePayload>(d.referenced_message)
     message.quoted = {
       ref: { id: quotedId, chatId: str(reference?.channel_id) ?? chatId },

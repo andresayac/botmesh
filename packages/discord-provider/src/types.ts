@@ -153,8 +153,13 @@ export interface DiscordMessagePayload {
   timestamp?: string
   mentions?: DiscordUser[]
   attachments?: DiscordAttachment[]
-  message_reference?: { message_id?: string; channel_id?: string; guild_id?: string }
+  /** `type`: 0 DEFAULT (a reply), 1 FORWARD (the content lives in `message_snapshots`). */
+  message_reference?: { type?: number; message_id?: string; channel_id?: string; guild_id?: string }
   referenced_message?: DiscordMessagePayload | null
+  /** Forwarded copies (only on a FORWARD `message_reference`); a partial message each. */
+  message_snapshots?: Array<{ message?: { content?: string; attachments?: DiscordAttachment[] } }>
+  /** A native poll; the message `content` is empty. */
+  poll?: { question?: { text?: string } }
   webhook_id?: string
   /** Message type: 0 DEFAULT, 19 REPLY; the rest are system messages (joins, pins, boosts…). */
   type?: number

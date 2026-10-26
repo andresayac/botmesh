@@ -320,6 +320,9 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
   Discord muestra "This interaction failed".
 - Los mensajes de sistema (entradas al servidor, fijados, boosts...) y los de
   bots no se enrutan.
+- Un mensaje reenviado trae el texto y la media reenviados (de su snapshot),
+  no una respuesta citada; si no tiene nada legible llega como `unknown`. Una
+  encuesta nativa llega como `type: 'poll'` con la pregunta como cuerpo.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/discord-provider)
 
