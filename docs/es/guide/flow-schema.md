@@ -48,11 +48,13 @@ if (validateFlowDocument(document).length === 0) bot.registerFlow(compileFlowDoc
 | `form` | Formulario nativo (o pregunta a pregunta) con campos tipados; ver [Formularios](./formularios.md). |
 | `guard` | Expresión `if`; si es falsa envía `message` y termina, o `message` + `redirect` a otro flujo. |
 | `subflow` | Ejecuta otro documento en línea (mismo estado), resuelto con `resolveSubflow`. |
-| `http` | Petición HTTP declarativa a través de `@botmesh/http` (anti-SSRF, redirecciones, timeout y límites de tamaño). Guarda el cuerpo JSON/texto en `stateKey`. |
+| `http` | Petición HTTP declarativa a través de `@botmesh/http` (anti-SSRF, redirecciones, timeout y límites de tamaño). Guarda el cuerpo JSON/texto en `stateKey`. Los marcadores `{{ path }}` solo se permiten en la ruta, la query o el fragmento de la URL (nunca en el esquema, las credenciales, el host o el puerto); sus valores se codifican con percent-encoding y un valor `.` o `..` a secas se rechaza. |
 | `handoff` | Pasa el chat a una persona (`ctx.handoff`), con mensaje opcional. |
 | `ai` | Un turno de IA con `ctx.tools.ai.replyInChat`, opcionalmente restringido a ids de herramientas (`tools: ['lookup']`); guarda la respuesta en `stateKey`. |
 
 Las URLs de media deben ser http(s). Rutas locales, buffers y streams **no** se pueden representar a propósito: un documento guardado no puede leer el sistema de archivos del servidor.
+
+El `pattern` de un campo de formulario se evalúa contra respuestas no confiables, así que el validador rechaza las referencias hacia atrás y los grupos repetidos cuyo cuerpo vuelve a repetirse o alternar (`(a+)+`, `(\w+\s?)*`, `(a|aa)+`: backtracking catastrófico). Escríbelos con una clase de caracteres (`[a-z0-9-]+`). Esa comprobación es solo un primer filtro: el campo compilado nunca ejecuta el patrón con el motor de backtracking de JavaScript. Compara la respuesta completa con un autómata de tiempo lineal (`O(longitud de la respuesta × tamaño del patrón)`), así que tampoco pueden congelar el proceso los cuantificadores seguidos (`.*.*.*x`) ni las cadenas largas de alternativas. La sintaxis admitida es el subconjunto regular: literales y escapes, clases de caracteres, `.`, grupos (de captura, `(?:…)` y con nombre), `|`, `* + ? {n} {n,} {n,m}` (también en su forma perezosa) y las anclas `^ $ \b \B`. Se rechazan los lookarounds (`(?=`, `(?!`, `(?<=`, `(?<!`), las referencias hacia atrás, los escapes octales y los patrones cuyas repeticiones acotadas se despliegan en más de 2000 estados. Un campo de texto con `pattern` y sin `maxLength` queda limitado a 500 caracteres.
 
 ## Expresiones seguras
 
@@ -84,7 +86,7 @@ bot.registerFlow(compileFlowDocument(parent, {
 }))
 ```
 
-Los pasos del subflujo corren en línea (mismo `c.state`, sin un segundo trigger). Un documento que falta o un ciclo (`a → b → a`) es un error de compilación.
+Los pasos del subflujo corren en línea (mismo `c.state`, sin un segundo trigger). Un documento que falta o un ciclo (`a → b → a`) es un error de compilación. Como un subflujo se inserta de nuevo en cada referencia, un flujo puede llegar como mucho a `FLOW_DOCUMENT_LIMITS.maxInlinedSteps` (5000) pasos con todos sus subflujos expandidos; una cadena de flujos que llaman varias veces al siguiente crece de forma exponencial y se rechaza al compilar (en `@botmesh/manager`, `createBot`/`updateBot`/`addFlow` responden `INVALID`).
 
 ## Migraciones
 

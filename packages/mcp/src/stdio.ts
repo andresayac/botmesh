@@ -67,10 +67,14 @@ export async function serveStream(input: AsyncIterable<string | Uint8Array>, opt
   }
 
   const decoder = new LineDecoder()
+  // Streaming UTF-8 decode: a multi-byte character split across two chunks stays intact.
+  const utf8 = new TextDecoder('utf-8')
   for await (const chunk of input) {
-    const text = typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8')
+    const text = typeof chunk === 'string' ? chunk : utf8.decode(chunk, { stream: true })
     for (const line of decoder.push(text)) await handleLine(line)
   }
+  const tail = utf8.decode()
+  if (tail) for (const line of decoder.push(tail)) await handleLine(line)
   for (const line of decoder.flush()) await handleLine(line)
 }
 

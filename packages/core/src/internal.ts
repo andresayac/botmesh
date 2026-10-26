@@ -33,3 +33,6 @@ export { runBroadcast } from './ops/broadcast.js'
 export { MetricsCollector, formatUptime } from './ops/metrics.js'
 export { runFormStep, resolveFormMode } from './forms/runForm.js'
 export { newFormToken } from './forms/reply.js'
+// Internal-only (not re-exported by the main entry): a cancellable pause for code that runs
+// steps on the conversation controls, such as the JSON flow interpreter of `@botmesh/flow-schema`.
+export { pauseControls } from './conversations/retry.js'

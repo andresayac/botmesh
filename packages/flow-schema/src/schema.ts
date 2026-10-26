@@ -10,6 +10,7 @@
  */
 
 import { parseExpression, ExpressionError } from './expression.js'
+import { linearPatternIssue } from './pattern.js'
 
 /** Current (and only) flow document format version. */
 export const FLOW_DOCUMENT_VERSION = 1 as const
@@ -20,6 +21,8 @@ export const FLOW_DOCUMENT_SCHEMA_ID = 'https://botmesh.dev/schemas/flow-documen
 /** Structural limits of a flow document (also enforced by the validator). */
 export const FLOW_DOCUMENT_LIMITS = Object.freeze({
   maxSteps: 500,
+  /** Steps a flow may reach once its `subflow` steps are inlined (shared subflows count every time). */
+  maxInlinedSteps: 5000,
   maxDepth: 8,
   maxTextLength: 4096,
   maxOptions: 20,
@@ -314,7 +317,7 @@ export const FLOW_DOCUMENT_SCHEMA = Object.freeze({
         error: { type: 'string', maxLength: 500 },
         minLength: { type: 'integer', minimum: 0 },
         maxLength: { type: 'integer', minimum: 1 },
-        pattern: { type: 'string', minLength: 1, maxLength: 500 },
+        pattern: { type: 'string', minLength: 1, maxLength: 500, description: 'Regular expression the whole answer must match. Backreferences, lookarounds and repeated groups that repeat or alternate inside (ReDoS) are rejected, and answers are matched in linear time; without maxLength the answer is capped at 500 characters.' },
         multiline: { type: 'boolean' },
         min: { oneOf: [{ type: 'number' }, { type: 'string', maxLength: 20 }] },
         max: { oneOf: [{ type: 'number' }, { type: 'string', maxLength: 20 }] },
@@ -338,7 +341,7 @@ export const FLOW_DOCUMENT_SCHEMA = Object.freeze({
       properties: {
         kind: { const: 'http' },
         method: { enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] },
-        url: { type: 'string', minLength: 1, maxLength: FLOW_DOCUMENT_LIMITS.maxUrlLength },
+        url: { type: 'string', minLength: 1, maxLength: FLOW_DOCUMENT_LIMITS.maxUrlLength, description: 'Absolute http(s) URL. {{ path }} placeholders are allowed only in the path, query or fragment; their values are percent-encoded and a bare "." or ".." value is refused.' },
         headers: { type: 'object', additionalProperties: { type: 'string', maxLength: 1000 }, maxProperties: FLOW_DOCUMENT_LIMITS.maxHeaders },
         body: {},
         stateKey: identifier,
@@ -603,7 +606,12 @@ function checkForm(step: Record<string, unknown>, path: string, add: Add): void 
     if (field.pattern !== undefined) {
       if (typeof field.pattern !== 'string' || field.pattern.length === 0 || field.pattern.length > 500) add(`${p}/pattern`, 'must be a string of 1-500 characters')
       else {
-        try { new RegExp(field.pattern) } catch { add(`${p}/pattern`, 'must be a valid regular expression') }
+        let compiles = true
+        try { new RegExp(field.pattern) } catch { compiles = false; add(`${p}/pattern`, 'must be a valid regular expression') }
+        // Defense in depth: the compiled field matches with a linear-time engine
+        // (pattern.ts), which also refuses syntax outside its regular subset.
+        const unsafe = compiles ? unsafePatternReason(field.pattern) ?? linearPatternIssue(field.pattern) : undefined
+        if (unsafe) add(`${p}/pattern`, unsafe)
       }
     }
     if (field.type === 'text') {
@@ -644,6 +652,9 @@ function checkForm(step: Record<string, unknown>, path: string, add: Add): void 
 function checkHttp(step: Record<string, unknown>, path: string, add: Add): void {
   if (typeof step.method !== 'string' || !METHODS.has(step.method)) add(`${path}/method`, `must be one of ${[...METHODS].join(', ')}`)
   checkUrl(step.url, `${path}/url`, add, false)
+  if (typeof step.url === 'string' && placeholderInAuthority(step.url)) {
+    add(`${path}/url`, '{{ path }} placeholders are only allowed in the path, query or fragment (not in the scheme, credentials, host or port)')
+  }
   if (step.stateKey !== undefined) checkId(step.stateKey, `${path}/stateKey`, add)
   if (step.timeout !== undefined) checkTimeout(step.timeout, `${path}/timeout`, add)
   if (step.headers !== undefined) {
@@ -662,6 +673,95 @@ function checkHttp(step: Record<string, unknown>, path: string, add: Add): void 
     try { size = Buffer.byteLength(JSON.stringify(step.body), 'utf8') } catch { add(`${path}/body`, 'must be JSON-serializable'); return }
     if (size > FLOW_DOCUMENT_LIMITS.maxHttpBodyBytes) add(`${path}/body`, `must serialize to at most ${FLOW_DOCUMENT_LIMITS.maxHttpBodyBytes} bytes`)
   }
+}
+
+const PLACEHOLDER_RE = /\{\{\s*[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*\s*\}\}/g
+
+/**
+ * Whether a `{{ path }}` placeholder can change where the request goes. The URL is parsed
+ * twice with different stand-ins for every placeholder: if the origin or the credentials
+ * differ, a placeholder sits in the scheme, userinfo, host or port.
+ */
+function placeholderInAuthority(url: string): boolean {
+  if (!url.includes('{{')) return false
+  const parts = (stand: string) => {
+    try {
+      const u = new URL(url.replace(PLACEHOLDER_RE, stand))
+      return `${u.protocol}//${u.username}:${u.password}@${u.host}`
+    } catch {
+      return undefined
+    }
+  }
+  const a = parts('zqa')
+  const b = parts('zqb.zqc')
+  return a === undefined || b === undefined || a !== b
+}
+
+/** Unbounded (`*`, `+`, `{n,}`) or large bounded repetition, as `{ max }` (`Infinity` = unbounded). */
+function quantifierAt(source: string, i: number): { max: number; length: number } | undefined {
+  const ch = source[i]
+  let q: { max: number; length: number } | undefined
+  if (ch === '*' || ch === '+') q = { max: Infinity, length: 1 }
+  else if (ch === '?') q = { max: 1, length: 1 }
+  else if (ch === '{') {
+    const m = /^\{(\d+)(,(\d*))?\}/.exec(source.slice(i))
+    if (m) q = { max: m[2] === undefined ? Number(m[1]) : m[3] === '' ? Infinity : Number(m[3]), length: m[0].length }
+  }
+  if (q && source[i + q.length] === '?') q.length++ // lazy
+  return q
+}
+
+/**
+ * A conservative static check against catastrophic backtracking (ReDoS) in the `pattern` of
+ * a form field, which runs against untrusted user answers. Rejects backreferences and any
+ * repeated group (`*`, `+`, `{n,}`, or `{n,m}` with m ≥ 10) whose body itself repeats or
+ * alternates. Returns the reason, or `undefined` for an accepted pattern.
+ */
+export function unsafePatternReason(source: string): string | undefined {
+  type Frame = { repeats: boolean; unbounded: boolean; alternates: boolean }
+  const stack: Frame[] = [{ repeats: false, unbounded: false, alternates: false }]
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i]
+    const top = stack[stack.length - 1]!
+    if (ch === '\\') {
+      const next = source[i + 1] ?? ''
+      if (/[1-9]/.test(next) || next === 'k') return 'backreferences are not allowed'
+      i++
+    } else if (ch === '[') {
+      for (i++; i < source.length && source[i] !== ']'; i++) if (source[i] === '\\') i++
+    } else if (ch === '(') {
+      stack.push({ repeats: false, unbounded: false, alternates: false })
+      if (source[i + 1] === '?') {
+        const m = /^\?(?::|=|!|<=|<!|<[A-Za-z_$][\w$]*>)/.exec(source.slice(i + 1))
+        if (m) i += m[0].length
+      }
+    } else if (ch === '|') {
+      top.alternates = true
+    } else if (ch === ')') {
+      if (stack.length === 1) continue
+      const group = stack.pop()!
+      const parent = stack[stack.length - 1]!
+      const q = quantifierAt(source, i + 1)
+      if (q) {
+        const outerUnbounded = q.max === Infinity
+        if ((outerUnbounded && (group.repeats || group.alternates)) || (q.max >= 10 && group.unbounded)) {
+          return 'a repeated group must not contain another repetition or an alternation (nested quantifiers can take exponential time); use a character class such as [a-z0-9-]+'
+        }
+        i += q.length
+      }
+      parent.repeats ||= group.repeats || (q !== undefined && q.max > 1)
+      parent.unbounded ||= group.unbounded || q?.max === Infinity
+      parent.alternates ||= group.alternates
+    } else {
+      const q = quantifierAt(source, i)
+      if (q) {
+        if (q.max > 1) top.repeats = true
+        if (q.max === Infinity) top.unbounded = true
+        i += q.length - 1
+      }
+    }
+  }
+  return undefined
 }
 
 function checkUrl(v: unknown, path: string, add: Add, media: boolean): void {

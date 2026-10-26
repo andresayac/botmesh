@@ -11,9 +11,19 @@ const INTERNAL_NAMES = [
   'formatUptime', 'TYPING_REFRESH_MS',
 ] as const
 
+/** Internals added after the move: only on `@botmesh/core/internal`, never on the main entry. */
+const INTERNAL_ONLY_NAMES = ['pauseControls'] as const
+
 describe('@botmesh/core/internal', () => {
   it('exports exactly the engine internals', () => {
-    expect(Object.keys(internal).sort()).toEqual([...INTERNAL_NAMES].sort())
+    expect(Object.keys(internal).sort()).toEqual([...INTERNAL_NAMES, ...INTERNAL_ONLY_NAMES].sort())
+  })
+
+  it('the internal-only names stay off the main entry', () => {
+    for (const name of INTERNAL_ONLY_NAMES) {
+      expect(internal[name], name).toBeDefined()
+      expect((main as Record<string, unknown>)[name], name).toBeUndefined()
+    }
   })
 
   it('the main entry still re-exports each one as the very same value (deprecated until v3)', () => {

@@ -38,7 +38,6 @@ export type { Deployment, GateRecord, GateRun } from './types.js'
 export {
   DeploymentGateError,
   goldenTranscriptGate,
-  normalizeGateResult,
   toJsonValue,
 } from './gate.js'
 export type {

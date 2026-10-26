@@ -13,6 +13,8 @@ export interface ControlPlaneApiOptions {
 }
 export type ControlPlaneApiHandler = (req: IncomingMessage, res: ServerResponse) => void
 
+const REQUEST_ID_RE = /^[A-Za-z0-9._:-]{1,128}$/
+
 /** Versioned control-plane API. It deliberately has no unauthenticated mode. */
 export function createControlPlaneApi(manager: BotManager, options: ControlPlaneApiOptions): ControlPlaneApiHandler {
   if (!options.tenantId || options.apiKeys.length === 0) throw new Error('tenantId and at least one API key are required')
@@ -21,7 +23,8 @@ export function createControlPlaneApi(manager: BotManager, options: ControlPlane
   const idempotency = options.idempotency ?? new IdempotencyRegistry<unknown>()
   return (req, res) => {
     const path = pathname(req.url)
-    const requestId = header(req, 'x-request-id') ?? randomUUID()
+    const incoming = header(req, 'x-request-id')
+    const requestId = incoming && REQUEST_ID_RE.test(incoming) ? incoming : randomUUID()
     const send = (status: number, body: unknown) => {
       res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'x-request-id': requestId })
       res.end(JSON.stringify(body))
@@ -50,7 +53,8 @@ export function createControlPlaneApi(manager: BotManager, options: ControlPlane
     }
     const lifecycle = new RegExp(`^${escapeRegExp(prefix)}/bots/([^/]+)/(start|stop)$`).exec(path)
     if (method === 'POST' && lifecycle) {
-      const id = decodeURIComponent(lifecycle[1])
+      let id: string
+      try { id = decodeURIComponent(lifecycle[1]) } catch { return send(400, { error: { code: 'BAD_REQUEST', requestId } }) }
       const action = lifecycle[2] as 'start' | 'stop'
       if (!authorize('bots:operate', `bots/${id}`)) return
       if (!manager.has(id)) return fail(404, 'NOT_FOUND', `bots.${action}`, `bots/${id}`)

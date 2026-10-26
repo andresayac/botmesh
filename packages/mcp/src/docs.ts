@@ -10,7 +10,7 @@
  * outranks a word that appears on every page (`durabilidad`). No ranking model, no fuzzy
  * guessing.
  */
-import { readdir, readFile } from 'node:fs/promises'
+import { readdir, readFile, realpath } from 'node:fs/promises'
 import { join, relative, resolve, sep } from 'node:path'
 
 /** Directories never indexed: generated output and internal design notes. */
@@ -232,7 +232,13 @@ export async function readDocPage(root: string, requested: string): Promise<{ pa
     throw new Error(`path escapes the docs directory: ${requested}`)
   }
   if (!target.endsWith('.md')) throw new Error(`only .md files can be read: ${requested}`)
-  const raw = await readFile(target, 'utf8')
+  // Links (symlinks, junctions) are followed by the OS: compare the real paths too.
+  const realRoot = await realpath(absoluteRoot)
+  const realTarget = await realpath(target).catch(() => target)
+  if (realTarget !== realRoot && !realTarget.startsWith(`${realRoot}${sep}`)) {
+    throw new Error(`path escapes the docs directory: ${requested}`)
+  }
+  const raw = await readFile(realTarget, 'utf8')
   const truncated = raw.length > MAX_PAGE_CHARS
   return {
     path: relative(absoluteRoot, target).split(sep).join('/'),

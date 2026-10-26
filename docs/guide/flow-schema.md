@@ -48,11 +48,13 @@ if (validateFlowDocument(document).length === 0) bot.registerFlow(compileFlowDoc
 | `form` | Native form (or degraded question-by-question) with typed fields; see [Forms](./forms.md). |
 | `guard` | `if` expression; when false it sends `message` and ends, or `message` + `redirect` to another flow. |
 | `subflow` | Runs another document inline (same state), resolved by `resolveSubflow`. |
-| `http` | Declarative HTTP request through `@botmesh/http` (anti-SSRF, redirects, timeout and size limits). Stores the JSON/text body in `stateKey`. |
+| `http` | Declarative HTTP request through `@botmesh/http` (anti-SSRF, redirects, timeout and size limits). Stores the JSON/text body in `stateKey`. `{{ path }}` placeholders are allowed only in the URL's path, query or fragment (never in the scheme, credentials, host or port); their values are percent-encoded and a bare `.` or `..` value is refused. |
 | `handoff` | Hands the chat to a human (`ctx.handoff`), with an optional message. |
 | `ai` | One AI turn through `ctx.tools.ai.replyInChat`, optionally restricted to tool ids (`tools: ['lookup']`); stores the answer in `stateKey`. |
 
 Media URLs must use http(s). Local paths, buffers and streams are deliberately **not** representable: a stored document cannot read the server's filesystem.
+
+A form field `pattern` runs against untrusted answers, so the validator rejects backreferences and repeated groups whose body repeats or alternates again (`(a+)+`, `(\w+\s?)*`, `(a|aa)+`: catastrophic backtracking). Write them with a character class instead (`[a-z0-9-]+`). That check is only a first filter: the compiled field never runs the pattern on JavaScript's backtracking engine. It matches the whole answer with a linear-time automaton (`O(answer length × pattern size)`), so adjacent quantifiers (`.*.*.*x`) or long alternation chains cannot freeze the process either. The supported syntax is the regular subset: literals and escapes, character classes, `.`, groups (capturing, `(?:…)` and named), `|`, `* + ? {n} {n,} {n,m}` (lazy forms accepted) and the anchors `^ $ \b \B`. Lookarounds (`(?=`, `(?!`, `(?<=`, `(?<!`), backreferences, octal escapes and patterns whose bounded repeats unroll to more than 2000 states are rejected. A text field with a `pattern` and no `maxLength` is capped at 500 characters.
 
 ## Safe expressions
 
@@ -84,7 +86,7 @@ bot.registerFlow(compileFlowDocument(parent, {
 }))
 ```
 
-A subflow's steps run inline (same `c.state`, no second trigger). A missing document or a cycle (`a → b → a`) is a compile error.
+A subflow's steps run inline (same `c.state`, no second trigger). A missing document or a cycle (`a → b → a`) is a compile error. Because a subflow is inlined again at every reference, a flow may reach at most `FLOW_DOCUMENT_LIMITS.maxInlinedSteps` (5000) steps once all its subflows are expanded; a chain of flows that each call the next several times grows exponentially and is refused at compile time (in `@botmesh/manager`, `createBot`/`updateBot`/`addFlow` answer `INVALID`).
 
 ## Migrations
 

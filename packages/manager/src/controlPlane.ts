@@ -38,9 +38,23 @@ export interface AuditEntry {
   metadata?: Record<string, unknown>
 }
 
-/** In-memory audit sink with secret-aware metadata redaction. */
+/** Options of {@link AuditLog}. */
+export interface AuditLogOptions {
+  /** Entries kept in memory; the oldest are dropped first. Default `10000`. */
+  maxEntries?: number
+}
+
+/**
+ * In-memory audit sink with secret-aware metadata redaction. Bounded (`maxEntries`): it is
+ * a window over recent activity, not durable storage; forward entries elsewhere to keep them.
+ */
 export class AuditLog {
   private readonly entries: AuditEntry[] = []
+  private readonly maxEntries: number
+  constructor(options: AuditLogOptions = {}) {
+    this.maxEntries = options.maxEntries ?? 10_000
+    if (!Number.isInteger(this.maxEntries) || this.maxEntries < 1) throw new ControlPlaneError('AuditLog maxEntries must be a positive integer', 'INVALID')
+  }
   append(entry: Omit<AuditEntry, 'id' | 'at' | 'metadata'> & { metadata?: Record<string, unknown> }): AuditEntry {
     const record: AuditEntry = {
       ...entry,
@@ -49,6 +63,7 @@ export class AuditLog {
       metadata: redact(entry.metadata),
     }
     this.entries.push(record)
+    if (this.entries.length > this.maxEntries) this.entries.splice(0, this.entries.length - this.maxEntries)
     return { ...record, metadata: record.metadata ? { ...record.metadata } : undefined }
   }
   list(tenantId: string): AuditEntry[] {
@@ -89,9 +104,22 @@ export class SecretVault {
   }
 }
 
-/** Ensures repeated tenant-scoped idempotency keys reuse one outcome. */
+/** Options of {@link IdempotencyRegistry}. */
+export interface IdempotencyRegistryOptions {
+  /** Keys remembered; the oldest are forgotten first. Default `1000`. */
+  maxEntries?: number
+}
+
+/** Ensures repeated tenant-scoped idempotency keys reuse one outcome (bounded by `maxEntries`). */
 export class IdempotencyRegistry<T> {
   private readonly records = new Map<string, { fingerprint: string; promise: Promise<T> }>()
+  private readonly maxEntries: number
+  constructor(options: IdempotencyRegistryOptions = {}) {
+    this.maxEntries = options.maxEntries ?? 1000
+    if (!Number.isInteger(this.maxEntries) || this.maxEntries < 1) throw new ControlPlaneError('IdempotencyRegistry maxEntries must be a positive integer', 'INVALID')
+  }
+  /** Keys currently remembered. */
+  get size(): number { return this.records.size }
   async run(tenantId: string, key: string, fingerprint: string, operation: () => Promise<T>): Promise<T> {
     if (!tenantId || !key) throw new ControlPlaneError('tenantId and idempotency key are required', 'INVALID')
     const composite = `${tenantId}\u0000${key}`
@@ -110,6 +138,7 @@ export class IdempotencyRegistry<T> {
       throw error
     })
     this.records.set(composite, { fingerprint, promise })
+    while (this.records.size > this.maxEntries) this.records.delete(this.records.keys().next().value!)
     return promise
   }
 }

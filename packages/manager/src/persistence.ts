@@ -125,6 +125,20 @@ export class FileBotConfigStore implements BotConfigStore {
     assertSafeId(record.tenantId, 'tenantId')
     await this.serial(async () => {
       const index = await this.ensureIndex()
+      // Ids are file and directory names: on a case-insensitive file system (Windows, macOS)
+      // "Shop" and "shop" would share one file, so they are refused everywhere for portability.
+      const folded = record.id.toLowerCase()
+      for (const other of index.keys()) {
+        if (other !== record.id && other.toLowerCase() === folded) {
+          throw new ManagerError(`bot id "${record.id}" differs from existing bot "${other}" only by letter case`, 'CONFLICT')
+        }
+      }
+      const tenantFolded = record.tenantId.toLowerCase()
+      for (const entry of await safeReaddir(this.dir)) {
+        if (entry.isDirectory() && entry.name !== record.tenantId && entry.name.toLowerCase() === tenantFolded) {
+          throw new ManagerError(`tenantId "${record.tenantId}" differs from existing tenant "${entry.name}" only by letter case`, 'CONFLICT')
+        }
+      }
       const tenantDir = join(this.dir, record.tenantId)
       await mkdir(tenantDir, { recursive: true, mode: 0o700 })
       const file = this.fileOf(record.tenantId, record.id)

@@ -154,8 +154,8 @@ export const ROUTES: readonly RouteSpec[] = [
     errors: [400, 404, 501],
   },
   {
-    method: 'DELETE', path: '/bots/{botId}/flows/{flowId}', operationId: 'deleteFlow', summary: 'Unregister a flow.', tag: 'flows', scope: 'flows:write',
-    success: { status: 204, description: 'Deleted.' }, errors: [404, 501],
+    method: 'DELETE', path: '/bots/{botId}/flows/{flowId}', operationId: 'deleteFlow', summary: 'Unregister a flow (409 while another stored flow uses it as a subflow).', tag: 'flows', scope: 'flows:write',
+    success: { status: 204, description: 'Deleted.' }, errors: [404, 409, 501],
   },
 ]
 

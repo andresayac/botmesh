@@ -14,7 +14,6 @@
  */
 
 import {
-  sleep,
   type CompiledFlow,
   type CompiledStep,
   type ConversationControls,
@@ -31,9 +30,10 @@ import {
   type Trigger,
   type WaitOptions,
 } from '@botmesh/core'
-import { runFormStep } from '@botmesh/core/internal'
+import { pauseControls, runFormStep } from '@botmesh/core/internal'
 import { secureFetch, type SecureFetchOptions, type SecureFetchResponse } from '@botmesh/http'
 import { evaluateCondition, hasTemplate, parseExpression, renderTemplate, type ExpressionNode } from './expression.js'
+import { compileFormPattern } from './pattern.js'
 import {
   FLOW_DOCUMENT_LIMITS,
   FlowDocumentError,
@@ -50,6 +50,9 @@ import {
 export const FLOW_STEP_SOURCE = Symbol.for('botmesh.flow.step-source')
 /** The whole JSON document a compiled flow came from (top-level metadata included). */
 export const FLOW_DOCUMENT_SOURCE = Symbol.for('botmesh.flow.document-source')
+
+/** Default `maxLength` of a text form field that has a `pattern` but no `maxLength`. */
+export const PATTERN_ANSWER_MAX_LENGTH = 500
 
 /** Options of {@link compileFlowDocument}. */
 export interface CompileFlowOptions {
@@ -81,7 +84,71 @@ export function flowDocumentSource(flow: CompiledFlow): FlowDocument | undefined
 export function compileFlowDocument(input: unknown, options: CompileFlowOptions = {}): CompiledFlow {
   const issues = validateFlowDocument(input)
   if (issues.length) throw new FlowDocumentError(issues)
-  return compileValid(input as FlowDocument, options, [])
+  const scoped = memoizedResolver(options)
+  checkInlinedSize(input as FlowDocument, scoped)
+  return compileValid(input as FlowDocument, scoped, [])
+}
+
+/** Subflows already resolved and validated during one compilation. */
+const VALIDATED = new WeakMap<CompileFlowOptions, WeakSet<FlowDocument>>()
+
+/** Resolve each subflow id once per compilation (a shared subflow is referenced many times). */
+function memoizedResolver(options: CompileFlowOptions): CompileFlowOptions {
+  const resolve = options.resolveSubflow
+  if (!resolve) return options
+  const cache = new Map<string, FlowDocument | undefined>()
+  const scoped: CompileFlowOptions = {
+    ...options,
+    resolveSubflow: (id) => {
+      if (!cache.has(id)) cache.set(id, resolve(id))
+      return cache.get(id)
+    },
+  }
+  VALIDATED.set(scoped, new WeakSet())
+  return scoped
+}
+
+/**
+ * Refuse a flow whose `subflow` steps inline to more than `maxInlinedSteps` steps. A
+ * subflow is inlined at every reference, so a chain of flows that each call the next
+ * a few times grows exponentially (compile time, memory and the core's own walks).
+ * Sizes are memoized per flow id, so the check itself is linear in the documents.
+ * Unresolvable, invalid or cyclic subflows count as nothing here: compiling reports them.
+ */
+function checkInlinedSize(root: FlowDocument, options: CompileFlowOptions): void {
+  const limit = FLOW_DOCUMENT_LIMITS.maxInlinedSteps
+  const sizes = new Map<string, number>()
+  const active = new Set<string>()
+  type Nested = { kind: string; flowId?: string; then?: FlowStepDocument[]; else?: FlowStepDocument[]; options?: Array<{ steps?: FlowStepDocument[] }> }
+  const sizeOfSteps = (steps: readonly FlowStepDocument[] | undefined): number => {
+    let total = 0
+    for (const raw of steps ?? []) {
+      const step = raw as Nested
+      total += 1
+      if (step.kind === 'subflow' && typeof step.flowId === 'string') {
+        const target = options.resolveSubflow?.(step.flowId)
+        if (target) total += sizeOfDoc(target)
+      }
+      total += sizeOfSteps(step.then) + sizeOfSteps(step.else)
+      for (const option of step.options ?? []) total += sizeOfSteps(option.steps)
+      if (total > limit) return limit + 1
+    }
+    return total
+  }
+  const sizeOfDoc = (doc: FlowDocument): number => {
+    const known = sizes.get(doc.id)
+    if (known !== undefined) return known
+    if (active.has(doc.id) || validateFlowDocument(doc).length) return 0
+    active.add(doc.id)
+    const size = sizeOfSteps(doc.steps)
+    active.delete(doc.id)
+    sizes.set(doc.id, size)
+    return size
+  }
+  active.add(root.id)
+  if (sizeOfSteps(root.steps) > limit) {
+    throw new FlowDocumentError([{ path: '/steps', message: `subflows expand this flow to more than ${limit} steps (each subflow step inlines its flow again); share less or split the flow` }])
+  }
 }
 
 function compileValid(doc: FlowDocument, options: CompileFlowOptions, stack: readonly string[]): CompiledFlow {
@@ -176,7 +243,10 @@ function resolveSubflow(id: string, options: CompileFlowOptions, path: string): 
   if (!found) {
     throw new FlowDocumentError([{ path: `${path}/flowId`, message: `subflow "${id}" cannot be resolved (pass resolveSubflow)` }])
   }
+  const validated = VALIDATED.get(options)
+  if (validated?.has(found)) return found
   const issues = validateFlowDocument(found)
+  if (!issues.length) validated?.add(found)
   if (issues.length) throw new FlowDocumentError(issues.map((issue) => ({ path: `${path} → ${id}${issue.path}`, message: issue.message })))
   return found
 }
@@ -274,7 +344,8 @@ async function run(program: readonly Prepared[], ctx: RuntimeMessage, c: Convers
         break
       }
       case 'delay':
-        await sleep(step.ms)
+        // Cancellable: ends with the conversation (abort, /reset, bot.stop()) and then unwinds.
+        await pauseControls(c, step.ms)
         break
       case 'goto':
         c.goto(step.target)
@@ -446,8 +517,12 @@ function formDefinitionOf(form: FlowFormDocument): FormDefinition {
         return {
           ...base, type: 'text',
           ...(field.minLength !== undefined ? { minLength: field.minLength } : {}),
-          ...(field.maxLength !== undefined ? { maxLength: field.maxLength } : {}),
-          ...(field.pattern !== undefined ? { pattern: field.pattern } : {}),
+          ...(field.maxLength !== undefined
+            ? { maxLength: field.maxLength }
+            // A pattern runs against untrusted answers: bound the input (the length check runs first).
+            : field.pattern !== undefined ? { maxLength: Math.max(PATTERN_ANSWER_MAX_LENGTH, field.minLength ?? 0) } : {}),
+          // Matched in linear time (pattern.ts): the core's backtracking RegExp never sees it.
+          ...(field.pattern !== undefined ? { pattern: compileFormPattern(field.pattern) } : {}),
           ...(field.multiline !== undefined ? { multiline: field.multiline } : {}),
         }
       case 'number':
@@ -499,8 +574,19 @@ function formOptionsOf(step: Extract<FlowStepDocument, { kind: 'form' }>): FormS
   return Object.keys(opts).length ? opts : undefined
 }
 
+/**
+ * Encoder of values interpolated into an `http` step URL. The validator only lets
+ * placeholders sit in the path, query or fragment; percent-encoding keeps a value inside
+ * its slot (no `/`, `?`, `#`, `&`...), and a bare dot segment is refused because the URL
+ * parser would resolve it (`/orders/..` climbs to the parent path).
+ */
+function encodeUrlValue(value: string): string {
+  if (value === '.' || value === '..') throw new Error('http step: a URL value cannot be a dot segment ("." or "..")')
+  return encodeURIComponent(value)
+}
+
 async function httpStep(step: Extract<Prepared, { kind: 'http' }>, scope: Record<string, unknown>, options: CompileFlowOptions): Promise<unknown> {
-  const url = renderTemplate(step.url, scope)
+  const url = renderTemplate(step.url, scope, encodeUrlValue)
   const headers = Object.fromEntries(Object.entries(step.headers ?? {}).map(([k, v]) => [k, renderTemplate(v, scope)]))
   const hasBody = step.body !== undefined && step.method !== 'GET'
   const fetch = options.fetch ?? secureFetch

@@ -1,5 +1,5 @@
 /**
- * `@botmesh/mcp` — an MCP server (Model Context Protocol) over stdio for BotWA.
+ * `@botmesh/mcp` — an MCP server (Model Context Protocol) over stdio for botmesh.
  *
  * It exposes the project's pure, deterministic pieces to any MCP client (an AI coding
  * agent, an editor) so a flow document can be written, validated, compiled, rendered,
