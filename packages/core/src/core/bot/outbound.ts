@@ -4,9 +4,9 @@
  * indicators and the `ctx.stream()` primitives.
  */
 import { Buffer } from 'node:buffer'
-import { abortableSleep, parseTimerDuration, randomId } from '../../utils/timers.js'
+import { randomId } from '../../utils/timers.js'
 import { isEditableSend, messagingSupport, type ReplyOptions } from '../messaging.js'
-import { RateLimitedError, type BuildContextDeps, type DraftOptions } from '../provider.js'
+import type { BuildContextDeps, DraftOptions } from '../provider.js'
 import { toStoredError } from '../ledger.js'
 import { BotNotRunningError } from '../errors.js'
 import { assertOutboundContent } from '../outboundCheck.js'
@@ -15,39 +15,12 @@ import { isSendDeferred } from '../../durability/bind.js'
 import type { ChatId, MessageRef, OutboundContent, SendOptions, SendResult, SentMessage } from '../types.js'
 import type { TextFormat } from '../provider.js'
 import { assertCoordinated, type BotKernel } from './kernel.js'
+import { rateLimitPolicy, sendRetryingRateLimit, type RateLimitRetryPolicy } from './rateLimitRetry.js'
 import { SPAN_NAMES, TRACE_ATTR } from '../../telemetry/attributes.js'
 import type { BotSpan } from '../../telemetry/types.js'
 
 export type ContextStreamDeps = Pick<BuildContextDeps, 'capabilities' | 'textFormatFor' | 'streamSend' | 'streamEdit' | 'sendDraft' | 'deleteStreamMessage' | 'stopSignal'>
 export type ContextMessagingDeps = Pick<BuildContextDeps, 'pace' | 'editMessage' | 'sendClock' | 'supports'>
-
-/**
- * A `ctx` reply that hits a `RateLimitedError` is retried in place (same payload, no hooks
- * re-run) when the transport asks for a short wait, so a conversation step does not end
- * on a transient 429 (`BotConfig.rateLimitRetry`, default one retry within 5 s). Longer
- * waits, other errors and `bot.send()` (broadcasts have their own back-off) surface as
- * before; durable sends retry through their outbox instead.
- */
-const CTX_RATE_LIMIT_RETRIES = 1
-const CTX_RATE_LIMIT_MAX_WAIT_MS = 5_000
-
-/** Resolved `BotConfig.rateLimitRetry` (`null` = off). */
-interface RateLimitRetryPolicy { readonly retries: number; readonly maxWaitMs: number }
-
-function rateLimitPolicy(config: BotKernel['config']): RateLimitRetryPolicy | null {
-  const option = config.rateLimitRetry
-  if (option === false) return null
-  return {
-    retries: option?.retries ?? CTX_RATE_LIMIT_RETRIES,
-    maxWaitMs: option?.maxWaitMs !== undefined ? parseTimerDuration(option.maxWaitMs, 'rateLimitRetry.maxWaitMs') : CTX_RATE_LIMIT_MAX_WAIT_MS,
-  }
-}
-
-function shortRateLimit(error: unknown, maxWaitMs: number): number | undefined {
-  if (!(error instanceof RateLimitedError)) return undefined
-  const wait = Number(error.retryAfterMs)
-  return Number.isFinite(wait) && wait >= 0 && wait <= maxWaitMs ? wait : undefined
-}
 
 /** A usable text limit (a positive finite number), else `undefined`. */
 function validLimit(value: number | undefined): number | undefined {
@@ -225,7 +198,7 @@ export class OutboundPipeline {
     const op = durable
       ? durable.run(payload, () => provider.send(payload.chatId, payload.content, payload.options))
       : origin === 'ctx' && !stream && this.rateLimitRetry
-        ? this.sendRetryingRateLimit(payload, this.rateLimitRetry)
+        ? sendRetryingRateLimit(this.k, payload, this.rateLimitRetry)
         : provider.send(payload.chatId, payload.content, payload.options)
     inflightSends.add(op)
     // Pending from the provider call on, so a stop() that starts while it is in flight
@@ -265,22 +238,6 @@ export class OutboundPipeline {
     } finally {
       inflightSends.delete(op)
       recorded()
-    }
-  }
-
-  /** `provider.send` with the short rate-limit retry of `ctx` replies (`BotConfig.rateLimitRetry`). */
-  private async sendRetryingRateLimit(payload: { chatId: ChatId; content: OutboundContent; options?: SendOptions }, policy: RateLimitRetryPolicy): Promise<SendResult> {
-    for (let attempt = 0; ; attempt++) {
-      try {
-        return await this.k.provider.send(payload.chatId, payload.content, payload.options)
-      } catch (error) {
-        const wait = attempt < policy.retries ? shortRateLimit(error, policy.maxWaitMs) : undefined
-        const stop = this.k.state.sendsAbort.signal
-        if (wait === undefined || stop.aborted) throw error
-        await abortableSleep(wait, stop)
-        if (stop.aborted) throw error
-        assertCoordinated(this.k)
-      }
     }
   }
 

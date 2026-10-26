@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Buffer } from 'node:buffer'
-import { splitMessage, findSplitPoint } from '../src/index.js'
+import { splitMessage } from '../src/index.js'
+import { findSplitPoint } from '../src/internal.js'
 
 const bytes = (s: string): number => Buffer.byteLength(s, 'utf8')
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/

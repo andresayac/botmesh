@@ -36,6 +36,7 @@ El motor vive en `packages/core/src/core/bot/`:
 | `lifecycle.ts` | `start()` / `stop()` como una lista ordenada de pasos, con rollback y drenado |
 | `inbound.ts` | El flujo de eventos del provider → listas de acceso → dedupe → persistencia → `groupMode` → Dispatcher; llamadas y eventos del provider (reacciones, recibos…) |
 | `outbound.ts` | Envíos y ediciones por los hooks de `send`, el registro de mensajes, respuestas pausadas, typing y `ctx.stream()` |
+| `rateLimitRetry.ts` | El reintento corto en el sitio de las respuestas de `ctx` limitadas por tasa (`BotConfig.rateLimitRetry`) |
 | `contextFactory.ts` | Construye el `MessageContext` (`ctx`) de un mensaje, una llamada proyectada o un `bot.trigger()` |
 | `gates.ts` | Admisión por listas de acceso y handoff a humano, con sus contadores y logs de descarte |
 | `lang.ts` | La resolución de `ctx.lang` y los puntos de idioma del Dispatcher |

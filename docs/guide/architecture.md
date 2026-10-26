@@ -36,6 +36,7 @@ The engine lives in `packages/core/src/core/bot/`:
 | `lifecycle.ts` | `start()` / `stop()` as an ordered list of steps, with rollback and drain |
 | `inbound.ts` | The provider's event stream → access gates → dedupe → persistence → `groupMode` → Dispatcher; calls and provider events (reactions, receipts…) |
 | `outbound.ts` | Sends and edits through the `send` hooks, the message ledger, paced replies, typing and `ctx.stream()` |
+| `rateLimitRetry.ts` | The short in-place retry of rate-limited `ctx` replies (`BotConfig.rateLimitRetry`) |
 | `contextFactory.ts` | Builds the `MessageContext` (`ctx`) of a message, a projected call or a `bot.trigger()` |
 | `gates.ts` | Access lists and human handoff admission, with their drop counters and logs |
 | `lang.ts` | `ctx.lang` resolution and the Dispatcher's language seams |
