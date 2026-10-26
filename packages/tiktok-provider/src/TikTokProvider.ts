@@ -35,6 +35,7 @@ import pino from 'pino'
 import type { LoggerLike } from '@botmesh/core'
 import { SecureHttpError, secureFetch } from '@botmesh/http'
 import {
+  PayloadTooLargeError,
   ProviderError,
   RecipientUnreachableError,
   UnsupportedContentError,
@@ -122,6 +123,35 @@ function isHttpUrl(value: unknown): value is string {
     const url = new URL(value)
     return (url.protocol === 'https:' || url.protocol === 'http:') && !url.username && !url.password && url.hostname !== ''
   } catch { return false }
+}
+
+function withCause<E extends Error>(error: E, cause: unknown): E {
+  ;(error as { cause?: unknown }).cause = cause
+  return error
+}
+
+/** Origin + path of a URL for error messages: never its query (signed media URLs carry tokens there). */
+function safePath(url: string): string {
+  try {
+    const u = new URL(url)
+    return `${u.origin}${u.pathname}`
+  } catch {
+    return '<invalid url>'
+  }
+}
+
+/**
+ * A `secureFetch` transport failure (DNS, TLS, reset, timeout, policy refusal)
+ * as a typed {@link ProviderError} with the original as `cause`; an oversized
+ * response becomes a {@link PayloadTooLargeError}.
+ */
+function transportError(err: unknown, method: string, url: string): ProviderError {
+  if (err instanceof ProviderError) return err
+  const detail = err instanceof Error ? err.message : String(err)
+  const wrapped = err instanceof SecureHttpError && err.code === 'RESPONSE_TOO_LARGE'
+    ? new PayloadTooLargeError(`TikTok response too large: ${detail}`)
+    : new ProviderError(`TikTok request failed: ${method} ${safePath(url)}: ${detail}`)
+  return withCause(wrapped, err)
 }
 
 export class TikTokProvider implements IProvider<unknown> {
@@ -308,7 +338,12 @@ export class TikTokProvider implements IProvider<unknown> {
 
   private async token(): Promise<string> {
     const t = this.config.accessToken
-    return typeof t === 'function' ? await t() : t
+    if (typeof t !== 'function') return t
+    try {
+      return await t()
+    } catch (err) {
+      throw withCause(new ProviderError(`TikTok access token callback failed: ${err instanceof Error ? err.message : String(err)}`), err)
+    }
   }
 
   /** Call a TikTok API endpoint; resolves `data` on `code === 0`, else throws a typed error. */
@@ -331,7 +366,7 @@ export class TikTokProvider implements IProvider<unknown> {
       if (err instanceof SecureHttpError && err.code === 'TOO_MANY_REDIRECTS') {
         throw new TikTokApiError('TikTok API answered with a redirect; not followed (it would forward the access token)')
       }
-      throw err
+      throw transportError(err, 'POST', this.apiUrl(path))
     }
     const { response, body: bytes } = result
     let parsed: TikTokApiResponse<T> | undefined
@@ -356,7 +391,13 @@ export class TikTokProvider implements IProvider<unknown> {
 
   /** GET an external URL safely (media). Never sends the access token. */
   private async download(url: string): Promise<{ bytes: Buffer; mimetype?: string }> {
-    const { response, body } = await secureFetch(url, { ...this.config.http })
+    let result: Awaited<ReturnType<typeof secureFetch>>
+    try {
+      result = await secureFetch(url, { ...this.config.http })
+    } catch (err) {
+      throw transportError(err, 'GET', url)
+    }
+    const { response, body } = result
     if (!response.ok) throw new ProviderError(`TikTok media download failed: HTTP ${response.status}`)
     return { bytes: body, mimetype: response.headers.get('content-type') ?? undefined }
   }

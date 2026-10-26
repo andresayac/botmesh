@@ -35,8 +35,7 @@ import type {
   UserId,
 } from '@botmesh/core'
 import { ProviderError } from '@botmesh/core'
-import { secureFetch } from '@botmesh/http'
-import { BoundedMap, header, request, retryAfterMs, type HeaderBag } from './http.js'
+import { BoundedMap, fetchTyped, header, request, retryAfterMs, type HeaderBag } from './http.js'
 import { parseInbound } from './parseInbound.js'
 import { GHL_WEBHOOK_PUBLIC_KEY, verifyGhlSignature } from './signature.js'
 import { toOutbound } from './toOutbound.js'
@@ -261,7 +260,7 @@ export class GoHighLevelProvider implements IProvider<GhlWebhookBody> {
     const token = ref.token as { url?: unknown } | string | undefined
     const url = typeof token === 'string' ? token : typeof token?.url === 'string' ? token.url : undefined
     if (!url) throw new ProviderError('downloadMedia requires the attachment URL (MediaRef.token.url)')
-    const { response, body } = await secureFetch(url, { ...this.config.http, method: 'GET' })
+    const { response, body } = await fetchTyped(url, { ...this.config.http, method: 'GET' })
     if (!response.ok) throw new ProviderError(`HighLevel media download failed: HTTP ${response.status}`)
     return body
   }
