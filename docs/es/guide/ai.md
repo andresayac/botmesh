@@ -249,9 +249,12 @@ un `maxTokens` que no es un entero positivo, un `context.maxMessages` negativo o
 `NaN`, un `toolConfirm.timeout` que no se puede leer o una herramienta sin
 `handler`. `openai` / `ollama` sin `model` dejan un aviso en el log al instalar.
 
-`bot.stop()` aborta las respuestas que siguen esperando al modelo (y la
-extracción de memoria en segundo plano), así que un proveedor lento no mantiene
-vivo el proceso.
+`bot.stop()` aborta todas las llamadas al modelo en curso: las respuestas
+automáticas, la extracción de memoria en segundo plano y las llamadas que hacen
+tus propios handlers con `ctx.tools.ai` (`ask`, `generate`, `stream`,
+`replyInChat`, `streamReplyInChat`, `runTools`), que rechazan con un
+`AbortError`. Un proveedor lento no mantiene vivo el proceso, ni siquiera con
+`timeoutMs: 0`.
 
 ## Config completa de `aiPlugin(config)`
 

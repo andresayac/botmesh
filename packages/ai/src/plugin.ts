@@ -136,10 +136,11 @@ export function aiPlugin(config: AIPluginConfig = {}): PluginSpec<AIPluginConfig
       let turnSeq = 0
       // Every autoreply turn still talking to the model: `bot.stop()` aborts them, so a slow
       // or hung provider neither answers into a stopped bot nor keeps the process alive.
+      // `abortInFlight` also cancels the calls user handlers make through `ctx.tools.ai`.
       const running = new Set<AbortController>()
       const abortRunning = (): void => {
         for (const turn of [...running]) turn.abort()
-        client.abortBackground()
+        client.abortInFlight()
       }
       bot.on('stopped', abortRunning)
       ctx.onDispose(() => { bot.off('stopped', abortRunning) })

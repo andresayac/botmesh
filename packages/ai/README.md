@@ -238,8 +238,11 @@ number of ms (a `NaN` from `Number(process.env.X)` would fire after 1 ms), a
 `context.maxMessages`, an unparsable `toolConfirm.timeout` or a tool without
 `handler`. `openai` / `ollama` without `model` log a warning at install.
 
-`bot.stop()` aborts the replies still waiting for the model (and background
-memory extraction), so a slow provider does not keep the process alive.
+`bot.stop()` aborts every model call still in flight: the autoreply turns,
+background memory extraction and the calls your own handlers make through
+`ctx.tools.ai` (`ask`, `generate`, `stream`, `replyInChat`, `streamReplyInChat`,
+`runTools`), which reject with an `AbortError`. A slow provider does not keep the
+process alive, even with `timeoutMs: 0`.
 
 ## Full `aiPlugin(config)` reference
 

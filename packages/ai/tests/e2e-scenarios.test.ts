@@ -221,6 +221,83 @@ describe('e2e: background memory extraction and stop()', () => {
   })
 })
 
+describe('e2e: stop() also reaches ctx.tools.ai calls made by user handlers', () => {
+  /** A provider that never answers unless aborted and ignores the abort reason's type. */
+  class HangingStream extends HangingProvider {
+    streamAborted = 0
+    override async *stream(input: GenerateInput): AsyncIterable<string> {
+      await new Promise((_, reject) => {
+        input.signal?.addEventListener('abort', () => { this.streamAborted++; reject(input.signal!.reason) }, { once: true })
+      })
+      yield ''
+    }
+  }
+
+  const methods: Array<[string, (ai: import('../src/AIClient.js').AIClient) => Promise<unknown>]> = [
+    ['ask', (ai) => ai.ask('x')],
+    ['generate', (ai) => ai.generate({ messages: [{ role: 'user', content: 'x' }] })],
+    ['replyInChat', (ai) => ai.replyInChat('k', 'x')],
+  ]
+  for (const [name, call] of methods) {
+    it(`aborts ctx.tools.ai.${name}() still waiting for the model (timeoutMs: 0)`, async () => {
+      const hang = new HangingProvider()
+      const t = await createTestBot()
+      t.bot.plug(aiPlugin({ instance: hang, autoReply: false, timeoutMs: 0 }))
+      let settled: unknown = 'pending'
+      t.bot.onMessage((ctx) => { call(ctx.tools.ai).then(() => { settled = 'resolved' }, (err: unknown) => { settled = err }) })
+      await t.chat.send('hola')
+      await tick()
+      expect(hang.started).toBe(1)
+      await t.bot.stop()
+      await tick()
+      expect(hang.aborted).toBe(1)
+      expect(settled).toBeInstanceOf(Error)
+      expect((settled as Error).name).toBe('AbortError')
+    })
+  }
+
+  it('aborts ctx.tools.ai.stream() and streamReplyInChat() consumed by a handler', async () => {
+    const hang = new HangingStream()
+    const t = await createTestBot()
+    t.bot.plug(aiPlugin({ instance: hang, autoReply: false, timeoutMs: 0 }))
+    const errors: unknown[] = []
+    const drain = async (it: AsyncIterable<string>) => { try { for await (const _ of it) { /* drain */ } } catch (err) { errors.push(err) } }
+    t.bot.onMessage((ctx) => {
+      void drain(ctx.tools.ai.stream({ messages: [{ role: 'user', content: 'x' }] }))
+      void drain(ctx.tools.ai.streamReplyInChat('k', 'x'))
+    })
+    await t.chat.send('hola')
+    await tick()
+    await t.bot.stop()
+    await tick()
+    expect(hang.streamAborted).toBe(2)
+  })
+
+  it('a provider that ignores the signal still releases the caller on stop()', async () => {
+    const deaf: AIProvider = { name: 'deaf', generate: () => new Promise(() => {}), async *stream() { yield '' } }
+    const t = await createTestBot()
+    t.bot.plug(aiPlugin({ instance: deaf, autoReply: false, timeoutMs: 0 }))
+    let settled: unknown = 'pending'
+    t.bot.onMessage((ctx) => { ctx.tools.ai.ask('x').then(() => { settled = 'resolved' }, (err: unknown) => { settled = err }) })
+    await t.chat.send('hola')
+    await tick()
+    await t.bot.stop()
+    await tick()
+    expect((settled as Error).name).toBe('AbortError')
+  })
+
+  it('calls made after a restart work again', async () => {
+    const t = await createTestBot()
+    t.bot.plug(aiPlugin({ instance: new EchoProvider(), autoReply: false }))
+    t.bot.onMessage(async (ctx) => { await ctx.reply(await ctx.tools.ai.ask(ctx.body)) })
+    await t.bot.stop()
+    await t.bot.start()
+    await t.chat.send('hola')
+    await t.chat.expectReply('echo(1): hola')
+    await t.bot.stop()
+  })
+})
+
 describe('e2e: confirmations cannot be answered by someone else', () => {
   const tools = (ran: string[]): AIToolSet => ({
     pagar: { description: 'Paga', title: 'Pagar', confirm: true, handler: (_a, { ctx }) => { ran.push(ctx?.sender ?? '?'); return 'pagado' } },

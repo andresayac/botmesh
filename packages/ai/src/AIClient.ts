@@ -246,9 +246,23 @@ export class AIClient {
       if (userSignal.aborted) ctrl.abort()
       else userSignal.addEventListener('abort', onUserAbort, { once: true })
     }
+    // `abortInFlight()` (the bot stopped) cancels the request AND releases the caller,
+    // even when the provider ignores its signal.
+    const stop = this.stopCtrl.signal
+    let onStop: (() => void) | undefined
+    const stopped = new Promise<never>((_, reject) => {
+      onStop = () => { reject(stop.reason); ctrl.abort(stop.reason) }
+      if (stop.aborted) onStop()
+      else stop.addEventListener('abort', onStop, { once: true })
+    })
+    stopped.catch(() => undefined)
+    const cleanup = (): void => {
+      if (userSignal) userSignal.removeEventListener('abort', onUserAbort)
+      if (onStop) stop.removeEventListener('abort', onStop)
+    }
     if (ms <= 0) {
-      try { return await op(ctrl.signal) }
-      finally { if (userSignal) userSignal.removeEventListener('abort', onUserAbort) }
+      try { return await Promise.race([op(ctrl.signal), stopped]) }
+      finally { cleanup() }
     }
     let timer: ReturnType<typeof setTimeout> | undefined
     const timeout = new Promise<never>((_, reject) => {
@@ -259,11 +273,17 @@ export class AIClient {
       timer = setTimeout(() => { const err = new AITimeoutError(ms); reject(err); ctrl.abort(err) }, ms)
     })
     try {
-      return await Promise.race([op(ctrl.signal), timeout])
+      return await Promise.race([op(ctrl.signal), timeout, stopped])
     } finally {
       if (timer) clearTimeout(timer)
-      if (userSignal) userSignal.removeEventListener('abort', onUserAbort)
+      cleanup()
     }
+  }
+
+  /** The caller's signal joined with the client's stop signal (see {@link abortInFlight}). */
+  private withStop(signal?: AbortSignal): AbortSignal {
+    const stop = this.stopCtrl.signal
+    return signal ? AbortSignal.any([signal, stop]) : stop
   }
 
   async ask(prompt: string, opts?: AIToolCallOptions): Promise<string> {
@@ -297,9 +317,11 @@ export class AIClient {
   stream(input: Partial<GenerateInput> & { messages: AIChatMessage[] }): AsyncIterable<string> {
     // Streaming passes the caller's signal straight through; the timeout guard
     // applies to non-streaming calls (a stream's duration is legitimately open-ended).
+    // The bot stopping (`abortInFlight`) aborts the stream too.
+    const signal = this.withStop(input.signal)
     const tracing = activeTracing(this.opts.tracing)
-    if (!tracing) return this.provider.stream({ ...this.base(input.messages), ...input })
-    const full = { ...this.base(input.messages), ...input }
+    if (!tracing) return this.provider.stream({ ...this.base(input.messages), ...input, signal })
+    const full = { ...this.base(input.messages), ...input, signal }
     return traceStream(tracing, { purpose: 'generate', provider: this.providerName, model: full.model, maxTokens: full.maxTokens }, (record) =>
       this.provider.stream({ ...full, onStreamEnd: (info) => { record(info); input.onStreamEnd?.(info) } }))
   }
@@ -348,10 +370,10 @@ export class AIClient {
     opts?: AIStreamReplyOptions,
   ): AsyncGenerator<string, void, undefined> {
     const onUserAbort = () => ctrl.abort()
-    if (opts?.signal) {
-      if (opts.signal.aborted) ctrl.abort()
-      else opts.signal.addEventListener('abort', onUserAbort, { once: true })
-    }
+    // The caller's signal and the bot stopping (`abortInFlight`) both end the stream.
+    const userSignal = this.withStop(opts?.signal)
+    if (userSignal.aborted) ctrl.abort()
+    else userSignal.addEventListener('abort', onUserAbort, { once: true })
     let text = ''
     let completed = false
     let failed = false
@@ -415,7 +437,7 @@ export class AIClient {
         if (!completed && !failed) streamSpan.setAttribute(TRACE_ATTR.aiCancelled, true)
         streamSpan.end()
       }
-      if (opts?.signal) opts.signal.removeEventListener('abort', onUserAbort)
+      userSignal.removeEventListener('abort', onUserAbort)
       if (!completed) {
         ctrl.abort()
         const pending = iterator
@@ -475,6 +497,8 @@ export class AIClient {
     const notes = this.toolNotes(opts, ledger)
     if (notes.length) base.system = [base.system, ...notes].filter(Boolean).join('\n\n')
     let step = 0
+    // The bot stopping (`abortInFlight`) also ends the loop between steps and its tools.
+    const loopSignal = this.withStop(opts.signal ?? input.signal)
     return runToolLoop({
       tools: this.toolsFor(opts.tools),
       generate: (gi) => this.callModel('tool_step', gi, () => this.withTimeout((signal) => this.provider.generate({ ...gi, signal }), opts.signal ?? input.signal), ++step),
@@ -489,7 +513,7 @@ export class AIClient {
       onEvent: this.opts.onToolEvent,
       chatKey: opts.chatKey,
       ctx: opts.ctx,
-      signal: opts.signal ?? input.signal,
+      signal: loopSignal,
     })
   }
 
@@ -511,7 +535,7 @@ export class AIClient {
     const [history, facts, citations, epoch] = await Promise.all([
       this.ctx.history(chatKey),
       this.factsForPrompt(userId, opts?.isGroup === true),
-      this.retrieveFor(userText, opts?.signal),
+      this.retrieveFor(userText, this.withStop(opts?.signal)),
       // Taken BEFORE generating: an erasure during the turn invalidates its extraction.
       this.extractionEpoch(userId),
     ])
@@ -751,6 +775,23 @@ export class AIClient {
     const ctrl = this.backgroundCtrl
     this.backgroundCtrl = new AbortController()
     ctrl.abort()
+  }
+
+  /** Aborted by {@link abortInFlight}: every model call, stream and tool loop listens to it. */
+  private stopCtrl = new AbortController()
+
+  /**
+   * Abort every call in flight on this client: `ask`, `generate`, `stream`, `replyInChat`,
+   * `streamReplyInChat`, `runTools` and the background memory extraction. Each pending
+   * call rejects with an `AbortError` (even when the provider ignores its signal).
+   * Calls made afterwards work as usual. `aiPlugin` calls it when the bot stops.
+   * @internal
+   */
+  abortInFlight(): void {
+    const ctrl = this.stopCtrl
+    this.stopCtrl = new AbortController()
+    this.abortBackground()
+    ctrl.abort(new DOMException('AI call aborted: the bot stopped', 'AbortError'))
   }
 
   /** Resolves when background work (memory extraction) has settled — for tests and graceful shutdown. */
