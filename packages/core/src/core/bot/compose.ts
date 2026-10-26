@@ -96,6 +96,7 @@ export function composeBot(host: ComposeHost, inputConfig: BotConfig, fields: Co
         'See @botmesh/baileys for the WhatsApp transport.',
     )
   }
+  assertProviderShape(inputConfig.provider)
   const k = {} as Mutable<BotKernel>
   const config: BotConfig = { commandPrefix: '/', ...inputConfig }
   const provider = inputConfig.provider
@@ -342,5 +343,28 @@ export function composeBot(host: ComposeHost, inputConfig: BotConfig, fields: Co
     routes: new RouteRegistrar(kernel),
     plugins: new PluginHost(kernel),
     ops: new BotOps(kernel, contextFor),
+  }
+}
+
+/**
+ * The usual wiring mistakes with `BotConfig.provider` (the class instead of an instance, an
+ * un-awaited async factory, a plain object) used to surface later as an unrelated error
+ * (an invalid store namespace, `provider.onEvent is not a function`). Name them here.
+ */
+function assertProviderShape(provider: unknown): void {
+  if (typeof provider === 'function') {
+    const name = (provider as { name?: string }).name || 'Provider'
+    throw new TypeError(`BotConfig.provider must be a provider instance, not a class or function: use new ${name}(...)`)
+  }
+  if (typeof (provider as { then?: unknown }).then === 'function') {
+    throw new TypeError('BotConfig.provider is a Promise: await the provider (or its factory) before passing it to new Bot()')
+  }
+  const missing = (['start', 'stop', 'send', 'onEvent'] as const)
+    .filter((m) => typeof (provider as Record<string, unknown>)[m] !== 'function')
+  if (missing.length > 0) {
+    throw new TypeError(
+      `BotConfig.provider is not an IProvider: it lacks the method(s) ${missing.join(', ')} ` +
+        '(every provider implements start, stop, send, onEvent)',
+    )
   }
 }

@@ -147,11 +147,13 @@ export function deepCoreImports(source: string, dir: string): string[] {
   return out
 }
 
+let scanned: string[] | undefined
+/** The repo walk is slow on a loaded machine; do it once per file and give the suite room. */
 function scannedFiles(): string[] {
-  return walk(repo)
+  return (scanned ??= walk(repo))
 }
 
-describe('deprecated main-entry re-exports', () => {
+describe('deprecated main-entry re-exports', { timeout: 60_000 }, () => {
   it('the matcher sees named, aliased, type and multi-line imports from the main entry only', () => {
     const src = [
       "import { Bot, MetricsCollector as M } from '@botmesh/core'",

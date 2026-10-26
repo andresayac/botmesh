@@ -7,6 +7,7 @@ import { randomId } from '../../utils/timers.js'
 import { isEditableSend, messagingSupport, type ReplyOptions } from '../messaging.js'
 import type { BuildContextDeps, DraftOptions } from '../provider.js'
 import { toStoredError } from '../ledger.js'
+import { assertOutboundContent } from '../outboundCheck.js'
 import { isSendDeferred } from '../../durability/bind.js'
 import type { ChatId, MessageRef, OutboundContent, SendOptions, SendResult, SentMessage } from '../types.js'
 import { assertCoordinated, type BotKernel } from './kernel.js'
@@ -48,6 +49,7 @@ export class OutboundPipeline {
     const payload: { chatId: ChatId; content: OutboundContent; options?: SendOptions; stream?: 'message' } = { chatId, content, options }
     if (stream) payload.stream = stream
     if (!(await this.runBeforeSend(payload))) return this.skipped({ id: 'skipped', chatId: payload.chatId }, span)
+    assertOutboundContent(payload.content)
     assertCoordinated(this.k)
     const localRef = { id: randomId('out'), chatId: payload.chatId }
     const op = durable
@@ -134,6 +136,7 @@ export class OutboundPipeline {
       chatId: ref.chatId, content, options: undefined, edit: ref,
     }
     if (!(await this.runBeforeSend(payload))) return this.skipped(ref, span)
+    assertOutboundContent(payload.content)
     assertCoordinated(this.k)
     const op = provider.editMessage!(ref, payload.content)
     inflightSends.add(op)

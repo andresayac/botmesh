@@ -62,8 +62,12 @@ semana, están restringidos, un día vale si cumple **cualquiera** de los dos �
 `0 9 13 * 5` corre cada día 13 **y** cada viernes. Si uno de ellos empieza por
 `*` (también un paso como `*/2`), se tienen que cumplir los dos, así que
 `0 9 * * 1` es simplemente "los lunes". Los nombres (`mon`, `jan`) y las macros (`@daily`) no están
-soportados: `bot.schedule()` lanza un `TypeError` que nombra el campo inválido
-en lugar de crear una tarea que nunca se ejecuta.
+soportados, ni los valores fuera del rango del campo (minuto 0-59, hora 0-23,
+día 1-31, mes 1-12, día de la semana 0-7), un rango invertido (`5-1`) o un paso
+cero (`*/0`): `bot.schedule()` lanza un `TypeError` que nombra el campo inválido
+en lugar de crear una tarea que nunca se ejecuta. Del mismo modo,
+`bot.every()` necesita una duración positiva y `bot.delay()` una no negativa
+(si no, `RangeError`).
 
 ### Zonas horarias
 

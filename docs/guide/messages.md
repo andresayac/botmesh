@@ -16,6 +16,13 @@ await ctx.quote('replying to your message')     // quotes the inbound message
 await ctx.reply('typing this out...', { typing: true }) // shows "typing…" before sending
 ```
 
+Every send (these helpers, `bot.send`, broadcasts, `ctx.edit`) is checked after the
+`before('send')` hooks and before the transport: content that no transport can
+deliver (a `text` that is not a string, such as `ctx.reply(undefined)`; media
+without a source; coordinates outside ±90/±180; a poll or button message with no
+options) rejects with a `TypeError` that names the field, and nothing is sent.
+Transport limits (text length, number of buttons) are still checked by each provider.
+
 ## Send photo
 
 ```ts

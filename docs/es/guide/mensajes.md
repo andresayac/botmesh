@@ -16,6 +16,14 @@ await ctx.quote('replying to your message')     // cita el mensaje entrante
 await ctx.reply('typing this out...', { typing: true }) // muestra "escribiendo…" antes de enviar
 ```
 
+Cada envío (estos helpers, `bot.send`, las difusiones, `ctx.edit`) se revisa
+después de los hooks `before('send')` y antes del transporte: un contenido que
+ningún transporte puede entregar (un `text` que no es string, como
+`ctx.reply(undefined)`; media sin origen; coordenadas fuera de ±90/±180; una
+encuesta o un mensaje de botones sin opciones) rechaza con un `TypeError` que
+nombra el campo, y no se envía nada. Los límites de cada transporte (longitud
+del texto, número de botones) los sigue comprobando cada provider.
+
 ## Enviar foto
 
 ```ts

@@ -29,8 +29,25 @@ export function assertCron(expr: string): void {
         `Invalid cron expression "${expr}": the ${CRON_FIELDS[i]} field "${part}" must use numbers, '*', ranges (1-5), steps (*/15) or lists (1,15)`,
       )
     }
+    // Out-of-range values (minute 61, month 13), reversed ranges and a zero step used to be
+    // accepted and simply never matched: the task was registered but never ran.
+    const [min, max] = CRON_BOUNDS[i]
+    for (const item of part.split(',')) {
+      const [range, step] = item.split('/')
+      const fail = (why: string): never => {
+        throw new TypeError(`Invalid cron expression "${expr}": the ${CRON_FIELDS[i]} field "${part}" ${why}`)
+      }
+      if (step !== undefined && Number(step) < 1) fail('has a step of 0; use 1 or more')
+      if (range === '*') continue
+      const [lo, hi = lo] = range.split('-').map(Number)
+      if (lo < min || hi > max) fail(`is out of range: values go from ${min} to ${max}`)
+      if (lo > hi) fail(`has a reversed range "${range}"; write it low-high`)
+    }
   })
 }
+
+/** Inclusive bounds of each field (weekday 7 is Sunday, like 0). */
+const CRON_BOUNDS: ReadonlyArray<readonly [number, number]> = [[0, 59], [0, 23], [1, 31], [1, 12], [0, 7]]
 
 /**
  * The first minute strictly after `from` (default: now) that matches `expr`, or `null`

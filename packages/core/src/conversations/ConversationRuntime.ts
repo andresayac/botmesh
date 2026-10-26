@@ -458,7 +458,7 @@ export class ConversationRuntime {
             // A refused compare-and-set means another replica owns the chat now: stop like a lost turn.
             if (error instanceof LeaseLostError) throw error
             // Best effort: the flow goes on in memory, and no stale step is left to hand over.
-            this.cfg.logger?.warn?.('hand-over checkpoint write failed; the flow continues without it', error)
+            this.cfg.logger?.warn?.({ err: error }, 'hand-over checkpoint write failed; the flow continues without it')
             degraded = true
             this.degradeForward(key, entry)
             return
@@ -536,7 +536,7 @@ export class ConversationRuntime {
     const store = this.store!
     if (!this.cas || revision === undefined) { await store.clearCheckpoint(key); return }
     if (!(await store.clearCheckpointIf!(key, revision))) {
-      this.cfg.logger?.debug?.('checkpoint clear refused: a newer owner wrote the key', { key })
+      this.cfg.logger?.debug?.({ key }, 'checkpoint clear refused: a newer owner wrote the key')
     }
   }
 
@@ -563,7 +563,7 @@ export class ConversationRuntime {
    * hand-over fallback, keep a stub for it instead (written at its next wait).
    */
   private degradeForward(key: string, entry: ActiveConversation | undefined, why?: string): void {
-    if (why) this.cfg.logger?.debug?.(`flow not forwarded for hand-over: ${why}`, { key })
+    if (why) this.cfg.logger?.debug?.({ key }, `flow not forwarded for hand-over: ${why}`)
     if (entry) {
       entry.cp = undefined
       entry.wantsStub = this.cfg.handover !== undefined && this.cfg.handover.fallback !== 'drop'
@@ -653,7 +653,7 @@ export class ConversationRuntime {
     }
     void this.enter(resumed, ctx, { name: cp.flowId }).catch((e) => {
       this.cfg.onError?.(e, ctx)
-      this.cfg.logger?.error?.('resume failed', e)
+      this.cfg.logger?.error?.({ err: e }, 'resume failed')
     })
     this.handoverAnswers.delete(key)   // consumed synchronously by run(); never left behind
     if (meta?.kind === 'ephemeral') this.reportHandover(key, cp.flowId, 'resumed')
@@ -684,7 +684,7 @@ export class ConversationRuntime {
     try {
       rehydrated = await codec.rehydrate(answer)
     } catch (error) {
-      this.cfg.logger?.warn?.('hand-over answer could not be read back; the step re-runs', error)
+      this.cfg.logger?.warn?.({ err: error }, 'hand-over answer could not be read back; the step re-runs')
     }
     if (!rehydrated) return undefined
     const ref = answer.cause ? replayCauseRef(answer.cause) : undefined
@@ -715,7 +715,7 @@ export class ConversationRuntime {
       if (this.cfg.tracing && info.trace) this.tracedFrom.set(info.key, info.trace)
       void this.enter(info.name, ctx, info.startState ? { state: info.startState } : {}).catch((e) => {
         this.cfg.onError?.(e, ctx)
-        this.cfg.logger?.error?.('hand-over restart failed', e)
+        this.cfg.logger?.error?.({ err: e }, 'hand-over restart failed')
       })
       this.tracedFrom.delete(info.key)
       consumed = true
@@ -963,13 +963,13 @@ export class ConversationRuntime {
         // Coordination fence: this replica lost the chat (a checkpoint write was refused);
         // another replica owns the conversation now — end silently, nothing can be sent anyway.
         outcome = 'cancelled'
-        this.cfg.logger?.debug?.('conversation stopped: chat turn lost', { key })
+        this.cfg.logger?.debug?.({ key }, 'conversation stopped: chat turn lost')
       } else {
         outcome = 'error'
         // Traced: reported from the conversation's own box, so the error lands on the turn that failed.
         this.inBox(entry, () => {
           this.cfg.onError?.(e, ctx)
-          this.cfg.logger?.error?.('conversation error', e)
+          this.cfg.logger?.error?.({ err: e }, 'conversation error')
         })
         await this.endReply(entry, ctx, this.cfg.errorMessage ?? translateFor(entry.latest ?? ctx, CORE_MESSAGES.error))
       }
@@ -1237,7 +1237,7 @@ export class ConversationRuntime {
     try {
       captured = codec.capture(ctx, ref?.id)
     } catch (error) {
-      this.cfg.logger?.debug?.('hand-over answer not recorded', error)
+      this.cfg.logger?.debug?.({ err: error }, 'hand-over answer not recorded')
     }
     if (!captured) return undefined
     return { ...captured, ...(ref ? { cause: { id: ref.id, seq: ref.seq } } : {}), at: Date.now() }
@@ -1323,8 +1323,8 @@ export class ConversationRuntime {
         (error: unknown) => {
           entry.cpDirty = true
           onFail?.()
-          if (error instanceof LeaseLostError) this.cfg.logger?.debug?.(`${failure}: chat turn lost`, { key })
-          else this.cfg.logger?.warn?.(failure, error)
+          if (error instanceof LeaseLostError) this.cfg.logger?.debug?.({ key }, `${failure}: chat turn lost`)
+          else this.cfg.logger?.warn?.({ err: error }, failure)
         },
       )
       .finally(() => {
@@ -1425,7 +1425,7 @@ export class ConversationRuntime {
   /** Report an error raised outside a conversation's own flow (idle callbacks) via `onError`. */
   reportError(error: unknown, ctx: RuntimeMessage): void {
     this.cfg.onError?.(error, ctx)
-    this.cfg.logger?.error?.('conversation error', error)
+    this.cfg.logger?.error?.({ err: error }, 'conversation error')
   }
 
   /** Report `entry`'s end to the lifecycle observer exactly once. */
@@ -1440,7 +1440,7 @@ export class ConversationRuntime {
   }
 
   private notifyLifecycle(fn: () => void): void {
-    try { fn() } catch (e) { this.cfg.logger?.warn?.('conversation lifecycle observer failed', e) }
+    try { fn() } catch (e) { this.cfg.logger?.warn?.({ err: e }, 'conversation lifecycle observer failed') }
   }
 
   private notifyEnd(entry: ActiveConversation): void {
@@ -1508,7 +1508,7 @@ export class ConversationRuntime {
   }
 
   private async safeReply(ctx: RuntimeMessage, text: string): Promise<void> {
-    try { await ctx.reply(text) } catch (e) { this.cfg.logger?.warn?.('reply failed', e) }
+    try { await ctx.reply(text) } catch (e) { this.cfg.logger?.warn?.({ err: e }, 'reply failed') }
   }
 }
 

@@ -115,7 +115,7 @@ bot.use(
 )
 ```
 
-Si el proceso se cae a mitad del flujo, el próximo mensaje de ese usuario **reanuda en el paso exacto** donde se quedó.
+Si el proceso se cae a mitad del flujo, el próximo mensaje de ese usuario **reanuda en el paso exacto** donde se quedó. Ese mensaje solo despierta el flujo: un `ask`/`choose` pendiente se vuelve a enviar y la siguiente respuesta del usuario es la que lo contesta (con [durabilidad](./durabilidad) el mensaje que despierta es la respuesta).
 
 ## RedisStore (distribuido)
 
