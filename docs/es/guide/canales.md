@@ -13,30 +13,47 @@ const bot = new Bot({ provider }) // cualquiera de los providers de abajo
 ```
 
 Esta página recoge todos los providers del repositorio, cómo recibe eventos
-cada uno y qué puede y qué no puede hacer.
+cada uno y qué puede y qué no puede hacer. Instala el core y el canal que
+necesites:
 
-## Estado: públicos y experimentales
+```bash
+pnpm add @botmesh/core @botmesh/baileys   # o @botmesh/meta, @botmesh/telegram
+```
+
+Mientras botmesh esté en prerelease, añade a cada paquete el dist-tag de la
+prerelease (ver [Instalación](/es/guide/inicio)).
+
+::: tip Prueba un canal sin cuenta
+El [sandbox de plataformas](/es/guide/sandbox) ejecuta tu bot sobre los
+providers reales de la Cloud API, Telegram, Twilio, Discord y otros contra
+simuladores locales, y el [simulador en la terminal](/es/guide/simulador) te
+deja chatear con él en la terminal. Ninguno necesita una app, un número de
+teléfono ni una URL pública.
+:::
+
+## Paquetes publicados y sin publicar
 
 | Paquete | Directorio | Estado | Transporte |
 | --- | --- | --- | --- |
-| `@botmesh/baileys` | `baileys-provider` | Público | WhatsApp Web (socket de Baileys) |
-| `@botmesh/meta` | `meta-provider` | Público | WhatsApp Cloud API (oficial) |
-| `@botmesh/telegram` | `telegram-provider` | Público | Telegram Bot API |
-| `@botmesh/messenger` | `messenger-provider` | Experimental | Facebook Messenger (Send API) |
-| `@botmesh/instagram` | `instagram-provider` | Experimental | DMs de Instagram (Messenger API for Instagram) |
-| `@botmesh/discord` | `discord-provider` | Experimental | Discord (gateway + REST) |
-| `@botmesh/evolution` | `evolution-provider` | Experimental | Evolution API v2 (gateway de WhatsApp self-hosted) |
-| `@botmesh/wppconnect` | `wppconnect-provider` | Experimental | WPPConnect Server (gateway de WhatsApp self-hosted) |
-| `@botmesh/twilio` | `twilio-provider` | Experimental | Twilio Programmable Messaging (WhatsApp + SMS/MMS) |
-| `@botmesh/gohighlevel` | `gohighlevel-provider` | Experimental | HighLevel (LeadConnector) Conversations API |
-| `@botmesh/gupshup` | `gupshup-provider` | Experimental | Gupshup WhatsApp API |
-| `@botmesh/email` | `email-provider` | Experimental | Email (IMAP IDLE + SMTP) |
-| `@botmesh/tiktok` | `tiktok-provider` | Experimental | TikTok API for Business (comentarios + Business Messaging) |
+| `@botmesh/baileys` | `baileys-provider` | En npm | WhatsApp Web (socket de Baileys) |
+| `@botmesh/meta` | `meta-provider` | En npm | WhatsApp Cloud API (oficial) |
+| `@botmesh/telegram` | `telegram-provider` | En npm | Telegram Bot API |
+| `@botmesh/messenger` | `messenger-provider` | Aún no en npm | Facebook Messenger (Send API) |
+| `@botmesh/instagram` | `instagram-provider` | Aún no en npm | DMs de Instagram (Messenger API for Instagram) |
+| `@botmesh/discord` | `discord-provider` | Aún no en npm | Discord (gateway + REST) |
+| `@botmesh/evolution` | `evolution-provider` | Aún no en npm | Evolution API v2 (gateway de WhatsApp self-hosted) |
+| `@botmesh/wppconnect` | `wppconnect-provider` | Aún no en npm | WPPConnect Server (gateway de WhatsApp self-hosted) |
+| `@botmesh/twilio` | `twilio-provider` | Aún no en npm | Twilio Programmable Messaging (WhatsApp + SMS/MMS) |
+| `@botmesh/gohighlevel` | `gohighlevel-provider` | Aún no en npm | HighLevel (LeadConnector) Conversations API |
+| `@botmesh/gupshup` | `gupshup-provider` | Aún no en npm | Gupshup WhatsApp API |
+| `@botmesh/email` | `email-provider` | Aún no en npm | Email (IMAP IDLE + SMTP) |
+| `@botmesh/tiktok` | `tiktok-provider` | Aún no en npm | TikTok API for Business (comentarios + Business Messaging) |
 
-Los paquetes **públicos** se instalan con `pnpm add`. Los **experimentales**
-llevan `"private": true` en su `package.json`: están implementados y con
-tests, pero **no se publican en npm** y su API puede cambiar. Úsalos desde
-este monorepo (`"workspace:*"`).
+Los tres canales **En npm** se instalan con `pnpm add` y siguen semver. Los
+demás llevan `"private": true` en su `package.json`: están implementados y con
+tests, pero **no se publican en npm** y su API todavía puede cambiar. Úsalos
+desde un clon del monorepo (`"workspace:*"`). Lo mismo vale para
+[`@botmesh/server`](/es/guide/servidor) y el [sandbox](/es/guide/sandbox).
 
 ## Elegir un canal
 
@@ -83,7 +100,49 @@ es un chat) y `@botmesh/tiktok` (comentarios en tus propios videos y DMs).
   firma o el token y devuelve el status HTTP con el que responder.
   [`@botmesh/server`](/es/guide/servidor) resuelve ese cableado (body crudo,
   límites de tamaño, timeouts, endpoints de salud) para `node:http`, Express,
-  Fastify y Hono.
+  Fastify y Hono; todavía no está en npm.
+
+Con los paquetes publicados basta una ruta en cualquier framework. Lee el body
+**como bytes** (la firma cubre los bytes exactos, así que nunca pases un objeto
+JSON re-serializado) y responde con el status que devuelve `ingest()`:
+
+```ts
+import { createServer } from 'node:http'
+import { Bot } from '@botmesh/core'
+import { CloudAPIProvider } from '@botmesh/meta'
+
+const provider = new CloudAPIProvider({
+  accessToken: process.env.META_TOKEN!,
+  phoneNumberId: process.env.META_PHONE_ID!,
+  verifyToken: process.env.META_VERIFY_TOKEN!,
+  appSecret: process.env.META_APP_SECRET!,
+})
+const bot = new Bot({ provider })
+await bot.start()
+
+createServer(async (req, res) => {
+  const url = new URL(req.url ?? '/', 'http://localhost')
+  if (url.pathname !== '/webhook') return void res.writeHead(404).end()
+  if (req.method === 'GET') { // handshake de suscripción de Meta
+    const challenge = provider.verifyChallenge(Object.fromEntries(url.searchParams))
+    return void (challenge ? res.writeHead(200).end(challenge) : res.writeHead(403).end())
+  }
+  const chunks: Buffer[] = []
+  let size = 0
+  for await (const chunk of req as AsyncIterable<Buffer>) {
+    if ((size += chunk.length) > 1024 * 1024) return void res.writeHead(413).end() // tope de 1 MiB
+    chunks.push(chunk)
+  }
+  res.writeHead(provider.ingest(Buffer.concat(chunks), req.headers)).end()
+}).listen(3000)
+```
+
+Los demás providers por webhook siguen el mismo patrón: Messenger e Instagram
+tienen el mismo handshake `GET`, Telegram no tiene ninguno, y los providers
+cuya autenticación cubre la URL también la reciben (el
+`ingest(body, headers, url)` asíncrono de WPPConnect,
+`ingestRequest({ url, body, headers })` en Twilio y Gupshup). `ingest()` no
+espera a tus handlers, así que la plataforma recibe su respuesta enseguida.
 
 El constructor de todo provider por webhook (Telegram, solo en modo webhook)
 **lanza un error** si falta su credencial de webhook (app secret, auth token o token compartido), salvo que
@@ -98,21 +157,41 @@ pasan a un menú de texto numerado, `ctx.edit` envía un mensaje nuevo,
 `ctx.react` resuelve `{ skipped: true }` y `ctx.typing` no hace nada (ver
 [Mensajes y media](/es/guide/mensajes#soporte-por-transporte)).
 
-| Provider | Entrada | Botones | Listas | Encuestas | Enviar reacciones | Editar | Escribiendo | Confirmación de lectura | Grupos | Plantillas | `ctx.stream` | Formularios |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Baileys | socket | no | no | sí | sí | no | sí | sí | sí | no | fragmentos | campo a campo |
-| Cloud API (`meta`) | webhook | sí | sí | no | sí | no | no | sí | no | sí | fragmentos | nativo (WhatsApp Flows) |
-| Telegram | polling o webhook | sí | no (teclado inline) | sí | sí | sí | sí | no | sí | no | borrador | campo a campo |
-| Messenger | webhook | sí | sí | no | no | no | sí | sí | no | no | fragmentos | campo a campo |
-| Instagram | webhook | sí (quick replies) | no | no | no | no | sí | sí | no | no | fragmentos | campo a campo |
-| Discord | socket | sí | sí | sí | sí | sí | sí | no | sí | no | edición | campo a campo |
-| Evolution | webhook | no | no | sí | sí | sí | sí | sí | sí | no | fragmentos | campo a campo |
-| WPPConnect | webhook | no | no | sí | sí | sí | sí | sí | sí | no | fragmentos | campo a campo |
-| Twilio | webhook | no | no | no | no | no | sí (solo WhatsApp) | no | no | sí | fragmentos | campo a campo |
-| HighLevel | webhook | no | no | no | no | no | no | sí | no | sí | fragmentos | campo a campo |
-| Gupshup | webhook | sí | sí | no | no | no | no | no | no | sí | fragmentos | campo a campo |
-| Email | IMAP IDLE (o `ingest()`) | no | no | no | no | no | no | no | no | no | fragmentos | campo a campo |
-| TikTok | webhook | sí (de 1 a 3, DMs; más → texto numerado) | sí (hasta 3 filas, DMs; más → texto numerado) | no | no | no | sí (DMs) | sí (DMs) | no | no | fragmentos | campo a campo |
+**Contenido.** Lo que cada canal envía de forma nativa.
+
+| Provider | Botones | Listas | Encuestas | Enviar reacciones | Editar | Plantillas | Formularios |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Baileys | no | no | sí | sí | no | no | campo a campo |
+| Cloud API (`meta`) | sí | sí | no | sí | no | sí | nativo (WhatsApp Flows) |
+| Telegram | sí | no (teclado inline) | sí | sí | sí | no | campo a campo |
+| Messenger | sí | sí | no | no | no | no | campo a campo |
+| Instagram | sí (quick replies) | no | no | no | no | no | campo a campo |
+| Discord | sí | sí | sí | sí | sí | no | campo a campo |
+| Evolution | no | no | sí | sí | sí | no | campo a campo |
+| WPPConnect | no | no | sí | sí | sí | no | campo a campo |
+| Twilio | no | no | no | no | no | sí | campo a campo |
+| HighLevel | no | no | no | no | no | sí | campo a campo |
+| Gupshup | sí | sí | no | no | no | sí | campo a campo |
+| Email | no | no | no | no | no | no | campo a campo |
+| TikTok | sí (de 1 a 3, DMs; más → texto numerado) | sí (hasta 3 filas, DMs; más → texto numerado) | no | no | no | no | campo a campo |
+
+**Entrada y presencia.** Cómo llegan los eventos y qué indicadores de presencia funcionan.
+
+| Provider | Entrada | Escribiendo | Confirmación de lectura | Grupos | `ctx.stream` |
+| --- | --- | --- | --- | --- | --- |
+| Baileys | socket | sí | sí | sí | fragmentos |
+| Cloud API (`meta`) | webhook | no | sí | no | fragmentos |
+| Telegram | polling o webhook | sí | no | sí | borrador |
+| Messenger | webhook | sí | sí | no | fragmentos |
+| Instagram | webhook | sí | sí | no | fragmentos |
+| Discord | socket | sí | no | sí | edición |
+| Evolution | webhook | sí | sí | sí | fragmentos |
+| WPPConnect | webhook | sí | sí | sí | fragmentos |
+| Twilio | webhook | sí (solo WhatsApp) | no | no | fragmentos |
+| HighLevel | webhook | no | sí | no | fragmentos |
+| Gupshup | webhook | no | no | no | fragmentos |
+| Email | IMAP IDLE (o `ingest()`) | no | no | no | fragmentos |
+| TikTok | webhook | sí (DMs) | sí (DMs) | no | fragmentos |
 
 - **Enviar reacciones** solo describe el envío. Varios providers reciben
   igualmente reacciones como eventos `reaction` (Messenger, Instagram,
@@ -220,7 +299,10 @@ Quien escribe un provider las comprueba con los helpers de `@botmesh/core/testin
 
 WhatsApp Web a través de [Baileys](https://github.com/WhiskeySockets/Baileys).
 Se vincula con un código QR (o un código de emparejamiento, `pairingPhoneNumber`) y guarda la sesión en
-`sessionsDir`.
+`sessionsDir` (`./sessions/<session>`): los arranques siguientes reconectan sin
+QR. Depende de la versión exacta `7.0.0-rc14` de `@whiskeysockets/baileys`
+(todavía no hay Baileys 7 estable); el README explica esa fijación y la
+política de actualización.
 
 ```ts
 import { BaileysProvider } from '@botmesh/baileys'
@@ -254,7 +336,15 @@ const provider = new BaileysProvider({ session: 'my-bot' })
 ### `@botmesh/meta` (WhatsApp Cloud API)
 
 La API oficial. Funciona por webhook: handshake GET con `verifyChallenge()`
-y eventos POST con `ingest()`.
+y eventos POST con `ingest()` (ver el ejemplo de servidor
+[más arriba](#socket-polling-o-webhook)).
+
+Configuración en Meta: crea una app con el producto **WhatsApp** en
+developers.facebook.com, genera un **token de usuario del sistema** permanente
+con `whatsapp_business_messaging`, copia el **phone number id** del número
+emisor y, en WhatsApp → Configuración, pon la URL del webhook y un verify token
+que elijas, y suscríbelo al campo **`messages`** (trae tanto los mensajes como
+los estados de entrega).
 
 ```ts
 import { CloudAPIProvider } from '@botmesh/meta'
@@ -318,6 +408,13 @@ const provider = new CloudAPIProvider({
 Telegram Bot API. Long polling por defecto; `polling: false` cambia a modo
 webhook, donde `webhookSecret` es obligatorio.
 
+- **Polling** no necesita URL pública: úsalo en desarrollo y para un bot que
+  corre en un solo proceso. Solo puede haber un poller por token (un segundo
+  recibe `409` y el provider se detiene).
+- **Webhook** encaja con serverless y despliegues con varias réplicas detrás de
+  HTTPS. Registra la URL una vez con `setWebhook` de la Bot API, pasando el
+  mismo secreto como `secret_token`.
+
 ```ts
 import { TelegramProvider } from '@botmesh/telegram'
 
@@ -345,8 +442,7 @@ const hooked = new TelegramProvider({
   provider quita el sufijo cuando nombra a este bot (usuario de `getMe`, o la
   opción `username` si pasas `selfId`).
 - Cada petición a la Bot API tiene timeout de cliente (`requestTimeoutMs`,
-  120 s por defecto; el long poll usa `pollTimeoutMs` (30 s por defecto; el
-  deprecado `pollTimeout` va en segundos) + 15 s; las subidas de
+  120 s por defecto; el long poll usa `pollTimeoutMs` (30 s por defecto) + 15 s; las subidas de
   archivos, `uploadTimeoutMs`, 5 min por defecto), los errores nunca llevan el
   token del bot, un `retry_after` de 429 se respeta hasta 24 h y `bot.stop()`
   corta al momento las esperas de reintento del bucle de polling.
@@ -382,7 +478,7 @@ bot.before('message', async (ctx, next) => { if (!isEditedMessage(ctx)) await ne
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/telegram-provider)
 
-### `@botmesh/messenger` (experimental)
+### `@botmesh/messenger` (aún no en npm)
 
 Facebook Messenger a través del Send API de Graph, con la misma verificación
 de webhook que la Cloud API.
@@ -409,7 +505,7 @@ const provider = new MessengerProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/messenger-provider)
 
-### `@botmesh/instagram` (experimental)
+### `@botmesh/instagram` (aún no en npm)
 
 DMs de una cuenta profesional de Instagram conectada a una Página de
 Facebook (Messenger API for Instagram).
@@ -438,7 +534,7 @@ const provider = new InstagramProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/instagram-provider)
 
-### `@botmesh/discord` (experimental)
+### `@botmesh/discord` (aún no en npm)
 
 Gateway de Discord (WebSocket) para los eventos y REST para enviar.
 
@@ -465,14 +561,11 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
   Llama a `ctx.acknowledge('texto')` antes de responder para contestar con un
   texto inmediato; una vez enviada la confirmación automática,
   `ctx.acknowledge('texto')` envía `texto` como respuesta normal y
-  `ctx.acknowledge()` no hace nada. (Hasta `2.0.0-alpha.2` el core no
-  confirmaba por su cuenta; los handlers que ya llaman primero a
-  `ctx.acknowledge()` siguen funcionando igual.)
+  `ctx.acknowledge()` no hace nada.
 - `ctx.interaction.id` es el id de la interacción a secas: su token no sale
-  del provider (la forma `"<id>:<token>"` de las alphas se sigue aceptando).
-  Como red de seguridad, el provider también difiere cualquier interacción que
-  siga sin respuesta tras `autoAcknowledgeMs` (2000 ms por defecto; `autoAckMs`
-  es un alias obsoleto; `false` lo desactiva). Un `ctx.acknowledge('texto')`
+  del provider. Como red de seguridad, el provider también difiere cualquier
+  interacción que siga sin respuesta tras `autoAcknowledgeMs` (2000 ms por
+  defecto; `false` lo desactiva). Un `ctx.acknowledge('texto')`
   tardío, ya confirmada, sale como followup, con `appId` o, si falta, con el id
   de aplicación que Discord manda en READY y en cada interacción; si no se
   conoce ninguno, la llamada rechaza con `ProviderError` en vez de descartar el
@@ -497,7 +590,7 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/discord-provider)
 
-### `@botmesh/evolution` (experimental)
+### `@botmesh/evolution` (aún no en npm)
 
 [Evolution API](https://github.com/EvolutionAPI/evolution-api) v2, un
 gateway REST de WhatsApp self-hosted construido sobre Baileys. Salida: REST
@@ -526,7 +619,7 @@ const provider = new EvolutionProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/evolution-provider)
 
-### `@botmesh/wppconnect` (experimental)
+### `@botmesh/wppconnect` (aún no en npm)
 
 [WPPConnect Server](https://github.com/wppconnect-team/wppconnect-server), un
 gateway self-hosted sobre WhatsApp Web (WA-JS). REST con token Bearer;
@@ -554,7 +647,7 @@ const provider = new WPPConnectProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/wppconnect-provider)
 
-### `@botmesh/twilio` (experimental)
+### `@botmesh/twilio` (aún no en npm)
 
 Twilio Programmable Messaging: **WhatsApp y SMS/MMS** con una sola clase.
 Webhooks verificados con `X-Twilio-Signature`, que cubre la URL pública
@@ -587,7 +680,7 @@ const provider = new TwilioProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/twilio-provider)
 
-### `@botmesh/gohighlevel` (experimental)
+### `@botmesh/gohighlevel` (aún no en npm)
 
 HighLevel (GoHighLevel / LeadConnector) Conversations API. Entrada por el
 webhook `InboundMessage` (Ed25519, `X-GHL-Signature`), salida con
@@ -612,7 +705,7 @@ const provider = new GoHighLevelProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/gohighlevel-provider)
 
-### `@botmesh/gupshup` (experimental)
+### `@botmesh/gupshup` (aún no en npm)
 
 Gupshup WhatsApp API: endpoints de envío v1 y callbacks v2. Gupshup no firma
 los callbacks, así que se autentican con un token compartido en la URL del
@@ -641,7 +734,7 @@ const provider = new GupshupProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/gupshup-provider)
 
-### `@botmesh/email` (experimental)
+### `@botmesh/email` (aún no en npm)
 
 Email: **IMAP IDLE** para recibir y **SMTP** para responder. Cada hilo de
 correo es un chat, así que los flujos con `ask()` continúan cuando el cliente
@@ -677,7 +770,7 @@ const provider = new EmailProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/email-provider)
 
-### `@botmesh/tiktok` (experimental)
+### `@botmesh/tiktok` (aún no en npm)
 
 TikTok API for Business (v1.3): **comentarios** en los videos propios de la
 cuenta y **mensajes directos** (Business Messaging API, requiere aprobación).
@@ -708,10 +801,15 @@ const provider = new TikTokProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/tiktok-provider)
 
-## Migrar desde las alphas de 2.0
+## Actualizar desde una alpha de 2.0
 
-El [contrato común de los canales](#contrato-comun-de-los-canales) cambió algunos
-comportamientos de las versiones alpha. Revisa esto al actualizar:
+Los bots nuevos pueden saltarse esta sección. Si tenías un bot sobre una de las
+primeras alphas de 2.0, el [contrato común de los canales](#contrato-comun-de-los-canales)
+cambió algunos comportamientos; el detalle por paquete está en
+[Notas de actualización: canales y plugins](/es/guide/actualizar-canales-plugins)
+y [Migrar a la API estable](/es/guide/migracion-estable).
+
+::: details Qué cambió en todos los canales
 
 - **`ctx.timestamp` es milisegundos epoch en todas partes.** Baileys, la Cloud API y
   `MockProvider` informaban segundos epoch. Quita cualquier `* 1000`
@@ -754,11 +852,17 @@ comportamientos de las versiones alpha. Revisa esto al actualizar:
   `toTikTokError`; `toEmailProviderError` → `toEmailError`; el `toProviderError` de
   `@botmesh/meta` → `toGraphError` de `@botmesh/graph-core`.
 
+:::
+
 ## Siguientes pasos
 
+- [Mensajes y media](/es/guide/mensajes): qué hace cada helper en cada
+  transporte.
+- [Sandbox de plataformas](/es/guide/sandbox): ejecuta un bot sobre los
+  providers reales contra simuladores locales, sin cuentas.
 - [Servidor de webhooks](/es/guide/servidor): monta los providers por webhook
   con `@botmesh/server`.
 - [Ventana de 24 h y costos](/es/guide/ventana-24h): ventana de sesión de la
   Cloud API y seguimiento de uso.
-- [Mensajes y media](/es/guide/mensajes): qué hace cada helper en cada
-  transporte.
+- [Formularios](/es/guide/formularios): WhatsApp Flows nativos en la Cloud API,
+  campo a campo en el resto.

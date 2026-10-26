@@ -18,13 +18,13 @@ The **WhatsApp via [Baileys 7](https://github.com/WhiskeySockets/Baileys)** tran
 
 ## Installation
 
-In the monorepo the package is already available as a workspace. From an app:
-
 ```bash
-pnpm add @botmesh/core@alpha @botmesh/baileys@alpha
+pnpm add @botmesh/core @botmesh/baileys
 ```
 
-The packages are published under the `alpha` dist-tag (there is no `latest` yet), hence the `@alpha`.
+> **Prerelease.** Until the stable release, botmesh is published only under a prerelease dist-tag, so a plain install does not resolve yet. Add the tag to both packages (today `alpha`: `pnpm add @botmesh/core@alpha @botmesh/baileys@alpha`); `npm view @botmesh/baileys dist-tags` lists the current ones.
+
+Inside the monorepo the package is already available as a workspace.
 
 - **pnpm ≥ 10** blocks dependency build scripts, and **pnpm 11 fails the install** (`ERR_PNPM_IGNORED_BUILDS`) until you decide. `@whiskeysockets/baileys` (a Node version check) and `protobufjs` (a version notice) need none of theirs, so deny them in `pnpm-workspace.yaml` (npm runs them and installs normally):
 
@@ -46,7 +46,7 @@ import { BaileysProvider } from '@botmesh/baileys'
 const bot = new Bot({ provider: new BaileysProvider({ session: 'my-bot' }) })
 
 bot.on('ready', () => console.log('✅ Connected'))
-bot.when('hola', (ctx) => ctx.reply('👋 Hello!'))
+bot.when('hi', (ctx) => ctx.reply('👋 Hello!'))
 
 await bot.start()   // the first time it prints the QR in the terminal: scan it from WhatsApp → Linked devices
 ```
@@ -60,7 +60,6 @@ interface BaileysProviderConfig {
   session?: string            // session id, 'default' by default
   sessionsDir?: string        // root folder for sessions, './sessions' by default
   pairingPhoneNumber?: string // the bot's phone in international format: pair with a code instead of a QR
-  pairingCode?: string        // deprecated alias of pairingPhoneNumber
   qr?: QrConfig               // how to show the QR (terminal, small size by default)
   rateLimit?: RateLimitConfig // anti-ban send pacing (on by default)
   reconnect?: boolean | { maxAttempts?: number; baseMs?: number; capMs?: number } // true by default
@@ -74,9 +73,10 @@ interface BaileysProviderConfig {
   remoteMedia?: RemoteMediaConfig // how outbound media URLs are downloaded (see Outbound media)
   durableMedia?: { viewOnce?: boolean } // with durability: journal view-once media too (off by default)
   logger?: LoggerLike           // any logger with debug/info/warn/error (pino, console…); Baileys gets an adapter
-  debug?: boolean               // deprecated: pass a logger, e.g. pino({ level: 'debug' }) ('debug' level on the default logger)
 }
 ```
+
+Deprecated options, kept until v3: `pairingCode` (use `pairingPhoneNumber`) and `debug` (pass a logger such as `pino({ level: 'debug' })`).
 
 ### Session
 
@@ -100,7 +100,7 @@ bot.on('qr', (artifact) => {
 await bot.start()
 ```
 
-On the phone: **Linked devices → Link with phone number** and enter the code. The code is requested once per start, together with the first QR. If the request fails, the provider logs it and keeps offering the QR. The QR and the code also arrive in the `connection` event, as `authPayload`. A `pairingPhoneNumber` that is not a phone number (6 to 15 digits once spaces, `+` and dashes are dropped) throws a `TypeError` in the constructor. `pairingCode` is the deprecated name of the same option (the value was always the phone number, not a code); it still works, and passing both with different numbers throws.
+On the phone: **Linked devices → Link with phone number** and enter the code. The code is requested once per start, together with the first QR. If the request fails, the provider logs it and keeps offering the QR. The QR and the code also arrive in the `connection` event, as `authPayload`. A `pairingPhoneNumber` that is not a phone number (6 to 15 digits once spaces, `+` and dashes are dropped) throws a `TypeError` in the constructor.
 
 ### QR rendering
 
@@ -157,7 +157,7 @@ If `start()` fails during a reconnect (for example, no network), it is retried w
 
 `ctx.photo`, `ctx.video`, `ctx.audio`, `ctx.file`, `ctx.voice` and `ctx.sticker` take a URL, a local path, a `Buffer`, `{ buffer }`, `{ path }`, `{ url }` or `{ stream }`.
 
-- **URLs are downloaded by the provider**, not by Baileys: through `@botmesh/http`, with every redirect hop checked and private, loopback and link-local hosts refused (SSRF), at most 64 MiB and 60 s. Tune it with `remoteMedia: { maxBytes, timeoutMs, maxRedirects, allowHttp }`; `allowPrivateHosts: true` accepts internal hosts (and, for photos, videos, audio and files, hands the URL to Baileys untouched, as before).
+- **URLs are downloaded by the provider**, not by Baileys: through `@botmesh/http`, with every redirect hop checked and private, loopback and link-local hosts refused (SSRF), at most 64 MiB and 60 s. Tune it with `remoteMedia: { maxBytes, timeoutMs, maxRedirects, allowHttp }`; `allowPrivateHosts: true` accepts internal hosts (and, for photos, videos, audio and files, hands the URL to Baileys untouched).
 - **Voice notes and stickers** are converted locally (`ffmpeg` to Opus, `sharp` to a 512×512 WebP), so a URL or a stream is read in full first, capped at `remoteMedia.maxBytes`. `ctx.sticker(media, { pack, author })` writes the pack name and author into the sticker's metadata.
 - A local path that does not exist rejects with `UnsupportedContentError` before anything is sent.
 
@@ -172,7 +172,7 @@ The provider resolves it with an `IdentityStore` **before** emitting every event
 - In groups, `chatId` is the group (`…@g.us`) and `senderId` is the canonicalized participant.
 - `ctx.senderInfo.platformData` carries `{ phoneNumber?, lid? }`: the PN when known and the raw LID as it arrived.
 - The other events go through the **same** canonicalization, so a person has the same id everywhere: the author of a reaction or a vote, the participants and the author (`actor`) of a group change, the caller (`call.from`) and the chat and keys of `presences`. The provider takes advantage of the PN Baileys includes in each event (`participantAlt`, `authorPn`, `callerPn`, the participant's `phoneNumber`) and, when it does not, queries the mapping store.
-- In a reaction, `senderId` is **whoever reacts** and `ref.id` is the reacted message (previously the author of that message was reported, by mistake).
+- In a reaction, `senderId` is **whoever reacts** and `ref.id` is the reacted message.
 - Mentions (`mentions`) and the author of the quoted message (`quoted.senderId`) are canonical too: in a group addressed by LID, WhatsApp mentions and quotes with LIDs, and the provider swaps them for the PN when it knows it (querying the mapping store if needed). That way `ctx.quoted?.senderId === provider.selfId` detects a reply to a message sent by the bot. The quote and the mentions are also read from captions of photos, videos and documents, and `quoted.ref` points at the quoted message (usable as `quoted` to reply in the thread).
 - Wrapped messages (disappearing mode, *view once*, document with caption) are unwrapped before being classified, so they arrive with their real `type`, `body` and `media`.
 - Baileys upserts every stanza before processing it. Those that are not something a person wrote (reactions, which arrive as the `reaction` event instead; deletes and chat settings; sender-key distributions; placeholders for messages that failed to decrypt; group notice stubs) are not emitted as messages, so they never reach a catch-all handler or an `ask`. A text edit is the exception: it arrives as a message with the original `ref.id` (see `editedMessages`). Reactions in statuses, broadcast lists and channels are dropped like their messages (`ignoreBroadcasts`/`ignoreNewsletters`).
@@ -327,6 +327,20 @@ The names that moved to `/internal` are still exported by the main entry as `@de
 - **Poll votes:** without a `pollStore`, only those for polls the process has seen since it started are read, and the bot cannot vote (see [Polls and votes](#polls-and-votes)). If the answer must survive a restart, configure a `pollStore` or use `choose()`.
 - No templates and no 24-hour window: that belongs to the Cloud API.
 - Sent messages cannot be edited (`edit: false`).
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| `428 Connection Terminated` before any QR | An old Baileys release or a custom `browser`. Make sure the lockfile resolves `@whiskeysockets/baileys` `7.0.0-rc14` and leave `browser` undefined. |
+| `ERR_PNPM_IGNORED_BUILDS` on install (pnpm 11) | Deny the build scripts of `@whiskeysockets/baileys` and `protobufjs` in `pnpm-workspace.yaml` (see [Installation](#installation)). |
+| `closed` with reason `sessionTakenOver` (440) | Another process, or WhatsApp Web elsewhere, uses the same session. The provider does not fight it: stop the other instance, then start again. |
+| A new QR on every start | The session folder is not kept between runs (a container without a volume, a different `sessionsDir` or working directory), or the device was unlinked (401: the provider deleted the session). Mount `sessionsDir` on persistent storage. |
+| `reconnect exhausted` | Ten transient drops in a row (no network, WhatsApp down). Restart the process or raise `reconnect.maxAttempts`. |
+| A voice note or sticker rejects with `UnsupportedContentError` | `ffmpeg` (voice notes) or `sharp` (stickers) is not installed; the error message says how to install it. |
+| An `ask()` never receives the answer | The contact moved from LID to phone number mid-conversation (see [Contacts with a username](#contacts-with-a-username-2026)). Set a `.timeout()` on flows that wait. |
+| Votes are not reported after a restart | Configure a [`pollStore`](#persisting-polls-pollstore). |
+| A send waits, then rejects with `RateLimiterTimeout` | The anti-ban limiter queued it longer than `maxWait`; slow down bulk sends or tune `rateLimit`. |
 
 ## Notes
 

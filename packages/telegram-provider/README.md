@@ -15,13 +15,27 @@ runtime dependencies beyond `@botmesh/core` and `pino`.
 
 ## Install
 
-In the monorepo the workspace package is already available. From an app:
-
 ```bash
 pnpm add @botmesh/core @botmesh/telegram
 ```
 
-Create a bot with [@BotFather](https://t.me/BotFather) and keep the token.
+> **Prerelease.** Until the stable release, botmesh is published only under a prerelease
+> dist-tag, so a plain install does not resolve yet. Add the tag to both packages
+> (today `alpha`: `pnpm add @botmesh/core@alpha @botmesh/telegram@alpha`); `npm view
+> @botmesh/telegram dist-tags` lists the current ones.
+
+Create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`) and keep the token
+out of your code (an environment variable such as `TG_TOKEN`). Inside the monorepo the
+package is already available as a workspace.
+
+### Polling or webhook?
+
+| | Long polling (default) | Webhook (`polling: false`) |
+| --- | --- | --- |
+| Public URL | not needed | HTTPS URL registered with `setWebhook` |
+| Good for | development, a bot running as one process | serverless, several replicas behind a load balancer |
+| Delivery | the provider calls `getUpdates` in a loop | your HTTP server hands each POST to `ingest()` |
+| Limits | one poller per token (a second one gets `409`) | requests are checked with `webhookSecret` |
 
 ## Config
 
@@ -61,18 +75,18 @@ import { TelegramProvider } from '@botmesh/telegram'
 const provider = new TelegramProvider({ token: process.env.TG_TOKEN! })
 
 const bot = new Bot({ provider })
-bot.when(/^hola/i, async (ctx) => {
-  await ctx.reply(`¡Hola ${ctx.pushName ?? ''}! 👋`)
-  await ctx.poll('¿Color favorito?', ['Rojo', 'Azul'])          // native poll
-  await ctx.buttons('Elige', [                                   // inline keyboard
-    { id: 'yes', title: 'Sí' },
+bot.when(/^hi/i, async (ctx) => {
+  await ctx.reply(`Hi ${ctx.pushName ?? ''}! 👋`)
+  await ctx.poll('Favourite colour?', ['Red', 'Blue'])          // native poll
+  await ctx.buttons('Pick one', [                               // inline keyboard
+    { id: 'yes', title: 'Yes' },
     { id: 'no', title: 'No' },
   ])
 })
 bot.onMessage(async (ctx) => {
-  if (!ctx.interaction) return ctx.pass()                        // only button presses here
-  await ctx.acknowledge?.('recibido')                            // answerCallbackQuery
-  await ctx.reply(`Elegiste ${ctx.interaction.data}`)             // 'yes' | 'no'
+  if (!ctx.interaction) return ctx.pass()                       // only button presses here
+  await ctx.acknowledge('Got it')                               // answerCallbackQuery (toast)
+  await ctx.reply(`You picked ${ctx.interaction.data}`)         // 'yes' | 'no'
 })
 await bot.start()   // resolves selfId via getMe, then polls getUpdates
 await bot.ready     // first getUpdates round answered (it does not long-poll)
@@ -99,7 +113,7 @@ const provider = new TelegramProvider({
   webhookSecret: process.env.TG_WEBHOOK_SECRET!, // also passed to setWebhook as secret_token
 })
 const bot = new Bot({ provider })
-bot.when('hola', async (ctx) => { await ctx.reply('¡Hola!') })
+bot.when('hi', async (ctx) => { await ctx.reply('Hello!') })
 await bot.start()
 
 const app = express()
@@ -270,6 +284,19 @@ provider drops the suffix when it names **this** bot (case-insensitive), so
 `bot.command('menu')` matches; a command for another bot (`/menu@OtherBot`) is
 left as is. The username comes from `getMe`; if you pass `selfId` (which skips
 `getMe`), also pass `username`. `ctx.raw` (the Telegram message) keeps the original text.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| The bot sees commands in a group but not other messages | **Privacy mode** (on by default for every bot): in groups Telegram only delivers commands, mentions and replies to the bot. Turn it off in @BotFather (`/setprivacy` → Disable) and re-add the bot to the group, or make it an admin. |
+| `closed` with reason `sessionTakenOver` right after `start()` | Another process polls the same token (`409`), or a webhook is still set (the log says so): stop the other poller, or call the Bot API's `deleteWebhook` before switching back to polling. |
+| `closed` with reason `sessionInvalid` | The token is wrong or was revoked (`401`): get a new one from @BotFather. |
+| Webhook requests answered `401` | The `X-Telegram-Bot-Api-Secret-Token` header does not match `webhookSecret`: register the webhook again with the same `secret_token`. |
+| A button press does not match its id | `callback_data` is capped at 64 bytes: use short button ids. |
+| A button keeps its loading spinner | Call `ctx.acknowledge()` (optionally with a short text) when you handle the press. |
+| Poll votes never reach the bot | The poll was anonymous (`anonymousPolls: true`, `platformData.is_anonymous`, or any poll in a channel), or it was sent before a restart. |
+| A media string is rejected | A string must be a URL or a readable path; reuse a `file_id` with `{ native: file_id }`. |
 
 ## Notes
 
