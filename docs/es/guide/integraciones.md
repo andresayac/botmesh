@@ -261,6 +261,10 @@ memoria no cambia. `TicketDesk` también se puede usar sin bot:
   Construye el panel sobre `bot.injectTools.tickets` y protégelo tú.
 - `list()` con un filtro que pueda incluir `closed` recorre todos los ids
   desde 1 hasta el último.
+- Un proceso por namespace del store: el desk guarda su índice y la
+  secuencia de ids en memoria y serializa las escrituras **solo en este
+  proceso**. Dos réplicas sobre el mismo store repartirían el mismo id y se
+  pisarían el índice; ejecuta el plugin de tickets en una sola réplica.
 
 ## Moderación
 
@@ -445,6 +449,11 @@ un LLM debe responder lo que Dialogflow no entiende.
   como id de sesión de Dialogflow, así que ni los ids de chat ni los
   números de teléfono se envían a Google. El **texto** del mensaje sí.
 - Guarda el JSON de la cuenta de servicio en un secreto, nunca en el repo.
+- Los parámetros que se copian a `c.state` omiten `__proto__`, `constructor` y
+  `prototype`: vienen de un servicio remoto y no deben llegar al prototipo del
+  objeto de estado.
+- Un destino de ruta que no sea una función handler, un builder `flow()` o un
+  flow compilado lanza un `TypeError` al registrarlo.
 
 ### Limitaciones de Dialogflow
 

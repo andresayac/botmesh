@@ -257,7 +257,7 @@ Every error extends `VoiceError` and carries a stable `code`:
 | `VoiceRateLimitedError` | `RATE_LIMITED` | HTTP 429 (`retryAfterMs` from `Retry-After`). |
 | `VoiceError` | `NETWORK` / `BAD_RESPONSE` | Transport failure (also when downloading the message's audio), unsafe URL, or an unexpected answer. |
 
-Error messages and logs never include API keys, audio or transcripts.
+Error messages and logs never include API keys, audio or transcripts. The service's own error detail is kept (it explains a 400 or a 401), but the request's API key and anything key-shaped (`sk-…`, even masked) are redacted from it first.
 
 ## Testing
 

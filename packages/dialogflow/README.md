@@ -102,4 +102,4 @@ interface DialogflowResult {
 
 ## Errors
 
-Invalid credentials throw `DialogflowError` **synchronously** on `bot.plug()`. Network/API failures (`status`, `code` such as `'PERMISSION_DENIED'`) are reported through `onError` without breaking the pipeline.
+Invalid credentials throw `DialogflowError` **synchronously** on `bot.plug()`; a route target that is not a handler, a `flow()` builder or a compiled flow throws a `TypeError`. Parameters copied into `c.state` skip `__proto__`, `constructor` and `prototype`. Network/API failures (`status`, `code` such as `'PERMISSION_DENIED'`) are reported through `onError` without breaking the pipeline.

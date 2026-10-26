@@ -263,7 +263,9 @@ Todos extienden `VoiceError` y llevan un `code` estable:
 | `VoiceError` | `NETWORK` / `BAD_RESPONSE` | Fallo de transporte (también al descargar el audio del mensaje), URL insegura o respuesta inesperada. |
 
 Los mensajes de error y los logs nunca incluyen API keys, audio ni
-transcripciones.
+transcripciones. Se conserva el detalle de error del propio servicio (explica un 400 o un
+401), pero antes se le quita la API key de la petición y todo lo que tenga forma de clave
+(`sk-…`, aunque venga enmascarada).
 
 ## Testing
 

@@ -252,6 +252,10 @@ used without a bot: `new TicketDesk({ storage: memoryTicketStorage() })`.
   Build the panel on `bot.injectTools.tickets` and protect it yourself.
 - `list()` with a filter that may include `closed` scans every id from 1
   to the last one.
+- One process per store namespace: the desk keeps its index and id
+  sequence in memory and serializes writes **in this process only**. Two
+  replicas over the same store would hand out the same id and overwrite
+  each other's index; run the tickets plugin on one replica.
 
 ## Moderation
 
@@ -433,6 +437,11 @@ what Dialogflow does not understand.
   the Dialogflow session id, so chat ids and phone numbers are not sent to
   Google. The message **text** is.
 - Keep the service-account JSON in a secret, never in the repo.
+- Parameters copied into `c.state` skip `__proto__`, `constructor` and
+  `prototype`: they come from a remote service and must not reach the
+  prototype of the state object.
+- A route target that is not a handler function, a `flow()` builder or a
+  compiled flow throws a `TypeError` when it is registered.
 
 ### Dialogflow limitations
 
