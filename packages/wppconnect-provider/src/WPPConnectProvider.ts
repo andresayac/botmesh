@@ -68,9 +68,14 @@ import { bearerToken, headerValue, safeEqual, type HeaderBag } from './webhookAu
 
 const UNREACHABLE = /not exist|não existe|no existe|not registered|invalid wid|wid error|number.{0,20}invalid|not on whatsapp/i
 
+/** How much of an HTML error body is parsed (the text kept is 300 characters). */
+const HTML_SCAN_LIMIT = 8 * 1024
+
 /** Express's default error page (`<pre>Cannot POST /api/…</pre>`) and other HTML bodies → their text. */
-function htmlText(body: string): string | undefined {
-  if (!/^\s*<(?:!doctype|html|body|pre|head)\b/i.test(body)) return undefined
+function htmlText(full: string): string | undefined {
+  if (!/^\s*<(?:!doctype|html|body|pre|head)\b/i.test(full)) return undefined
+  // Cut before the lazy regexes below: on a large page of unclosed tags they are quadratic.
+  const body = full.slice(0, HTML_SCAN_LIMIT)
   const pre = /<pre[^>]*>([\s\S]*?)<\/pre>/i.exec(body)
   const text = (pre ? pre[1] : body.replace(/<(script|style|title)\b[^>]*>[\s\S]*?<\/\1>/gi, ' '))
     .replace(/<[^>]*>/g, ' ')
@@ -78,6 +83,14 @@ function htmlText(body: string): string | undefined {
     .replace(/\s+/g, ' ')
     .trim()
   return text.slice(0, 300)
+}
+
+/** Replace every spelling of `secret` that a URL or an echo can carry with `{secretKey}`. */
+function redactSecret(message: string, secret: string): string {
+  const forms = new Set([secret, encodeURIComponent(secret), encodeURI(secret)])
+  let out = message
+  for (const form of [...forms].sort((a, b) => b.length - a.length)) if (form) out = out.split(form).join('{secretKey}')
+  return out
 }
 
 /** Translate a wppconnect-server error response into a typed provider error. */
@@ -220,20 +233,31 @@ export class WPPConnectProvider implements IProvider<unknown> {
     return this.tokenInFlight
   }
 
-  /** POST /api/{session}/{secretKey}/generate-token → bearer token. */
+  /**
+   * POST /api/{session}/{secretKey}/generate-token → bearer token. Any error
+   * it raises has the secretKey replaced by `{secretKey}`: an HTML 404 (wrong
+   * base path, proxy prefix) echoes the request path, and the message reaches
+   * logs and the `closed` connection detail.
+   */
   private async generateToken(): Promise<string> {
-    if (!this.config.secretKey) throw new ProviderError('WPPConnect token rejected and no secretKey configured to regenerate it')
-    const res = await restCall(
-      `${this.baseUrl}/api/${this.sessionPath}/${encodeURIComponent(this.config.secretKey)}/generate-token`,
-      { method: 'POST', label: '/api/{session}/{secretKey}/generate-token' },
-      this.http,
-    )
-    const token = isRecord(res.body) && typeof res.body.token === 'string' ? res.body.token : undefined
-    // wppconnect-server answers a wrong secretKey with 400 "The SECRET_KEY is incorrect": that is an auth failure.
-    const status = res.ok || res.status === 400 ? 401 : res.status
-    if (!res.ok || !token) throw toWppError(status, res.ok ? 'generate-token returned no token' : res.body, '')
-    this.token = token
-    return token
+    const secret = this.config.secretKey
+    if (!secret) throw new ProviderError('WPPConnect token rejected and no secretKey configured to regenerate it')
+    try {
+      const res = await restCall(
+        `${this.baseUrl}/api/${this.sessionPath}/${encodeURIComponent(secret)}/generate-token`,
+        { method: 'POST', label: '/api/{session}/{secretKey}/generate-token' },
+        this.http,
+      )
+      const token = isRecord(res.body) && typeof res.body.token === 'string' ? res.body.token : undefined
+      // wppconnect-server answers a wrong secretKey with 400 "The SECRET_KEY is incorrect": that is an auth failure.
+      const status = res.ok || res.status === 400 ? 401 : res.status
+      if (!res.ok || !token) throw toWppError(status, res.ok ? 'generate-token returned no token' : res.body, '')
+      this.token = token
+      return token
+    } catch (err) {
+      if (err instanceof Error) err.message = redactSecret(err.message, secret)
+      throw err
+    }
   }
 
   private async api<T = unknown>(method: string, endpoint: string, body?: unknown, chatId: ChatId = '', http: RestHttpOptions = this.http): Promise<T> {
@@ -315,6 +339,12 @@ export class WPPConnectProvider implements IProvider<unknown> {
         if (canonical && !isLidJid(canonical)) return false // already linked to a PN
         if (this.lidInFlight.has(lid)) return true
         const retryAt = this.lidRetryAt.get(lid)
+        if (retryAt === Number.POSITIVE_INFINITY) {
+          if (this.identity.has(lid)) return false // linked by an earlier lookup
+          // Linked once, but the identity cache has since evicted the link: look it up again.
+          this.lidRetryAt.delete(lid)
+          return true
+        }
         return retryAt === undefined || retryAt <= now
       })
       .slice(0, this.config.maxLidLookups ?? 5)

@@ -116,7 +116,8 @@ without `http(s)://`, no `webhookToken`) throw a `TypeError` from the constructo
 
 A `template` send, a `contact` whose `phone` has no digits and a `location` outside
 ±90/±180 reject with `UnsupportedContentError` before any request. An HTML error page
-(an unknown `native` endpoint answers `Cannot POST /api/...`) is reduced to its text.
+(an unknown `native` endpoint answers `Cannot POST /api/...`) is reduced to its text; a
+`generate-token` error shows the `secretKey` as `{secretKey}`.
 
 ## Notes
 
