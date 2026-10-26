@@ -23,8 +23,9 @@ export interface TranscribeOptions {
   /** Free-text context that helps the model (OpenAI `prompt`). Ignored where unsupported. */
   prompt?: string
   /**
-   * Per-call request timeout in ms. `VoiceClient` sets it to `limits.timeoutMs`;
-   * the built-in adapters apply the tighter of this and their own `timeoutMs`.
+   * Per-call timeout in ms. On `VoiceClient` it can only tighten `limits.timeoutMs`
+   * (the adapter receives the effective value); the built-in adapters apply the
+   * tighter of this and their own `timeoutMs`.
    */
   timeoutMs?: number
   /** Abort the request. */
@@ -49,8 +50,9 @@ export interface SynthesizeOptions {
   /** Extra style instructions (OpenAI `gpt-4o-mini-tts`). Ignored where unsupported. */
   instructions?: string
   /**
-   * Per-call request timeout in ms. `VoiceClient` sets it to `limits.timeoutMs`;
-   * the built-in adapters apply the tighter of this and their own `timeoutMs`.
+   * Per-call timeout in ms. On `VoiceClient` it can only tighten `limits.timeoutMs`
+   * (the adapter receives the effective value); the built-in adapters apply the
+   * tighter of this and their own `timeoutMs`.
    */
   timeoutMs?: number
   /** Abort the request. */
