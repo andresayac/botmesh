@@ -1,6 +1,6 @@
 # Examples
 
-Complete bots you can copy, run and adapt. Each example is one `bot.js`
+Complete bots you can copy, run and adapt. Most examples are one `bot.js`
 file that shows a set of botmesh features, with a transcript captured from a
 real run and links to the guide of every feature it uses. A test runs every
 example's code and checks its transcript, so what you read is what you get.
@@ -71,7 +71,41 @@ They use [`@botmesh/ai`](/guide/ai) with Anthropic by default; every page shows 
 | [Testing your bot](./testing-your-bot) | Advanced | Testing, Vitest, Golden transcripts | `createTestBot`, `expectReply`, golden transcripts, replay | A complete Vitest file that records and replays a conversation |
 | [Build a plugin: FAQ with tools](./faq-plugin) | Advanced | Plugins, Dependency injection | `definePlugin`, `install`/`uninstall`, `ctx.onDispose`, `provide` | A reusable FAQ plugin that shares its counters as a tool |
 
-The bot code of every example is the same on WhatsApp (Baileys) and
-Telegram: only the provider changes. Where a channel renders something
+## Feature coverage
+
+Which examples show each main feature. Every example also runs in the
+[terminal simulator](/guide/dev-simulator) and, except the Cloud API webhook
+server, on WhatsApp (Baileys) and Telegram with the same bot code.
+
+| Feature | Examples |
+| --- | --- |
+| Flows (`flow()` DSL) | [Registration flow](./registration-flow), [Menu bot](./menu-bot), [Shopping flow](./shopping-flow), [Appointment booking](./appointment-booking), [AI router](./ai-router), [Testing your bot](./testing-your-bot), [Cloud API webhook server](./cloud-api-webhook) |
+| Questions, menus and forms (`ask`, `choose`, `form`) | [Registration flow](./registration-flow), [Menu bot](./menu-bot), [Shopping flow](./shopping-flow), [Support with timeout](./support-flow), [Appointment booking](./appointment-booking), [Order tracking](./order-tracking) |
+| Triggers and commands | [Greeting bot](./greeting-bot), [FAQ bot](./faq-bot), [Send messages](./messages), [Group bot](./group-bot), [FAQ plugin](./faq-plugin) |
+| Media (send and receive) | [Media replies](./media) |
+| Polls | [Poll bot](./poll-bot) |
+| Buttons | [Menu bot](./menu-bot), [AI booking assistant](./ai-tools-booking) |
+| Hooks | [Rate limiter](./rate-limiter), [Multi-language bot](./multi-language) |
+| Plugins | [Rate limiter](./rate-limiter), [FAQ plugin](./faq-plugin) |
+| i18n | [Multi-language bot](./multi-language) |
+| User data (`ctx.user`) | [Order tracking](./order-tracking), [Appointment booking](./appointment-booking), [Daily digest](./daily-digest), [WhatsApp and Telegram](./whatsapp-and-telegram) |
+| Human handoff | [Human handoff](./human-handoff), [AI with human escalation](./ai-handoff) |
+| Groups | [Group bot](./group-bot) |
+| Scheduler | [Reminder bot](./reminders), [Daily digest](./daily-digest), [Human handoff](./human-handoff) |
+| Broadcast | [Daily digest](./daily-digest) |
+| Stores | [Appointment booking](./appointment-booking), [Order tracking](./order-tracking), [WhatsApp and Telegram](./whatsapp-and-telegram), [Production-ready bot](./production-bot), [Daily digest](./daily-digest) |
+| Durability | [Production-ready bot](./production-bot) |
+| Multi-channel (one bot, several providers) | [WhatsApp and Telegram](./whatsapp-and-telegram) |
+| Webhooks and WhatsApp Cloud API | [Cloud API webhook server](./cloud-api-webhook) |
+| Telegram | [WhatsApp and Telegram](./whatsapp-and-telegram), [Streaming AI replies](./ai-streaming), [Group bot](./group-bot), [Multi-language bot](./multi-language) |
+| AI chat | [AI FAQ assistant](./ai-faq), [AI answers from your FAQ](./ai-rag), [AI router](./ai-router) |
+| AI tools with confirmation | [AI booking assistant](./ai-tools-booking), [AI with human escalation](./ai-handoff) |
+| AI chat history and RAG | [AI answers from your FAQ](./ai-rag), [AI FAQ assistant](./ai-faq), [AI router](./ai-router) |
+| AI streaming | [Streaming AI replies](./ai-streaming) |
+| Testing | [Testing your bot](./testing-your-bot), [Streaming AI replies](./ai-streaming) |
+| Terminal simulator (`npx botmesh dev`) | [Greeting bot](./greeting-bot), [Poll bot](./poll-bot), [Testing your bot](./testing-your-bot) |
+
+Apart from the Cloud API webhook server, the bot code of every example is
+the same on WhatsApp (Baileys) and Telegram: only the provider changes. Where a channel renders something
 differently (buttons, stickers), the example page says so, and the
 [capability matrix](/guide/channels#capability-matrix) lists the details.

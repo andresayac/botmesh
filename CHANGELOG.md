@@ -4,6 +4,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### Índice de ejemplos unificado y cobertura de funcionalidades (2026-10)
+- Los ejemplos principiantes, intermedios, de IA y avanzados quedan en un único índice (`docs/examples/index.md`, `docs/es/ejemplos/index.md`) y en la barra lateral, agrupados por **Principiante / Intermedio / IA / Avanzado** con las posiciones EN/ES emparejadas.
+- Nueva tabla "Cobertura de funcionalidades" en el índice (EN/ES): para cada funcionalidad principal (flujos, formularios, triggers, media, encuestas, botones, hooks, plugins, i18n, datos de usuario, handoff, grupos, scheduler, broadcast, stores, durabilidad, multicanal, Cloud API, Telegram, IA, testing y simulador) enlaza los ejemplos que la muestran.
+
 ### Ejemplos de nivel principiante como escaparate de funciones (2026-10)
 - Ejemplos nuevos (EN/ES): **Bot de saludo** (`WELCOME`, `ctx.pass()`, comandos slash), **Bot de FAQ** (coincidencia normalizada, listas, `contains`, regex, catch-all), **Bot de menú** (`flow().choose()` numerado que funciona en Baileys, más botones nativos donde el canal los tiene), **Bot de encuestas** (`ctx.poll()`, votos con `bot.on(poll)`, reacciones) y **Bot de recordatorios** (`bot.delay()`, `bot.schedule()` con zona horaria, cancelación).
 - Los ejemplos existentes (mensajes, media, registro, compra, soporte y rate limiter) siguen el mismo formato y conservan su URL: nivel y etiquetas, "Funciones que muestra" con enlaces a la guía, un único `bot.js` completo en forma `defineBot` (corre con `npx botmesh dev` y con `node`), recorrido, transcripción, cómo ejecutarlo en WhatsApp/Telegram y siguientes pasos. Media pasa a ser "Respuestas con media" (también recibe imágenes y ubicaciones).

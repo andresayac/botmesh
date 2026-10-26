@@ -1,7 +1,7 @@
 # Ejemplos
 
-Bots completos para copiar, ejecutar y adaptar. Cada ejemplo es un único
-archivo `bot.js` que muestra un conjunto de funciones de botmesh, con una
+Bots completos para copiar, ejecutar y adaptar. Casi todos los ejemplos son un único
+archivo `bot.js` que muestran un conjunto de funciones de botmesh, con una
 transcripción capturada de una ejecución real y enlaces a la guía de cada
 función que usa. Un test ejecuta el código de cada ejemplo y comprueba su
 transcripción, así que lo que lees es lo que obtienes.
@@ -72,8 +72,43 @@ Usan [`@botmesh/ai`](/es/guide/ai) con Anthropic por defecto; cada página muest
 | [Probar tu bot](./probar-tu-bot) | Avanzado | Testing, Vitest, Transcripciones doradas | `createTestBot`, `expectReply`, transcripciones doradas, reproducción | Un archivo de Vitest completo que graba y reproduce una conversación |
 | [Crear un plugin: FAQ con herramientas](./plugin-faq) | Avanzado | Plugins, Inyección de dependencias | `definePlugin`, `install`/`uninstall`, `ctx.onDispose`, `provide` | Un plugin de FAQ reutilizable que comparte sus contadores como herramienta |
 
-El código de cada ejemplo es el mismo en WhatsApp (Baileys) y Telegram:
-solo cambia el provider. Cuando un canal muestra algo distinto (botones,
+## Cobertura de funcionalidades
+
+Qué ejemplos muestran cada funcionalidad principal. Todos los ejemplos corren
+también en el [simulador de la terminal](/es/guide/simulador) y, salvo el
+servidor de webhooks de la Cloud API, en WhatsApp (Baileys) y Telegram con el
+mismo código del bot.
+
+| Funcionalidad | Ejemplos |
+| --- | --- |
+| Flujos (DSL `flow()`) | [Flujo de registro](./flujo-registro), [Bot de menú](./bot-menu), [Flujo de compra](./flujo-compra), [Reserva de citas](./reserva-citas), [Enrutador con IA](./ia-enrutador), [Probar tu bot](./probar-tu-bot), [Webhooks de la Cloud API](./webhook-cloud-api) |
+| Preguntas, menús y formularios (`ask`, `choose`, `form`) | [Flujo de registro](./flujo-registro), [Bot de menú](./bot-menu), [Flujo de compra](./flujo-compra), [Soporte con timeout](./flujo-soporte), [Reserva de citas](./reserva-citas), [Seguimiento de pedidos](./seguimiento-pedidos) |
+| Triggers y comandos | [Bot de saludo](./bot-saludo), [Bot de FAQ](./bot-faq), [Enviar mensajes](./mensajes), [Bot de grupo](./bot-de-grupo), [Plugin de FAQ](./plugin-faq) |
+| Media (enviar y recibir) | [Respuestas con media](./media) |
+| Encuestas | [Bot de encuestas](./bot-encuesta) |
+| Botones | [Bot de menú](./bot-menu), [Asistente de citas con IA](./ia-herramientas-citas) |
+| Hooks | [Rate limiter](./rate-limiter), [Bot multi-idioma](./multi-idioma) |
+| Plugins | [Rate limiter](./rate-limiter), [Plugin de FAQ](./plugin-faq) |
+| i18n | [Bot multi-idioma](./multi-idioma) |
+| Datos de usuario (`ctx.user`) | [Seguimiento de pedidos](./seguimiento-pedidos), [Reserva de citas](./reserva-citas), [Resumen diario](./resumen-diario), [WhatsApp y Telegram](./whatsapp-y-telegram) |
+| Handoff humano | [Handoff humano](./handoff-humano), [IA con escalado a humano](./ia-escalado-humano) |
+| Grupos | [Bot de grupo](./bot-de-grupo) |
+| Scheduler | [Bot de recordatorios](./recordatorios), [Resumen diario](./resumen-diario), [Handoff humano](./handoff-humano) |
+| Broadcast | [Resumen diario](./resumen-diario) |
+| Stores | [Reserva de citas](./reserva-citas), [Seguimiento de pedidos](./seguimiento-pedidos), [WhatsApp y Telegram](./whatsapp-y-telegram), [Bot listo para producción](./bot-produccion), [Resumen diario](./resumen-diario) |
+| Durabilidad | [Bot listo para producción](./bot-produccion) |
+| Multicanal (un bot, varios providers) | [WhatsApp y Telegram](./whatsapp-y-telegram) |
+| Webhooks y WhatsApp Cloud API | [Webhooks de la Cloud API](./webhook-cloud-api) |
+| Telegram | [WhatsApp y Telegram](./whatsapp-y-telegram), [IA en streaming](./ia-streaming), [Bot de grupo](./bot-de-grupo), [Bot multi-idioma](./multi-idioma) |
+| Chat con IA | [Asistente de FAQ con IA](./ia-faq), [IA con tus preguntas frecuentes](./ia-rag), [Enrutador con IA](./ia-enrutador) |
+| Herramientas de IA con confirmación | [Asistente de citas con IA](./ia-herramientas-citas), [IA con escalado a humano](./ia-escalado-humano) |
+| Historial de IA y RAG | [IA con tus preguntas frecuentes](./ia-rag), [Asistente de FAQ con IA](./ia-faq), [Enrutador con IA](./ia-enrutador) |
+| Streaming de IA | [IA en streaming](./ia-streaming) |
+| Testing | [Probar tu bot](./probar-tu-bot), [IA en streaming](./ia-streaming) |
+| Simulador en la terminal (`npx botmesh dev`) | [Bot de saludo](./bot-saludo), [Bot de encuestas](./bot-encuesta), [Probar tu bot](./probar-tu-bot) |
+
+Salvo el servidor de webhooks de la Cloud API, el código de cada ejemplo es
+el mismo en WhatsApp (Baileys) y Telegram: solo cambia el provider. Cuando un canal muestra algo distinto (botones,
 stickers), la página del ejemplo lo dice, y la
 [matriz de capacidades](/es/guide/canales#matriz-de-capacidades) da los
 detalles.
