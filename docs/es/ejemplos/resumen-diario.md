@@ -1,6 +1,6 @@
 # Resumen diario programado
 
-Envía a cada suscriptor un resumen a las 08:00 en su zona horaria: una tarea
+Envía a cada suscriptor un resumen a las 08:00 en la zona horaria del bot: una tarea
 cron durable que sobrevive a los reinicios y se ejecuta una sola vez con
 varias réplicas, una lista de altas y bajas guardada en el perfil de cada
 usuario y un broadcast pausado que respeta los límites de envío.
@@ -81,15 +81,24 @@ const createBot = defineBot((provider) => {
   // 4. Una tarea cron durable: guardada, una vez al día entre reinicios y réplicas
   bot.schedule('0 8 * * *', { id: 'daily-digest', missed: 'run-once' }, async (run) => {
     const chatIds = await pendingSubscribers(bot, run.occurrenceKey)
+    const saved = []
     // 5. Un broadcast pausado: 20 chats por lote, 2 s entre lotes, reintentos ante límites de envío
     const result = await bot.broadcast(chatIds, digestFor(run.scheduledAt), {
       batchSize: 20,
       delayBetween: '2s',
       retries: 3,
       signal: run.signal,
+      // 6. Registra cada chat en cuanto se le envía el resumen, no al final
+      onProgress: (_done, _total, last) => {
+        if (!last.ok) return
+        saved.push(bot.user(last.chatId).set('digest.last', run.occurrenceKey)
+          .catch((err) => bot.logger.warn({ err }, 'digest.last not saved')))
+      },
     })
-    for (const sent of result.messages) await bot.user(sent.chatId).set('digest.last', run.occurrenceKey)
-    bot.logger.info({ sent: result.sent, failed: result.failed, pending: result.pending.length }, 'daily digest')
+    await Promise.all(saved)
+    // 7. Parado a mitad del broadcast (un despliegue a las 08:00): los pendientes se quedan sin el de hoy
+    if (result.cancelled) bot.logger.warn({ pending: result.pending.length }, 'daily digest cut short')
+    bot.logger.info({ sent: result.sent, failed: result.failed }, 'daily digest')
   })
   return bot
 })
@@ -123,7 +132,10 @@ El resumen se construye a partir de `run.scheduledAt`, el hueco que cubre la
 ejecución, no de la hora del reloj. Si la tarea vuelve a ejecutarse para el
 mismo hueco (mira el paso 6), produce el mismo mensaje. Las fechas se
 formatean en `TIME_ZONE` con `toLocaleDateString`, así que el día de la
-semana es el del suscriptor, no el del servidor.
+semana es el de esa zona, no el del servidor. Hay una sola zona para todo el
+bot (`DIGEST_TZ`): cada suscriptor recibe el resumen a las 08:00 de esa zona.
+Para zonas por usuario, guarda la zona de cada uno en `ctx.user` y registra
+una tarea por zona.
 
 ### 2. Un scheduler durable en SQLite
 
@@ -164,10 +176,22 @@ se está parando).
 Una tarea durable se ejecuta **al menos una vez** por ocurrencia: si el
 proceso muere a mitad del broadcast, la ocurrencia se repite.
 `run.occurrenceKey` (`daily-digest@2026-03-02T13:00:00.000Z`) es estable por
-hueco, así que tras cada envío el bot la guarda como `digest.last`, y una
-repetición se salta a quien ya recibió el resumen de ese día. En un chat
+hueco. `onProgress` se ejecuta en cuanto termina cada chat, así que el bot
+guarda la clave como `digest.last` justo después de enviarle el resumen, y una
+repetición se salta a quien ya lo recibió ese día. Solo un chat cuyo envío
+salió justo antes de la caída, sin que se llegara a escribir su
+`digest.last`, puede recibirlo dos veces. En un chat
 privado el id del chat es el del usuario, así que `bot.user(chat.id)` lee el
 perfil correcto; los grupos se omiten.
+
+### 7. Parar durante el broadcast
+
+Una caída hace que la ocurrencia se repita, pero una parada ordenada no:
+`bot.stop()` aborta `run.signal`, el broadcast devuelve en `pending` los chats
+a los que no llegó, el handler termina y el scheduler confirma el hueco y pasa
+al día siguiente. Esos chats se quedan sin el resumen de ese día, y el bot lo
+registra como `daily digest cut short`. Despliega fuera de la franja de las
+08:00, o envía tú mismo a los chats `pending` si perder un día importa.
 
 ## Transcripción de ejemplo
 

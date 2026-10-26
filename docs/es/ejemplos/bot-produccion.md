@@ -223,7 +223,9 @@ despliegue. La transcripción de abajo reinicia el bot en mitad del flujo.
 ### 5. Eventos para operación
 
 `'conversation:ended'` informa de cada flujo con su resultado (`completed`,
-`cancelled`, `timedOut`...). `'error'` recibe los fallos de los handlers;
+`cancelled`, `timedOut`...). Un flujo `.persistent()` cortado por un
+reinicio informa `cancelled` y después continúa desde el store, así que no
+alertes solo por `cancelled`. `'error'` recibe los fallos de los handlers;
 envíalos a tu herramienta de errores. Mira [Operación](/es/guide/operations)
 para el resto.
 
@@ -253,7 +255,9 @@ teléfono. `node src/bot.js` y el contenedor ejecutan el bloque
 
 ## Transcripción de ejemplo
 
-Capturada con `npx botmesh dev src/bot.js`. `:reset` arranca un bot nuevo,
+Capturada con `LOG_LEVEL=silent npx botmesh dev src/bot.js`; con el nivel
+`info` por defecto, las líneas de log `conversation ended` del paso 5 salen
+entre las respuestas. `:reset` arranca un bot nuevo,
 como haría un reinicio o un despliegue, y el flujo continúa desde el store:
 
 ```text

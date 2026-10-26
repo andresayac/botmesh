@@ -222,7 +222,9 @@ sample transcript below restarts the bot in the middle of the flow.
 ### 5. Events for operations
 
 `'conversation:ended'` reports every flow with its outcome (`completed`,
-`cancelled`, `timedOut`...). `'error'` receives handler failures; send them to
+`cancelled`, `timedOut`...). A `.persistent()` flow interrupted by a
+restart reports `cancelled` and then continues from the store, so do not
+alert on `cancelled` alone. `'error'` receives handler failures; send them to
 your error tracker. See [Operations](/guide/operations) for the rest.
 
 ### 6. Health and metrics
@@ -249,7 +251,9 @@ without a phone. `node src/bot.js` and the container run the
 
 ## Sample transcript
 
-Captured with `npx botmesh dev src/bot.js`. `:reset` starts a fresh bot, as
+Captured with `LOG_LEVEL=silent npx botmesh dev src/bot.js`; with the
+default `info` level, the `conversation ended` log lines of step 5 appear
+between the replies. `:reset` starts a fresh bot, as
 a restart or a deploy would, and the flow continues from the store:
 
 ```text

@@ -110,4 +110,52 @@ describe.each(PAGES)('$page', ({ page, subscribe, stop, other, digest }) => {
     await restarted.stop()
     expect(again.outbox).toHaveLength(0)
   }, 20_000)
+
+  it('records each chat as soon as its digest is sent, before the broadcast ends', async () => {
+    const { createBot } = await load(page)
+    clockAt(BEFORE_EIGHT)
+    const provider = new MockProvider()
+    // The digest to "carla" hangs: a crash at this point must not resend to the chats already done.
+    const send = provider.send.bind(provider)
+    let release: (() => void) | undefined
+    provider.send = (chatId, content, options) => {
+      if (chatId === 'carla' && content.kind === 'text' && content.text.startsWith('☀️') && !release) {
+        return new Promise((resolve, reject) => {
+          release = () => void send(chatId, content, options).then(resolve, reject)
+        })
+      }
+      return send(chatId, content, options)
+    }
+    const users = ['ana', 'beto', 'carla', 'dora']
+    const key = 'daily-digest@2026-03-02T13:00:00.000Z'
+    const bot = await createBot(provider)
+    await bot.start()
+    try {
+      for (const user of users) provider.incoming(subscribe, { from: user })
+      await until(() => release !== undefined)
+      await new Promise((r) => setTimeout(r, 200))
+      let before = 0
+      for (const user of users) {
+        const got = texts(provider, user).some((t) => t.startsWith('☀️'))
+        if (got) before++
+        const digestState = (await bot.user(user).get('digest')) as { last?: string }
+        expect(digestState.last === key).toBe(got)
+      }
+      // carla is still in flight; whoever came before her in the broadcast is already recorded
+      expect(texts(provider, 'carla').some((t) => t.startsWith('☀️'))).toBe(false)
+      expect(before).toBeGreaterThan(0)
+      // once carla's send goes through, the broadcast finishes and records everyone
+      release!()
+      for (const user of users) await until(() => texts(provider, user).some((t) => t.startsWith('☀️')))
+      await until(() => provider.outbox.length > 0)
+      for (let i = 0; i < 100; i++) {
+        const states = await Promise.all(users.map((u) => bot.user(u).get('digest.last')))
+        if (states.every((s) => s === key)) break
+        await new Promise((r) => setTimeout(r, 20))
+      }
+      expect(await Promise.all(users.map((u) => bot.user(u).get('digest.last')))).toEqual(users.map(() => key))
+    } finally {
+      await bot.stop()
+    }
+  }, 20_000)
 })

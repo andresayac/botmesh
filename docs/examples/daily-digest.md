@@ -1,6 +1,6 @@
 # Scheduled daily digest
 
-Send every subscriber a digest at 08:00 in their time zone: a durable cron
+Send every subscriber a digest at 08:00 in the bot's time zone: a durable cron
 task that survives restarts and runs once with several replicas, an opt-in
 and opt-out list kept in each user's profile, and a paced broadcast that
 respects rate limits.
@@ -80,15 +80,24 @@ const createBot = defineBot((provider) => {
   // 4. A durable cron task: stored, run once per day across restarts and replicas
   bot.schedule('0 8 * * *', { id: 'daily-digest', missed: 'run-once' }, async (run) => {
     const chatIds = await pendingSubscribers(bot, run.occurrenceKey)
+    const saved = []
     // 5. A paced broadcast: 20 chats per batch, 2 s between batches, back-off on rate limits
     const result = await bot.broadcast(chatIds, digestFor(run.scheduledAt), {
       batchSize: 20,
       delayBetween: '2s',
       retries: 3,
       signal: run.signal,
+      // 6. Record each chat as soon as its digest is sent, not at the end
+      onProgress: (_done, _total, last) => {
+        if (!last.ok) return
+        saved.push(bot.user(last.chatId).set('digest.last', run.occurrenceKey)
+          .catch((err) => bot.logger.warn({ err }, 'digest.last not saved')))
+      },
     })
-    for (const sent of result.messages) await bot.user(sent.chatId).set('digest.last', run.occurrenceKey)
-    bot.logger.info({ sent: result.sent, failed: result.failed, pending: result.pending.length }, 'daily digest')
+    await Promise.all(saved)
+    // 7. Stopped mid-broadcast (a deploy at 08:00): the pending chats miss today's digest
+    if (result.cancelled) bot.logger.warn({ pending: result.pending.length }, 'daily digest cut short')
+    bot.logger.info({ sent: result.sent, failed: result.failed }, 'daily digest')
   })
   return bot
 })
@@ -121,7 +130,10 @@ if (isMainModule(import.meta)) {
 The digest is built from `run.scheduledAt`, the slot the run covers, not
 from the wall clock. If the task runs again for the same slot (see step 6),
 it produces the same message. Dates are formatted in `TIME_ZONE` with
-`toLocaleDateString`, so the weekday is the subscriber's, not the server's.
+`toLocaleDateString`, so the weekday is the one in that zone, not the
+server's. There is one zone for the whole bot (`DIGEST_TZ`): every subscriber
+gets the digest at 08:00 in that zone. For per-user zones, store each
+user's zone in `ctx.user` and register one task per zone.
 
 ### 2. A durable scheduler in SQLite
 
@@ -158,10 +170,21 @@ the chats still `pending` if `run.signal` aborted it (the bot is stopping).
 
 A durable task runs **at least once** per occurrence: if the process dies
 mid-broadcast, the occurrence runs again. `run.occurrenceKey`
-(`daily-digest@2026-03-02T13:00:00.000Z`) is stable per slot, so after each
-send the bot stores it as `digest.last`, and a re-run skips the users who
-already got that day's digest. In a private chat the chat id is the user id,
+(`daily-digest@2026-03-02T13:00:00.000Z`) is stable per slot. `onProgress`
+runs after each chat settles, so the bot stores the key as `digest.last` as
+soon as that chat's digest is sent, and a re-run skips the users who already
+got that day's digest. Only a chat whose send went out right before the crash,
+but whose `digest.last` was not written yet, can get it twice. In a private chat the chat id is the user id,
 so `bot.user(chat.id)` reads the right profile; group chats are skipped.
+
+### 7. Stopping during the broadcast
+
+A crash makes the occurrence run again, but a graceful stop does not:
+`bot.stop()` aborts `run.signal`, the broadcast returns the chats it did not
+reach in `pending`, the handler returns and the scheduler commits the slot
+and moves on to tomorrow. Those chats miss that day's digest, which the bot
+logs as `daily digest cut short`. Deploy outside the 08:00 window, or send
+the `pending` chats yourself if missing a day matters.
 
 ## Sample transcript
 
