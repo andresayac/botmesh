@@ -403,16 +403,22 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
   set (in memory, `reactionMemory`, default 1000 messages); an unknown one
   (set before a restart, or evicted) rejects with `UnsupportedContentError`.
 - Interactions have a hard acknowledgement deadline
-  (`interactionsRequireAck`, ~3 s). Call `ctx.acknowledge()` (or
-  `ctx.acknowledge('text')`) to answer a button, menu or slash command; when no
-  handler does within `autoAcknowledgeMs` (default 2000 ms; `autoAckMs` is a
-  deprecated alias), the provider defers it on its own so Discord never shows
-  "This interaction failed". A later `ctx.acknowledge('text')` then posts the
-  text as a followup, with `appId` or else the application id Discord sends on
+  (`interactionsRequireAck`), so the core acknowledges each one exactly once
+  for you: a deferred ack before the handler's first send, shortly before the
+  ~3 s deadline, or when the handler ends, whichever comes first. Call
+  `ctx.acknowledge('text')` before replying to answer with an immediate text
+  instead; once the automatic ack went out, `ctx.acknowledge('text')` sends
+  `text` as a normal reply and `ctx.acknowledge()` does nothing. (Up to
+  `2.0.0-alpha.2` the core did not ack on its own; handlers that already call
+  `ctx.acknowledge()` first keep working unchanged.)
+- `ctx.interaction.id` is the bare interaction id: its token stays inside the
+  provider (the alpha `"<id>:<token>"` form is still accepted). As a backstop,
+  the provider also defers any interaction still unanswered after
+  `autoAcknowledgeMs` (default 2000 ms; `autoAckMs` is a deprecated alias;
+  `false` turns it off). A late `ctx.acknowledge('text')` after the ack goes
+  out as a followup, with `appId` or else the application id Discord sends on
   READY and on each interaction; if none is known the call rejects with
-  `ProviderError` instead of dropping the text. `autoAcknowledgeMs: false`
-  turns this off. `ctx.interaction.id` is the bare interaction id: its token
-  stays inside the provider (the alpha `"<id>:<token>"` form is still accepted).
+  `ProviderError` instead of dropping the text.
 - More than 25 buttons (5 rows of 5), 25 select-menu options or 10 poll
   answers reject with `UnsupportedContentError` instead of dropping options;
   text over 2000 characters is split into several messages.

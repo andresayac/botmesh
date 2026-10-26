@@ -38,6 +38,7 @@ El motor vive en `packages/core/src/core/bot/`:
 | `outbound.ts` | Envíos y ediciones por los hooks de `send`, el registro de mensajes, respuestas pausadas, typing y `ctx.stream()` |
 | `rateLimitRetry.ts` | El reintento corto en el sitio de las respuestas de `ctx` limitadas por tasa (`BotConfig.rateLimitRetry`) |
 | `contextFactory.ts` | Construye el `MessageContext` (`ctx`) de un mensaje, una llamada proyectada o un `bot.trigger()` |
+| `interactionAck.ts` | La única confirmación automática de una interacción en un transporte con `interactionsRequireAck` (Discord): antes del primer envío, cerca de `respondBy` o al terminar el enrutado |
 | `gates.ts` | Admisión por listas de acceso y handoff a humano, con sus contadores y logs de descarte |
 | `lang.ts` | La resolución de `ctx.lang` y los puntos de idioma del Dispatcher |
 | `persistence.ts` | Escrituras de chat / contacto / handoff, ordenadas por chat |

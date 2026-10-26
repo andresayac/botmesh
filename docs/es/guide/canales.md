@@ -419,17 +419,24 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
   (se puso antes de reiniciar o salió del LRU) rechaza con
   `UnsupportedContentError`.
 - Las interacciones tienen un plazo estricto de confirmación
-  (`interactionsRequireAck`, ~3 s). Llama a `ctx.acknowledge()` (o
-  `ctx.acknowledge('texto')`) para responder a un botón, menú o comando slash;
-  si ningún handler lo hace en `autoAcknowledgeMs` (2000 ms por defecto;
-  `autoAckMs` es un alias obsoleto), el provider la difiere por su cuenta y
-  Discord nunca muestra "This interaction failed". Un `ctx.acknowledge('texto')`
-  posterior publica el texto como followup, con `appId` o, si falta, con el id
+  (`interactionsRequireAck`), así que el core confirma cada una exactamente una
+  vez por ti: una confirmación diferida antes del primer envío del handler,
+  poco antes del plazo de ~3 s o al terminar el handler, lo que ocurra antes.
+  Llama a `ctx.acknowledge('texto')` antes de responder para contestar con un
+  texto inmediato; una vez enviada la confirmación automática,
+  `ctx.acknowledge('texto')` envía `texto` como respuesta normal y
+  `ctx.acknowledge()` no hace nada. (Hasta `2.0.0-alpha.2` el core no
+  confirmaba por su cuenta; los handlers que ya llaman primero a
+  `ctx.acknowledge()` siguen funcionando igual.)
+- `ctx.interaction.id` es el id de la interacción a secas: su token no sale
+  del provider (la forma `"<id>:<token>"` de las alphas se sigue aceptando).
+  Como red de seguridad, el provider también difiere cualquier interacción que
+  siga sin respuesta tras `autoAcknowledgeMs` (2000 ms por defecto; `autoAckMs`
+  es un alias obsoleto; `false` lo desactiva). Un `ctx.acknowledge('texto')`
+  tardío, ya confirmada, sale como followup, con `appId` o, si falta, con el id
   de aplicación que Discord manda en READY y en cada interacción; si no se
   conoce ninguno, la llamada rechaza con `ProviderError` en vez de descartar el
-  texto. `autoAcknowledgeMs: false` lo desactiva. `ctx.interaction.id` es el id
-  de la interacción a secas: su token no sale del provider (la forma
-  `"<id>:<token>"` de las alphas se sigue aceptando).
+  texto.
 - Más de 25 botones (5 filas de 5), 25 opciones de menú o 10 respuestas de
   encuesta rechazan con `UnsupportedContentError` en vez de descartar opciones;
   el texto de más de 2000 caracteres se divide en varios mensajes.

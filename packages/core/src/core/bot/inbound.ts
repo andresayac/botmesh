@@ -15,6 +15,7 @@ import { InvalidProviderEventError } from '../errors.js'
 import { invalidEventReason } from '../eventShape.js'
 import type { CallEvent, ChatId, HookEvent, InboundEvent, InboundInteraction, InboundMessage, MessageContext, UserId } from '../types.js'
 import type { ContextFactory } from './contextFactory.js'
+import { InteractionAck } from './interactionAck.js'
 import { admitAccess, admitHandoff } from './gates.js'
 import { assertCoordinated, type BotKernel } from './kernel.js'
 import type { Persistence } from './persistence.js'
@@ -243,22 +244,55 @@ export class InboundPipeline {
    * rebuild a conversation's recorded answer on the replica that takes the chat.
    */
   contextOf(inbound: InboundMessage, interaction?: InteractionInfo): MessageContext {
+    return this.contextWith(inbound, interaction, this.interactionAck(interaction))
+  }
+
+  /**
+   * The auto-ack of an interaction on a transport with `capabilities.interactionsRequireAck`
+   * (Discord), or `undefined`: no such capability, no `acknowledgeInteraction`, or a
+   * deadline that already passed (a replayed or rebuilt interaction cannot be acked).
+   */
+  private interactionAck(interaction?: InteractionInfo): InteractionAck | undefined {
     const { provider } = this.k
-    return this.contextFor(inbound, {
+    if (!interaction || !provider.capabilities?.interactionsRequireAck || !provider.acknowledgeInteraction) return undefined
+    if (interaction.respondBy !== undefined && interaction.respondBy <= Date.now()) return undefined
+    return new InteractionAck(interaction.id, {
+      ack: (id, opts) => provider.acknowledgeInteraction!(id, opts),
+      onError: (err) => this.k.logger.warn({ err }, 'interaction auto-acknowledgement failed'),
+    }, interaction.respondBy)
+  }
+
+  private contextWith(inbound: InboundMessage, interaction: InteractionInfo | undefined, ack: InteractionAck | undefined): MessageContext {
+    const { provider } = this.k
+    const ctx: MessageContext = this.contextFor(inbound, {
       markRead: async (ref) => { assertCoordinated(this.k); await provider.markRead?.([ref]) },
       deleteMessage: async (ref) => { assertCoordinated(this.k); await provider.deleteMessage?.(ref) },
       downloadMedia: guardDownload(provider.downloadMedia ? (ref) => provider.downloadMedia!(ref) : undefined),
-      acknowledgeInteraction: provider.acknowledgeInteraction
-        ? (id, text) => provider.acknowledgeInteraction!(id, { text })
-        : undefined,
+      acknowledgeInteraction: ack
+        // Already acked (by a send, the deadline timer or an earlier call): the text becomes a reply.
+        ? async (_id, text) => { if (!(await ack.acknowledge(text)) && text) await ctx.say(text) }
+        : provider.acknowledgeInteraction
+          ? (id, text) => provider.acknowledgeInteraction!(id, { text })
+          : undefined,
       interaction,
-    })
+    }, ack ? () => ack.ensure() : undefined)
+    return ctx
   }
 
   /** `false` only when the message was dropped unprocessed because the bot stopped. */
-  private async processMessage(inbound: InboundMessage, interaction?: InteractionInfo): Promise<boolean> {
+  private processMessage(inbound: InboundMessage, interaction?: InteractionInfo): Promise<boolean> {
+    const ack = this.interactionAck(interaction)
+    const ctx = this.contextWith(inbound, interaction, ack)
+    return ack ? this.routeAcked(ctx, ack) : this.route(ctx)
+  }
+
+  /** Whatever the handlers did (or if nothing ran), the interaction is acked once routing ends. */
+  private async routeAcked(ctx: MessageContext, ack: InteractionAck): Promise<boolean> {
+    try { return await this.route(ctx) } finally { void ack.ensure() }
+  }
+
+  private async route(ctx: MessageContext): Promise<boolean> {
     const { provider, config } = this.k
-    const ctx = this.contextOf(inbound, interaction)
 
     // Group mode filter.
     if (ctx.isGroup && config.groupMode && config.groupMode !== 'all') {

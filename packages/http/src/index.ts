@@ -1,11 +1,17 @@
 import { lookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
-import { Agent, fetch as undiciFetch } from 'undici'
+import { Agent, FormData as UndiciFormData, fetch as undiciFetch } from 'undici'
 
 // Default to undici's fetch (not globalThis.fetch): the pinned Agent below comes
 // from this same undici instance, and Node's built-in fetch uses a DIFFERENT
 // bundled undici that rejects a foreign dispatcher (UND_ERR_INVALID_ARG).
 const defaultFetch = undiciFetch as unknown as typeof globalThis.fetch
+
+/** A FormData that is not this package's undici FormData (e.g. Node's global one). */
+function isForeignFormData(body: unknown): body is FormData {
+  return typeof body === 'object' && body !== null && !(body instanceof UndiciFormData) &&
+    Object.prototype.toString.call(body) === '[object FormData]'
+}
 
 /** Error raised when an outbound request violates a safe-client policy or fails. */
 export class SecureHttpError extends Error {
@@ -102,6 +108,17 @@ export async function secureFetch(input: string | URL, options: SecureFetchOptio
   let headers = init.headers
   let method = (init.method ?? 'GET').toUpperCase()
   let body = init.body
+  if (fetchImpl === defaultFetch && isForeignFormData(body)) {
+    // Node's global FormData comes from Node's bundled undici; this package's undici
+    // does not recognize it and would send the string "[object FormData]". Encode it
+    // with the runtime's own encoder and send the bytes with their boundary.
+    const encoded = new Response(body)
+    const type = encoded.headers.get('content-type') ?? 'multipart/form-data'
+    body = Buffer.from(await encoded.arrayBuffer())
+    const plain = Object.fromEntries(new Headers(headers as ConstructorParameters<typeof Headers>[0]))
+    for (const key of Object.keys(plain)) if (key.toLowerCase() === 'content-type') delete plain[key]
+    headers = { ...plain, 'content-type': type }
+  }
   const dispatchers: Agent[] = []
 
   try {

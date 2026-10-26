@@ -1,0 +1,113 @@
+# Self-hostable platforms for the opt-in integration suites of @botmesh/sandbox.
+#
+#   docker compose -f packages/sandbox/docker/compose.yml -p botmesh-sandbox up -d
+#   docker compose -f packages/sandbox/docker/compose.yml -p botmesh-sandbox run --rm chatwoot-init
+#   node packages/sandbox/docker/chatwoot-token.mjs   # prints BOTWA_TEST_CHATWOOT_* (after chatwoot-init)
+#
+# Every port is published on 127.0.0.1 only. The ports (4781x) avoid the
+# ranges Windows reserves for Hyper-V; change them if a bind fails.
+# Credentials below are throwaway values for a local test stack.
+
+name: botmesh-sandbox
+
+x-chatwoot-env: &chatwoot-env
+  RAILS_ENV: production
+  NODE_ENV: production
+  INSTALLATION_ENV: docker
+  SECRET_KEY_BASE: sandbox-secret-key-base-0123456789abcdef0123456789abcdef0123456789abcdef
+  FRONTEND_URL: http://127.0.0.1:47813
+  DEFAULT_LOCALE: en
+  ENABLE_ACCOUNT_SIGNUP: "false"
+  POSTGRES_HOST: postgres
+  POSTGRES_USERNAME: postgres
+  POSTGRES_PASSWORD: sandbox
+  POSTGRES_DATABASE: chatwoot
+  REDIS_URL: redis://redis:6379/1
+  RAILS_LOG_TO_STDOUT: "true"
+  LOG_LEVEL: warn
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ${SANDBOX_PREFIX:-botmesh-sandbox}-postgres
+    environment:
+      POSTGRES_PASSWORD: sandbox
+      POSTGRES_DB: chatwoot
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      retries: 30
+
+  redis:
+    image: redis:7
+    container_name: ${SANDBOX_PREFIX:-botmesh-sandbox}-redis
+
+  evolution:
+    image: evoapicloud/evolution-api:v2.3.4
+    container_name: ${SANDBOX_PREFIX:-botmesh-sandbox}-evolution
+    depends_on:
+      postgres: { condition: service_healthy }
+    ports: ["127.0.0.1:47811:8080"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    environment:
+      SERVER_URL: http://127.0.0.1:47811
+      AUTHENTICATION_API_KEY: sandbox-evolution-key
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://postgres:sandbox@postgres:5432/evolution?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: evolution_sandbox
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/6
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_LOCAL_ENABLED: "false"
+      LOG_LEVEL: ERROR
+      DEL_INSTANCE: "false"
+
+  wppconnect:
+    # Pinned: 1.3.55 (`latest` in Oct 2026) drops the QR callback of a session started through the REST API.
+    image: wppconnect/server-cli:1.3.50
+    container_name: ${SANDBOX_PREFIX:-botmesh-sandbox}-wppconnect
+    ports: ["127.0.0.1:47812:21465"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    # wppconnect-server only calls webhook URLs on this exact allowlist (the test's fixed port and token).
+    environment:
+      WEBHOOK_ALLOWED_URLS: http://host.docker.internal:47830/webhook/wppconnect?token=sandbox-wppconnect-webhook-token
+    command: ["--secretKey", "sandbox-wppconnect-secret", "--port", "21465", "--host", "http://127.0.0.1", "--no-startAllSession",
+              "--webhook-url", "http://host.docker.internal:47830/webhook/wppconnect?token=sandbox-wppconnect-webhook-token"]
+
+  chatwoot-init:
+    image: chatwoot/chatwoot:v4.7.0
+    profiles: ["init"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment: *chatwoot-env
+    entrypoint: ["docker/entrypoints/rails.sh"]
+    command: ["bundle", "exec", "rails", "db:chatwoot_prepare"]
+
+  chatwoot:
+    image: chatwoot/chatwoot:v4.7.0
+    container_name: ${SANDBOX_PREFIX:-botmesh-sandbox}-chatwoot
+    depends_on:
+      postgres: { condition: service_healthy }
+    ports: ["127.0.0.1:47813:3000"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    environment: *chatwoot-env
+    entrypoint: ["docker/entrypoints/rails.sh"]
+    command: ["bundle", "exec", "rails", "s", "-p", "3000", "-b", "0.0.0.0"]
+
+  chatwoot-sidekiq:
+    image: chatwoot/chatwoot:v4.7.0
+    container_name: ${SANDBOX_PREFIX:-botmesh-sandbox}-chatwoot-sidekiq
+    depends_on:
+      postgres: { condition: service_healthy }
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    environment: *chatwoot-env
+    command: ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    container_name: ${SANDBOX_PREFIX:-botmesh-sandbox}-mailpit
+    ports: ["127.0.0.1:47814:8025", "127.0.0.1:47815:1025"]
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"

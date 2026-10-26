@@ -51,10 +51,13 @@ export function toProviderError(chatId: ChatId, status: number, body: DiscordApi
     const ms = Math.min(86_400_000, Math.ceil(sec * 1000))
     return new RateLimitedError(ms, detail)
   }
+  // 40003: "You are opening direct messages too fast" (a per-account rate limit).
+  if (body.code === 40_003) return new RateLimitedError(body.retry_after ? Math.ceil(body.retry_after * 1000) : 5_000, detail)
   if (status === 403 || (body.code !== undefined && UNREACHABLE_CODES.has(body.code))) {
     return new RecipientUnreachableError(chatId, detail)
   }
-  if (status === 413 || body.code === 40_003) return new PayloadTooLargeError(detail)
+  // 40005: "Request entity too large".
+  if (status === 413 || body.code === 40_005) return new PayloadTooLargeError(detail)
   return new ProviderError(detail)
 }
 

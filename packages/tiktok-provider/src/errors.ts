@@ -6,6 +6,7 @@
 
 import {
   OutsideSessionWindowError,
+  PayloadTooLargeError,
   ProviderError,
   RateLimitedError,
   RecipientUnreachableError,
@@ -32,6 +33,9 @@ const NOT_FOUND_CODES = new Set([40007])
 /** Messaging-limit wording (48 h window / message quota for non-mutual conversations). */
 const WINDOW_RE = /48[- ]?hour|messag\w* limit|limit of messages|within \d+ hours|session window|cannot (?:send|initiate)/i
 
+/** Upload / body size wording ("File size exceeds the limit", "too large"). */
+const TOO_LARGE_RE = /too large|size exceeds|exceeds? the (?:size|file size) limit|file is too big|entity too large/i
+
 export interface TikTokErrorInput {
   chatId: ChatId
   httpStatus: number
@@ -50,6 +54,7 @@ export function toProviderError(input: TikTokErrorInput): ProviderError {
     return new RateLimitedError(input.retryAfterMs ?? 1000, detail)
   }
   if (WINDOW_RE.test(message)) return new OutsideSessionWindowError(chatId, detail)
+  if (httpStatus === 413 || TOO_LARGE_RE.test(message)) return new PayloadTooLargeError(detail)
   if (code !== undefined && NOT_FOUND_CODES.has(code)) return new RecipientUnreachableError(chatId, detail)
   return new TikTokApiError(detail, code, requestId, httpStatus)
 }

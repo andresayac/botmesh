@@ -4,7 +4,7 @@ Guía para agentes de código (y humanos) que trabajan en este repositorio. Comp
 
 ## Qué es
 
-Framework de bots de mensajería **agnóstico de transporte**, en un **monorepo pnpm** (`packages/*` y `examples/*`). El motor es `@botmesh/core`; los canales (WhatsApp vía Baileys, Cloud API, Evolution API, WPPConnect, Twilio o Gupshup; Messenger, Instagram, Telegram, Discord, GoHighLevel, email y TikTok) son paquetes que implementan `IProvider`. Hay **44 paquetes** en `packages/` y un ejemplo ejecutable en `examples/bakery-ai` (`@botmesh/example-bakery-ai`, privado). Todo es **ESM-only**, **Node >= 22** y está en alpha: los 10 paquetes públicos están en npm bajo el dist-tag `alpha` (no hay `latest`) y el resto son privados (la publicación va por Changesets, ver [Publicar una versión](#publicar-una-versión)).
+Framework de bots de mensajería **agnóstico de transporte**, en un **monorepo pnpm** (`packages/*` y `examples/*`). El motor es `@botmesh/core`; los canales (WhatsApp vía Baileys, Cloud API, Evolution API, WPPConnect, Twilio o Gupshup; Messenger, Instagram, Telegram, Discord, GoHighLevel, email y TikTok) son paquetes que implementan `IProvider`. Hay **45 paquetes** en `packages/` y un ejemplo ejecutable en `examples/bakery-ai` (`@botmesh/example-bakery-ai`, privado). Todo es **ESM-only**, **Node >= 22** y está en alpha: los 10 paquetes públicos están en npm bajo el dist-tag `alpha` (no hay `latest`) y el resto son privados (la publicación va por Changesets, ver [Publicar una versión](#publicar-una-versión)).
 
 Capas (las dependencias van siempre hacia abajo, nunca al revés):
 
@@ -17,17 +17,17 @@ Capas (las dependencias van siempre hacia abajo, nunca al revés):
 | Plugins | `ai`, `rag`, `voice`, `nlu`, `dialogflow`, `chatwoot`, `tickets`, `moderation`, `manager`, `events`, `otel` (OpenTelemetry) |
 | Producto (privado, persistente) | `inbox`, `crm`, `hub`, `campaigns`, `deployments` (+ infra `tenant-kv`: documentos JSON por tenant con CAS sobre cualquier `DurableKv`) |
 | Flujos declarativos | `flow-schema` (`@botmesh/flow-schema`: esquema JSON versionado, expresiones seguras, compilación a `CompiledFlow`, exportación inversa, migraciones y helpers de despliegue; lo consume `manager` y opcionalmente `deployments`) |
-| Tooling | `create-botmesh` (CLI scaffolder), `eslint-plugin` (`eslint-plugin-botmesh`), `mcp` (servidor MCP por stdio) |
+| Tooling | `create-botmesh` (CLI scaffolder), `eslint-plugin` (`eslint-plugin-botmesh`), `mcp` (servidor MCP por stdio), `sandbox` (`@botmesh/sandbox`: simuladores locales de las plataformas, chat web y suites contra plataformas autoalojadas en Docker) |
 | Ejemplos | `examples/bakery-ai` (asistente de pedidos con IA sobre Baileys o Twilio) |
 
 El nombre del directorio no siempre coincide con el del paquete (`packages/baileys-provider` → `@botmesh/baileys`, `packages/meta-provider` → `@botmesh/meta`, `packages/*-provider` → `@botmesh/<canal>`, `packages/eslint-plugin` → `eslint-plugin-botmesh`). Mira el `name` en su `package.json` antes de usar `--filter`.
 
-Solo 10 paquetes son **públicos**: `core`, `baileys`, `meta`, `telegram`, `sqlite-store`, `redis-store`, `ai`, `http`, `graph-core` y `create-botmesh`. Los otros 34 (más el ejemplo) llevan `"private": true` y nunca se publican:
+Solo 10 paquetes son **públicos**: `core`, `baileys`, `meta`, `telegram`, `sqlite-store`, `redis-store`, `ai`, `http`, `graph-core` y `create-botmesh`. Los otros 35 (más el ejemplo) llevan `"private": true` y nunca se publican:
 
 - Canales: `discord`, `messenger`, `instagram`, `evolution`, `wppconnect`, `twilio`, `gohighlevel`, `gupshup`, `email`, `tiktok`.
 - Stores: `mongo-store`, `postgres-store`, `mysql-store`.
 - Plugins e infra: `server`, `wa-gateway-kit`, `rag`, `voice`, `nlu`, `dialogflow`, `chatwoot`, `tickets`, `moderation`, `manager`, `events`, `otel`.
-- Tooling: `eslint-plugin-botmesh`, `@botmesh/mcp`.
+- Tooling: `eslint-plugin-botmesh`, `@botmesh/mcp`, `@botmesh/sandbox`.
 - Producto: `inbox`, `crm`, `hub`, `campaigns`, `deployments`, `tenant-kv` (todos persistentes sobre cualquier `DurableKv`) y `flow-schema` (documentos de flujo sin código).
 - Ejemplo: `@botmesh/example-bakery-ai`.
 
@@ -46,6 +46,7 @@ pnpm --filter "@botmesh/meta..." build     # un paquete + sus dependencias del w
 pnpm --filter @botmesh/core exec vitest run tests/dispatcher.test.ts   # un solo archivo
 pnpm --filter "./packages/*-store" test   # los stores (con BOTWA_TEST_*_URL, también contra servidores reales)
 
+pnpm sandbox                              # tras pnpm build: simuladores de las plataformas + chat web en http://127.0.0.1:4610
 pnpm bench:soak                           # carga/soak/fugas del runtime (tras pnpm build; no entra en pnpm test, ver CONTRIBUTING)
 pnpm changeset                            # añade un changeset (todo cambio visible de un paquete público)
 pnpm pack:smoke                           # empaqueta los paquetes públicos y los prueba instalados desde tarballs (no publica)
@@ -171,7 +172,7 @@ Son los errores que más caro han salido. Respétalos aunque un cambio "parezca"
 ## Tests
 
 - **Nada de red ni de credenciales reales.** Inyecta `fetch`, sockets y clientes falsos (como hacen los tests de cada provider). Las únicas excepciones son las suites de integración de stores, opt-in por `BOTWA_TEST_*_URL`, y la de `email-provider` contra GreenMail, opt-in por `BOTWA_TEST_EMAIL` (ver `CONTRIBUTING.md`).
-- Para probar bots, usa `createTestBot` y `MockProvider` de `@botmesh/core/testing`. Para IA, `MockAIProvider` de `@botmesh/ai`.
+- Para probar bots, usa `createTestBot` y `MockProvider` de `@botmesh/core/testing`. Para probar un provider de extremo a extremo por HTTP real (firmas, errores tipados, media), usa su simulador de `@botmesh/sandbox` (`startHarness`, `sim.issues()` debe quedar vacío); sus suites contra Evolution, WPPConnect, Chatwoot y Mailpit en Docker son opt-in (`BOTWA_TEST_EVOLUTION_*`, `_WPPCONNECT_*`, `_CHATWOOT_*`, `_MAILPIT_*`). Para IA, `MockAIProvider` de `@botmesh/ai`.
 - `MockProvider` usa un `from` estable. Si tocas identidad, añade casos con identidades que cambian (mira el patrón de `baileys-provider/tests/lid-identity.test.ts`), usa `aliases` del kit de caos (`ChaosProvider`/`withChaos`) y comprueba el contrato con `assertStableIdentity`/`checkIdentityContract` de `@botmesh/core/testing` (ejemplo en `baileys-provider/tests/identity-contract.test.ts`).
 - Los ids de entrada forman parte del contrato: el core deduplica por `chatId` + `ref.id` / `interactionId` (activado por defecto). Un provider nunca emite un id constante por usuario o un placeholder compartido; si no puede garantizar un id único y estable, emite `''`.
 

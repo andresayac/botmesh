@@ -233,7 +233,11 @@ export interface InboundMessage<TRaw = unknown> {
  * A UI interaction that is NOT a free message: Telegram callback_query, Discord
  * component click / slash command. `data` is the provider-defined id the bot set
  * when building the control. `respondBy` is the ack deadline (Discord 3s /
- * Telegram spinner); the core must call `acknowledgeInteraction` before it.
+ * Telegram spinner). When the provider declares `capabilities.interactionsRequireAck`
+ * the core calls `acknowledgeInteraction` exactly once per interaction: with `text`
+ * from `ctx.acknowledge(text)`, otherwise deferred (`{ defer: true }`) before the
+ * handler's first send, shortly before `respondBy`, or when routing ends, whichever
+ * comes first. Without the capability the core acks only on `ctx.acknowledge()`.
  */
 export interface InboundInteraction<TRaw = unknown> {
   /**
@@ -465,7 +469,11 @@ export interface ProviderCapabilities {
   readReceipts: boolean
   groups: boolean
   templates: boolean
-  /** Interactions carry a hard ack deadline (Discord/Telegram). */
+  /**
+   * Interactions carry a hard ack deadline (Discord): the core then acknowledges each
+   * interaction on its own (see {@link InboundInteraction}). `false` when an ack is
+   * optional (Telegram's spinner) or meaningless; then only `ctx.acknowledge()` acks.
+   */
   interactionsRequireAck: boolean
   /** Delivery is push-to-us (webhook) rather than a socket the provider owns. */
   pushIngress: boolean
@@ -799,7 +807,10 @@ export interface MessageContext<TTools extends object = DefaultTools, TRaw = unk
 
   /**
    * Present only when this context projects an interaction (Telegram/Discord).
-   * `acknowledge()` is a safe no-op on transports without ack (WhatsApp).
+   * `acknowledge()` is a safe no-op on transports without ack (WhatsApp). On a transport
+   * with `capabilities.interactionsRequireAck` the core acks on its own; once that ack
+   * went out (after the first send or near the deadline), `acknowledge(text)` sends
+   * `text` as a regular reply instead.
    */
   interaction?: { id: string; data: string; respondBy?: number }
   acknowledge?(text?: string): Promise<void>

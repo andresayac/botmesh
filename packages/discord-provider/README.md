@@ -55,27 +55,32 @@ slash commands are routed like messages (the button `custom_id`, the
 selected option value or the command name is the body) and carry
 `ctx.interaction` (`id` = the interaction id, `respondBy` = deadline epoch ms).
 The interaction token never leaves the provider (it remembers it by id for its
-15-minute lifetime). Answer each one once from the handler. If no handler does
-within `autoAcknowledgeMs` (default `2000`; `autoAckMs` is a deprecated alias),
-the provider defers it on its own (type 6 for components, type 5 for commands
-and modals; autocomplete is never deferred), so Discord never shows "This
-interaction failed"; `autoAcknowledgeMs: false` turns it off:
+15-minute lifetime). The core acknowledges each interaction exactly once for
+you: a deferred ack (type 6 for components, type 5 for commands and modals)
+before the handler's first send, shortly before the deadline, or when the
+handler ends, whichever comes first. To answer with an immediate text reply
+(type 4) instead, call `ctx.acknowledge(text)` before replying:
 
 ```ts
 bot.when('confirm', async (ctx) => {
-  await ctx.acknowledge?.()          // deferred update (type 6), before the deadline
-  // …or: await ctx.acknowledge?.('Done ✅') — an immediate text reply (type 4)
-  await ctx.reply('Order confirmed')
+  await ctx.acknowledge?.('Done ✅')  // optional: immediate text reply (type 4)
+  await ctx.reply('Order confirmed')  // without the line above, a deferred ack goes out first
 })
 ```
 
-Outside a handler, `provider.acknowledgeInteraction(interactionId, { text? })`
-does the same. Once an interaction is acknowledged (by the bot or automatically),
-a later call with `text` sends it as a followup and a call without text is a
-no-op. The followup needs the application id: `appId`, or else the one Discord
-sends on READY and on each interaction; when none is known, the call rejects
-with `ProviderError` instead of dropping the text. The old `"<id>:<token>"`
-form is still accepted.
+Once the automatic ack went out, `ctx.acknowledge(text)` sends `text` as a
+normal message and `ctx.acknowledge()` is a no-op. Outside a handler,
+`provider.acknowledgeInteraction(interactionId, { text? })` acks directly.
+Once an interaction is acknowledged, a later call with `text` sends it as a
+followup and a call without text is a no-op. The followup needs the
+application id: `appId`, or else the one Discord sends on READY and on each
+interaction; when none is known, the call rejects with `ProviderError`
+instead of dropping the text. The old `"<id>:<token>"` form is still accepted.
+
+As a backstop (for example an interaction that never reaches a bot handler),
+the provider itself defers any interaction still unanswered after
+`autoAcknowledgeMs` (default `2000`; `autoAckMs` is a deprecated alias;
+autocomplete is never deferred). `autoAcknowledgeMs: false` turns that off.
 
 REST requests time out after `requestTimeoutMs` (default 60000) and file uploads
 after `uploadTimeoutMs` (default 300000). More than 25 buttons or 25 select
