@@ -289,8 +289,8 @@ Provider authors check them with the helpers of `@botmesh/core/testing`
   `to<Channel>Error` (`toTelegramError`, `toDiscordError`, `toTwilioError`…; the Meta
   channels share `toGraphError` from `@botmesh/graph-core`); the older `toProviderError`
   names remain as deprecated aliases. `ingest()` returns the HTTP status to answer with
-  (a `number`); WPPConnect returns it as a `Promise<number>` (it checks the token
-  asynchronously) and email's `ingest()` takes a raw message, not a webhook, and returns
+  (a `number`); WPPConnect returns it as a `Promise<number>` (it resolves unknown LIDs
+  through the gateway before emitting, never waiting for your handlers) and email's `ingest()` takes a raw message, not a webhook, and returns
   an `EmailIngestResult`.
 
 | Provider | `maxTextLength` | `maxTextBytes` |
@@ -681,6 +681,11 @@ const provider = new WPPConnectProvider({
   emitting.
 - `markRead` marks the whole chat as seen; buttons and lists degrade to
   numbered text.
+- The connection follows the server's `status-find` webhooks: `isLogged` /
+  `qrReadSuccess` → `ready`, `notLogged` and `qrcode` → `authenticating`,
+  unlinking the device from the phone (`disconnectedMobile`) → `closed`
+  with `sessionInvalid`. `bot.stop()` does not close the session on the
+  server.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/wppconnect-provider)
 

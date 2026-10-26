@@ -57,6 +57,8 @@ describe.skipIf(!BASE)('WPPConnect Server (Docker) + WPPConnectProvider', () => 
   it('generates a token, starts the session and reports the pairing QR', async () => {
     await provider.start()
     await expect.poll(() => updates.some((u) => u.state === 'authenticating' && !!u.authPayload), { timeout: 90_000, interval: 500 }).toBe(true)
+    // An unpaired session also sends status-find "inChat" (before "notLogged"): never a false ready.
+    expect(updates.some((u) => u.state === 'ready')).toBe(false)
   }, T)
 
   it('the session webhooks reach the bot with the token in the query string', async () => {
@@ -69,6 +71,7 @@ describe.skipIf(!BASE)('WPPConnect Server (Docker) + WPPConnectProvider', () => 
   it('sending through an unpaired session rejects with a typed ProviderError', async () => {
     const err = await provider.send('573001112233@c.us', { kind: 'text', text: 'hola' }).catch((e: unknown) => e)
     expect(err).toBeInstanceOf(ProviderError)
+    expect((err as Error).message).toMatch(/session is not connected/)
   }, T)
 
   it('a wrong secret key fails start() as an invalid session', async () => {

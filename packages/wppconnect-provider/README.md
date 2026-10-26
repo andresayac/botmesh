@@ -110,10 +110,14 @@ without `http(s)://`, no `webhookToken`) throw a `TypeError` from the constructo
 | 429 | `RateLimitedError` (`retryAfterMs` from `Retry-After`, 1 s by default) |
 | 413 | `PayloadTooLargeError` |
 | 401/403 | `ProviderError` "Unauthorized — check the WPPConnect token/secretKey" (with `secretKey`, the token is regenerated once first) |
+| 404 `{ status: 'Disconnected' }` (session not started, waiting for the QR, or closed) | `ProviderError` "WPPConnect session is not connected: start it (bot.start()) and pair it…" |
 | 4xx/5xx saying the number does not exist / is not on WhatsApp | `RecipientUnreachableError` |
 | network failure | `ProviderError` naming the cause (`ECONNREFUSED`, `TIMEOUT`...), never the token |
 
-A `template` send rejects with `UnsupportedContentError`.
+A `template` send, a `contact` whose `phone` has no digits and a `location` outside
+±90/±180 reject with `UnsupportedContentError` before any request. An HTML error page
+(an unknown `native` endpoint answers `Cannot POST /api/...`) is reduced to its text; a
+`generate-token` error shows the `secretKey` as `{secretKey}`.
 
 ## Notes
 
@@ -122,6 +126,14 @@ A `template` send rejects with `UnsupportedContentError`.
   `delete-message` and `download-media`.
 - `markRead` marks the **whole chat** (`send-seen`); WhatsApp Web has no
   per-message read receipts.
+- Connection states come from the `status-find` webhooks: `isLogged` (restored
+  session) and `qrReadSuccess` (just paired) → `ready`; `notLogged` and `qrcode` →
+  `authenticating`; `disconnectedMobile` (device unlinked from the phone),
+  `qrReadFail`, `qrReadError` and `deleteToken` → `closed` with `sessionInvalid`;
+  `browserClose`, `serverClose`, `autocloseCalled` and `phoneNotConnected` → `closed`
+  (`transient`). `inChat` is ignored: an unpaired session sends it too.
+- `stop()` only stops the provider; the session keeps running in wppconnect-server
+  (close it with `POST /api/{session}/close-session` if you need to).
 - `baseUrl` must be an absolute `http(s)://` URL (a value without scheme fails in
   the constructor). A wrong `secretKey` (the server answers 400 "The SECRET_KEY is
   incorrect") rejects `start()` with the *Unauthorized* hint and a
@@ -138,6 +150,7 @@ A `template` send rejects with `UnsupportedContentError`.
 | `start()` rejects with *Unauthorized* and the connection closes with `sessionInvalid` | Wrong `secretKey` (the server says "The SECRET_KEY is incorrect") or a revoked `token`. |
 | No QR reaches the bot | Some `server-cli` releases (1.3.55) drop the QR callback of a session started through the REST API; `1.3.50` works. The QR is also shown in the server log. |
 | The same contact gets a different `senderId` after a restart | Their first message came with an unresolved LID. Keep `resolveLid` on and pass `identityPersistence` backed by durable storage. |
+| Sends fail with *WPPConnect session is not connected* | The session is not started, still waits for the QR scan, or was closed (the server answers `404 { status: 'Disconnected' }`). Start the bot and pair the number; after an unlink on the phone (`closed` / `sessionInvalid`), pair again. |
 | `markRead` marks more than one message | WhatsApp Web has no per-message read receipts: `send-seen` marks the whole chat. |
 
 ## Status
