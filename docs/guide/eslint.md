@@ -115,7 +115,9 @@ No options.
 An empty trigger (`''`, `'   '`, an empty template literal, `[]`, `['']`,
 `{ pattern: '' }`) never matches a real message, or, with `contains`, matches
 every message. Checked in `flow(...)` / `addKeyword(...)`, `bot.when(...)` and
-the `trigger` option of `bot.conversation(name, fn, { trigger })`.
+the `trigger` option of `bot.conversation(name, fn, { trigger })`. The core
+also throws a `TypeError` for an empty text pattern when it is registered; the
+rule catches it (and `[]`) before the code runs.
 
 No options.
 

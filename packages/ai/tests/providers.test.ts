@@ -118,6 +118,24 @@ describe('OllamaProvider', () => {
     expect(body).toBeTypeOf('string')
     if (typeof body !== 'string') return // unreachable: the assertion above already failed
     expect(JSON.parse(body).messages[0]).toEqual({ role: 'system', content: 'S' })
+    expect(new Headers(init?.headers).has('authorization')).toBe(false)
+  })
+
+  it('sends apiKey as Authorization: Bearer on generate and stream, and never puts it in an error', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => Response.json({ message: { content: 'ok' } }))
+    const p = new OllamaProvider({ model: 'm', baseUrl: 'https://ollama.com', apiKey: 'sk-secret' }, fetchImpl)
+    await p.generate({ messages: [{ role: 'user', content: 'hi' }] })
+    expect(new Headers(firstCall(fetchImpl.mock.calls)[1]?.headers).get('authorization')).toBe('Bearer sk-secret')
+
+    const streamFetch = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ message: { content: 'a' }, done: true }) + '\n'))
+    const s = new OllamaProvider({ model: 'm', apiKey: 'sk-secret' }, streamFetch)
+    for await (const _ of s.stream({ messages: [{ role: 'user', content: 'hi' }] })) { /* drain */ }
+    expect(new Headers(firstCall(streamFetch.mock.calls)[1]?.headers).get('authorization')).toBe('Bearer sk-secret')
+
+    const failing = new OllamaProvider({ model: 'm', apiKey: 'sk-secret' }, async () => Response.json({ error: 'unauthorized' }, { status: 401 }))
+    const err = await failing.generate({ messages: [{ role: 'user', content: 'hi' }] }).catch((e: Error) => e)
+    expect(String((err as Error).message)).toMatch(/401/)
+    expect(String((err as Error).message)).not.toContain('sk-secret')
   })
 })
 

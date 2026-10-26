@@ -71,13 +71,18 @@ describe('slashCommandsPlugin', () => {
 })
 
 describe('slashCommandsPlugin built-in help (onboarding)', () => {
+  it('is described in English (the core default)', () => {
+    expect(slashCommandsPlugin.description).toBe('/start /help /reset /cancel /id /ping + unknown-command reply')
+  })
+
+
   it('lists every command it installs and /cancel has its own reply (es)', async () => {
     const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(slashCommandsPlugin)
     await chat.send('/help')
     const help = chat.lastReply()?.content
     const text = help && 'text' in help ? help.text : ''
-    for (const cmd of ['/help', '/reset', '/cancel', '/id', '/ping']) expect(text).toContain(cmd)
+    for (const cmd of ['/start', '/help', '/reset', '/cancel', '/id', '/ping']) expect(text).toContain(cmd)
     bot.use(flow('registrar').ask('¿nombre?', 'n').say('fin'))
     await chat.send('registrar')
     await chat.expectReply('¿nombre?')
@@ -90,6 +95,8 @@ describe('slashCommandsPlugin built-in help (onboarding)', () => {
     bot.plug(slashCommandsPlugin)
     await chat.send('/help')
     await chat.expectReply('/cancel — cancel the active conversation')
+    await chat.send('/start')
+    await chat.expectReply('/start, /help — this message')
     await chat.send('/cancel')
     await chat.expectReply('✅ Conversation cancelled.')
   })

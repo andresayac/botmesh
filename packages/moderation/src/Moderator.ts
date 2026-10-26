@@ -46,11 +46,36 @@ export const DEFAULT_MAX_TRACKED_USERS = 10_000
 /** Mutes and admin lists are swept for expired entries once their map passes this size. */
 const SWEEP_FLOOR = 10_000
 const DEFAULT_WARNINGS: WarningPolicy = { max: 3, then: 'kick' }
-const DEFAULT_WARN_TEXT = '⚠️ {name}: {reason}. Advertencia {count}/{max}.'
-const DEFAULT_REASONS: Record<ModerationRule, string> = {
-  antiSpam: 'no envíes tantos mensajes seguidos',
-  wordFilter: 'ese lenguaje no está permitido',
-  linkFilter: 'no se permiten enlaces de otros grupos',
+
+/** Built-in user-visible texts, picked by the chat language (`ctx.lang`, then the bot's default; English otherwise). */
+interface DefaultTexts { warn: string; reasons: Record<ModerationRule, string>; anonymous: string }
+const DEFAULT_TEXTS: Readonly<Record<'en' | 'es', DefaultTexts>> = {
+  en: {
+    warn: '⚠️ {name}: {reason}. Warning {count}/{max}.',
+    reasons: {
+      antiSpam: 'please do not send so many messages in a row',
+      wordFilter: 'that language is not allowed',
+      linkFilter: 'links to other groups are not allowed',
+    },
+    anonymous: 'user',
+  },
+  es: {
+    warn: '⚠️ {name}: {reason}. Advertencia {count}/{max}.',
+    reasons: {
+      antiSpam: 'no envíes tantos mensajes seguidos',
+      wordFilter: 'ese lenguaje no está permitido',
+      linkFilter: 'no se permiten enlaces de otros grupos',
+    },
+    anonymous: 'usuario',
+  },
+}
+
+function defaultTexts(ctx: MessageContext): DefaultTexts {
+  for (const lang of [ctx.lang, ctx.defaultLang]) {
+    const base = (lang ?? '').toLowerCase().split(/[-_]/)[0]
+    if (base === 'es' || base === 'en') return DEFAULT_TEXTS[base]
+  }
+  return DEFAULT_TEXTS.en
 }
 
 interface Resolved {
@@ -416,15 +441,16 @@ export class Moderator implements ModerationController {
     const escalate = policy && count >= policy.max ? policy.then : undefined
     if (escalate) this.warnCounts.delete(key)
 
-    const reason = rules.messages?.reasons?.[rule] ?? DEFAULT_REASONS[rule]
+    const defaults = defaultTexts(ctx)
+    const reason = rules.messages?.reasons?.[rule] ?? defaults.reasons[rule]
     // One pass: a display name such as '{reason}' is user input and must stay literal.
     const values: Record<string, string> = {
-      name: ctx.senderInfo?.displayName ?? ctx.pushName ?? 'usuario',
+      name: ctx.senderInfo?.displayName ?? ctx.pushName ?? defaults.anonymous,
       reason,
       count: String(count),
       max: policy ? String(policy.max) : '∞',
     }
-    const text = (rules.messages?.warn ?? DEFAULT_WARN_TEXT).replace(/\{(name|reason|count|max)\}/g, (_, key: string) => values[key]!)
+    const text = (rules.messages?.warn ?? defaults.warn).replace(/\{(name|reason|count|max)\}/g, (_, key: string) => values[key]!)
     const extra = escalate ? { escalate } : {}
     try {
       await this.sendWarning(ctx, text)

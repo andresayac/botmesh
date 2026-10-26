@@ -148,26 +148,17 @@ describe('lintFlows — triggers', () => {
     expect(lint(bot)).toEqual([expect.objectContaining({ code: 'empty-trigger', severity: 'info', flow: 'step2' })])
   })
 
-  it("flags '' / whitespace triggers that match empty-body (media) messages", () => {
+  it('flags empty triggers: [] on a handler and an empty regex', () => {
     const bot = mkBot()
-    bot.use(flow('').id('blank').say('x'))
-    bot.use(flow('   ').id('spaces').say('x'))
-    bot.when({ pattern: '', match: 'contains' }, flow('every').say('x'))
-    bot.when(['hola', ''], flow('mixed').say('x'))
     bot.when([], () => {})
     bot.when(new RegExp(''), flow('re').say('x'))
     const d = only(lint(bot), 'empty-trigger')
     expect(d.map((x) => [x.flow, x.severity])).toEqual([
-      ['blank', 'warning'],
-      ['spaces', 'warning'],
-      ['every', 'warning'],
-      ['mixed', 'warning'],
       [undefined, 'warning'],
       ['re', 'warning'],
     ])
-    expect(d[0].message).toMatch(/empty/)
-    expect(d[2].message).toMatch(/every message/)
-    expect(d[4].message).toMatch(/never runs/)
+    expect(d[0].message).toMatch(/never runs/)
+    expect(d[1].message).toMatch(/every message/)
   })
 
   it('flags a flow shadowed by an earlier route with the same trigger', () => {

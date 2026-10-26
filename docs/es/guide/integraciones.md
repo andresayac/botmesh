@@ -348,7 +348,9 @@ interacciones y los mensajes propios del bot nunca se moderan.
 Las advertencias se cuentan por chat + usuario; al llegar a
 `warnings.max` el plugin ejecuta `warnings.then` y pone el contador a cero
 (`warnings: false` lo desactiva). Los textos se configuran con
-`messages: { warn, reasons }` (`{name}`, `{reason}`, `{count}`, `{max}`).
+`messages: { warn, reasons }` (`{name}`, `{reason}`, `{count}`, `{max}`); los
+de serie siguen el idioma del chat (inglés por defecto, español con
+`lang: 'es'`).
 
 Los administradores se saltan todas las reglas (`adminBypass`, por defecto
 `true`): los ids de `admins`, quien apruebe `isAdmin(chatId, userId)` y la

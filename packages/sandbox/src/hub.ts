@@ -115,7 +115,7 @@ async function bakeryBot(provider: IProvider, logger: LoggerLike | undefined): P
       if (/precio|cu[aá]nto|how much|quote/.test(text)) return call('quote_order', { items: [{ product: 'croissant', quantity: 2 }, { product: 'coffee', quantity: 1 }] })
       if (/mis pedidos|my orders/.test(text)) return call('my_orders', {})
       if (/pedir|pedido|order/.test(text)) return call('create_order', { items: [{ product: 'croissant', quantity: 2 }, { product: 'coffee', quantity: 1 }] })
-      return '🤖 (IA simulada) Puedo mostrarte el *menú*, darte un *precio*, hacer un *pedido* o ver *mis pedidos*.'
+      return '🤖 (simulated AI) I can show you the *menu*, give you a *price*, place an *order* or show *my orders*.'
     },
   })
   return createBakeryBot(provider, { aiProvider: model, ...(logger ? { logger } : {}) })

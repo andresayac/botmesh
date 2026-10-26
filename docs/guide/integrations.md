@@ -338,7 +338,8 @@ own messages are never moderated.
 Warnings are counted per chat + user; at `warnings.max` the plugin runs
 `warnings.then` and resets the count (`warnings: false` disables it). Texts
 are configurable with `messages: { warn, reasons }` (`{name}`, `{reason}`,
-`{count}`, `{max}`).
+`{count}`, `{max}`); the built-in ones follow the chat language (English by
+default, Spanish with `lang: 'es'`).
 
 Admins skip every rule (`adminBypass`, default `true`): ids in `admins`,
 anyone `isAdmin(chatId, userId)` approves, and the list from

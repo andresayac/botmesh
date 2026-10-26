@@ -9,7 +9,7 @@ describe('buttons sent as a list', () => {
   it('use the listButtonText option for the list button', () => {
     expect(labelOf(toOutbound({ kind: 'buttons', text: 'Pick one', buttons }, { listButtonText: 'Choose' }))).toBe('Choose')
   })
-  it("keep 'Opciones' by default", () => {
-    expect(labelOf(toOutbound({ kind: 'buttons', text: 'Pick one', buttons }))).toBe('Opciones')
+  it("default to 'Options' (English, like the core)", () => {
+    expect(labelOf(toOutbound({ kind: 'buttons', text: 'Pick one', buttons }))).toBe('Options')
   })
 })

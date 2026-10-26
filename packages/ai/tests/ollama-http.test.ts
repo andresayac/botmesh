@@ -65,6 +65,22 @@ describe('Ollama over HTTP (fake server)', () => {
     await t.bot.stop()
   })
 
+  it('sends aiPlugin({ apiKey }) as a Bearer token (Ollama Cloud, authenticated proxies), and none without it', async () => {
+    const auth: Array<string | undefined> = []
+    handler = (body, req, res) => { auth.push(req.headers.authorization); json(res, 200, { model: body.model, message: { content: 'ok' }, done: true }) }
+    const withKey = await createTestBot()
+    withKey.bot.plug(aiPlugin({ provider: 'ollama', baseUrl, model: 'tiny', apiKey: 'sk-ollama-test' }))
+    await withKey.chat.send('hola')
+    await withKey.chat.expectReply('ok', 3000)
+    await withKey.bot.stop()
+    const without = await createTestBot()
+    without.bot.plug(aiPlugin({ provider: 'ollama', baseUrl, model: 'tiny' }))
+    await without.chat.send('hola')
+    await without.chat.expectReply('ok', 3000)
+    await without.bot.stop()
+    expect(auth).toEqual(['Bearer sk-ollama-test', undefined])
+  })
+
   it('streams NDJSON chunks with ctx.stream()', async () => {
     handler = (_body, _q, res) => {
       res.writeHead(200, { 'content-type': 'application/x-ndjson' })

@@ -1826,7 +1826,14 @@ export interface BotConfig {
    * Ignored (no indicator, no wait) on providers without `capabilities.typing`.
    */
   typing?: boolean | TypingConfig
-  /** Pluggable pacing policy; a transport may also own its own limiter. */
+  /**
+   * Ignored: nothing in the core reads it (a v1 leftover; pacing moved to the transports in
+   * v2). Setting it logs a warning when the bot is constructed.
+   *
+   * @deprecated Configure pacing on the provider (e.g. `new BaileysProvider({ rateLimit })`)
+   * and the retry of rate-limited `ctx` replies with {@link BotConfig.rateLimitRetry}.
+   * It will be removed in the next major version.
+   */
   rateLimit?: unknown
   /**
    * In-place retry of a `ctx` send (`reply`/`say`/media in handlers, flows and conversations)

@@ -60,7 +60,7 @@ By default it only moderates **groups** (`applyTo: 'all'` includes private chats
 | `mute` | Internal state: the user's messages are ignored for `muteMs` (default 10 min) | Always available |
 | `warn` | `bot.send` to the group, quoting the message and mentioning the user | `'failed'` if the send fails |
 
-Warnings are counted per chat + user; on reaching `warnings.max`, `warnings.then` (`'mute'` or `'kick'`) runs and the counter resets. `warnings: false` disables it.
+Warnings are counted per chat + user; on reaching `warnings.max`, `warnings.then` (`'mute'` or `'kick'`) runs and the counter resets. `warnings: false` disables it. The warning texts are configurable with `messages: { warn, reasons }`; the built-in ones follow the chat language (English by default, Spanish with `lang: 'es'`).
 
 The provider `groups` namespace is optional and structural:
 

@@ -145,7 +145,7 @@ export const BUILTIN_LOCALES: Readonly<Record<'es' | 'en', LocaleMessages>> = {
         help: [
           '🤖 *Comandos*',
           '',
-          '/help — este mensaje',
+          '/start, /help — este mensaje',
           '/reset — reiniciar la conversación',
           '/cancel — cancelar la conversación activa',
           '/id — ID de este chat',
@@ -214,7 +214,7 @@ export const BUILTIN_LOCALES: Readonly<Record<'es' | 'en', LocaleMessages>> = {
         help: [
           '🤖 *Commands*',
           '',
-          '/help — this message',
+          '/start, /help — this message',
           '/reset — restart the conversation',
           '/cancel — cancel the active conversation',
           '/id — this chat ID',

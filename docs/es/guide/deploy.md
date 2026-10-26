@@ -81,9 +81,9 @@ CMD ["node", "src/bot.js"]
 Con pnpm, cambia las líneas de instalación por
 `RUN corepack enable && pnpm install --prod --frozen-lockfile` y copia
 `pnpm-lock.yaml` en lugar de `package-lock.json`. pnpm 10 y posteriores se
-saltan el script de build de `better-sqlite3` hasta que lo apruebes
-(`onlyBuiltDependencies` en `pnpm-workspace.yaml`, ver
-[SQLiteStore](./store#sqlitestore)).
+saltan el script de build de `better-sqlite3` hasta que lo apruebes en
+`pnpm-workspace.yaml` (`allowBuilds:` con `better-sqlite3: true` en pnpm 11,
+`onlyBuiltDependencies` en pnpm 10; ver [SQLiteStore](./store#sqlitestore)).
 
 Añade un `.dockerignore` con `node_modules`, `sessions`, `data`, `.env` y
 `*.qr.png`, para que las credenciales nunca acaben en una capa de la imagen.

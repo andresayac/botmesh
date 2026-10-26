@@ -14,8 +14,6 @@ import {
 
 export const DEFAULT_MAX_STEPS = 5
 export const DEFAULT_TOOL_TIMEOUT_MS = 15_000
-/** Spanish default of `maxStepsMessage`; the loop sends the localized `ai.tools.maxSteps` (same Spanish text). */
-export const DEFAULT_MAX_STEPS_MESSAGE = 'No pude completar la solicitud. Intenta de nuevo con más detalle.'
 
 export interface ToolLoopOptions {
   tools: AIToolSet

@@ -108,9 +108,14 @@ caption "hola" goes to `bot.when('hola')`. `bot.onType('image')` and
 
 A trigger that is `undefined` or `null` (an unset environment variable, a
 missing import), alone, inside an array or as `{ pattern }`, throws a
-`TypeError` when it is registered. Empty triggers are accepted but almost
-always a mistake: `[]` never matches, and `''` matches every message without
-text (a photo without a caption). `bot.lint()` and the ESLint rule report both.
+`TypeError` when it is registered. So does an empty or blank text pattern
+(`''`, `'   '`, `['hola', '']`, `{ pattern: '' }`): it would match every
+message without text (a photo without a caption), or every message with
+`contains`/`startsWith`/`endsWith`. Use `IMAGE`/`MEDIA` for media and
+`bot.onMessage()` for a catch-all. `[]` is still accepted: it never matches and
+is the usual trigger of a flow entered only by `goto()`. `bot.lint()` reports
+it (as info for a goto-only flow), and the ESLint rule reports every empty
+trigger before the code runs.
 
 ## CALL
 

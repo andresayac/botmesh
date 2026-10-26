@@ -38,8 +38,10 @@ function isPattern(p: unknown): boolean {
 /**
  * Throw a `TypeError` for a trigger no one can mean. `undefined`/`null` (an unset env var,
  * a missing import) used to be stringified and matched the literal text "undefined" or
- * "null". Empty triggers (`''`, `[]`) stay valid: `bot.lint()` and the ESLint rule
- * report them, and `[]` is the usual trigger of a flow entered only by `goto`.
+ * "null". An empty or blank text pattern (`''`, `'  '`, `['hola', '']`) used to match every
+ * message without text (a photo without caption) — or every message with `contains` /
+ * `startsWith` / `endsWith` — so it throws too. `[]` stays valid: it never matches and is
+ * the usual trigger of a flow entered only by `goto`.
  */
 export function assertTrigger(trigger: unknown, where = 'trigger'): void {
   if (typeof trigger === 'function' || isTypeTrigger(trigger as Trigger) || isWelcomeTrigger(trigger as Trigger)) return
@@ -49,15 +51,24 @@ export function assertTrigger(trigger: unknown, where = 'trigger'): void {
         '{ pattern, match?, scope? }, a predicate function or a trigger constant (WELCOME, IMAGE, ...)',
     )
   }
-  if (isPattern(trigger)) return
-  if (Array.isArray(trigger)) { for (const p of trigger) if (!isPattern(p)) bad(p); return }
-  if (typeof trigger === 'object' && trigger !== null && 'pattern' in trigger) {
+  const check = (p: unknown): void => {
+    if (!isPattern(p)) bad(p)
+    if (typeof p === 'string' && normalizeText(p) === '') {
+      throw new TypeError(
+        `Invalid trigger for ${where}: an empty text pattern (${JSON.stringify(p)}) would match every message ` +
+          'without text (or every message with contains/startsWith/endsWith). Use a type trigger such as IMAGE or MEDIA ' +
+          'for media, bot.onMessage() for a catch-all, or [] for a flow entered only by goto()',
+      )
+    }
+  }
+  if (Array.isArray(trigger)) { for (const p of trigger) check(p); return }
+  if (typeof trigger === 'object' && trigger !== null && !(trigger instanceof RegExp) && 'pattern' in trigger) {
     const { pattern } = trigger as { pattern: unknown }
     const patterns = Array.isArray(pattern) ? pattern : [pattern]
-    for (const p of patterns) if (!isPattern(p)) bad(p)
+    for (const p of patterns) check(p)
     return
   }
-  bad(trigger)
+  check(trigger)
 }
 
 function describeValue(v: unknown): string {

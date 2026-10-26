@@ -135,6 +135,18 @@ describe('triggers that can never be meant are rejected at registration', () => 
     expect(() => bot.conversation('c', async () => {}, { trigger: [undefined] as any })).toThrow(/Invalid trigger/)
   })
 
+  it("an empty or blank text pattern ('' matched every message without text) throws", () => {
+    const bot = new Bot({ provider: new MockProvider() })
+    expect(() => bot.when('', () => {})).toThrow(/empty text pattern/)
+    expect(() => bot.when('   ', () => {})).toThrow(/empty text pattern/)
+    expect(() => bot.when(['hola', ''], () => {})).toThrow(/empty text pattern/)
+    expect(() => bot.when({ pattern: '', match: 'contains' }, () => {})).toThrow(/empty text pattern/)
+    expect(() => bot.when({ pattern: ['a', ' '] }, () => {})).toThrow(/empty text pattern/)
+    expect(() => bot.use(flow('').say('x'))).toThrow(/empty text pattern/)
+    expect(() => bot.conversation('c', async () => {}, { trigger: '' })).toThrow(/empty text pattern/)
+    expect(() => bot.when('', () => {})).toThrow(TypeError)
+  })
+
   it('every documented trigger form is still accepted', () => {
     const bot = new Bot({ provider: new MockProvider() })
     expect(() => {

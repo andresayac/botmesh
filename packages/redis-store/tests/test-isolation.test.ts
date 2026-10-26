@@ -3,6 +3,8 @@
  * in a later vitest group than every other file, cluster clients of the suites retry a
  * failed initial discovery, and BOTWA_TEST_REDIS_CLIENT really selects the node-redis major.
  */
+import { createRequire } from 'node:module'
+import { readFileSync } from 'node:fs'
 import { describe, it, expect } from 'vitest'
 import config from '../vitest.config.js'
 import { connectWithRetry, rootNodesFromClusterNodes } from './clusterEnv.js'
@@ -53,13 +55,23 @@ describe('real-server suite isolation', () => {
       .rejects.toThrow('down 2')
   })
 
+  // Loading a node-redis major costs ~0.3 s on an idle machine and several seconds when the
+  // whole workspace runs in parallel, which used to time this test out. `redis` is already
+  // loaded (nodeRedis.ts imports it), so the default case reads the resolved package's
+  // version without loading the other majors, and the v4/v5 case loads only that major.
   it('BOTWA_TEST_REDIS_CLIENT selects the node-redis major the suites import', async () => {
-    const loaded = await import('redis')
-    const expected = REDIS_CLIENT_MAJOR === 'v4' ? await import('redis-v4') : REDIS_CLIENT_MAJOR === 'v5' ? await import('redis-v5') : undefined
-    if (expected) expect(loaded).toBe(expected)
-    else {
-      expect(loaded).not.toBe(await import('redis-v4'))
-      expect(loaded).not.toBe(await import('redis-v5'))
+    const alias = (config as { resolve?: { alias?: Array<{ find: RegExp; replacement: string }> } }).resolve?.alias ?? []
+    const target = REDIS_CLIENT_MAJOR === 'v4' ? 'redis-v4' : REDIS_CLIENT_MAJOR === 'v5' ? 'redis-v5' : undefined
+    if (target === undefined) {
+      expect(alias).toEqual([])
+      const require = createRequire(import.meta.url)
+      const pkg = JSON.parse(readFileSync(require.resolve('redis/package.json'), 'utf8')) as { version: string }
+      expect(pkg.version.split('.')[0]).toBe('6')
+      return
     }
+    expect(alias.map((a) => [String(a.find), a.replacement])).toEqual([[String(/^redis$/), target]])
+    const loaded = await import('redis')
+    const expected = target === 'redis-v4' ? await import('redis-v4') : await import('redis-v5')
+    expect(loaded).toBe(expected)
   })
 })

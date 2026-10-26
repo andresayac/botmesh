@@ -36,7 +36,7 @@ export type LintSeverity = 'error' | 'warning' | 'info'
  * | `empty-choice` | error | `choose()` without options — every answer is rejected |
  * | `unreachable-step` | warning | steps after an unconditional `goto` (or an end step) |
  * | `unreachable-flow` | warning / info | no trigger can start it and no reachable flow jumps to it (info when reachable code could still `c.goto()` it) |
- * | `empty-trigger` | warning / info | `[]` never matches (info for a flow entered only by `goto()`/`c.goto()`); `''` matches empty-body messages (or everything) |
+ * | `empty-trigger` | warning / info | `[]` never matches (info for a flow entered only by `goto()`/`c.goto()`); an empty regex matches everything (`''` is rejected at registration) |
  * | `duplicate-trigger` | warning | a route never fires: an earlier route in dispatch order owns the same pattern |
  * | `flow-id-collision` | warning | two different flows/conversations share one id; only the last one runs |
  * | `persistent-memory-store` | warning | `.persistent()` with only the RAM store: checkpoints die on restart |
@@ -318,15 +318,7 @@ export function lintFlows(source: FlowSource, options: LintOptions = {}): LintDi
       continue
     }
     for (const pattern of info.patterns) {
-      if (pattern.type === 'text' && normalizeText(pattern.value) === '') {
-        report({
-          code: 'empty-trigger', severity: 'warning', ...base,
-          message: info.match === 'equals'
-            ? `Trigger ${info.label} of ${who} has an empty pattern: it matches only messages whose text is empty (media without caption, stickers, …).`
-            : `Trigger ${info.label} of ${who} has an empty pattern with match "${info.match}": it matches every message, so it captures all traffic.`,
-        })
-        break
-      }
+      // An empty text pattern ('') never gets here: registration rejects it (assertTrigger).
       if (pattern.type === 'regex' && pattern.source === '(?:)') {
         report({ code: 'empty-trigger', severity: 'warning', ...base, message: `Trigger ${info.label} of ${who} is an empty regex: it matches every message.` })
         break
