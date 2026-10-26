@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findLinks } from '../src/index.js'
+import { findLinks } from '../src/internal.js'
 
 describe('findLinks — bounded cost on adversarial bodies', () => {
   it('stays linear on a body packed with distinct bare invite links', () => {

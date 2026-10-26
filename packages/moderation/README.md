@@ -1,12 +1,18 @@
 # @botmesh/moderation
 
-> **Experimental — not yet published on npm.** Real, tested implementation, but the package is `private`: it is not part of the first alpha and its API may change. Use it from this monorepo (`workspace:*`).
+**Group moderation** plugin for [`@botmesh/core`](https://www.npmjs.com/package/@botmesh/core): time-window anti-spam, word/regex filters, a link filter (invites to other groups) and `warn` / `mute` / `kick` / `delete` actions, with per-group configuration and an admin bypass.
 
-**Group moderation** plugin for [`@botmesh/core`](../core): time-window anti-spam, word/regex filters, link filter (invites to other groups) and `warn` / `mute` / `kick` / `delete` actions, with per-group configuration and an admin bypass.
+It is transport-agnostic: chat and user ids are opaque strings, links are detected in the message **text**, and every provider capability (delete messages, kick, list admins) is **optional**. When the provider lacks one, the action degrades and the report says so.
 
-It is transport-agnostic: chat and user ids are opaque strings, links are detected in the message **text** and every provider capability (delete messages, kick, list admins) is **optional**. If the provider lacks it, the action degrades and is reported.
+## Install
 
-## Usage
+```bash
+pnpm add @botmesh/core @botmesh/moderation
+```
+
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/moderation@beta` during the beta (`npm view @botmesh/moderation dist-tags` lists the tags). Once stable, the plain command above works.
+
+## Quick start
 
 ```ts
 import { Bot } from '@botmesh/core'
@@ -33,9 +39,32 @@ bot.on('moderation', (report) => {
 
 The plugin hooks into `before('message')` with priority `100` (before other hooks and any handler). A message that breaks a rule runs its actions and does **not** reach the handlers. Messages from a muted user are ignored until the mute expires.
 
-**Mind `groupMode`:** the `Bot`'s `groupMode` filter runs **before** `before('message')` hooks. With `groupMode: 'mentions'` or `'commands'`, group messages that do not mention the bot or are not commands never reach moderation (not even anti-spam or the word/link filters). If the bot must moderate the whole group, use `groupMode: 'all'` (the default); the plugin logs a warning on install when it detects a restrictive `groupMode`.
+**Mind `groupMode`:** the `Bot`'s `groupMode` filter runs **before** `before('message')` hooks. With `groupMode: 'mentions'` or `'commands'`, group messages that do not mention the bot or are not commands never reach moderation (not even anti-spam or the word/link filters). If the bot must moderate the whole group, use `groupMode: 'all'` (the default); the plugin logs a warning at install when it detects a restrictive `groupMode`.
 
 By default it only moderates **groups** (`applyTo: 'all'` includes private chats). Interactions (buttons, slash commands) and the bot's own messages are never moderated.
+
+## Options
+
+`moderationPlugin(config)` takes the rules below (global, and per group in `groups`) plus:
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `provider` | — | Your provider instance; enables `delete`, `kick` and admin lookups when it supports them. |
+| `groups` | — | Per-group overrides, shallow-merged over the global rules; `false` disables moderation in that group. |
+| `applyTo` | `'groups'` | `'all'` also moderates private chats. |
+| `enabled` | `true` | Master switch (also per group). |
+| `admins` | — | User ids exempt from every rule (global or per group). |
+| `adminBypass` | `true` | Admins skip every rule. |
+| `isAdmin` | — | `(chatId, userId) => boolean \| Promise<boolean>`, e.g. your staff list. |
+| `adminCacheMs` | 5 minutes | How long provider admin lists are cached. |
+| `muteMs` | 10 minutes | How long `'mute'` ignores a user. |
+| `deleteWhileMuted` | `false` | Also delete what a muted user keeps sending. |
+| `warnings` | `{ max: 3, then: 'kick' }` | Escalation after N warnings (`'mute'` or `'kick'`); `false` disables it. |
+| `kickFallback` | `'mute'` | What `'kick'` does when the provider cannot kick (`'none'` = nothing). |
+| `maxTrackedUsers` | `10000` | Most warning counters kept in memory (the least recently warned is dropped). |
+| `messages` | built-in | Warning texts (see [Texts](#texts)). |
+| `priority` | `100` | `before('message')` priority. |
+| `onViolation` | — | Called with every `ModerationReport`, after the actions ran. |
 
 ## Rules
 
@@ -55,12 +84,12 @@ By default it only moderates **groups** (`applyTo: 'all'` includes private chats
 
 | Action | How it runs | Without support |
 | --- | --- | --- |
-| `delete` | `provider.deleteMessage(ref)` | `status: 'unsupported'`. Without `provider` in the config, `ctx.delete()` is used and `'attempted'` is reported (it cannot be verified) |
-| `kick` | `provider.groups.removeParticipants(chatId, [userId])` | `'unsupported'` and, by default, degrades to `mute` (`kickFallback: 'none'` avoids it) |
-| `mute` | Internal state: the user's messages are ignored for `muteMs` (default 10 min) | Always available |
-| `warn` | `bot.send` to the group, quoting the message and mentioning the user | `'failed'` if the send fails |
+| `delete` | `provider.deleteMessage(ref)` | `status: 'unsupported'`. Without `provider` in the config, `ctx.delete()` is used and `'attempted'` is reported (it cannot be verified). |
+| `kick` | `provider.groups.removeParticipants(chatId, [userId])` | `'unsupported'` and, by default, degrades to `mute` (`kickFallback: 'none'` avoids it). |
+| `mute` | Internal state: the user's messages are ignored for `muteMs` | Always available. |
+| `warn` | `bot.send` to the group, quoting the message and mentioning the user | `'failed'` if the send fails. |
 
-Warnings are counted per chat + user; on reaching `warnings.max`, `warnings.then` (`'mute'` or `'kick'`) runs and the counter resets. `warnings: false` disables it. The warning texts are configurable with `messages: { warn, reasons }`; the built-in ones follow the chat language (English by default, Spanish with `lang: 'es'`).
+Warnings are counted per chat + user; on reaching `warnings.max`, `warnings.then` (`'mute'` or `'kick'`) runs and the counter resets.
 
 The provider `groups` namespace is optional and structural:
 
@@ -71,17 +100,17 @@ interface GroupAdminApi {
 }
 ```
 
+No bundled provider exposes it yet, so today `kick` degrades to `mute` and admins come from `admins` / `isAdmin`. You can wrap your provider to add it (for example with your own WhatsApp or Telegram admin calls).
+
 ## Administrators
 
-With `adminBypass` (default `true`) administrators are not moderated. Considered admins:
+With `adminBypass` administrators are not moderated. Considered admins:
 
 1. The ids in `admins` (global or per group).
 2. Whoever returns `true` from `isAdmin(chatId, userId)`.
-3. Those reported by `provider.groups.getAdmins(chatId)`, cached for `adminCacheMs` (default 5 min) and invalidated by the `promote`/`demote` group events.
+3. Those reported by `provider.groups.getAdmins(chatId)`, cached for `adminCacheMs` and invalidated by the `promote`/`demote` group events.
 
-When someone leaves the group (`remove` event), their warnings, mute and spam window are forgotten.
-
-Memory stays bounded: expired mutes and stale admin lists are swept, and at most `maxTrackedUsers` (default 10,000) warning counters are kept; past it, the least recently warned user's counter is dropped.
+When someone leaves the group (`remove` event), their warnings, mute and spam window are forgotten. Memory stays bounded: expired mutes and stale admin lists are swept, and at most `maxTrackedUsers` warning counters are kept.
 
 ## `ctx.tools.moderation`
 
@@ -92,10 +121,12 @@ mod.unmute(chatId, userId)
 mod.isMuted(chatId, userId)
 mod.warnings(chatId, userId)
 mod.resetWarnings(chatId, userId?)
-await mod.kick(chatId, userId)          // → { action: 'kick', status }
-mod.setGroupRules(chatId, { antiSpam: false })  // false desactiva, undefined quita el override
+await mod.kick(chatId, userId)                  // → { action: 'kick', status }
+mod.setGroupRules(chatId, { antiSpam: false })  // false disables a rule; undefined removes the override
 mod.invalidateAdmins(chatId?)
 ```
+
+`Moderator` (the engine behind the plugin) also works without a bot.
 
 ## Texts
 
@@ -108,7 +139,25 @@ moderationPlugin({
 })
 ```
 
+Without `messages`, the built-in texts follow the chat language: English by default, Spanish with `lang: 'es'`.
+
 ## Limitations
 
-- State (windows, warnings, mutes) lives in memory: it is lost on restart.
-- No provider in the monorepo exposes `groups.removeParticipants`/`getAdmins` yet; until then `kick` degrades to `mute`.
+- State (spam windows, warnings, mutes) lives in memory: it is lost on restart and is not shared between replicas.
+- `kick` and provider admin lists need a provider with the optional `groups` namespace (none of the bundled providers has it yet).
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| Nothing is moderated in groups | The bot's `groupMode` is `'mentions'` or `'commands'` (the plugin warns at install): use `'all'`. Also check `groups[chatId] !== false` and `enabled`. |
+| Private chats are not moderated | By design: set `applyTo: 'all'`. |
+| `delete` reports `'unsupported'` | The provider has no `deleteMessage`, or it cannot delete other people's messages (the bot usually needs to be a group admin). |
+| `kick` turns into a mute | No bundled provider exposes `groups.removeParticipants`; see [Actions and degradation](#actions-and-degradation). |
+| An admin gets warned | Add the id to `admins` or answer it from `isAdmin`; provider admin lists exist only when the provider exposes `groups.getAdmins`. |
+| A word is not caught | Strings match whole words: use `wholeWord: false` or a RegExp for partial matches. |
+
+## Links
+
+- [Integrations guide (moderation)](https://andresayac.github.io/botmesh/guide/integrations#moderation) · [Hooks](https://andresayac.github.io/botmesh/guide/hooks) · [Configuration (`groupMode`)](https://andresayac.github.io/botmesh/guide/configuration) · [Security](https://andresayac.github.io/botmesh/guide/security)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/moderation/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/moderation) · [Issues](https://github.com/andresayac/botmesh/issues)

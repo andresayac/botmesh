@@ -1,19 +1,21 @@
 # @botmesh/voice
 
-> **Experimental — not yet published on npm.** Real, tested implementation, but the package is `private`: it is not part of the first alpha and its API may change. Use it from this monorepo (`workspace:*`).
-
-Voice for [`@botmesh/core`](../core) bots: **speech-to-text** (STT) for inbound voice notes and **text-to-speech** (TTS) to reply with audio. It is a plugin, not a provider: it works the same on WhatsApp (Baileys or Cloud API), Telegram or any channel that delivers `voice`/`audio`.
+Voice for [`@botmesh/core`](https://www.npmjs.com/package/@botmesh/core) bots: **speech-to-text** (STT) for inbound voice notes and **text-to-speech** (TTS) to reply with audio. It is a plugin, not a provider: it works the same on WhatsApp (Baileys or Cloud API), Telegram or any channel that delivers `voice`/`audio`.
 
 - STT: OpenAI (`whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe` and any compatible server) and Deepgram (`nova-3`).
-- TTS: OpenAI (`gpt-4o-mini-tts`, `tts-1`) and ElevenLabs.
-- No SDKs: HTTPS calls with [`@botmesh/http`](../http)'s `secureFetch` (anti-SSRF, timeouts, size limit).
+- TTS: OpenAI (`gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`) and ElevenLabs.
+- No SDKs: HTTPS calls through the `secureFetch` of [`@botmesh/http`](https://www.npmjs.com/package/@botmesh/http) (anti-SSRF, timeouts, size limits).
 - Synchronous `install()`; adapters resolve on first use and a non-fatal `warmup()` warns at startup when an API key is missing.
 
-Inside the monorepo, declare it as a workspace dependency (it cannot be installed from npm yet):
+## Install
 
-```json
-{ "dependencies": { "@botmesh/voice": "workspace:*" } }
+```bash
+pnpm add @botmesh/core @botmesh/voice
 ```
+
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/voice@beta` during the beta (`npm view @botmesh/voice dist-tags` lists the tags). Once stable, the plain command above works.
+
+You need an API key of the service you pick (`OPENAI_API_KEY`, `DEEPGRAM_API_KEY` or `ELEVENLABS_API_KEY`), or your own adapter.
 
 ## Quick start
 
@@ -35,6 +37,20 @@ bot.when(VOICE_NOTE, async (ctx) => {
   await ctx.voice(await ctx.tools.voice.synthesize('Got it!'))
 })
 ```
+
+## Options
+
+`voicePlugin(config)`:
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `stt` | `SttConfig` | — | Speech-to-text: `{ provider: 'openai' \| 'deepgram', … }` or your own `SttAdapter` (see [Providers](#providers)). |
+| `tts` | `TtsConfig` | — | Text-to-speech: `{ provider: 'openai' \| 'elevenlabs', … }` or your own `TtsAdapter`. |
+| `autoTranscribe` | `boolean \| AutoTranscribeOptions` | `true` when `stt` is set | Transcribe inbound voice notes before routing (see below). Requires `stt`. |
+| `autoReplyWithVoice` | `boolean \| AutoReplyWithVoiceOptions` | `false` | Answer voice with voice (see below). Requires `tts`. |
+| `limits` | `VoiceLimits` | see [Limits](#limits) | Size, duration, text length and time limits. |
+
+`plug()` throws a `VoiceConfigError` when `autoTranscribe` is set without `stt` or `autoReplyWithVoice` without `tts`. A missing API key or an unknown provider does not throw at install: it is logged at startup and fails on first use.
 
 ## How it works
 
@@ -156,7 +172,7 @@ All extend `VoiceError` and carry a stable `code`:
 
 Error messages and logs never include API keys, audio or transcripts. The service's own error detail is kept, but the request's API key and anything key-shaped (`sk-…`, even masked) are redacted from it first.
 
-## Tests
+## Testing
 
 ```ts
 import { createTestBot } from '@botmesh/core/testing'
@@ -175,6 +191,19 @@ await chat.expectReply('👋')
 
 HTTP adapters accept injected `fetch` and `resolver` to test them without network.
 
-## License
+## Troubleshooting
 
-MIT
+| Symptom | Cause and fix |
+| --- | --- |
+| `voice adapters failed to resolve` at startup | Missing API key or unknown provider (`VoiceConfigError`). Set the key in the config or in `OPENAI_API_KEY` / `DEEPGRAM_API_KEY` / `ELEVENLABS_API_KEY`. |
+| Voice notes reach handlers without `ctx.transcript` | Transcription failed: read `ctx.transcriptError` (or pass `onError`). A `VoiceHttpError` carries the service's `status`. |
+| A voice note does not match `bot.when('hello')` | Equality triggers compare the trimmed transcript; check `ctx.transcript`. Pass `language` if the service guesses the wrong language. |
+| `AudioTooLongError` / `AudioTooLargeError` | The note is over `limits.maxDurationSec` / `limits.maxInputBytes`; raise the limit or answer with a hint. |
+| Replies arrive as text although `autoReplyWithVoice` is on | The chat's last inbound message was not a voice note, the text is longer than `maxChars`, the channel has no `voice` capability, or synthesis failed (logged as a warning). Streamed replies and edits always stay text. |
+| The voice reply plays as an audio file, not a voice note | Voice notes must be OGG/Opus: use OpenAI's default `format: 'opus'`, or `outputFormat: 'opus_48000_64'` on ElevenLabs (Baileys transcodes with `ffmpeg` on its own). |
+| `VoiceError` `NETWORK` against a local server | `secureFetch` blocks plain `http` and private addresses unless you pass `allowHttp` / `allowPrivateHosts` on that adapter. |
+
+## Links
+
+- [Voice guide](https://andresayac.github.io/botmesh/guide/voice) · [Plugins](https://andresayac.github.io/botmesh/guide/plugins) · [AI plugin](https://andresayac.github.io/botmesh/guide/ai) · [Security](https://andresayac.github.io/botmesh/guide/security)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/voice/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/voice) · [Issues](https://github.com/andresayac/botmesh/issues)

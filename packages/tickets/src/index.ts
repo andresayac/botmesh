@@ -4,11 +4,16 @@
  * - {@link ticketsPlugin} — installs a {@link TicketDesk} as `ctx.tools.tickets`.
  * - {@link TicketDesk} — the engine (usable without a Bot).
  * - Working hours helpers: {@link parseWorkingHours}, {@link isWithinWorkingHours}.
+ *
+ * The message template renderer and the time-zone clock live in `@botmesh/tickets/internal`,
+ * without a semver guarantee.
+ *
+ * @packageDocumentation
  */
 
 import type { TicketsApi } from './types.js'
 
-export { ticketsPlugin, renderTemplate } from './ticketsPlugin.js'
+export { ticketsPlugin } from './ticketsPlugin.js'
 export type { TicketsPluginConfig } from './ticketsPlugin.js'
 export { TicketDesk, TicketNotFoundError, TicketContentionError } from './TicketDesk.js'
 export type { TicketDeskOptions, TicketCallbackName } from './TicketDesk.js'
@@ -25,7 +30,7 @@ export type {
   TicketsApi,
   TicketKeyValue,
 } from './types.js'
-export { parseWorkingHours, isWithinWorkingHours, localClock } from './workingHours.js'
+export { parseWorkingHours, isWithinWorkingHours } from './workingHours.js'
 export type {
   WorkingHours,
   WorkingHoursInput,

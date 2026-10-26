@@ -31,7 +31,7 @@ export interface DialogflowClientConfig {
   credentials?: ServiceAccountCredentials
   /** Custom bearer-token source (e.g. workload identity); overrides `credentials`. */
   tokenSource?: AccessTokenSource
-  /** Language of the queries (default `'es'`). */
+  /** Language of the queries, one the agent supports (default `'en'`). */
   languageCode?: string
   /** Use Dialogflow CX instead of ES. */
   cx?: DialogflowCxAgent
@@ -165,7 +165,7 @@ export class DialogflowClient {
       throw new DialogflowError('cx.agentId and cx.location are required for Dialogflow CX', undefined, 'INVALID_CONFIG')
     }
     this.projectId = projectId
-    this.languageCode = config.languageCode ?? 'es'
+    this.languageCode = config.languageCode ?? 'en'
     this.edition = config.cx ? 'cx' : 'es'
   }
 

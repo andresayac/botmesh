@@ -4,14 +4,13 @@ import {
   elevenlabsTts,
   openaiStt,
   openaiTts,
-  resolveStt,
-  resolveTts,
   VoiceConfigError,
   VoiceError,
   VoiceHttpError,
   VoiceRateLimitedError,
   VoiceTimeoutError,
 } from '../src/index.js'
+import { resolveStt, resolveTts } from '../src/internal.js'
 import { fakeFetch, json, makeOgg, publicResolver } from './helpers.js'
 
 const ENV_KEYS = ['OPENAI_API_KEY', 'DEEPGRAM_API_KEY', 'ELEVENLABS_API_KEY'] as const

@@ -12,8 +12,8 @@ export type TicketPriority = 'low' | 'normal' | 'high' | 'urgent'
  */
 export type TicketStatus = 'open' | 'assigned' | 'pending' | 'closed'
 
-export const TICKET_PRIORITIES: readonly TicketPriority[] = ['low', 'normal', 'high', 'urgent']
-export const TICKET_STATUSES: readonly TicketStatus[] = ['open', 'assigned', 'pending', 'closed']
+export const TICKET_PRIORITIES: readonly TicketPriority[] = Object.freeze(['low', 'normal', 'high', 'urgent'] as const)
+export const TICKET_STATUSES: readonly TicketStatus[] = Object.freeze(['open', 'assigned', 'pending', 'closed'] as const)
 
 /** A support ticket (JSON-serializable). */
 export interface Ticket {

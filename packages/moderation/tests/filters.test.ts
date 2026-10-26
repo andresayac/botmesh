@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compileTerms, findInviteLinks, findLinks } from '../src/index.js'
+import { compileTerms, findInviteLinks, findLinks } from '../src/internal.js'
 import { firstMatch } from '../src/words.js'
 import { RateWindow } from '../src/rateWindow.js'
 

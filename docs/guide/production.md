@@ -88,7 +88,9 @@ All of these are opt-in: without the option, the bot runs exactly as before.
 
 The npm packages are `@botmesh/core`, `@botmesh/baileys`, `@botmesh/meta`,
 `@botmesh/telegram`, `@botmesh/sqlite-store`, `@botmesh/redis-store`,
-`@botmesh/ai`, `@botmesh/http`, `@botmesh/graph-core` and `create-botmesh`.
+`@botmesh/ai`, `@botmesh/http`, `@botmesh/graph-core`, `create-botmesh` and the
+plugins `@botmesh/rag`, `@botmesh/voice`, `@botmesh/nlu`, `@botmesh/dialogflow`,
+`@botmesh/chatwoot`, `@botmesh/tickets` and `@botmesh/moderation`.
 Some pages also describe packages that live only in the
 [repository](https://github.com/andresayac/botmesh/tree/main/packages) for now
 (the PostgreSQL, MySQL and MongoDB stores, `@botmesh/server`, `@botmesh/otel`,

@@ -25,14 +25,17 @@ const fs = require('fs')
 const root = path.resolve(__dirname, '..')
 const mode = process.argv[2] || 'missing'
 const ts = require(path.join(root, 'node_modules/typescript'))
-const PUBLIC = ['core', 'baileys-provider', 'meta-provider', 'telegram-provider', 'sqlite-store', 'redis-store', 'ai', 'http', 'graph-core', 'create-botmesh']
+const PUBLIC = [
+  'core', 'baileys-provider', 'meta-provider', 'telegram-provider', 'sqlite-store', 'redis-store', 'ai', 'http', 'graph-core', 'create-botmesh',
+  'rag', 'voice', 'nlu', 'dialogflow', 'chatwoot', 'tickets', 'moderation',
+]
 /** Reviewed and accepted (see docs/api-review.md): the EventEmitter-compatible overloads of Bot.on/once/off/emit. */
 const ALLOWED_ANY = new Set(['Bot'])
 /**
  * Transport SDKs whose types must never reach a semver entry's declarations (the package types
  * their values as opaque `unknown` aliases; the SDK-typed helpers live in `./internal`).
  */
-const SEMVER_FORBIDDEN_IMPORTS = { 'baileys-provider': ['@whiskeysockets/baileys'] }
+const SEMVER_FORBIDDEN_IMPORTS = { 'baileys-provider': ['@whiskeysockets/baileys'], rag: ['pdf-parse'] }
 /** Entries without a semver promise: `missing` skips their signatures, and a type exported only there counts as missing. */
 const UNSTABLE_ENTRIES = new Set(['./internal'])
 

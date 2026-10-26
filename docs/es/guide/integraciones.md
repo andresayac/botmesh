@@ -1,9 +1,9 @@
 # Integraciones
 
-::: warning Experimental — no están en npm
-Los paquetes de esta página son **experimentales**: implementaciones reales y
-con tests, pero todavía privadas (no se publican en npm) y su API puede
-cambiar. Úsalos desde el monorepo (`workspace:*`).
+::: tip Paquetes públicos
+Los paquetes de esta página se publican en npm y quedan cubiertos por semver
+desde su versión estable (1.0.0). Cada uno guarda sus piezas internas en una
+entrada `/internal` sin garantía semver (`@botmesh/nlu` no tiene).
 :::
 
 | Paquete | Qué hace | Herramienta |
@@ -18,17 +18,11 @@ Todos son plugins normales con un `install` síncrono
 (`bot.plug(factory({...}))`; `nluPlugin` es un spec, `bot.plug(nluPlugin, config)`). Importar un paquete tipa su entrada de `ctx.tools.*`;
 fuera de un handler, usa `bot.injectTools.<nombre>`.
 
-```json
-{
-  "dependencies": {
-    "@botmesh/chatwoot": "workspace:*",
-    "@botmesh/tickets": "workspace:*",
-    "@botmesh/moderation": "workspace:*",
-    "@botmesh/dialogflow": "workspace:*",
-    "@botmesh/nlu": "workspace:*"
-  }
-}
+```bash
+pnpm add @botmesh/chatwoot @botmesh/tickets @botmesh/moderation @botmesh/dialogflow @botmesh/nlu
 ```
+
+Instala solo los que uses. Durante la beta, añade el dist-tag `@beta` (`pnpm add @botmesh/chatwoot@beta`): hasta la versión estable, el tag `latest` de npm puede apuntar a una build anterior.
 
 ## Cómo encajan en el pipeline
 
@@ -393,11 +387,11 @@ y todas las peticiones salen por `secureFetch`.
 
 ```ts
 import { Bot, flow } from '@botmesh/core'
-import { dialogflowContext, whenDialogflowIntent } from '@botmesh/dialogflow'
+import { dialogflowPlugin, whenDialogflowIntent } from '@botmesh/dialogflow'
 
 const bot = new Bot({ provider })
 
-bot.plug(dialogflowContext({                        // alias of dialogflowPlugin
+bot.plug(dialogflowPlugin({                         // dialogflowContext es un alias obsoleto
   credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS!), // service-account JSON
   languageCode: 'es',
   fulfillment: 'unrouted',     // reply with the agent's text when the intent has no route
@@ -450,7 +444,7 @@ un LLM debe responder lo que Dialogflow no entiende.
 | `credentials` | — | JSON de la cuenta de servicio (`client_email`, `private_key`, `project_id`…) |
 | `tokenSource` | — | `{ getAccessToken() }`, alternativa a `credentials` |
 | `projectId` | `credentials.project_id` | Proyecto de Google Cloud |
-| `languageCode` / `languageFor(ctx)` | `'es'` | Idioma de las consultas, global / por mensaje |
+| `languageCode` / `languageFor(ctx)` | `'en'` | Idioma de las consultas, global / por mensaje |
 | `queryParams(ctx)` | — | `queryParams` crudos por mensaje |
 | `cx` | — | `{ agentId, location, environment? }` cambia a CX |
 | `location` / `environment` | global / draft | Solo ES: agente regional o entorno publicado |

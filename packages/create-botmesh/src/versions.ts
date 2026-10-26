@@ -5,13 +5,20 @@
 export const BOTMESH_VERSIONS = {
   '@botmesh/ai': '^1.0.0-beta.1',
   '@botmesh/baileys': '^1.0.0-beta.1',
+  '@botmesh/chatwoot': '^0.1.0',
   '@botmesh/core': '^2.0.0-beta.3',
+  '@botmesh/dialogflow': '^0.1.0',
   '@botmesh/graph-core': '^1.0.0-beta.1',
   '@botmesh/http': '^1.0.0-beta.1',
   '@botmesh/meta': '^1.0.0-beta.1',
+  '@botmesh/moderation': '^0.1.0',
+  '@botmesh/nlu': '^0.1.0',
+  '@botmesh/rag': '^0.1.0',
   '@botmesh/redis-store': '^1.0.0-beta.1',
   '@botmesh/sqlite-store': '^1.0.0-beta.1',
   '@botmesh/telegram': '^1.0.0-beta.1',
+  '@botmesh/tickets': '^0.1.0',
+  '@botmesh/voice': '^0.1.0',
 } as const
 
 /** A public `@botmesh/*` package name. */

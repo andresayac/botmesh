@@ -5,11 +5,12 @@ entrantes y **text-to-speech** (TTS) para responder con audio. Es un plugin,
 no un canal: funciona igual en WhatsApp (Baileys o Cloud API), Telegram o
 cualquier provider que entregue mensajes `voice` / `audio`.
 
-::: warning Experimental — no está en npm
-`@botmesh/voice` es un paquete real y probado, pero es **privado**: no se
-publica en npm y su API puede cambiar. Úsalo desde el monorepo
-(`workspace:*`).
-:::
+```bash
+pnpm add @botmesh/voice
+```
+
+Durante la beta, añade el dist-tag `@beta` (`pnpm add @botmesh/voice@beta`): hasta la
+versión estable, el tag `latest` de npm puede apuntar a una build anterior.
 
 - STT: OpenAI (`whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe` y
   servidores compatibles) y Deepgram (`nova-3`).

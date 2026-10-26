@@ -506,7 +506,7 @@ bot.conversation('juego', async (c, ctx) => {
 
 ### 16. Provider de voz (STT/TTS integrado al pipeline)
 
-> **Estado: implementado** como plugin, no como provider: `@botmesh/voice` (privado) con `voicePlugin({ stt, tts, limits, autoTranscribe, autoReplyWithVoice })`. STT: OpenAI-compatible (Whisper) y Deepgram; TTS: OpenAI y ElevenLabs, todo por `secureFetch`. Transcribe las notas de voz en un hook `before('message')` (`ctx.transcript` y `ctx.body`), puede responder con voz a quien escribe con voz y expone `ctx.tools.voice`. Las llamadas de voz en tiempo real (LiveKit/SIP) quedan fuera. Guía: `docs/guide/voice.md`.
+> **Estado: implementado** como plugin, no como provider: `@botmesh/voice` (público desde la beta) con `voicePlugin({ stt, tts, limits, autoTranscribe, autoReplyWithVoice })`. STT: OpenAI-compatible (Whisper) y Deepgram; TTS: OpenAI y ElevenLabs, todo por `secureFetch`. Transcribe las notas de voz en un hook `before('message')` (`ctx.transcript` y `ctx.body`), puede responder con voz a quien escribe con voz y expone `ctx.tools.voice`. Las llamadas de voz en tiempo real (LiveKit/SIP) quedan fuera. Guía: `docs/guide/voice.md`.
 
 **Por qué pertenece:** Los audios son el 40%+ de mensajes en WhatsApp. Sin STT, el bot es sordo a audios.
 
@@ -855,7 +855,7 @@ bot.plug(aiPlugin({
 
 ### 29. RAG (Retrieval Augmented Generation)
 
-> **Estado: implementado**: paquete nuevo `@botmesh/rag` (privado; `createRag()`, loaders, chunking, embeddings OpenAI-compatible/Ollama/hash local, índice vectorial en memoria con persistencia JSON) y `aiPlugin({ rag })`, que acepta cualquier `AIRetriever` e inyecta los pasajes con citas numeradas (`appendSources`, `rag.timeoutMs`). Guía: `docs/guide/ai-memory-rag.md`.
+> **Estado: implementado**: paquete nuevo `@botmesh/rag` (público desde la beta; `createRag()`, loaders, chunking, embeddings OpenAI-compatible/Ollama/hash local, índice vectorial en memoria con persistencia JSON) y `aiPlugin({ rag })`, que acepta cualquier `AIRetriever` e inyecta los pasajes con citas numeradas (`appendSources`, `rag.timeoutMs`). Guía: `docs/guide/ai-memory-rag.md`.
 
 **Por qué pertenece:** Requiere indexación + retrieval integrado al AI plugin.
 
@@ -908,7 +908,7 @@ bot.when('hola', async (ctx) => {
 
 ### 31. Contextos de NLU externos (Dialogflow / Dialogflow CX)
 
-> **Estado: implementado** (`@botmesh/dialogflow`, privado): `dialogflowPlugin()` / `dialogflowContext()` con `detectIntent` por REST para ES y CX (JWT de cuenta de servicio, sin SDK de Google) y `whenDialogflowIntent()` para enrutar intents a flujos. Guía: `docs/guide/integrations.md`.
+> **Estado: implementado** (`@botmesh/dialogflow`, público desde la beta): `dialogflowPlugin()` (`dialogflowContext()` es un alias obsoleto) con `detectIntent` por REST para ES y CX (JWT de cuenta de servicio, sin SDK de Google) y `whenDialogflowIntent()` para enrutar intents a flujos. Guía: `docs/guide/integrations.md`.
 
 **Por qué pertenece:** Requiere integración con el dispatcher para ruteo de intenciones.
 
@@ -935,7 +935,7 @@ bot.useContext(dialogflowContext({
 
 ### 32. Plugin Chatwoot (human handoff + CRM)
 
-> **Estado: implementado** (`@botmesh/chatwoot`, privado): `chatwootPlugin()` sincroniza los mensajes en ambos sentidos y usa el handoff del core (#5) para que los agentes de Chatwoot tomen y devuelvan la conversación; webhook verificado. Guía: `docs/guide/integrations.md`.
+> **Estado: implementado** (`@botmesh/chatwoot`, público desde la beta): `chatwootPlugin()` sincroniza los mensajes en ambos sentidos y usa el handoff del core (#5) para que los agentes de Chatwoot tomen y devuelvan la conversación; webhook verificado. Guía: `docs/guide/integrations.md`.
 
 **Por qué pertenece:** Integración profunda con el pipeline (handoff, sync de mensajes, contactos).
 
@@ -961,7 +961,7 @@ bot.plug(chatwootPlugin({
 
 ### 33. Plugin de colas / tickets de soporte
 
-> **Estado: implementado** (`@botmesh/tickets`, privado): `ticketsPlugin()` y `ctx.tools.tickets` (`TicketDesk`) con colas, posición en cola, prioridades, horario de atención y persistencia en el store. Guía: `docs/guide/integrations.md`.
+> **Estado: implementado** (`@botmesh/tickets`, público desde la beta): `ticketsPlugin()` y `ctx.tools.tickets` (`TicketDesk`) con colas, posición en cola, prioridades, horario de atención y persistencia en el store. Guía: `docs/guide/integrations.md`.
 
 **Por qué pertenece:** Sistema de colas con estados (abierto, en espera, cerrado) requiere acceso al store + dispatcher.
 
@@ -991,7 +991,7 @@ bot.when('soporte', async (ctx) => {
 
 ### 34. Plugin de moderación de grupos
 
-> **Estado: implementado** (`@botmesh/moderation`, privado): `moderationPlugin()` con ventanas anti-spam, filtros de palabras/regex, filtro de enlaces de invitación con lista permitida exacta y acciones warn/mute/kick/delete. Guía: `docs/guide/integrations.md`.
+> **Estado: implementado** (`@botmesh/moderation`, público desde la beta): `moderationPlugin()` con ventanas anti-spam, filtros de palabras/regex, filtro de enlaces de invitación con lista permitida exacta y acciones warn/mute/kick/delete. Guía: `docs/guide/integrations.md`.
 
 **Por qué pertenece:** Requiere acceso a eventos de grupo + dispatcher para ban/kick.
 

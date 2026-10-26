@@ -1,5 +1,5 @@
 /**
- * dialogflowPlugin (alias `dialogflowContext`) — run every inbound text
+ * dialogflowPlugin — run every inbound text
  * through Dialogflow ES/CX in a `before('message')` hook and route intents to
  * handlers or flows.
  *
@@ -9,9 +9,9 @@
  *
  * @example
  * ```ts
- * import { dialogflowContext, whenDialogflowIntent } from '@botmesh/dialogflow'
+ * import { dialogflowPlugin, whenDialogflowIntent } from '@botmesh/dialogflow'
  *
- * bot.plug(dialogflowContext({
+ * bot.plug(dialogflowPlugin({
  *   credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS!),
  *   languageCode: 'es',
  *   routes: { 'order.status': orderFlow },
@@ -111,5 +111,9 @@ export function dialogflowPlugin(config: DialogflowPluginConfig): PluginSpec<Dia
   })
 }
 
-/** FEATURES #31 naming: `bot.plug(dialogflowContext({...}))`. */
-export const dialogflowContext = dialogflowPlugin
+/**
+ * Former name of {@link dialogflowPlugin} (same function).
+ *
+ * @deprecated Use {@link dialogflowPlugin}; this alias is removed in the next major.
+ */
+export const dialogflowContext: typeof dialogflowPlugin = dialogflowPlugin

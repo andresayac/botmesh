@@ -358,7 +358,7 @@ bot.plug(aiPlugin({
 **[Memoria y RAG](/es/guide/ai-memoria-rag)**: `memory` recuerda hechos de cada
 usuario entre conversaciones (se guardan en `ctx.user`); `rag` responde a
 partir de tus documentos con citas numeradas, con cualquier retriever, como
-`createRag()` del paquete experimental `@botmesh/rag`.
+`createRag()` de `@botmesh/rag`.
 
 ```ts
 import { createRag } from '@botmesh/rag'

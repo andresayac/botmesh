@@ -496,10 +496,32 @@ Follow-ups from the API freeze reviews (all LOW, none blocks stable):
 - **Repo instructions:** `AGENTS.md` still says `MockAIProvider` comes from `@botmesh/ai`
   (it works through the deprecated alias; `@botmesh/ai/testing` is the documented path).
 
+### Promoted plugins (beta)
+
+`@botmesh/rag`, `@botmesh/voice`, `@botmesh/nlu`, `@botmesh/dialogflow`,
+`@botmesh/chatwoot`, `@botmesh/tickets` and `@botmesh/moderation` went public after this
+report (branch `pp/plugins`, changeset `promote-plugins.md`, `1.0.0-beta.0`). They depend
+only on `@botmesh/core` and `@botmesh/http`; each one got the same freeze as the other
+public packages (an `/internal` entry except `nlu`, frozen data, an entry-pin test,
+`api-check` and `pack:smoke` coverage, a README in the shared layout). Main entry before →
+after: rag 49 → 41, voice 49 → 41, nlu 8 → 8, dialogflow 28 → 21 (`dialogflowContext`
+deprecated), chatwoot 25 → 20, tickets 30 → 28, moderation 29 → 23. Verdict: **GO after one
+beta**, with these honest limits:
+
+- **Live verification.** Chatwoot passed the real round trip against a self-hosted
+  Chatwoot 4.7 (Docker suite of `@botmesh/sandbox`). Dialogflow (Google), the OpenAI,
+  Deepgram and ElevenLabs voice adapters and the OpenAI/Ollama embedders were **never run
+  against the real services**: every test uses injected `fetch` fakes shaped after the
+  public API docs. Run one real call of each during the beta.
+- **moderation:** `kick` and provider admin lists need a `groups` namespace that no bundled
+  provider exposes yet, so `kick` degrades to `mute`; state lives in memory (not shared
+  between replicas).
+- **tickets:** `list()` with closed tickets scans every id in storage.
+
 ### Private packages
 
-None is a promotion candidate yet; promoting one still means removing `"private"`,
-switching `workspace:*` to `workspace:^`, a changeset and a README section.
+Promoting another private package still means removing `"private"`, switching
+`workspace:*` to `workspace:^`, the API freeze above, a changeset and a README section.
 
 - **channels**: webhook replay windows for Twilio, Gupshup and HighLevel (no signed
   timestamp; dedupe by id is the mitigation); TikTok and HighLevel inbound media stay
@@ -520,7 +542,7 @@ switching `workspace:*` to `workspace:^`, a changeset and a README section.
 - **product**: `attachInbox` without `tenantId` now uses the bot's tenant (no data
   migration for conversations stored under `'local'`); the new `after` cursors need the
   cursor item to still exist; the hub manifest range type became optional.
-- **plugins**: the plugins depend on core through `workspace:*`; the chatwoot, tickets,
+- **plugins**: the private plugins depend on core through `workspace:*`; the chatwoot, tickets,
   moderation, dialogflow and inbox-projection plugins have fixed names, so plugging two
   instances now throws unless they set `multiple`.
 

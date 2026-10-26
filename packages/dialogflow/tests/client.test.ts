@@ -1,15 +1,7 @@
 import { createVerify } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import {
-  DialogflowClient,
-  DialogflowError,
-  ServiceAccountTokenSource,
-  createServiceAccountJwt,
-  normalizeCxResult,
-  normalizeEsResult,
-  parseCredentials,
-  toSessionId,
-} from '../src/index.js'
+import { DialogflowClient, DialogflowError, ServiceAccountTokenSource } from '../src/index.js'
+import { createServiceAccountJwt, normalizeCxResult, normalizeEsResult, parseCredentials, toSessionId } from '../src/internal.js'
 import { FakeGoogle, credentials, esResponse, publicKey } from './fakes.js'
 
 const decode = (part: string) => JSON.parse(Buffer.from(part, 'base64url').toString('utf8')) as Record<string, unknown>
@@ -139,7 +131,7 @@ describe('DialogflowClient — detectIntent', () => {
     })
   })
 
-  it('CX: posts queryInput.languageCode at the top level and normalizes match/responseMessages', async () => {
+  it('CX: posts queryInput.languageCode at the top level (default "en") and normalizes match/responseMessages', async () => {
     const google = new FakeGoogle()
     google.detect = () => ({
       json: {
@@ -155,7 +147,7 @@ describe('DialogflowClient — detectIntent', () => {
     })
     const client = new DialogflowClient({ credentials, http: google.http, cx: { agentId: 'a', location: 'us-central1' } })
     const r = await client.detectIntent('sess', 'reservar')
-    expect(JSON.parse(google.detectRequests()[0].body)).toEqual({ queryInput: { text: { text: 'reservar' }, languageCode: 'es' } })
+    expect(JSON.parse(google.detectRequests()[0].body)).toEqual({ queryInput: { text: { text: 'reservar' }, languageCode: 'en' } })
     expect(r).toMatchObject({ intent: 'book.table', confidence: 0.95, parameters: { people: 4 }, messages: ['¿Para qué día?'], page: 'Booking', isFallback: false })
   })
 
