@@ -97,6 +97,25 @@ export function runCampaignStoreConformance(name: string, harness: CampaignStore
       expect(await store.sentCount('a', 'sale', 'r1')).toBe(1)
     })
 
+    it('a refused reservation still expires the stale ones it saw (same in every store)', async () => {
+      const stale = harness.deliveryId('a', 'sale', 'r1')
+      await reserve({ deliveryId: stale, maxPerRecipient: 2 })
+      const live = harness.deliveryId('a', 'sale', 'r1')
+      now = T0 + TTL - 1
+      expect(await reserve({ deliveryId: live, maxPerRecipient: 2, ttlMs: 10 * TTL })).toBe('reserved')
+      now = T0 + TTL + 1
+      // Refused (cap 1 is used by the live reservation), but the stale one is expired by it.
+      expect(await reserve({ maxPerRecipient: 1 })).toBe('duplicate')
+      await expect(store.settle(stale, { state: 'sent' })).rejects.toMatchObject({ name: 'UnknownDeliveryError' })
+      // Also with a paused campaign (maxPerRecipient 0).
+      const other = harness.deliveryId('a', 'sale', 'r2')
+      await reserve({ recipientId: 'r2', deliveryId: other })
+      now += TTL + 1
+      expect(await reserve({ recipientId: 'r2', maxPerRecipient: 0 })).toBe('limit')
+      await expect(store.settle(other, { state: 'sent' })).rejects.toMatchObject({ name: 'UnknownDeliveryError' })
+      expect(await store.sentCount('a', 'sale', 'r2')).toBe(0)
+    })
+
     it('concurrent reservations of one recipient: exactly one wins the cap', async () => {
       const ids = Array.from({ length: 20 }, () => harness.deliveryId('a', 'sale', 'r1'))
       const outcomes = await Promise.all(ids.map((deliveryId) => store.reserve({ tenantId: 'a', campaignId: 'sale', recipientId: 'r1', deliveryId, maxPerRecipient: 1, now, ttlMs: TTL })))
