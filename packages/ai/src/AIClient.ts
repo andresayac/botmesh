@@ -311,7 +311,7 @@ export class AIClient {
     return r.stopReason === 'refusal' ? this.refusalText(opts?.ctx) : r.text
   }
 
-  /** `refusalMessage`, else the localized `ai.refusal` text of the turn's chat (Spanish without one). */
+  /** `refusalMessage`, else the localized `ai.refusal` text of the turn's chat (English without one). */
   private refusalText(ctx: MessageContext | undefined): string {
     return this.opts.refusalMessage ?? aiText(ctx, AI_MESSAGES.refusal)
   }

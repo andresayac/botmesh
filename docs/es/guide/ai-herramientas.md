@@ -7,11 +7,6 @@ herramienta una vez; el plugin la traduce para Anthropic, OpenAI, Gemini u
 Ollama, ejecuta un bucle de varios pasos y le devuelve los resultados al modelo
 hasta que escribe la respuesta final.
 
-::: warning Alpha — instalar con el tag `alpha`
-`@botmesh/ai` está publicado como `0.2.0-alpha.0`; instálalo con el tag
-(`pnpm add @botmesh/ai@alpha`).
-:::
-
 ## Declarar herramientas
 
 ```ts
@@ -120,7 +115,7 @@ ejecuta cada handler con su timeout y le devuelve los resultados.
 | `tools` | — | El conjunto de herramientas. |
 | `maxSteps` | `5` | Máximo de llamadas al modelo por turno. |
 | `toolTimeoutMs` | `15000` | Timeout por defecto de cada herramienta (`0` lo desactiva). |
-| `maxStepsMessage` | mensaje localizado `ai.tools.maxSteps` (es: `'No pude completar la solicitud. Intenta de nuevo con más detalle.'`) | Respuesta cuando el bucle llega a `maxSteps`. |
+| `maxStepsMessage` | `ai.tools.maxSteps` (es: `'No pude completar la solicitud. Intenta de nuevo con más detalle.'`; inglés por defecto) | Respuesta cuando el bucle llega a `maxSteps`. |
 | `toolConfirm` | `{ timeout: '2m', buttons: true }` | `{ yes?, no?, timeout?, buttons?, answeredNotice?, expiredNotice?, systemNote? }` para las herramientas `confirm: true` del autoresponder (`expiredNotice` cubre también `confirmWith(c)`). |
 | `onToolEvent` | — | Callback de auditoría para cada evento del bucle. |
 

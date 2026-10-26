@@ -1,9 +1,9 @@
 # Integrations
 
-::: warning Experimental — not published yet
-The four packages on this page are **experimental**: real, tested
-implementations that are still private (not on npm, not part of the first
-alpha) and whose API may change. Use them from the monorepo (`workspace:*`).
+::: warning Experimental — not on npm
+The packages on this page are **experimental**: real, tested implementations
+that are still private (not published to npm) and whose API may change. Use
+them from the monorepo (`workspace:*`).
 :::
 
 | Package | What it does | Tool |
@@ -12,9 +12,10 @@ alpha) and whose API may change. Use them from the monorepo (`workspace:*`).
 | [`@botmesh/tickets`](#tickets) | Support tickets with a priority queue, working hours and store persistence | `ctx.tools.tickets` |
 | [`@botmesh/moderation`](#moderation) | Group moderation: anti-spam, word/link filters, warn/mute/kick/delete | `ctx.tools.moderation` |
 | [`@botmesh/dialogflow`](#dialogflow) | Dialogflow ES/CX intent detection and intent-to-flow routing | `ctx.tools.dialogflow` |
+| [`@botmesh/nlu`](#local-intent-matching-nlu) | Local intent matching from example phrases, no network | `ctx.tools.nlu` |
 
-All four are regular plugins (`bot.plug(factory({...}))`) with a
-synchronous `install`. Importing a package types its `ctx.tools.*` entry;
+All of them are regular plugins with a synchronous `install`
+(`bot.plug(factory({...}))`; `nluPlugin` is a spec, `bot.plug(nluPlugin, config)`). Importing a package types its `ctx.tools.*` entry;
 outside a handler, use `bot.injectTools.<name>`.
 
 ```json
@@ -23,7 +24,8 @@ outside a handler, use `bot.injectTools.<name>`.
     "@botmesh/chatwoot": "workspace:*",
     "@botmesh/tickets": "workspace:*",
     "@botmesh/moderation": "workspace:*",
-    "@botmesh/dialogflow": "workspace:*"
+    "@botmesh/dialogflow": "workspace:*",
+    "@botmesh/nlu": "workspace:*"
   }
 }
 ```
@@ -468,6 +470,50 @@ what Dialogflow does not understand.
 
 - Only text is sent (no audio, no events). CX form filling lives in pages:
   `allRequiredParamsPresent` is always `true` there.
+
+## Local intent matching (NLU)
+
+`@botmesh/nlu` matches messages against intents you define with example
+phrases, entirely in-process: no network, no model, no extra dependency. It
+fits command-like intents ("where is my order", "talk to a person") in a bot
+that should not pay for an LLM or a Dialogflow agent on every message. For
+open-ended language, use the [AI plugin](/guide/ai), alone or behind it.
+
+```ts
+import { nluPlugin, whenIntent } from '@botmesh/nlu'
+
+bot.plug(nluPlugin, {
+  threshold: 0.5, // minimum confidence, 0..1
+  intents: {
+    greeting: ['hi', 'hello', 'good morning'],
+    'order.status': ['my order {id}', 'order status', 'where is my order'],
+  },
+})
+const nlu = bot.injectTools.nlu!
+
+whenIntent(bot, nlu, 'greeting', (ctx) => ctx.reply('Hi! How can I help?'))
+whenIntent(bot, nlu, 'order.status', async (ctx, match) => {
+  const id = match.entities?.id
+  await ctx.reply(id ? `Looking up order ${id}…` : 'What is your order number?')
+})
+// Messages no intent claimed fall through to other handlers (or the AI autoresponder).
+```
+
+- `nluPlugin` is a plugin spec: plug it as `bot.plug(nluPlugin, config)`. It
+  puts an `IntentEngine` in `ctx.tools.nlu` (and `bot.injectTools.nlu`).
+- `whenIntent(bot, engine, intent, handler)` is a `bot.when()` predicate: the
+  handler runs only when the message's **best** intent is that one, above the
+  threshold, and receives the match. It returns the unsubscribe function.
+- `engine.match(text)` returns `{ intent, confidence, entities? }` or `null`;
+  `engine.rank(text)` scores every intent (useful to debug a phrase);
+  `engine.define(intent, utterances)` adds phrases at runtime.
+- Matching normalizes case, accents and punctuation (`¡HOLA!` equals `hola`),
+  then scores token overlap. An exact phrase, or a phrase with `{slot}`
+  placeholders that lines up with the whole message, scores `1`; a slot
+  captures one word.
+- Scope: no stemming, synonyms or embeddings. Give each intent several short
+  phrases in the words your users really type, and avoid intents that share
+  most of their vocabulary.
 
 ## Combining them
 

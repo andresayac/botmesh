@@ -41,10 +41,10 @@ export interface AIRagConfig {
   /** Minimum score (default: the retriever's own default). */
   minScore?: number
   /**
-   * Append the sources to the reply: `true` → `"\n\nFuentes: [2] b.md"`
+   * Append the sources to the reply: `true` → `"\n\nSources: [2] b.md"`
    * (the localized `ai.rag.sources` message, which follows `ctx.lang`): the
    * passages the model cited, with the same `[n]` it used in the text; when it
-   * cited none, every retrieved source, unnumbered (`"Fuentes: a.md, b.md"`).
+   * cited none, every retrieved source, unnumbered (`"Sources: a.md, b.md"`).
    * A function renders them yourself: it gets the passages (cited, or all) and
    * the cited ones with their original number (empty when none was cited).
    * Default false.
@@ -111,7 +111,7 @@ const isCited = (x: AIRetrievedChunk | AICitedPassage): x is AICitedPassage =>
 
 /**
  * Default `appendSources: true` rendering: the localized `ai.rag.sources` message
- * (`ctx`'s language; Spanish `Fuentes: …` without a context). Cited passages
+ * (`ctx`'s language; English `Sources: …` without a context). Cited passages
  * ({@link citedPassages}) keep their original number — `[1][3] faq.md, [2] pagos.md`,
  * one entry per label (a cited passage with no `citation`/`source` is listed by its
  * number alone); plain chunks are listed as unique labels without numbers.

@@ -7,6 +7,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { GeminiProvider, fromGoogleGenAI, type GoogleGenAILike } from '../src/providers/gemini.js'
 import { resolveGeminiClient } from '../src/providers/resolve.js'
+import { GoogleGenAI } from '@google/genai'
 
 type Params = { model: string; contents: unknown; config?: Record<string, unknown> }
 
@@ -89,6 +90,20 @@ describe('fromGoogleGenAI', () => {
     for await (const t of new GeminiProvider(fromGoogleGenAI(ai), {}).stream({ messages: [{ role: 'user', content: 'hi' }], onStreamEnd: (e) => { end = e } })) out += t
     expect(out).toBe('Hola')
     expect(end).toEqual({ stopReason: 'STOP', usage: { input: 3, output: 2 } })
+  })
+
+  it('accepts a real GoogleGenAI client (its types mark every FunctionCall field optional)', () => {
+    // Type-level: the documented Vertex AI / custom-client path must compile without a cast.
+    const ai: GoogleGenAILike = new GoogleGenAI({ apiKey: 'test-key' })
+    expect(typeof fromGoogleGenAI(ai).getGenerativeModel).toBe('function')
+  })
+
+  it('drops a function call without a name (it could not be run)', async () => {
+    const { ai } = fakeGenAI(() => ({
+      candidates: [{ content: { role: 'model', parts: [{ functionCall: { args: { q: 'x' } } }, { functionCall: { name: 'stock', args: { q: 'pan' } } }] }, finishReason: 'STOP' }],
+    }))
+    const r = await new GeminiProvider(fromGoogleGenAI(ai), {}).generate({ messages: [{ role: 'user', content: 'x' }] })
+    expect(r.toolCalls).toMatchObject([{ name: 'stock', args: { q: 'pan' } }])
   })
 
   it('defaults to a current Gemini model (gemini-2.0-flash is shut down)', async () => {

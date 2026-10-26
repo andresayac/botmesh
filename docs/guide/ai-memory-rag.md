@@ -134,11 +134,11 @@ bot.plug(aiPlugin({
   model: 'gpt-5-mini',
   rag: {
     retriever: createRag({ documents: ['./docs/faq.md', './docs/products.pdf'], embeddings: 'openai' }),
-    appendSources: true, // adds "Fuentes: [1] docs/faq.md › Shipping" to the reply
+    appendSources: true, // adds "Sources: [1] docs/faq.md › Shipping" to the reply
   },
 }))
 // User: "how long does shipping take?"
-// Bot:  "It takes 3 business days [1].\n\nFuentes: [1] docs/faq.md › Shipping"
+// Bot:  "It takes 3 business days [1].\n\nSources: [1] docs/faq.md › Shipping"
 ```
 
 On every turn the plugin retrieves passages for the user's message and
@@ -152,13 +152,13 @@ instructions.
 | `retriever` | — | The retriever (required in the object form). |
 | `topK` | the retriever's default | Passages per question. |
 | `minScore` | the retriever's default | Minimum score. |
-| `appendSources` | `false` | `true` appends `"\n\nFuentes: [2] b"` with the passages the model cited, keeping the `[n]` it used in the text (several passages with the same label share one entry: `[1][3] faq.md`); when it cited none, every retrieved source, unnumbered (`Fuentes: a, b`). A function `(citations, cited) => string` renders the line yourself: `cited` holds `{ n, chunk }` for each cited passage. |
+| `appendSources` | `false` | `true` appends `"\n\nSources: [2] b"` with the passages the model cited, keeping the `[n]` it used in the text (several passages with the same label share one entry: `[1][3] faq.md`); when it cited none, every retrieved source, unnumbered (`Sources: a, b`). A function `(citations, cited) => string` renders the line yourself: `cited` holds `{ n, chunk }` for each cited passage. |
 | `instructions` | built-in | Replaces the instructions that precede the context block. |
 | `timeoutMs` | `10000` | Max wait for retrieval, including a first-time index build. Past it the retriever is aborted and the reply goes on without context. `0` disables. |
 
 `rag: retriever` (the bare retriever) is the same as `rag: { retriever }`. The
 default `appendSources` line is the localized `ai.rag.sources` message
-(`Fuentes: {sources}` in Spanish, `Sources: {sources}` when `ctx.lang` is `en`);
+(`Sources: {sources}`, or `Fuentes: {sources}` when `ctx.lang` is `es`);
 override it with `bot.locale()` or pass a function. At install the plugin calls the retriever's optional `warmup()`
 (non-fatal: a failure is logged), so the index is built at startup instead of
 on the first question.
@@ -194,7 +194,7 @@ same way; with `appendSources` the sources line arrives as the last piece.
 
 ::: warning Experimental — not on npm
 `@botmesh/rag` is a working, tested package, but it is **private**: it is not
-part of the first alpha and its API may change. Use it from the monorepo
+published to npm and its API may change. Use it from the monorepo
 (`workspace:*`).
 :::
 
@@ -274,7 +274,7 @@ const ai = new AIClient(mock, new ContextManager(bot.getStore()), {
 
 await ai.remember('user-1', 'Prefers Spanish')
 const r = await ai.replyInChatDetailed('chat-1', 'shipping?', { userId: 'user-1' })
-r.text  // 'It takes 3 days [1].\n\nFuentes: [1] faq'
+r.text  // 'It takes 3 days [1].\n\nSources: [1] faq'
 r.facts // ['Prefers Spanish']
 mock.calls[0]?.system // contains the facts and the numbered context
 ```

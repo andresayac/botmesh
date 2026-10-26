@@ -173,7 +173,7 @@ always stays text.
 import { streamText, splitMessage } from '@botmesh/core'
 
 const result = await streamText({
-  capabilities: { streaming: 'edit', maxTextLength: 2000 },
+  capabilities: { streaming: 'edit', edit: true, maxTextLength: 2000 },
   send: async (content) => widget.post(content),
   edit: async (ref, content) => widget.update(ref, content),
 }, source, { throttleMs: 500 })
