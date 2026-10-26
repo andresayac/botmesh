@@ -58,6 +58,23 @@ function unquote(s: string): string {
   return t
 }
 
+/**
+ * Remove `(comments)`: each `(` up to the next `)`; an unclosed one stays as
+ * text. Linear, unlike `/\([^)]*\)/g`, which rescans the rest of the header
+ * from every `(` that no `)` follows (minutes for a hostile From header).
+ */
+function stripComments(value: string): string {
+  let out = ''
+  let i = 0
+  for (;;) {
+    const open = value.indexOf('(', i)
+    const close = open === -1 ? -1 : value.indexOf(')', open + 1)
+    if (close === -1) return out + value.slice(i)
+    out += value.slice(i, open)
+    i = close + 1
+  }
+}
+
 function parseMailbox(token: string): EmailAddress | undefined {
   const t = token.trim()
   if (!t) return undefined
@@ -66,11 +83,11 @@ function parseMailbox(token: string): EmailAddress | undefined {
   if (lt !== -1 && gt > lt) {
     const address = t.slice(lt + 1, gt).trim()
     if (!address.includes('@')) return undefined
-    const rawName = t.slice(0, lt).replace(/\([^)]*\)/g, '').trim()
+    const rawName = stripComments(t.slice(0, lt)).trim()
     const name = rawName ? decodeEncodedWords(unquote(rawName)).trim() : ''
     return { name: name || undefined, address }
   }
-  const bare = t.replace(/\([^)]*\)/g, '').trim()
+  const bare = stripComments(t).trim()
   if (!bare.includes('@') || /\s/.test(bare)) return undefined
   return { name: undefined, address: bare }
 }
