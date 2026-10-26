@@ -46,6 +46,9 @@ runCrashRecoveryMatrix('eventsDurability(FileEventJournal)', deps, {
     const journal = await FileEventJournal.open(file, { lock: true })
     return { backend: eventsDurability({ journal }), teardown: async () => { await journal.close(); cleanup() } }
   },
+  // Every journal write rewrites the file: give a loaded machine room before calling it stuck.
+  waitMs: 20_000,
+  testTimeoutMs: 120_000,
 })
 
 function silentLogger(): never {

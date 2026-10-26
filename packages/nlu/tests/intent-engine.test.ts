@@ -189,6 +189,19 @@ describe('IntentEngine — hostile input and config mistakes', () => {
     expect(performance.now() - started).toBeLessThan(500)
   })
 
+  it('matches slots joined by letters inside one token in linear time', () => {
+    const nlu = new IntentEngine()
+    nlu.define('order', ['{qty}x{item} please', '{a}2{b} end', '{a}x{b}y{c} ok'])
+    for (const body of ['x'.repeat(60_000), `${'x'.repeat(60_000)} please`, '2'.repeat(60_000), 'xy'.repeat(30_000)]) {
+      const started = performance.now()
+      nlu.rank(body)
+      expect(performance.now() - started).toBeLessThan(500)
+    }
+    expect(nlu.match('3xbox please')).toEqual({ intent: 'order', confidence: 1, entities: { qty: '3', item: 'box' } })
+    expect(nlu.match('ab2cd end')).toEqual({ intent: 'order', confidence: 1, entities: { a: 'ab', b: 'cd' } })
+    expect(nlu.match('1x2y3 ok')).toEqual({ intent: 'order', confidence: 1, entities: { a: '1', b: '2', c: '3' } })
+  })
+
   it('validates the per-call threshold like the constructor one', () => {
     const nlu = new IntentEngine()
     nlu.define('greeting', ['hola'])

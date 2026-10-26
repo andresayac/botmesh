@@ -58,6 +58,13 @@ export interface CrashMatrixDeps {
 export interface CrashMatrixHarness {
   /** A fresh backend (not started: the bots start it) and its teardown. */
   make(): Promise<{ backend: Backend; teardown: () => Promise<void> }>
+  /**
+   * How long each step may wait for a replica to process a message (default 5 s). A backend
+   * that rewrites a file under a cross-process mutex needs more on a loaded machine.
+   */
+  waitMs?: number
+  /** Vitest timeout of each scenario (default 20 s, and at least four waits). */
+  testTimeoutMs?: number
 }
 
 /** Where bot A dies. `nth` counts calls of that journal operation across the whole script. */
@@ -118,6 +125,7 @@ export async function runCrashScenario(
   policy: 'skip' | 'resend',
 ): Promise<{ delivered: string[]; ambiguous: number; inboxStates: string[]; outboxStates: string[] }> {
   const { backend: shared, teardown } = await harness.make()
+  const waitMs = harness.waitMs ?? 5_000
   const store = new deps.MemoryStore()
   const durability = (journal: Backend) => ({
     journal, instanceId: 'replica-1', pollMs: 20,
@@ -155,7 +163,7 @@ export async function runCrashScenario(
   for (let i = 0; i < SCRIPT.length; i++) {
     const [body, id] = SCRIPT[i]
     pa.incoming(body, { from: CHAT, id })
-    const done = until(async () => a.crashed || (await view.inbox.list({ state: 'done' })).length >= i + 1, `A to process ${id}`)
+    const done = until(async () => a.crashed || (await view.inbox.list({ state: 'done' })).length >= i + 1, `A to process ${id}`, waitMs)
     await Promise.race([done, a.whenCrashed])
     if (a.crashed) { inFlight = i; break }
   }
@@ -174,7 +182,7 @@ export async function runCrashScenario(
   for (let i = inFlight; i < SCRIPT.length; i++) {
     const [body, id] = SCRIPT[i]
     pb.incoming(body, { from: CHAT, id })
-    await until(async () => (await view.inbox.list({ state: 'done' })).length >= i + 1 && await settledAll(), `B to process ${id}`)
+    await until(async () => (await view.inbox.list({ state: 'done' })).length >= i + 1 && await settledAll(), `B to process ${id}`, waitMs)
   }
   await new Promise((r) => setTimeout(r, 30)) // let any stray duplicate surface
 
@@ -209,7 +217,7 @@ export function runCrashRecoveryMatrix(name: string, deps: CrashMatrixDeps, harn
             }
           }
           expect(r.delivered.filter((t) => !EXPECTED.includes(t))).toEqual([])
-        }, 20_000)
+        }, harness.testTimeoutMs ?? Math.max(20_000, 4 * (harness.waitMs ?? 5_000)))
       }
     }
   })

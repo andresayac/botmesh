@@ -82,7 +82,9 @@ nlu.match('vuelo de Bogotá a Lima')
 
 Limits (by design): slots are single-token and the pattern is anchored to the whole
 message. Two slots must be separated by a space or a word: `define()` throws on adjacent
-slots such as `'{a}{b}'` (ambiguous, and slow to match on long tokens). If the input doesn't line up with the pattern (extra words, different order),
+slots such as `'{a}{b}'` (ambiguous, and slow to match on long tokens). Slots glued by
+a word inside one token (`'{qty}x{item}'`) are allowed: the first slot stops at the first
+character of the glue, so `3xbox` gives `qty: '3'`, `item: 'box'`. If the input doesn't line up with the pattern (extra words, different order),
 the utterance still participates in normal token-overlap scoring — it just won't
 extract entities.
 

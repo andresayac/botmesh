@@ -119,7 +119,19 @@ function compileUtterance(raw: string): CompiledUtterance {
     // Build the pattern from the loose-normalized segments directly (a full
     // normalizeText pass would strip the `{` `}` markers that delimit slots).
     const body = withSlots
-      .map((seg) => (SLOT_SEGMENT.test(seg) ? '(\\S+)' : escapeRegExp(seg)))
+      .map((seg, i) => {
+        if (!SLOT_SEGMENT.test(seg)) return escapeRegExp(seg)
+        // A slot glued to the next slot by a literal with no whitespace (`{qty}x{item}`) would
+        // compile to `(\S+)x(\S+)`, which backtracks quadratically on one long token. Stop the
+        // slot at the literal's first character instead: linear, and that slot never contains
+        // the separator (the ambiguous case anyway).
+        const glue = withSlots[i + 1]
+        const following = withSlots[i + 2]
+        if (glue !== undefined && following !== undefined && SLOT_SEGMENT.test(following) && /^\S+$/u.test(glue)) {
+          return `([^\\s${escapeRegExp(String.fromCodePoint(glue.codePointAt(0) as number))}]+)`
+        }
+        return '(\\S+)'
+      })
       .join('')
       .trim()
       .replace(/\s+/g, '\\s+')
