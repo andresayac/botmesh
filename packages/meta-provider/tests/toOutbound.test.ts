@@ -21,14 +21,14 @@ describe('toOutbound', () => {
     expect(() => toOutbound({ kind: 'image', media: '' as never })).toThrow(UnsupportedContentError)
   })
 
-  it('buttons → interactive button (capped at 3, title ≤20)', () => {
+  it('buttons → interactive button (3 max, title ≤20)', () => {
     const out = toOutbound({
       kind: 'buttons',
       text: 'elige',
       footer: 'f',
       buttons: [
         { id: 'a', title: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' },
-        { id: 'b', title: 'B' }, { id: 'c', title: 'C' }, { id: 'd', title: 'D' },
+        { id: 'b', title: 'B' }, { id: 'c', title: 'C' },
       ],
     })
     const interactive = (out as { interactive: { action: { buttons: Array<{ reply: { id: string; title: string } }> }; footer?: unknown } }).interactive

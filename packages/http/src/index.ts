@@ -55,7 +55,13 @@ export interface SecureFetchOptions extends RequestInit {
   maxRedirects?: number
   /** Override DNS resolution for tests or controlled egress gateways. */
   resolver?: HostResolver
-  /** Override fetch for tests or custom dispatchers. */
+  /**
+   * Override fetch (tests, instrumentation, Node's global `fetch`). Every URL and
+   * redirect is still validated and its DNS answer checked, but the connection is
+   * pinned to the validated address only with the default fetch: a custom one
+   * receives no `dispatcher`, so protection against DNS rebinding between the
+   * check and the connect is up to it.
+   */
   fetch?: typeof globalThis.fetch
 }
 
@@ -103,9 +109,10 @@ export async function secureFetch(input: string | URL, options: SecureFetchOptio
       const addresses = await assertSafeTarget(url, { allowHttp, allowPrivateHosts, resolver })
       // Pin the socket to the exact address we just validated so undici cannot
       // re-resolve the hostname to a different (private) IP between check and
-      // connect — the DNS-rebinding SSRF hole. Skipped only for the injected
-      // custom fetch (tests), which ignores `dispatcher`.
-      const dispatcher = pinnedDispatcher(addresses, allowPrivateHosts)
+      // connect — the DNS-rebinding SSRF hole. Skipped for a caller-supplied
+      // fetch: the Agent belongs to this package's undici, and any other fetch
+      // (Node's built-in one included) rejects it with UND_ERR_INVALID_ARG.
+      const dispatcher = fetchImpl === defaultFetch ? pinnedDispatcher(addresses, allowPrivateHosts) : undefined
       if (dispatcher) dispatchers.push(dispatcher)
       let response: Response
       try {
@@ -273,7 +280,8 @@ export async function resolvePublicHost(hostname: string): Promise<readonly stri
 }
 
 export function isPrivateAddress(address: string): boolean {
-  const normalized = address.toLowerCase().replace(/^\[|\]$/g, '')
+  // A fully-qualified name (`localhost.`) is the same host as without the dot.
+  const normalized = address.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '')
   if (normalized === 'localhost' || normalized.endsWith('.localhost')) return true
   const family = isIP(normalized)
   if (family === 4) return isPrivateIpv4(normalized)

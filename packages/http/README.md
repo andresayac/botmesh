@@ -13,6 +13,12 @@ const image = await fetchBuffer('https://cdn.example/image.png', {
 
 Never enable `allowHttp` or `allowPrivateHosts` outside a network you control.
 
+Every request (and every redirect hop) is validated before it is sent: the URL, the host and its DNS answer.
+With the default `fetch`, the connection is also pinned to the validated address, so a DNS answer that changes
+between the check and the connect (DNS rebinding) cannot reach a private host. You can pass your own `fetch`
+(Node's global `fetch`, an instrumented one, a test double): the validation still runs, but a custom `fetch`
+gets no pinned connection, so rebinding protection is then up to it.
+
 ## Errors
 
 Every policy rejection is a `SecureHttpError` with a stable `code`:
@@ -27,6 +33,9 @@ Every policy rejection is a `SecureHttpError` with a stable `code`:
 | `RESPONSE_TOO_LARGE` | The body exceeded `maxBytes`. |
 | `TOO_MANY_REDIRECTS` | More hops than `maxRedirects`. |
 | `HTTP_STATUS` | `fetchBuffer` got a non-2xx response; the code is in `error.status`. `secureFetch` does not reject on status: it returns the `response`. |
+
+Network failures that are not a policy decision (DNS `ENOTFOUND`, connection refused, TLS errors) reject with the
+underlying error, and an aborted `signal` rejects with its `reason`.
 
 ```ts
 import { fetchBuffer, SecureHttpError } from '@botmesh/http'

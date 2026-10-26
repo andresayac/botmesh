@@ -30,6 +30,12 @@ export interface CloudAPIProviderConfig {
   apiVersion?: string
   /** Graph base URL. Default 'https://graph.facebook.com'. */
   graphUrl?: string
+  /**
+   * Time allowed for each Graph API request (send, upload, mark read, media
+   * lookup), in ms. A request that takes longer rejects with a `ProviderError`.
+   * Default 60 000. The media CDN download has its own `mediaDownload.timeoutMs`.
+   */
+  requestTimeoutMs?: number
   /** Safe-download policy for inbound media. HTTPS/public hosts are enforced by default. */
   mediaDownload?: Omit<SecureFetchOptions, 'fetch'>
   /** The bot's own wa_id (for identity/mention logic). Optional. */

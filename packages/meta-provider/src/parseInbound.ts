@@ -145,6 +145,13 @@ export type InboundDraft =
   | { kind: 'alias'; previous: Party; next: Party }
 
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v.length > 0 ? v : undefined)
+/** Free text (body, caption, emoji): the string itself, `''` for anything else. */
+const textOf = (v: unknown): string => (typeof v === 'string' ? v : '')
+/** Webhook epoch seconds (a digit string in practice); `0` when missing or malformed. */
+const epochSeconds = (v: unknown): number => {
+  const n = typeof v === 'string' || typeof v === 'number' ? Number(v) : Number.NaN
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
 
 const mediaFields = { image: 'image', video: 'video', audio: 'audio', document: 'document', sticker: 'sticker' } as const
 
@@ -154,11 +161,11 @@ function mediaOf(msg: GraphMessage): { type: MessageType; body: string; ref?: Me
   if (!field) return { type: 'unknown', body: '' }
   const type: MessageType = kind === 'audio' ? (msg.audio?.voice ? 'voice' : 'audio') : (kind as MessageType)
   const m = msg[field]
-  if (!m) return { type, body: '' }
+  if (!m || typeof m !== 'object') return { type, body: '' }
   return {
     type,
-    body: m.caption ?? '',
-    ref: { kind: (type === 'voice' ? 'audio' : type) as MediaRef['kind'], mimetype: m.mime_type, filename: m.filename, token: m.id },
+    body: textOf(m.caption),
+    ref: { kind: (type === 'voice' ? 'audio' : type) as MediaRef['kind'], mimetype: str(m.mime_type), filename: str(m.filename), token: str(m.id) },
   }
 }
 
@@ -187,7 +194,7 @@ function toMessage(msg: GraphMessage, id: string, who: ResolvedParty): InboundMe
 
   if (msg.type === 'text') {
     type = 'text'
-    body = msg.text?.body ?? ''
+    body = textOf(msg.text?.body)
   } else if (msg.type === 'location') {
     type = 'location'
     body = [str(msg.location?.name), str(msg.location?.address)].filter(Boolean).join(', ')
@@ -216,7 +223,7 @@ function toMessage(msg: GraphMessage, id: string, who: ResolvedParty): InboundMe
     fromMe: false,
     type,
     body,
-    timestamp: msg.timestamp ? Number(msg.timestamp) : 0,
+    timestamp: epochSeconds(msg.timestamp),
     mentions: [],
     ...(quotedId !== undefined ? { quoted: { ref: { id: quotedId, chatId } } } : {}),
     media,
@@ -370,7 +377,7 @@ export function extractDrafts(body: GraphWebhookBody, logger: IdentityLogger): I
         if ((msg.type === 'interactive' && msg.interactive) || (msg.type === 'button' && msg.button)) {
           const data = msg.type === 'button'
             ? str(msg.button?.payload) ?? str(msg.button?.text) ?? ''
-            : (msg.interactive?.button_reply ?? msg.interactive?.list_reply)?.id ?? ''
+            : str((msg.interactive?.button_reply ?? msg.interactive?.list_reply)?.id) ?? ''
           const kind = msg.type === 'interactive' && msg.interactive?.type === 'list_reply' ? 'list' : 'button'
           pendingEvents.push({
             kind: 'event',
@@ -386,7 +393,7 @@ export function extractDrafts(body: GraphWebhookBody, logger: IdentityLogger): I
                 isGroup: false,
                 kind,
                 data,
-                timestamp: msg.timestamp ? Number(msg.timestamp) : 0,
+                timestamp: epochSeconds(msg.timestamp),
                 raw: msg,
               },
             }),
@@ -398,7 +405,7 @@ export function extractDrafts(body: GraphWebhookBody, logger: IdentityLogger): I
         if (msg.type === 'reaction' && msg.reaction) {
           const target = str(msg.reaction.message_id)
           if (target === undefined) { drop('reaction', 'missing reacted-to message id', id); continue }
-          const emoji = msg.reaction.emoji ?? ''
+          const emoji = textOf(msg.reaction.emoji)
           pendingEvents.push({
             kind: 'event',
             party,
@@ -423,7 +430,7 @@ export function extractDrafts(body: GraphWebhookBody, logger: IdentityLogger): I
         const party = partyOf(st.recipient_id, st.recipient_user_id, st.recipient_parent_user_id, contact)
         if (!hasId(party)) { drop('status', 'no usable recipient id (recipient_id / recipient_user_id)', id); continue }
         if (id === undefined) { drop('status', 'missing message id'); continue }
-        const timestamp = st.timestamp ? Number(st.timestamp) : 0
+        const timestamp = epochSeconds(st.timestamp)
         const error = st.errors?.[0] ? { code: st.errors[0].code, message: st.errors[0].title } : undefined
         const platformData = statusPlatformData(st)
         pendingEvents.push({

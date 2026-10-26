@@ -183,7 +183,14 @@ const provider = new CloudAPIProvider({
 })
 ```
 
-- Native reply buttons (max 3), lists, templates and WhatsApp Flows forms.
+- Native reply buttons (max 3: more rejects with `UnsupportedContentError`,
+  send a list instead), lists, templates and WhatsApp Flows forms. A button
+  with `url` goes out as a `cta_url` link button (one per message: several
+  links, or a link mixed with reply buttons, reject). A `card` keeps its
+  image (as the media or the interactive header) and its buttons.
+- A missing `accessToken`, `phoneNumberId` or `verifyToken` fails at
+  construction with an error naming the field. Every Graph request has a
+  timeout (`requestTimeoutMs`, 60 s by default).
 - Users with a WhatsApp username may arrive with a BSUID instead of a phone
   number; the provider keeps one stable id per person (`identityMap`).
 - Outside the 24 h window free-form sends reject with

@@ -190,8 +190,15 @@ const provider = new CloudAPIProvider({
 })
 ```
 
-- Botones de respuesta nativos (máximo 3), listas, plantillas y formularios
-  con WhatsApp Flows.
+- Botones de respuesta nativos (máximo 3: con más rechaza con
+  `UnsupportedContentError`, envía una lista), listas, plantillas y
+  formularios con WhatsApp Flows. Un botón con `url` sale como botón de
+  enlace `cta_url` (uno por mensaje: varios enlaces, o un enlace mezclado
+  con botones de respuesta, rechazan). Una `card` conserva su imagen (como
+  media o como cabecera del mensaje interactivo) y sus botones.
+- Si falta `accessToken`, `phoneNumberId` o `verifyToken`, el constructor
+  falla con un error que nombra el campo. Cada petición a Graph tiene un
+  límite de tiempo (`requestTimeoutMs`, 60 s por defecto).
 - Los usuarios con username de WhatsApp pueden llegar con un BSUID en lugar
   del teléfono; el provider mantiene un id estable por persona
   (`identityMap`).

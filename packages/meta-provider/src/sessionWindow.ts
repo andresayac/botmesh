@@ -214,7 +214,8 @@ export class SessionWindowReopenedError extends OutsideSessionWindowError {
     /** Send result of the reopen template; undefined when one was already pending. */
     public readonly templateResult?: SendResult<unknown>,
   ) {
-    super(chatId, `Outside session window for ${chatId}; reopened with template "${template.name}"${queued ? ', message queued until the user replies' : ''}`)
+    // The chat id (a phone number) stays on `.chatId`, out of the message that ends up in logs.
+    super(chatId, `Outside the 24 h session window; reopened with template "${template.name}"${queued ? ', message queued until the user replies' : ''}`)
     this.name = 'SessionWindowReopenedError'
   }
 }
