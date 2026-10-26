@@ -1,129 +1,9 @@
 # Core Concepts
 
-Understand how the **Dispatcher** decides what happens to each incoming
-message, and the pieces you compose a bot from.
+The pieces you compose a bot from, how each incoming message is routed to
+them, and the options every bot shares (durations, logger, package entries).
 
-## The inbound pipeline
-
-Every incoming message goes through the same pipeline, in this order. The
-first four steps run in the `Bot` as soon as the provider emits the event;
-the rest run inside the Dispatcher, on a **FIFO queue per chat** (two
-messages from the same chat are never processed in parallel). The first
-thing that **consumes** the message wins and stops the routing:
-
-```mermaid
-flowchart TD
-    A[Message in] --> ACL{"Blacklisted /<br/>not whitelisted?"}
-    ACL -->|Yes| X1[Dropped: not persisted, no hooks,<br/>not recorded as seen]
-    ACL -->|No| DD{"Already seen?<br/>(dedupe: chatId + id)"}
-    DD -->|Yes| X0[Dropped]
-    DD -->|No| P[Persist chat, contact, message]
-    P --> GM{"groupMode filter"}
-    GM -->|Ignored| X2[Stops here]
-    GM -->|OK| L["Resolve ctx.lang (i18n)"]
-    L --> B["before('message') hooks<br/>(ctx.lang re-resolved if a hook rewrote ctx.body)"]
-    B --> HO{"Chat handed off<br/>to a human?"}
-    HO -->|"Yes (except allowCommands)"| J
-    HO -->|No| C{"Command? e.g. /reset"}
-    C -->|Yes| D[Command handler]
-    C -->|No| E{Active conversation<br/>for this participant?}
-    E -->|Yes| F[Conversation / flow step continues]
-    E -->|No| R{Dormant persistent-flow<br/>checkpoint?}
-    R -->|Yes| F
-    R -->|No| G{"Matchers by specificity<br/>(WELCOME first)"}
-    G -->|Yes| H[Handler runs]
-    G -->|"No match / ctx.pass()"| I[onMessage catch-all]
-    D --> J["after('message') hooks"]
-    F --> J
-    H --> J
-    I --> J
-    J --> K["'message' event emitted"]
-```
-
-1. **Blacklist / whitelist**: a blocked sender or chat is dropped silently,
-   before anything else. It is not persisted, no hooks run, no `'message'`
-   event fires and it is **not recorded as seen** by dedupe, so a
-   redelivery after un-blocking is processed. See
-   [Handoff & access lists](./handoff#blacklist-and-whitelist).
-2. **Inbound dedupe**: a redelivered message or interaction (same `chatId`
-   + id, from webhook retries or a Baileys offline resync) is dropped. On by
-   default; see [Inbound dedupe](#inbound-dedupe). With
-   [durable processing](./durability) on (opt-in), the event is then written
-   to the inbox journal before anything else runs, acknowledged once its
-   conversation steps settled, and replayed from step 1 after a crash.
-3. **Persistence**: the chat, contact and message are upserted in the store.
-4. **`groupMode` filter**: a group message the bot must ignore stops here
-   (it is still persisted).
-5. **Language resolution, then `before('message')` hooks**: when
-   [i18n](./i18n) is enabled, `ctx.lang` is resolved first (stored
-   `ctx.user` preference → provider-reported language → `detect` →
-   default), so hooks and handlers already see it (`ctx.langSource` says
-   which one won). Then the hooks run and may `abort()` the message. If a
-   hook rewrote `ctx.body` (e.g. the `@botmesh/voice` transcript) and
-   the language came from `detect` or the default, it is resolved again so
-   `detect` sees the final text (a `ctx.lang` a hook set itself is kept).
-6. **Handoff gate**: while a chat is [handed off to a human](./handoff),
-   steps 7–11 are skipped (except the commands in `handoff.allowCommands`).
-   The message is still persisted, hooks still run and `'message'` still
-   fires.
-7. **Commands** (`/reset`, `/help`, ...) always win, even over an active
-   conversation. That's what lets `/reset` escape a stuck flow.
-8. **Active conversation**: if this participant already started a `flow`
-   or `bot.conversation` that's waiting for a reply, the message goes there.
-9. **Dormant resume**: if a `.persistent()` flow was checkpointed in the
-   store (e.g. before a restart), the flow resumes at the saved step.
-10. **Matchers** registered with `bot.when(...)`, tried by specificity:
-    [`WELCOME`](./triggers#welcome) (first contact only), then text triggers
-    (an exact string/`equals` match beats `startsWith`, a regex or
-    `contains`), then predicate functions, then single-type triggers
-    (`IMAGE`, `onImage`...), then multi-type triggers (`MEDIA`). With equal
-    specificity, the one registered first wins.
-11. **`bot.onMessage()`**: the catch-all (also `aiPlugin`). It runs **only**
-    if nothing above consumed the message.
-12. **Finish**: `after('message')` hooks, then the `'message'` event
-    (`bot.onIdle` timers re-arm here).
-
-When the bot runs as one of several replicas ([`coordination`](./replicas)),
-one more step sits between 4 and 5: the message took a ticket in its chat's
-cross-replica FIFO when it was queued, and waits there for the chat's
-**turn**. Only one replica holds a chat's turn at a time and turns follow
-ingress order, so the FIFO per chat holds across replicas. A message whose
-turn cannot be had is dropped and reported as `'error'` (its dedupe id is
-released). The turn is released once the conversation the message fed is
-waiting again or has ended.
-
-Incoming **calls** take a separate path: the access-list and handoff gates
-come **first** and block a call completely (no `'call'` hooks, no `'call'`
-event, no `CALL` trigger; it counts in `metrics().dropped`). An admitted call
-runs the `before`/`after('call')` hooks and the `'call'` event, then the same
-language resolution and only [`CALL` triggers](./triggers#call). No message
-hooks, commands or `'message'` event.
-
-`bot.trigger(name, { chatId })` (start a flow without an inbound message;
-the deprecated `bot.triggerFlow()` is a thin wrapper over it with `ifActive: 'replace'`)
-takes its own path too: the access lists, then the chat's FIFO slot, the
-handoff gate, the language resolution and the conversation start. No dedupe,
-persistence, message hooks, matchers or `'message'` event.
-
-If a handler throws, the `onError('message')` hooks run and the error is
-always emitted on `bot.on('error', ({ error, ctx }) => ...)`, even when no
-error hook is registered.
-
-Handlers **consume by default**: once one runs, the pipeline stops there.
-Call `ctx.pass()` inside a handler to yield to the next matching handler
-instead of stopping — this is how low-specificity handlers like `onImage`/
-`onType` cooperate with a broader `when`:
-
-```ts
-bot.when(/.+/, async (ctx) => {
-  if (ctx.type === 'image') { ctx.pass(); return } // yield to the next handler
-  await ctx.reply('text received')
-})
-
-bot.onType('image', async (ctx) => {
-  await ctx.reply('image received') // now reached, because the handler above passed
-})
-```
+## Building blocks
 
 ### 1. Bot + Provider — the center
 
@@ -174,7 +54,7 @@ explicit `{ pattern, match, scope }` object:
 bot.when('hola', handler)
 bot.when(['bye', 'goodbye'], handler)
 bot.when(/\d{4,}/, handler)
-bot.when({ pattern: 'factura', match: 'contains' }, handler) // v1-style "contains"
+bot.when({ pattern: 'factura', match: 'contains' }, handler) // substring match
 ```
 
 ### 3. flow / conversation — multi-step conversations
@@ -230,6 +110,130 @@ through `ctx.bot` (handlers, hooks, nested plugins, runtime flows and
 A plugin is plugged once per bot: plugging a plugin whose `name` is already
 plugged throws, unless every instance sets `multiple: true` in its spec.
 
+## The inbound pipeline
+
+Every incoming message goes through the same pipeline, in this order. The
+first four steps run in the `Bot` as soon as the provider emits the event;
+the rest run inside the Dispatcher, on a **FIFO queue per chat** (two
+messages from the same chat are never processed in parallel). The first
+thing that **consumes** the message wins and stops the routing:
+
+```mermaid
+flowchart TD
+    A[Message in] --> ACL{"Blacklisted /<br/>not whitelisted?"}
+    ACL -->|Yes| X1[Dropped: not persisted, no hooks,<br/>not recorded as seen]
+    ACL -->|No| DD{"Already seen?<br/>(dedupe: chatId + id)"}
+    DD -->|Yes| X0[Dropped]
+    DD -->|No| P[Persist chat, contact, message]
+    P --> GM{"groupMode filter"}
+    GM -->|Ignored| X2[Stops here]
+    GM -->|OK| L["Resolve ctx.lang (i18n)"]
+    L --> B["before('message') hooks<br/>(ctx.lang re-resolved if a hook rewrote ctx.body)"]
+    B --> HO{"Chat handed off<br/>to a human?"}
+    HO -->|"Yes (except allowCommands)"| J
+    HO -->|No| C{"Command? e.g. /reset"}
+    C -->|Yes| D[Command handler]
+    C -->|No| E{Active conversation<br/>for this participant?}
+    E -->|Yes| F[Conversation / flow step continues]
+    E -->|No| R{Dormant persistent-flow<br/>checkpoint?}
+    R -->|Yes| F
+    R -->|No| G{"Matchers by specificity<br/>(WELCOME first)"}
+    G -->|Yes| H[Handler runs]
+    G -->|"No match / ctx.pass()"| I[onMessage catch-all]
+    D --> J["after('message') hooks"]
+    F --> J
+    H --> J
+    I --> J
+    J --> K["'message' event emitted"]
+```
+
+Before step 1 the bot drops its own messages (`fromMe`) and, when
+[`echoFilter`](#echo-filter) is on, echoes of its own sends.
+
+1. **Blacklist / whitelist**: a blocked sender or chat is dropped silently,
+   before anything else. It is not persisted, no hooks run, no `'message'`
+   event fires and it is **not recorded as seen** by dedupe, so a
+   redelivery after un-blocking is processed. See
+   [Handoff & access lists](./handoff#blacklist-and-whitelist).
+2. **Inbound dedupe**: a redelivered message or interaction (same `chatId`
+   + id, from webhook retries or a Baileys offline resync) is dropped. On by
+   default; see [Inbound dedupe](#inbound-dedupe). With
+   [durable processing](./durability) on (opt-in), the event is then written
+   to the inbox journal before anything else runs, acknowledged once its
+   conversation steps settled, and replayed from step 1 after a crash.
+3. **Persistence**: the chat, contact and message are upserted in the store.
+4. **`groupMode` filter**: a group message the bot must ignore stops here
+   (it is still persisted).
+5. **Language resolution, then `before('message')` hooks**: when
+   [i18n](./i18n) is enabled, `ctx.lang` is resolved first (stored
+   `ctx.user` preference → provider-reported language → `detect` →
+   default), so hooks and handlers already see it (`ctx.langSource` says
+   which one won). Then the hooks run and may `abort()` the message. If a
+   hook rewrote `ctx.body` (e.g. the `@botmesh/voice` transcript) and
+   the language came from `detect` or the default, it is resolved again so
+   `detect` sees the final text (a `ctx.lang` a hook set itself is kept).
+6. **Handoff gate**: while a chat is [handed off to a human](./handoff),
+   steps 7–11 are skipped (except the commands in `handoff.allowCommands`).
+   The message is still persisted, hooks still run and `'message'` still
+   fires.
+7. **Commands** (`/reset`, `/help`, ...) always win, even over an active
+   conversation. That's what lets `/reset` escape a stuck flow.
+8. **Active conversation**: if this participant already started a `flow`
+   or `bot.conversation` that's waiting for a reply, the message goes there.
+9. **Dormant resume**: if a `.persistent()` flow was checkpointed in the
+   store (e.g. before a restart), the flow resumes at the saved step.
+10. **Matchers** registered with `bot.when(...)`, tried by specificity:
+    [`WELCOME`](./triggers#welcome) (first contact only), then text triggers
+    (an exact string/`equals` match beats `startsWith`, a regex or
+    `contains`), then predicate functions, then single-type triggers
+    (`IMAGE`, `onType('image')`...), then multi-type triggers (`MEDIA`). With equal
+    specificity, the one registered first wins.
+11. **`bot.onMessage()`**: the catch-all (also `aiPlugin`). It runs **only**
+    if nothing above consumed the message.
+12. **Finish**: `after('message')` hooks, then the `'message'` event
+    (`bot.onIdle` timers re-arm here).
+
+When the bot runs as one of several replicas ([`coordination`](./replicas)),
+one more step sits between 4 and 5: the message took a ticket in its chat's
+cross-replica FIFO when it was queued, and waits there for the chat's
+**turn**. Only one replica holds a chat's turn at a time and turns follow
+ingress order, so the FIFO per chat holds across replicas. A message whose
+turn cannot be had is dropped and reported as `'error'` (its dedupe id is
+released). The turn is released once the conversation the message fed is
+waiting again or has ended.
+
+Incoming **calls** take a separate path: the access-list and handoff gates
+come **first** and block a call completely (no `'call'` hooks, no `'call'`
+event, no `CALL` trigger; it counts in `metrics().dropped`). An admitted call
+runs the `before`/`after('call')` hooks and the `'call'` event, then the same
+language resolution and only [`CALL` triggers](./triggers#call). No message
+hooks, commands or `'message'` event.
+
+`bot.trigger(name, { chatId })` (start a flow without an inbound message)
+takes its own path too: the access lists, then the chat's FIFO slot, the
+handoff gate, the language resolution and the conversation start. No dedupe,
+persistence, message hooks, matchers or `'message'` event.
+
+If a handler throws, the `onError('message')` hooks run and the error is
+always emitted on `bot.on('error', ({ error, ctx }) => ...)`, even when no
+error hook is registered.
+
+Handlers **consume by default**: once one runs, the pipeline stops there.
+Call `ctx.pass()` inside a handler to yield to the next matching handler
+instead of stopping — this is how low-specificity handlers like `onType`
+cooperate with a broader `when`:
+
+```ts
+bot.when(/.+/, async (ctx) => {
+  if (ctx.type === 'image') { ctx.pass(); return } // yield to the next handler
+  await ctx.reply('text received')
+})
+
+bot.onType('image', async (ctx) => {
+  await ctx.reply('image received') // now reached, because the handler above passed
+})
+```
+
 ## Inbound dedupe
 
 Webhook transports (Cloud API, Messenger, Instagram, Telegram webhook) retry
@@ -259,6 +263,19 @@ new Bot({ provider, dedupe: false })                      // turn it off
   still blocked).
 - If persistence fails before the handlers run (store down), the key is
   released so the transport's retry is processed.
+- A message still queued behind its chat's earlier messages when
+  `bot.stop()` runs is dropped unprocessed and its key is released, so the
+  same id redelivered after `bot.start()` is processed.
+- `size` is an LRU; `ttl` (ms or `'30s'`/`'10m'`/`'1h'`) counts from the
+  first acceptance.
+- **Limit:** it lives in process memory. It does not deduplicate across
+  replicas or after a restart.
+
+Providers must give each inbound event an id that names exactly one logical
+event, stays the same when it is redelivered, and is `''` when the
+transport cannot guarantee that. This is the **inbound id contract**,
+documented on `IProvider`. The deduper itself (`InboundDeduper`,
+`inboundDedupeKey`…) is an engine internal (`@botmesh/core/internal`).
 
 ## Echo filter
 
@@ -276,22 +293,9 @@ new Bot({ provider, echoFilter: { size: 5000, ttl: '10m' } }) // tune it
 ```
 
 Drops count in `metrics().dropped.echo` (Prometheus: `botmesh_dropped_total{reason="echo"}`)
-and only when the option is on; without it the bot behaves exactly as before.
+and only when the option is on (it is off by default).
 The ring is in memory (per process) and each remembered ref is consumed by
 the first matching echo; a later redelivery is the deduper's business.
-- A message still queued behind its chat's earlier messages when
-  `bot.stop()` runs is dropped unprocessed and its key is released, so the
-  same id redelivered after `bot.start()` is processed.
-- `size` is an LRU; `ttl` (ms or `'30s'`/`'10m'`/`'1h'`) counts from the
-  first acceptance.
-- **Limit:** it lives in process memory. It does not deduplicate across
-  replicas or after a restart.
-
-Providers must give each inbound event an id that names exactly one logical
-event, stays the same when it is redelivered, and is `''` when the
-transport cannot guarantee that. This is the **inbound id contract**,
-documented on `IProvider`. The deduper itself (`InboundDeduper`,
-`inboundDedupeKey`…) is an engine internal (`@botmesh/core/internal`).
 
 ## `'message'` event vs `onMessage()`
 

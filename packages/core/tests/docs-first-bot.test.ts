@@ -1,8 +1,8 @@
 /**
  * The "Your first bot" guide (docs/guide/first-bot.md, docs/es/guide/primer-bot.md) is
- * the first complete program a new user copies. Run its code block as written, with
- * only the Baileys transport swapped for a MockProvider, and check that every
- * interaction the guide promises ("Run" section) actually happens.
+ * the first complete program a new user copies. Run its bot factory as written, with a
+ * MockProvider instead of the Baileys transport, and check that every interaction the
+ * guide promises ("Try it" section) actually happens.
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -21,22 +21,28 @@ afterEach(async () => {
 })
 
 /**
- * The module the test runs: the guide's first ```ts block, transport swapped for a
- * MockProvider, `bot` exported. Line endings are normalized first: a Windows checkout
- * with `core.autocrlf=true` has CRLF markdown, and the patterns below match LF.
+ * The module the test runs: the guide's `bot.js` block without its real-transport start
+ * block, its `defineBot` factory called with a MockProvider and the bot started. Line
+ * endings are normalized first: a Windows checkout with `core.autocrlf=true` has CRLF
+ * markdown, and the patterns below match LF.
  */
 function guideModuleSource(md: string, page: string): string {
-  const code = /```ts\n([\s\S]*?)```/.exec(md.replace(/\r\n/g, '\n'))?.[1]
-  expect(code, page + ' has a ts block').toBeTruthy()
+  const code = /```js\n(\/\/ bot\.js\n[\s\S]*?)```/.exec(md.replace(/\r\n/g, '\n'))?.[1]
+  expect(code, page + ' has a bot.js block').toBeTruthy()
+  const start = code!.indexOf('\nif (isMainModule(import.meta))')
+  expect(start, page + ' starts the real provider only under isMainModule').toBeGreaterThan(0)
   const swapped = code!
+    .slice(0, start)
     .replace("import { BaileysProvider } from '@botmesh/baileys'\n", '')
     .replace(/from '@botmesh\/core'/, `from '${src('index.ts')}'`)
-    .replace(/provider: new BaileysProvider\(\{[\s\S]*?\n {2}\}\),/, 'provider: __provider,')
   expect(swapped).not.toContain('BaileysProvider')
+  expect(swapped).toContain('export default createBot')
   return [
     `import { MockProvider } from '${src('testing/MockProvider.ts')}'`,
-    'const __provider = new MockProvider()',
     swapped,
+    'const __provider = new MockProvider()',
+    'const bot = await createBot(__provider)',
+    'await bot.start()',
     'export { bot, __provider }',
   ].join('\n')
 }
@@ -72,21 +78,29 @@ function chatOf(provider: MockProvider) {
 const PAGES = [
   {
     page: 'docs/guide/first-bot.md',
+    greet: 'Hí ',
     hello: 'Hello',
+    unknownText: 'hi there',
+    unknown: 'did not get that',
     photo: 'photo',
+    poll: 'poll',
+    flow: 'register',
     cancelled: 'Conversation cancelled',
-    invalidEmail: 'Invalid email',
-    done: 'Registration complete',
-    unknown: 'did not recognize',
+    invalidEmail: 'not an email',
+    done: 'Done!',
   },
   {
     page: 'docs/es/guide/primer-bot.md',
+    greet: 'Hóla ',
     hello: 'Hola',
-    photo: 'foto',
-    cancelled: 'Conversación cancelada',
-    invalidEmail: 'Email inválido',
-    done: 'Registro completo',
+    unknownText: 'hola amigo',
     unknown: 'No te entendí',
+    photo: 'foto',
+    poll: 'encuesta',
+    flow: 'registro',
+    cancelled: 'Conversación cancelada',
+    invalidEmail: 'no es un email',
+    done: '¡Listo!',
   },
 ]
 
@@ -96,25 +110,26 @@ describe.each(PAGES)('$page runs as documented', (p) => {
     expect(guideModuleSource(md.replace(/\n/g, '\r\n'), p.page).replace(/\r\n/g, '\n')).toBe(guideModuleSource(md, p.page))
   })
 
-  it('answers hola, the slash commands, media and the registration flow', async () => {
+  it('answers the greeting, the slash commands, media, a poll and the registration flow', async () => {
     const { bot, provider } = await loadGuideBot(p.page)
     const chat = chatOf(provider)
     try {
-      expect(await chat.say('Hóla ')).toContain(p.hello)
-      expect(await chat.say('hola amigo')).toContain(p.unknown)
+      expect(await chat.say(p.greet)).toContain(p.hello)
+      expect(await chat.say(p.unknownText)).toContain(p.unknown)
       // /help must list the commands, not repeat "send /help".
       const help = await chat.say('/help')
       for (const cmd of ['/reset', '/cancel', '/ping']) expect(help).toContain(cmd)
       expect(await chat.say('/ping')).toContain('pong')
       expect(await chat.say(p.photo)).toContain('[image]')
-      expect(await chat.say('sticker')).toContain('[sticker]')
-      await chat.say('registrar')
+      expect(await chat.say(p.poll)).toContain('[poll]')
+      await chat.say(p.flow)
       await chat.say('Ana')
       expect(await chat.say('not-an-email')).toContain(p.invalidEmail)
       expect(await chat.say('/cancel')).toContain(p.cancelled)
-      await chat.say('registrar')
+      await chat.say(p.flow)
       await chat.say('Ana 😀')
-      const done = await chat.say('ana@example.com')
+      await chat.say('ana@example.com')
+      const done = await chat.say('1')
       expect(done).toContain(p.done)
       expect(done).toContain('Ana 😀')
     } finally {

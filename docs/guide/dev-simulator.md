@@ -33,7 +33,7 @@ export default createBot
 // npm start (node src/bot.js) → real provider. botmesh dev only imports the factory.
 if (isMainModule(import.meta)) {
   const bot = await createBot(new BaileysProvider({ session: 'my-bot' }))
-  bot.on('qr', (qr) => bot.logger.info(qr))
+  bot.on('ready', () => bot.logger.info('connected'))   // the QR is printed in the terminal
   await bot.start()
 }
 ```

@@ -1,138 +1,10 @@
 # Conceptos básicos
 
-Entiende cómo el **Dispatcher** decide qué pasa con cada mensaje entrante, y
-las piezas con las que compones un bot.
+Las piezas con las que compones un bot, cómo se enruta hacia ellas cada
+mensaje entrante y las opciones que comparten todos los bots (duraciones,
+logger, entradas del paquete).
 
-## El pipeline de entrada
-
-Todo mensaje entrante pasa por el mismo pipeline, en este orden. Los cuatro
-primeros pasos corren en el `Bot` en cuanto el provider emite el evento; el
-resto corre dentro del Dispatcher, en una **cola FIFO por chat** (dos
-mensajes del mismo chat nunca se procesan en paralelo). Lo primero que
-**consume** el mensaje gana y detiene el enrutado:
-
-```mermaid
-flowchart TD
-    A[Entra un mensaje] --> ACL{"¿En la blacklist /<br/>fuera de la whitelist?"}
-    ACL -->|Sí| X1[Descartado: sin persistir, sin hooks,<br/>no se marca como visto]
-    ACL -->|No| DD{"¿Ya visto?<br/>(dedupe: chatId + id)"}
-    DD -->|Sí| X0[Descartado]
-    DD -->|No| P[Persistir chat, contacto, mensaje]
-    P --> GM{"Filtro groupMode"}
-    GM -->|Ignorado| X2[Se detiene aquí]
-    GM -->|OK| L["Resolver ctx.lang (i18n)"]
-    L --> B["hooks before('message')<br/>(ctx.lang se re-resuelve si un hook cambió ctx.body)"]
-    B --> HO{"¿Chat en handoff<br/>con un humano?"}
-    HO -->|"Sí (salvo allowCommands)"| J
-    HO -->|No| C{"¿Es un comando? ej. /reset"}
-    C -->|Sí| D[Handler del comando]
-    C -->|No| E{¿Hay una conversación activa<br/>para este participante?}
-    E -->|Sí| F[Continúa el paso de la conversación / flujo]
-    E -->|No| R{¿Checkpoint dormido de un<br/>flujo persistente?}
-    R -->|Sí| F
-    R -->|No| G{"Matchers por especificidad<br/>(WELCOME primero)"}
-    G -->|Sí| H[Se ejecuta el handler]
-    G -->|"Sin match / ctx.pass()"| I[onMessage catch-all]
-    D --> J["hooks after('message')"]
-    F --> J
-    H --> J
-    I --> J
-    J --> K["se emite el evento 'message'"]
-```
-
-1. **Blacklist / whitelist**: un remitente o chat bloqueado se descarta en
-   silencio, antes que nada. No se persiste, no corren hooks, no se emite
-   `'message'` y el dedupe **no lo marca como visto**, así que una
-   re-entrega después de desbloquearlo se procesa. Ver
-   [Handoff y listas de acceso](./handoff#blacklist-y-whitelist).
-2. **Dedupe de entrada**: un mensaje o interacción re-entregado (mismo
-   `chatId` + id, por reintentos de webhook o por la resincronización
-   offline de Baileys) se descarta. Activado por defecto; ver
-   [Dedupe de entrada](#dedupe-de-entrada). Con el
-   [procesamiento durable](./durabilidad) activado (opt-in), después el
-   mensaje se anota en el inbox antes de que corra nada más, se confirma
-   cuando sus pasos de conversación se asentaron y se reprocesa desde el
-   paso 1 tras una caída.
-3. **Persistencia**: se guardan el chat, el contacto y el mensaje en el store.
-4. **Filtro `groupMode`**: un mensaje de grupo que el bot debe ignorar se
-   detiene aquí (sí se persiste).
-5. **Resolución del idioma y hooks `before('message')`**: con el
-   [i18n](./i18n) activado, primero se resuelve `ctx.lang` (preferencia
-   guardada en `ctx.user` → idioma que informa el provider → `detect` →
-   idioma por defecto), así que hooks y handlers ya lo ven (`ctx.langSource`
-   dice cuál ganó). Después corren los hooks, que pueden hacer `abort()` del
-   mensaje. Si un hook reescribió `ctx.body` (p. ej. la transcripción del
-   plugin de voz) y el idioma salió de `detect` o del valor por defecto, se
-   vuelve a resolver para que `detect` vea el texto final (se respeta un
-   `ctx.lang` que el hook haya puesto a mano).
-6. **Gate de handoff**: mientras un chat está [en manos de un humano](./handoff),
-   se saltan los pasos 7–11 (salvo los comandos de `handoff.allowCommands`).
-   El mensaje se sigue persistiendo, los hooks siguen corriendo y
-   `'message'` se sigue emitiendo.
-7. **Los comandos** (`/reset`, `/help`, ...) siempre ganan, incluso sobre
-   una conversación activa. Eso es lo que le permite a `/reset` escapar de
-   un flujo atascado.
-8. **Conversación activa**: si este participante ya inició un `flow` o un
-   `bot.conversation` que está esperando una respuesta, el mensaje va ahí.
-9. **Reanudación dormida**: si un flujo `.persistent()` quedó guardado como
-   checkpoint en el store (p. ej. antes de un reinicio), el flujo se reanuda
-   en el paso guardado.
-10. **Matchers** registrados con `bot.when(...)`, por especificidad: primero
-    [`WELCOME`](./triggers#welcome) (solo el primer contacto), luego los
-    triggers de texto (una coincidencia exacta/`equals` gana a
-    `startsWith`, a un regex o a `contains`), luego las funciones
-    predicado, luego los triggers de un tipo (`IMAGE`, `onImage`...) y por
-    último los multi-tipo (`MEDIA`). Con la misma especificidad gana el
-    registrado primero.
-11. **`bot.onMessage()`**: el catch-all (también `aiPlugin`). Se ejecuta
-    **solo** si nada de lo anterior consumió el mensaje.
-12. **Cierre**: hooks `after('message')` y luego el evento `'message'` (aquí
-    se rearman los temporizadores de `bot.onIdle`).
-
-Cuando el bot corre como una de varias réplicas ([`coordination`](./replicas)),
-hay un paso más entre el 4 y el 5: el mensaje tomó un turno en la cola FIFO
-del chat compartida entre réplicas al encolarse, y espera ahí su **turno**.
-Solo una réplica tiene el turno de un chat a la vez y los turnos siguen el
-orden de llegada, así que la cola FIFO por chat se mantiene entre réplicas.
-Un mensaje que no consigue su turno se descarta y se informa como `'error'`
-(su id de dedupe se libera). El turno se suelta cuando la conversación que
-recibió el mensaje vuelve a esperar o termina.
-
-Las **llamadas** entrantes siguen un camino aparte: los gates de listas de
-acceso y handoff van **primero** y bloquean la llamada por completo (sin
-hooks `'call'`, sin evento `'call'` ni trigger `CALL`; cuenta en
-`metrics().dropped`). Una llamada admitida corre los hooks
-`before`/`after('call')` y el evento `'call'`, después la misma resolución
-del idioma y solo los [triggers `CALL`](./triggers#call). Sin hooks de
-mensaje, comandos ni evento `'message'`.
-
-`bot.trigger(name, { chatId })` (arrancar un flujo sin mensaje entrante;
-el obsoleto `bot.triggerFlow()` es un wrapper fino sobre él con `ifActive: 'replace'`)
-también va por su propio camino: las listas de acceso, después el turno de
-la cola FIFO del chat, el gate de handoff, la resolución del idioma y el
-inicio de la conversación. Sin dedupe, persistencia, hooks de mensaje,
-matchers ni evento `'message'`.
-
-Si un handler lanza, corren los hooks `onError('message')` y el error se
-emite siempre en `bot.on('error', ({ error, ctx }) => ...)`, aunque no haya
-ningún hook de error registrado.
-
-Los handlers **consumen por defecto**: una vez que uno se ejecuta, el
-pipeline se detiene ahí. Llama a `ctx.pass()` dentro de un handler para
-ceder el turno al siguiente handler que coincida en lugar de detenerse —
-así es como los handlers de baja especificidad como `onImage`/`onType`
-cooperan con un `when` más amplio:
-
-```ts
-bot.when(/.+/, async (ctx) => {
-  if (ctx.type === 'image') { ctx.pass(); return } // cede el turno al siguiente handler
-  await ctx.reply('text received')
-})
-
-bot.onType('image', async (ctx) => {
-  await ctx.reply('image received') // ahora se alcanza, porque el handler de arriba hizo pass
-})
-```
+## Las piezas
 
 ### 1. Bot + Provider — el centro
 
@@ -184,7 +56,7 @@ texto, una lista, un regex, un predicado, o un objeto explícito
 bot.when('hola', handler)
 bot.when(['bye', 'goodbye'], handler)
 bot.when(/\d{4,}/, handler)
-bot.when({ pattern: 'factura', match: 'contains' }, handler) // estilo v1: "contains"
+bot.when({ pattern: 'factura', match: 'contains' }, handler) // coincidencia por subcadena
 ```
 
 ### 3. flow / conversation — conversaciones multi-paso
@@ -241,6 +113,139 @@ Un plugin se enchufa una vez por bot: enchufar un plugin cuyo `name` ya está
 enchufado lanza un error, salvo que todas las instancias pongan
 `multiple: true` en su spec.
 
+## El pipeline de entrada
+
+Todo mensaje entrante pasa por el mismo pipeline, en este orden. Los cuatro
+primeros pasos corren en el `Bot` en cuanto el provider emite el evento; el
+resto corre dentro del Dispatcher, en una **cola FIFO por chat** (dos
+mensajes del mismo chat nunca se procesan en paralelo). Lo primero que
+**consume** el mensaje gana y detiene el enrutado:
+
+```mermaid
+flowchart TD
+    A[Entra un mensaje] --> ACL{"¿En la blacklist /<br/>fuera de la whitelist?"}
+    ACL -->|Sí| X1[Descartado: sin persistir, sin hooks,<br/>no se marca como visto]
+    ACL -->|No| DD{"¿Ya visto?<br/>(dedupe: chatId + id)"}
+    DD -->|Sí| X0[Descartado]
+    DD -->|No| P[Persistir chat, contacto, mensaje]
+    P --> GM{"Filtro groupMode"}
+    GM -->|Ignorado| X2[Se detiene aquí]
+    GM -->|OK| L["Resolver ctx.lang (i18n)"]
+    L --> B["hooks before('message')<br/>(ctx.lang se re-resuelve si un hook cambió ctx.body)"]
+    B --> HO{"¿Chat en handoff<br/>con un humano?"}
+    HO -->|"Sí (salvo allowCommands)"| J
+    HO -->|No| C{"¿Es un comando? ej. /reset"}
+    C -->|Sí| D[Handler del comando]
+    C -->|No| E{¿Hay una conversación activa<br/>para este participante?}
+    E -->|Sí| F[Continúa el paso de la conversación / flujo]
+    E -->|No| R{¿Checkpoint dormido de un<br/>flujo persistente?}
+    R -->|Sí| F
+    R -->|No| G{"Matchers por especificidad<br/>(WELCOME primero)"}
+    G -->|Sí| H[Se ejecuta el handler]
+    G -->|"Sin match / ctx.pass()"| I[onMessage catch-all]
+    D --> J["hooks after('message')"]
+    F --> J
+    H --> J
+    I --> J
+    J --> K["se emite el evento 'message'"]
+```
+
+Antes del paso 1 el bot descarta sus propios mensajes (`fromMe`) y, con
+[`echoFilter`](#filtro-de-ecos) activo, los ecos de sus envíos.
+
+1. **Blacklist / whitelist**: un remitente o chat bloqueado se descarta en
+   silencio, antes que nada. No se persiste, no corren hooks, no se emite
+   `'message'` y el dedupe **no lo marca como visto**, así que una
+   re-entrega después de desbloquearlo se procesa. Ver
+   [Handoff y listas de acceso](./handoff#blacklist-y-whitelist).
+2. **Dedupe de entrada**: un mensaje o interacción re-entregado (mismo
+   `chatId` + id, por reintentos de webhook o por la resincronización
+   offline de Baileys) se descarta. Activado por defecto; ver
+   [Dedupe de entrada](#dedupe-de-entrada). Con el
+   [procesamiento durable](./durabilidad) activado (opt-in), después el
+   mensaje se anota en el inbox antes de que corra nada más, se confirma
+   cuando sus pasos de conversación se asentaron y se reprocesa desde el
+   paso 1 tras una caída.
+3. **Persistencia**: se guardan el chat, el contacto y el mensaje en el store.
+4. **Filtro `groupMode`**: un mensaje de grupo que el bot debe ignorar se
+   detiene aquí (sí se persiste).
+5. **Resolución del idioma y hooks `before('message')`**: con el
+   [i18n](./i18n) activado, primero se resuelve `ctx.lang` (preferencia
+   guardada en `ctx.user` → idioma que informa el provider → `detect` →
+   idioma por defecto), así que hooks y handlers ya lo ven (`ctx.langSource`
+   dice cuál ganó). Después corren los hooks, que pueden hacer `abort()` del
+   mensaje. Si un hook reescribió `ctx.body` (p. ej. la transcripción del
+   plugin de voz) y el idioma salió de `detect` o del valor por defecto, se
+   vuelve a resolver para que `detect` vea el texto final (se respeta un
+   `ctx.lang` que el hook haya puesto a mano).
+6. **Gate de handoff**: mientras un chat está [en manos de un humano](./handoff),
+   se saltan los pasos 7–11 (salvo los comandos de `handoff.allowCommands`).
+   El mensaje se sigue persistiendo, los hooks siguen corriendo y
+   `'message'` se sigue emitiendo.
+7. **Los comandos** (`/reset`, `/help`, ...) siempre ganan, incluso sobre
+   una conversación activa. Eso es lo que le permite a `/reset` escapar de
+   un flujo atascado.
+8. **Conversación activa**: si este participante ya inició un `flow` o un
+   `bot.conversation` que está esperando una respuesta, el mensaje va ahí.
+9. **Reanudación dormida**: si un flujo `.persistent()` quedó guardado como
+   checkpoint en el store (p. ej. antes de un reinicio), el flujo se reanuda
+   en el paso guardado.
+10. **Matchers** registrados con `bot.when(...)`, por especificidad: primero
+    [`WELCOME`](./triggers#welcome) (solo el primer contacto), luego los
+    triggers de texto (una coincidencia exacta/`equals` gana a
+    `startsWith`, a un regex o a `contains`), luego las funciones
+    predicado, luego los triggers de un tipo (`IMAGE`, `onType('image')`...) y por
+    último los multi-tipo (`MEDIA`). Con la misma especificidad gana el
+    registrado primero.
+11. **`bot.onMessage()`**: el catch-all (también `aiPlugin`). Se ejecuta
+    **solo** si nada de lo anterior consumió el mensaje.
+12. **Cierre**: hooks `after('message')` y luego el evento `'message'` (aquí
+    se rearman los temporizadores de `bot.onIdle`).
+
+Cuando el bot corre como una de varias réplicas ([`coordination`](./replicas)),
+hay un paso más entre el 4 y el 5: el mensaje tomó un turno en la cola FIFO
+del chat compartida entre réplicas al encolarse, y espera ahí su **turno**.
+Solo una réplica tiene el turno de un chat a la vez y los turnos siguen el
+orden de llegada, así que la cola FIFO por chat se mantiene entre réplicas.
+Un mensaje que no consigue su turno se descarta y se informa como `'error'`
+(su id de dedupe se libera). El turno se suelta cuando la conversación que
+recibió el mensaje vuelve a esperar o termina.
+
+Las **llamadas** entrantes siguen un camino aparte: los gates de listas de
+acceso y handoff van **primero** y bloquean la llamada por completo (sin
+hooks `'call'`, sin evento `'call'` ni trigger `CALL`; cuenta en
+`metrics().dropped`). Una llamada admitida corre los hooks
+`before`/`after('call')` y el evento `'call'`, después la misma resolución
+del idioma y solo los [triggers `CALL`](./triggers#call). Sin hooks de
+mensaje, comandos ni evento `'message'`.
+
+`bot.trigger(name, { chatId })` (arrancar un flujo sin mensaje entrante)
+también va por su propio camino: las listas de acceso, después el turno de
+la cola FIFO del chat, el gate de handoff, la resolución del idioma y el
+inicio de la conversación. Sin dedupe, persistencia, hooks de mensaje,
+matchers ni evento `'message'`.
+
+Si un handler lanza, corren los hooks `onError('message')` y el error se
+emite siempre en `bot.on('error', ({ error, ctx }) => ...)`, aunque no haya
+ningún hook de error registrado.
+
+Los handlers **consumen por defecto**: una vez que uno se ejecuta, el
+pipeline se detiene ahí. Llama a `ctx.pass()` dentro de un handler para
+ceder el turno al siguiente handler que coincida en lugar de detenerse —
+así es como los handlers de baja especificidad como `onType`
+cooperan con un `when` más amplio:
+
+```ts
+bot.when(/.+/, async (ctx) => {
+  if (ctx.type === 'image') { ctx.pass(); return } // cede el turno al siguiente handler
+  await ctx.reply('text received')
+})
+
+bot.onType('image', async (ctx) => {
+  await ctx.reply('image received') // ahora se alcanza, porque el handler de arriba hizo pass
+})
+```
+
 ## Dedupe de entrada
 
 Los transportes por webhook (Cloud API, Messenger, Instagram, Telegram en
@@ -271,6 +276,19 @@ new Bot({ provider, dedupe: false })                      // desactivar
   como `blocked`, no como `duplicate`).
 - Si falla la persistencia antes de los handlers (store caído), la clave se
   libera y el reintento del transporte sí se procesa.
+- Un mensaje que seguía en la cola de su chat cuando se llamó a
+  `bot.stop()` se descarta sin procesar y su clave se libera, así que el
+  mismo id re-entregado después de `bot.start()` sí se procesa.
+- `size` es un LRU; `ttl` (ms o `'30s'`/`'10m'`/`'1h'`) cuenta desde la
+  primera aceptación.
+- **Límite:** vive en la memoria del proceso. No deduplica entre réplicas
+  ni tras un reinicio.
+
+Los providers deben dar a cada evento entrante un id que nombre exactamente
+un evento lógico, que no cambie cuando se re-entrega y que sea `''` cuando
+el transporte no pueda garantizarlo. Es el **contrato de ids de entrada**,
+documentado en `IProvider`. El deduper en sí (`InboundDeduper`,
+`inboundDedupeKey`…) es un interno del motor (`@botmesh/core/internal`).
 
 ## Filtro de ecos
 
@@ -288,23 +306,9 @@ new Bot({ provider, echoFilter: { size: 5000, ttl: '10m' } }) // ajustar
 ```
 
 Los descartes cuentan en `metrics().dropped.echo` (Prometheus:
-`botmesh_dropped_total{reason="echo"}`) y solo con la opción activa; sin ella el
-bot se comporta exactamente igual que antes. El anillo vive en memoria (por
-proceso) y cada ref recordado lo consume el primer eco que coincide; una
+`botmesh_dropped_total{reason="echo"}`) y solo con la opción activa (viene
+desactivada). El anillo vive en memoria (por proceso) y cada ref recordado lo consume el primer eco que coincide; una
 re-entrega posterior es cosa del dedupe.
-- Un mensaje que seguía en la cola de su chat cuando se llamó a
-  `bot.stop()` se descarta sin procesar y su clave se libera, así que el
-  mismo id re-entregado después de `bot.start()` sí se procesa.
-- `size` es un LRU; `ttl` (ms o `'30s'`/`'10m'`/`'1h'`) cuenta desde la
-  primera aceptación.
-- **Límite:** vive en la memoria del proceso. No deduplica entre réplicas
-  ni tras un reinicio.
-
-Los providers deben dar a cada evento entrante un id que nombre exactamente
-un evento lógico, que no cambie cuando se re-entrega y que sea `''` cuando
-el transporte no pueda garantizarlo. Es el **contrato de ids de entrada**,
-documentado en `IProvider`. El deduper en sí (`InboundDeduper`,
-`inboundDedupeKey`…) es un interno del motor (`@botmesh/core/internal`).
 
 ## El evento `'message'` vs `onMessage()`
 

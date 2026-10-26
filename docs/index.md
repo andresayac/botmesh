@@ -3,76 +3,121 @@ layout: home
 
 hero:
   name: botmesh
-  text: Transport-Agnostic Bot Framework
-  tagline: Flows, hooks, plugins and conversations behind one IProvider — WhatsApp (Baileys / Cloud API) and Telegram, plus experimental Messenger, Instagram and Discord. Simple, declarative, TypeScript. Alpha on npm — install with `@alpha`.
+  text: One bot, every chat channel
+  tagline: A TypeScript framework for messaging bots. Write handlers and conversation flows once, run them on WhatsApp (Baileys or the official Cloud API) and Telegram, and try them in your terminal without a phone.
   actions:
     - theme: brand
-      text: Get Started
+      text: Get started
       link: /guide/getting-started
     - theme: alt
-      text: Examples
-      link: /examples/messages
+      text: Your first bot
+      link: /guide/first-bot
     - theme: alt
-      text: API Reference
+      text: API reference
       link: /api/
 
 features:
   - title: Transport-agnostic
     details: |
-      One engine, many transports. @botmesh/core runs any IProvider:
-      @botmesh/baileys (WhatsApp Web), @botmesh/meta (official WhatsApp
-      Cloud API), @botmesh/telegram — plus experimental Messenger,
-      Instagram and Discord providers.
-    icon: 🚆
-  - title: Declarative
-    details: |
-      bot.when('hi', ctx => ctx.reply('Hello! 👋')) — no boilerplate,
-      no nested callbacks. Write what you want to happen.
-    icon: 💬
+      One engine, many providers: @botmesh/baileys (WhatsApp Web),
+      @botmesh/meta (official WhatsApp Cloud API) and @botmesh/telegram,
+      plus experimental Messenger, Instagram, Discord and more.
+      Switching channels changes one line.
+    icon: 🔌
+    link: /guide/channels
+    linkText: Channels
   - title: Conversation flows
     details: |
-      flow().say().ask().choose() compiles to a real async conversation —
-      validation, retries, branching and timeouts, no separate step engine.
+      flow('signup').ask().choose().say() compiles to a real async
+      conversation with validation, retries, branching and timeouts.
+      Persistent flows survive a restart.
     icon: 🔀
-  - title: Hooks (middleware)
+    link: /guide/flows
+    linkText: Flows
+  - title: Try it without a phone
     details: |
-      before / after / onError — intercept any event, just like Express.
-      Logging, rate limiting, metrics, anything.
-    icon: 🪝
-  - title: Plugins
+      npx botmesh dev bot.js chats with your bot in the terminal, with hot
+      reload and no account, number or ban risk.
+    icon: 💻
+    link: /guide/dev-simulator
+    linkText: Terminal simulator
+  - title: Testable
     details: |
-      Package and reuse functionality. Includes slashCommandsPlugin
-      (/start, /help, /reset, /cancel, /id, /ping) out of the box.
+      createTestBot and MockProvider run your flows in unit tests with no
+      network. Golden transcripts catch regressions in whole conversations.
+    icon: ✅
+    link: /guide/testing
+    linkText: Testing
+  - title: AI when you need it
+    details: |
+      @botmesh/ai answers with Anthropic, OpenAI, Gemini, Ollama or
+      OpenAI-compatible models, calls your tools with confirmation and
+      remembers each user.
+    icon: 🤖
+    link: /guide/ai
+    linkText: AI plugin
+  - title: Hooks and plugins
+    details: |
+      before / after / onError middleware on every message and send, and
+      reusable plugins such as the built-in slash commands.
     icon: 🧩
-  - title: Dependency injection
-    details: |
-      bot.provide('db', myDb) — available as ctx.tools.db in any handler.
-      No globals, no coupling.
-    icon: 🔌
-  - title: Built-in scheduler
-    details: |
-      Cron, intervals and delays with human syntax.
-      bot.every('30 seconds', ...) or bot.schedule('0 9 * * 1-5', ...).
-    icon: ⏰
+    link: /guide/plugins
+    linkText: Plugins
   - title: Pluggable stores
     details: |
       MemoryStore by default; @botmesh/sqlite-store and @botmesh/redis-store
-      for persistence — or implement the generic IStore for anything else.
+      for persistence, or your own IStore.
     icon: 📦
-  - title: Full media support
+    link: /guide/store
+    linkText: Stores
+  - title: Ready for production
     details: |
-      Photo, video, audio, voice, sticker, file, location, contact,
-      poll — all with a single line.
-    icon: 📸
-  - title: TypeScript native
+      Inbound dedupe on by default and an anti-ban rate limiter on Baileys;
+      opt-in durable processing, multiple replicas, a durable scheduler and
+      OpenTelemetry traces.
+    icon: 🚀
+    link: /guide/deploy
+    linkText: Deployment
+  - title: Typed throughout
     details: |
-      Types throughout the ecosystem. Autocomplete and type-checking on
-      every handler, flow and plugin.
+      ESM packages written in TypeScript: autocomplete and type checking on
+      every handler, flow state and plugin. Plain JavaScript works too.
     icon: 🔷
 ---
 
-::: tip Who is this for?
-If you know basic JavaScript, you can build a working WhatsApp bot in
-**under 5 minutes**. You don't need TypeScript to get started — the
-examples are copy-paste-ready.
-:::
+## A bot in a few lines
+
+```js
+import { Bot, flow } from '@botmesh/core'
+import { BaileysProvider } from '@botmesh/baileys'
+
+const bot = new Bot({ provider: new BaileysProvider({ session: 'my-bot' }) })
+
+bot.when('hi', (ctx) => ctx.reply('👋 Hello!'))
+
+bot.use(
+  flow('signup')
+    .ask('What is your name?', 'name')
+    .say((_ctx, c) => `Nice to meet you, ${c.state.name}!`),
+)
+
+await bot.start() // scan the QR with WhatsApp → Linked devices
+```
+
+Swap `BaileysProvider` for `TelegramProvider` or `CloudAPIProvider` and the
+rest of the code stays the same.
+
+## Start in five minutes
+
+```bash
+npm create botmesh my-bot
+cd my-bot && npm install
+npm run dev        # chat with it in the terminal
+npm start          # connect WhatsApp or Telegram
+```
+
+botmesh is in prerelease and these docs describe the upcoming release: during
+the beta, add the tag (`npm create botmesh@beta my-bot`). The older alphas on
+npm today differ in places. [Getting started](/guide/getting-started) explains
+which version to install and walks through every step, including setting up a
+project by hand.

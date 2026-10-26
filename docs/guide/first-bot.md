@@ -1,148 +1,171 @@
 # Your First Bot
 
-Let's build a complete bot with commands, media and a conversation flow.
+This page grows the bot from [Getting started](./getting-started) into one
+that handles commands, media, a poll and a multi-step flow with validation.
+It runs unchanged in the terminal simulator and on WhatsApp.
 
 ## The complete bot
 
-```ts
-import { Bot, flow, slashCommandsPlugin } from '@botmesh/core'
+```js
+// bot.js
+import { Bot, defineBot, flow, isMainModule, slashCommandsPlugin } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
 
-// 1. Create the bot — transport options live on the provider
-const bot = new Bot({
-  provider: new BaileysProvider({
-    session: 'demo-bot',
-    sessionsDir: './sessions',
-    qr: { terminal: true, small: true },
-    markOnlineOnConnect: false,
-    ignoreNewsletters: true,
-    ignoreBroadcasts: true,
-  }),
-})
+const createBot = defineBot((provider) => {
+  // 1. The bot: transport-agnostic engine + the provider you receive
+  const bot = new Bot({ provider })
 
-// 2. Connection events
-bot.on('ready', () => console.log('✅ Bot ready!'))
-bot.on('qr', () => console.log('📱 Scan the QR with your WhatsApp'))
-
-// 3. Built-in slash commands (/start, /help, /reset, /cancel, /id, /ping)
-bot.plug(slashCommandsPlugin, {
-  // Shown on /start and /help (without it: the built-in command list)
-  greeting: [
-    '🤖 Hi! I am a bot.',
-    'Commands: /help /reset /cancel /id /ping',
-    'Or send: hola, photo, sticker, registrar',
-  ].join('\n'),
-})
-
-// 4. Simple responses
-bot.when('hola', async (ctx) => {
-  await ctx.reply('👋 Hello! Send "registrar" to try the registration flow.')
-})
-
-bot.when('info', async (ctx) => {
-  await ctx.reply('ℹ️ I am a bot built with @botmesh/core v2')
-})
-
-// 5. Media
-bot.when('photo', async (ctx) => {
-  await ctx.photo('https://picsum.photos/400/300', '📸 Here is a photo')
-})
-
-bot.when('sticker', async (ctx) => {
-  await ctx.sticker('https://picsum.photos/512/512', {
-    pack: 'My Bot',
-    author: 'me',
+  // 2. Built-in slash commands
+  bot.plug(slashCommandsPlugin, {
+    greeting: '🤖 Hi! Try: hi, photo, poll, register. Commands: /help /reset /cancel /id /ping',
   })
+
+  // 3. Simple replies
+  bot.when(['hi', 'hello'], (ctx) => ctx.reply(`👋 Hello ${ctx.pushName ?? 'there'}! Send "register" to try a flow.`))
+
+  // 4. Media and polls
+  bot.when('photo', (ctx) => ctx.photo('https://picsum.photos/400/300', '📸 Here is a photo'))
+  bot.when('poll', (ctx) => ctx.poll('Favourite colour?', ['Red', 'Green', 'Blue']))
+
+  // 5. A multi-step flow with validation and a menu
+  bot.use(
+    flow('register')
+      .say('📝 *Let us register you*')
+      .ask('What is your name?', 'name')
+      .ask('What is your email?', 'email', {
+        validate: (body) => (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body) ? true : '❌ That is not an email, try again'),
+      })
+      .choose('Do you want our newsletter?', { yes: 'Yes, please', no: 'No, thanks' }, 'newsletter')
+      .say((_ctx, c) =>
+        `✅ Done!\n👤 ${c.state.name}\n📧 ${c.state.email}\n📰 Newsletter: ${c.state.newsletter}`,
+      )
+      .timeout('5m'),
+  )
+
+  // 6. Catch-all: runs only when nothing else handled the message
+  bot.onMessage((ctx) => ctx.reply('🤔 I did not get that. Send /help for commands.'))
+
+  return bot
 })
 
-// 6. Registration flow
-const register = flow('registrar')
-  .say('📝 *Let us register you*')
-  .ask('What is your name?', 'name')
-  .ask('What is your email?', 'email', {
-    validate: (body) =>
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body) ? true : '❌ Invalid email, try again',
-  })
-  .say((_ctx, c) => `✅ Registration complete!\n👤 ${c.state.name}\n📧 ${c.state.email}`)
+export default createBot
 
-bot.use(register)
-
-// 7. Catch-all
-bot.onMessage(async (ctx) => {
-  await ctx.reply('🤔 I did not recognize that. Send /help for commands.')
-})
-
-// 8. Start
-await bot.start()
+// 7. Start: `node bot.js` connects to WhatsApp; `npx botmesh dev bot.js` skips this block
+if (isMainModule(import.meta)) {
+  const bot = await createBot(new BaileysProvider({ session: 'my-bot' }))
+  bot.on('qr', () => console.log('📱 Scan the QR with WhatsApp → Linked devices'))
+  bot.on('ready', () => console.log('✅ Bot ready'))
+  await bot.start()
+}
 ```
+
+## Try it
+
+```bash
+npx botmesh dev bot.js     # in the terminal, no phone
+node bot.js                # on WhatsApp: scan the QR, then write from another phone
+```
+
+```text
+user › register
+bot › 📝 *Let us register you*
+bot › What is your name?
+user › Ana
+bot › What is your email?
+user › nope
+bot › ❌ That is not an email, try again
+user › ana@example.com
+bot › Do you want our newsletter?
+
+      1) Yes, please
+      2) No, thanks
+user › 1
+bot › ✅ Done!
+      👤 Ana
+      📧 ana@example.com
+      📰 Newsletter: yes
+```
+
+Send `/reset` in the middle of the flow to leave it: commands always win over
+an active conversation.
 
 ## What each part does
 
-### 1. Create the bot
+### 1. The bot and its provider
 
-`new Bot({ provider })` wires the transport-agnostic engine to a concrete
-transport. `session` is a **provider** option: the WhatsApp login is saved
-in `./sessions/demo-bot/`. If you close and reopen, **you don't need to
-scan the QR again**.
+`new Bot({ provider })` wires the transport-agnostic engine to a transport.
+Transport options live on the provider: `session: 'my-bot'` saves the WhatsApp
+login in `./sessions/my-bot/`, so later starts reconnect without a QR.
+`defineBot` and `isMainModule` let the simulator inject its own provider
+instead of `BaileysProvider` (see [Terminal simulator](./dev-simulator)).
 
 The texts the framework writes for you (slash command replies, "please answer
-with text", timeouts...) are in English by default. `lang: 'es'` switches them
-to the bundled Spanish texts. See [Internationalization](./i18n) to serve
-several languages.
+with text", timeouts) are in English by default. `new Bot({ provider, lang: 'es' })`
+switches them to the bundled Spanish texts; [Internationalization](./i18n)
+covers several languages.
 
-### 2. Connection events
+### 2. Slash commands
 
-Events that fire when the bot connects or shows the QR. `bot.on('qr', ...)`
-receives the provider's auth artifact (a QR string for Baileys — other
-transports may surface a pairing code or OAuth URL through the same event).
+`slashCommandsPlugin` installs `/start`, `/help`, `/reset`, `/cancel`, `/id`
+and `/ping`. `greeting` replaces the text of `/start` and `/help`, so list
+your commands in it; without `greeting` both answer with the built-in command
+list. Commands win over an active conversation, so `/reset` or `/cancel`
+always escapes a flow.
 
-### 3. Slash commands
+### 3. Simple replies
 
-Installs `/start`, `/help`, `/reset`, `/cancel`, `/id`, `/ping` — 6 commands
-for free. `greeting` replaces the text of `/start` and `/help`, so list the
-commands in it (without `greeting` they answer with a built-in command list). Commands always win over an active conversation, so `/reset` (or
-`/cancel`) can always escape a stuck flow.
+`bot.when(trigger, handler)` compares the **whole** message, normalized
+(lowercase, accents stripped, spaces collapsed): `'hi'` matches "hi" and
+"Hí ", not "hi there". A list matches any of its entries. Use
+`{ pattern: 'hi', match: 'contains' }` for substring matching, or a regex.
+`ctx.pushName` is the sender's display name when the transport reports one.
+See [Special triggers](./triggers) for every trigger form.
 
-### 4. Simple responses
+### 4. Media and polls
 
-`bot.when(trigger, handler)` matches by **normalized equals by default**
-(lowercased, accents stripped, spaces collapsed) — `'hola'` matches only an
-exact "hola"/"Hóla ", not "hola amigo". Use
-`{ pattern: 'hola', match: 'contains' }` if you want substring matching.
+Every `ctx` send method takes a URL, a local path or a `Buffer`:
 
-### 5. Media
-
-```ts
-await ctx.photo(url, 'caption')
-await ctx.sticker(url, { pack, author })
-await ctx.voice(url)
-await ctx.location(lat, lng, name)
-await ctx.contact(phone, name)
-await ctx.poll(question, options)
+```js
+await ctx.photo('https://example.com/cat.jpg', 'caption')
+await ctx.video('./clip.mp4')
+await ctx.file('./invoice.pdf')
+await ctx.voice('./note.mp3')                       // voice note (Baileys converts it with ffmpeg)
+await ctx.sticker('./logo.png', { pack: 'My bot', author: 'me' })   // Baileys needs `sharp`
+await ctx.location(4.711, -74.0721, 'Bogotá')
+await ctx.contact('+573001234567', 'Support')
+await ctx.poll('Favourite colour?', ['Red', 'Green', 'Blue'])
+await ctx.react('👍')
 ```
 
-### 6. Flows
+What each transport supports natively, and how the rest degrades, is in
+[Messages & media](./messages) and [Channels](./channels).
 
-Multi-step conversations. `flow('registrar')` compiles to a real conversation:
-`.ask(text, key)` sends `text`, waits for the reply, and stores it in
-`c.state[key]`. The function form of `.say((ctx, c) => ...)` can read
-whatever was captured so far via `c.state`.
+### 5. Flows
 
-### 7. Catch-all
+`flow('register')` compiles to a real conversation. `.ask(text, key)` sends
+`text`, waits for the reply and stores it in `c.state[key]`; `validate`
+returns `true` or the text to send before asking again. `.choose()` sends a
+numbered menu and stores the chosen **key** (the user can answer with the
+number or the label). The function form of `.say((ctx, c) => ...)` reads everything
+captured so far, and `.timeout('5m')` ends an abandoned conversation. The flow
+starts when a message matches its trigger (`register`). More in
+[Conversation flows](./flows).
+
+### 6. Catch-all
 
 `bot.onMessage()` runs only when nothing else (a command, an active
-conversation, or a `when`/flow matcher) already consumed the message.
+conversation, a `when` handler or a flow trigger) consumed the message.
 
-## Run
+### 7. Start
 
-```bash
-node bot.js
-```
-
-Scan the QR and try sending: `hola`, `photo`, `sticker`, `registrar`.
+`bot.on('qr')` fires when the provider needs you to authenticate (a QR string
+on Baileys); `bot.on('ready')` fires once the transport is connected. After
+`await bot.start()` the bot can send; before it, sends reject with
+`BotNotRunningError`.
 
 ## Next steps
 
-- [Core concepts](./concepts) — understand how it works internally
-- [Conversation flows](./flows) — complex conversations
-- [Examples](/examples/messages) — more recipes
+- [Core concepts](./concepts): how a message is routed, `ctx`, ids and options
+- [Conversation flows](./flows): branching, retries, persistent flows
+- [Testing](./testing): assert this flow in a unit test with `createTestBot`
+- [Examples](/examples/messages): more recipes
