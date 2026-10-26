@@ -12,8 +12,14 @@
 
 import { nextRunInZone } from './cronZone.js'
 
-const CRON_FIELDS =['minute', 'hour', 'day-of-month', 'month', 'weekday'] as const
+const CRON_FIELDS = ['minute', 'hour', 'day-of-month', 'month', 'weekday'] as const
 const CRON_FIELD = /^(\*|\d+(-\d+)?)(\/\d+)?(,(\*|\d+(-\d+)?)(\/\d+)?)*$/
+/** Allowed values of each field (weekday 7 is Sunday too). */
+const CRON_BOUNDS: ReadonlyArray<readonly [number, number]> = [[0, 59], [0, 23], [1, 31], [1, 12], [0, 7]]
+/** Longest month of each month number (February counts its leap day). */
+const MONTH_DAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+/** Search horizon: four years (a leap day) plus a couple of days of slack. */
+const HORIZON_MS = (4 * 366 + 2) * 24 * 60 * 60_000
 
 /** Throw an actionable `TypeError` for an expression the minimal parser cannot run. */
 export function assertCron(expr: string): void {
@@ -24,23 +30,44 @@ export function assertCron(expr: string): void {
     )
   }
   parts.forEach((part, i) => {
-    if (!CRON_FIELD.test(part)) {
-      throw new TypeError(
-        `Invalid cron expression "${expr}": the ${CRON_FIELDS[i]} field "${part}" must use numbers, '*', ranges (1-5), steps (*/15) or lists (1,15)`,
-      )
+    const fail = (why: string): never => {
+      throw new TypeError(`Invalid cron expression "${expr}": the ${CRON_FIELDS[i]} field "${part}" ${why}`)
+    }
+    if (!CRON_FIELD.test(part)) fail(`must use numbers, '*', ranges (1-5), steps (*/15) or lists (1,15)`)
+    const [lo, hi] = CRON_BOUNDS[i]
+    for (const item of part.split(',')) {
+      const [range, stepText] = item.split('/')
+      if (stepText !== undefined && Number(stepText) < 1) fail(`has a step of 0; a step must be 1 or more`)
+      if (range === '*') continue
+      const [a, b = a] = range.split('-').map(Number)
+      if (a < lo || a > hi || b < lo || b > hi) fail(`is out of range: ${CRON_FIELDS[i]} values go from ${lo}-${hi}`)
+      if (a > b) fail(`has an inverted range: write the lower value first (${b}-${a})`)
     }
   })
+  // Every field now matches at least one value; only a month/day pair can be impossible
+  // (the 30th of February). With both day fields restricted, any matching weekday runs it.
+  const [, , dom, month, dow] = parts
+  if (!dom.startsWith('*') && dow.startsWith('*')) {
+    let possible = false
+    for (let m = 1; m <= 12 && !possible; m++) {
+      if (!matchesField(m, month, 1)) continue
+      for (let d = 1; d <= MONTH_DAYS[m - 1] && !possible; d++) possible = matchesField(d, dom, 1)
+    }
+    if (!possible) {
+      throw new TypeError(`Invalid cron expression "${expr}": it never matches (no month selected by "${month}" has the day "${dom}")`)
+    }
+  }
 }
 
 /**
  * The first minute strictly after `from` (default: now) that matches `expr`, or `null`
- * when nothing matches within a year. Pure for a given `from` (cron fields are local time).
+ * when nothing matches within four years. Pure for a given `from` (cron fields are local time).
  *
  * With `timeZone` (an IANA name such as `'America/Bogota'`) the fields are read as wall
  * time in that zone, with the daylight-saving rules of the scheduler guide (a fixed-hour
  * slot in a skipped hour is shifted forward; in a repeated hour it runs once, at the first
- * occurrence; wildcard-hour slots follow the real clock), and the horizon is four years.
- * No zone, or `'local'`, keeps the host-local evaluation. An unknown zone throws a `RangeError`.
+ * occurrence; wildcard-hour slots follow the real clock). The horizon is four years either
+ * way (so a leap day is always found). No zone, or `'local'`, keeps the host-local evaluation. An unknown zone throws a `RangeError`.
  */
 export function cronNextRun(expr: string, from: Date = new Date(), timeZone?: string): Date | null {
   if (timeZone !== undefined && timeZone !== 'local') return nextRunInZone(expr, from, timeZone)
@@ -56,15 +83,21 @@ export function cronNextRun(expr: string, from: Date = new Date(), timeZone?: st
   // Standard cron: a day field starting with '*' (even a step such as '*/2') is "unrestricted".
   const orDays = !dom.startsWith('*') && !dow.startsWith('*')
 
-  // Search far enough to cover monthly and annual expressions.
-  for (let i = 0; i < 366 * 24 * 60; i++) {
-    const candidate = new Date(next.getTime() + i * 60_000)
-    if (!matchesField(candidate.getMinutes(), m, 0) ||
-        !matchesField(candidate.getHours(), h, 0) ||
-        !matchesField(candidate.getMonth() + 1, mon, 1)) continue
+  // Minute by minute inside a matching day; a day that does not match is skipped whole
+  // (to the first instant of the next local day), so a yearly slot costs a few thousand
+  // checks instead of a scan of every minute up to it.
+  const end = next.getTime() + HORIZON_MS
+  for (let t = next.getTime(); t < end;) {
+    const candidate = new Date(t)
     const domOk = matchesField(candidate.getDate(), dom, 1)
     const dowOk = matchesWeekday(candidate.getDay(), dow)
-    if (orDays ? domOk || dowOk : domOk && dowOk) return candidate
+    if (!matchesField(candidate.getMonth() + 1, mon, 1) || !(orDays ? domOk || dowOk : domOk && dowOk)) {
+      const nextDay = new Date(candidate.getFullYear(), candidate.getMonth(), candidate.getDate() + 1).getTime()
+      t = Math.max(nextDay, t + 60_000)
+      continue
+    }
+    if (matchesField(candidate.getMinutes(), m, 0) && matchesField(candidate.getHours(), h, 0)) return candidate
+    t += 60_000
   }
   return null
 }
