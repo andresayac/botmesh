@@ -141,8 +141,8 @@ bot › 📦 Order placed: $75, shipping to 742 Evergreen Terrace, Springfield.
   it shares `c.state`, so the last `.say()` reads `street` and `city`.
   `flow([])` has no trigger: it only runs from here.
 - **`goto: 'shop'`** leaves the current flow and starts the named one
-  (here, the same shop from the top). `bot.lint()` warns about a `goto` to a
-  flow that is not registered.
+  (here, the same shop from the top). `bot.lint()` reports a `goto` to a
+  flow that is not registered as an error (`goto-target-missing`).
 - **A function `.say()`** can compute and store values (`c.state.total`)
   for later steps.
 - **`.timeout('2m')`** applies to every wait of the flow; when it fires the

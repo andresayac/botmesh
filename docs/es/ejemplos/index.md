@@ -1,7 +1,7 @@
 # Ejemplos
 
 Bots completos para copiar, ejecutar y adaptar. Casi todos los ejemplos son un único
-archivo `bot.js` que muestran un conjunto de funciones de botmesh, con una
+archivo `bot.js` que muestra un conjunto de funciones de botmesh, con una
 transcripción capturada de una ejecución real y enlaces a la guía de cada
 función que usa. Un test ejecuta el código de cada ejemplo y comprueba su
 transcripción, así que lo que lees es lo que obtienes.
