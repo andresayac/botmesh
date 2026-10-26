@@ -14,7 +14,7 @@ Sí, con **pairing code** (transporte Baileys):
 const bot = new Bot({
   provider: new BaileysProvider({
     session: 'my-bot',
-    pairingCode: '+57300XXXXXXX', // formato internacional completo
+    pairingPhoneNumber: '+57300XXXXXXX', // formato internacional completo
   }),
 })
 

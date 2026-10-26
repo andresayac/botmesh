@@ -6,7 +6,8 @@
  *
  * @example
  * ```ts
- * import { toJid, isGroup, isPn } from '@botmesh/baileys'
+ * import { toJid } from '@botmesh/baileys'
+ * import { isGroup, isPn } from '@botmesh/baileys/internal'
  *
  * const jid = toJid('573001234567')              // '573001234567@s.whatsapp.net'
  * const isGroupChat = isGroup(jid)              // false
@@ -35,15 +36,21 @@ export type { ChatId, UserId }
 /** Anything that can be turned into a JID: full JID, plain number, or `{ groupId, userId }`. */
 export type JidInput = string | number | { groupId: string; userId?: string }
 
-export {
-  isJidGroup as isGroup,
-  isJidBroadcast as isBroadcast,
-  isJidStatusBroadcast as isStatus,
-  isJidNewsletter as isNewsletter,
-  baileysIsPnUser as isPn,
-  baileysIsLidUser as isLid,
-  areJidsSameUser as sameUser,
-}
+// Own wrappers (not re-exports) so the published declarations never import Baileys' types.
+/** True for a group JID (`…@g.us`). */
+export function isGroup(jid: string | undefined): boolean { return isJidGroup(jid) === true }
+/** True for a broadcast JID (`…@broadcast`, status included). */
+export function isBroadcast(jid: string | undefined): boolean { return isJidBroadcast(jid) === true }
+/** True for the status broadcast (`status@broadcast`). */
+export function isStatus(jid: string): jid is 'status@broadcast' { return isJidStatusBroadcast(jid) }
+/** True for a channel (newsletter) JID (`…@newsletter`). */
+export function isNewsletter(jid: string | undefined): boolean { return isJidNewsletter(jid) === true }
+/** True for a phone-number user JID (`…@s.whatsapp.net`), as Baileys decides it. */
+export function isPn(jid: string | undefined): boolean { return baileysIsPnUser(jid) === true }
+/** True for a LID user JID (`…@lid`), as Baileys decides it. */
+export function isLid(jid: string | undefined): boolean { return baileysIsLidUser(jid) === true }
+/** True when both JIDs name the same user (device suffixes ignored). */
+export function sameUser(a: string | undefined, b: string | undefined): boolean { return areJidsSameUser(a, b) }
 
 /**
  * Format a raw phone number/string into a valid JID. A full JID (with `@`) is returned
@@ -106,7 +113,7 @@ export function parseJid(jid: JID): {
 
 /** Re-encode components as JID. Accept plain strings for simplicity. */
 export function buildJid(user: string, server: string): JID {
-  return jidEncode(user, server as any) as JID
+  return jidEncode(user, server as Parameters<typeof jidEncode>[1]) as JID
 }
 
 /** Quick string form for display: hides long LIDs/jids. */

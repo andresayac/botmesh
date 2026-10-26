@@ -31,18 +31,21 @@ Every provider publishes `provider.capabilities` (`groups`, `presence`,
 
 For everything else — creating groups, invite links, privacy settings,
 chat archive/pin/mute — reach through the Baileys provider to the raw
-socket. The provider keeps a debug handle (`provider.connection`) and a
-typed getter (`provider.socket`):
+socket. `provider.socket` returns it typed `unknown` (Baileys' types are not
+part of the `@botmesh/baileys` API); `socketOf(provider)` from
+`@botmesh/baileys/internal` returns it typed as the Baileys socket of the
+installed release (no semver guarantee):
 
 ```ts
 import { Bot } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
+import { socketOf } from '@botmesh/baileys/internal'
 
 const provider = new BaileysProvider({ session: 'my-bot' })
 const bot = new Bot({ provider })
 
 bot.on('ready', async () => {
-  const sock = provider.socket // the raw Baileys 7 socket
+  const sock = socketOf(provider) // the raw Baileys 7 socket, typed
   if (!sock) return
 
   // v1 bot.groups.create(...) equivalent:

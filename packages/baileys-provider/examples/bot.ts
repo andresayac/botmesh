@@ -38,7 +38,7 @@ const bot = new Bot({
     session: SESSION,
     sessionsDir: './sessions',
     qr: { terminal: true, small: true },
-    // pairingCode: '+57300XXXXXXX',   // alternativa al QR
+    // pairingPhoneNumber: '+57300XXXXXXX',   // alternativa al QR
     markOnlineOnConnect: false,        // no le "robes" las notificaciones push al teléfono
     ignoreNewsletters: true,
     ignoreBroadcasts: true,

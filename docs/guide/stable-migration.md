@@ -134,7 +134,9 @@ the old one kept as a `@deprecated` alias until v3.
 | --- | --- | --- |
 | `@botmesh/telegram` | `pollTimeout` (seconds) | `pollTimeoutMs` |
 | `@botmesh/telegram` | `toProviderError` | `toTelegramError` |
-| `@botmesh/telegram`, `@botmesh/meta` | `debug: true` | `logger` (any `LoggerLike`) |
+| `@botmesh/telegram`, `@botmesh/meta`, `@botmesh/baileys` | `debug: true` | `logger` (any `LoggerLike`) |
+| `@botmesh/baileys` | `pairingCode` | `pairingPhoneNumber` (same value: the bot's phone number) |
+| `@botmesh/baileys` | JID helpers (`isGroup`, `isPn`, `isLid`, `normalizeJid`, `sameUser`, `toUserId`, `toChatId`…), `IdentityStore`, `toMediaUpload`, `mediaToBuffer`, `makeSticker`, `transcodeToOpus`, `resolveRemoteMedia`, `classifyDisconnect`, `backoffDelay`, the session-path helpers and `toBaileysLogger` on the main entry | the same names from `@botmesh/baileys/internal` (no semver); `toJid` stays on the main entry |
 | `@botmesh/meta` | `toProviderError(chatId, err, retryAfterMs)` | `toGraphError(err, { chatId, retryAfterMs })` from `@botmesh/graph-core` |
 | `@botmesh/meta` | `verifyChallenge`, `verifySignature` re-exports | `provider.verifyChallenge(query)` / `provider.ingest()`, or `@botmesh/graph-core` |
 | `@botmesh/meta` | `GraphClient` | the provider's methods, or `graphRequest` from `@botmesh/graph-core` |
@@ -145,6 +147,36 @@ channels got the same renames (`toDiscordError`, `toMessengerError`,
 `toInstagramError`, `toTikTokError`, `toEmailError`). The behaviour changes of these
 packages (Telegram poll votes, Discord edits, SQLite schema versioning) are in
 [Upgrade notes: channels & plugins](./upgrade-channels-plugins).
+
+### `@botmesh/baileys`: entries and native types
+
+The main entry keeps what an application needs (`BaileysProvider`, its options,
+`toJid`, `isEditedMessage`, `RateLimiter`, the `PollStore` types). The rest moved
+to `@botmesh/baileys/internal`, which has no semver guarantee; the old names stay on
+the main entry as `@deprecated` aliases until v3.
+
+- **Breaking:** `toInbound` and `toOutbound` are no longer exported by
+  `@botmesh/baileys`: their signatures use Baileys' own types. Import them from
+  `@botmesh/baileys/internal`.
+- **Breaking (types only):** Baileys' native values are opaque. `provider.socket`
+  is `BaileysSocket | null`, `provider.auth` is `BaileysAuthState`, and the `raw` /
+  `native` of messages, refs and send results are `BaileysNativeMessage`; the three are
+  `unknown` aliases. Nothing changes at runtime. Use `socketOf(provider)` and
+  `authStateOf(provider)` from `@botmesh/baileys/internal` for typed handles, or cast
+  with your own `@whiskeysockets/baileys` import:
+
+  ```ts
+  // before
+  const sock = provider.socket
+  // after
+  import { socketOf } from '@botmesh/baileys/internal'
+  const sock = socketOf(provider)
+  ```
+
+- The JID predicates (`isGroup`, `isPn`, `isLid`, `isBroadcast`, `isNewsletter`)
+  return `boolean` instead of `boolean | undefined` (`undefined` is now `false`).
+- `pairingCode` is renamed `pairingPhoneNumber` (the value was always the phone
+  number); passing both with different numbers throws a `TypeError`.
 
 ## Sandbox API token
 

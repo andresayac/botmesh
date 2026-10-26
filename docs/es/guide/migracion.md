@@ -66,12 +66,15 @@ busca en este orden:
    `choco install ffmpeg`).
 
 Sin ninguno de ellos, una nota de voz se rechaza con un `UnsupportedContentError`
-que explica cómo instalar ffmpeg. El texto, las imágenes y el resto no se ven
+que explica cómo instalar ffmpeg (si `ffmpeg-static` está instalado pero su
+binario nunca se descargó, el mensaje dice que permitas su script de build y lo
+reinstales). El texto, las imágenes y el resto no se ven
 afectados. La imagen Docker de un bot que envía notas de voz necesita ffmpeg (o
 `ffmpeg-static`).
 
 Baileys sigue en `7.0.0-rc14`: todavía no existe una 7.x estable (ver el
-[README del paquete](https://github.com/andresayac/botmesh/tree/main/packages/baileys-provider#requirements)).
+[README del paquete](https://github.com/andresayac/botmesh/tree/main/packages/baileys-provider#requirements)
+y su política de actualización de upstream).
 
 ### Providers de Meta: Graph API v26.0
 

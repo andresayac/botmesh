@@ -14,7 +14,7 @@ import { randomUUID } from 'node:crypto'
 
 import { PayloadTooLargeError, ProviderError, UnsupportedContentError, type MediaSource, type OutboundContent } from '@botmesh/core'
 import { fetchBuffer, SecureHttpError, type HostResolver } from '@botmesh/http'
-import { FfmpegNotFoundError, resolveFfmpegPath, runFfmpeg } from './ffmpeg.js'
+import { FfmpegNotFoundError, resolveFfmpeg, runFfmpeg, type FfmpegResolution } from './ffmpeg.js'
 
 export type WAMediaUpload =
   | Buffer
@@ -287,13 +287,25 @@ const TRANSCODE_TIMEOUT_MS = 120_000
 const FFMPEG_HINT = 'install ffmpeg on the PATH, set FFMPEG_PATH to the binary, or add the optional ffmpeg-static package'
 
 /**
+ * The hint for a missing binary. When ffmpeg-static is already installed but its download
+ * was skipped, "add ffmpeg-static" would send the user in a loop: say how to get its binary.
+ */
+function ffmpegHint(resolution: FfmpegResolution): string {
+  if (!resolution.staticBinaryMissing) return FFMPEG_HINT
+  return 'ffmpeg-static is installed but its binary is missing (its build script, which downloads it, did not run: '
+    + 'allow it, e.g. `pnpm approve-builds` or `allowBuilds: { ffmpeg-static: true }` in pnpm-workspace.yaml, then reinstall it); '
+    + 'or install ffmpeg on the PATH, or set FFMPEG_PATH to the binary'
+}
+
+/**
  * Transcode any audio to a WhatsApp voice note (Ogg/Opus, mono, 48 kHz) with ffmpeg
  * (see `ffmpeg.ts` for how the binary is found). A binary that cannot be started rejects
  * with an `UnsupportedContentError` that says how to install it.
  */
 export async function transcodeToOpus(source: MediaSource): Promise<Buffer> {
   const input = await toBuffer(source)
-  const bin = await resolveFfmpegPath()
+  const resolution = await resolveFfmpeg()
+  const bin = resolution.bin
   const inPath = join(tmpdir(), `baileys-in-${randomUUID()}.bin`)
   const outPath = join(tmpdir(), `baileys-out-${randomUUID()}.ogg`)
   await writeFile(inPath, input)
@@ -313,7 +325,7 @@ export async function transcodeToOpus(source: MediaSource): Promise<Buffer> {
     return await readFile(outPath)
   } catch (error) {
     if (error instanceof FfmpegNotFoundError) {
-      const wrapped = new UnsupportedContentError('voice', `${error.message}; ${FFMPEG_HINT}, or send the audio as a plain file`)
+      const wrapped = new UnsupportedContentError('voice', `${error.message}; ${ffmpegHint(resolution)}, or send the audio as a plain file`)
       ;(wrapped as { cause?: unknown }).cause = error
       throw wrapped
     }

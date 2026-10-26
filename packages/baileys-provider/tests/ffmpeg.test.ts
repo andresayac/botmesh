@@ -10,8 +10,9 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { UnsupportedContentError } from '@botmesh/core'
-import { resolveFfmpegPath } from '../src/ffmpeg.js'
-import { transcodeToOpus, toOutbound } from '../src/index.js'
+import { resolveFfmpeg, resolveFfmpegPath } from '../src/ffmpeg.js'
+import { transcodeToOpus } from '../src/MediaProcessor.js'
+import { toOutbound } from '../src/internal.js'
 
 const saved = process.env.FFMPEG_PATH
 afterEach(() => {
@@ -124,6 +125,37 @@ describe('transcodeToOpus', () => {
       expect(a[a.length - 1]).toMatch(/baileys-out-.*\.ogg$/)
     } finally {
       vi.doUnmock('node:child_process')
+      vi.resetModules()
+    }
+  })
+})
+
+describe('ffmpeg-static installed without its binary', () => {
+  it('resolveFfmpeg reports the missing ffmpeg-static binary it skipped', async () => {
+    const missing = join(tmpdir(), 'no-such-dir', 'ffmpeg')
+    await expect(resolveFfmpeg({}, async () => missing)).resolves.toEqual({ bin: 'ffmpeg', staticBinaryMissing: missing })
+    await expect(resolveFfmpeg({}, async () => { throw new Error('not installed') })).resolves.toEqual({ bin: 'ffmpeg' })
+    await expect(resolveFfmpeg({ FFMPEG_PATH: '/x/ffmpeg' }, async () => missing)).resolves.toEqual({ bin: '/x/ffmpeg' })
+  })
+
+  it('the error says to allow the ffmpeg-static download instead of "add ffmpeg-static" (no hint loop)', async () => {
+    vi.resetModules()
+    const missing = join(tmpdir(), 'no-such-dir', 'ffmpeg-static-bin')
+    vi.doMock('../src/ffmpeg.js', async (orig) => {
+      const real = await orig<typeof import('../src/ffmpeg.js')>()
+      return { ...real, resolveFfmpeg: async () => ({ bin: join(tmpdir(), 'no-such-dir', 'ffmpeg-on-path'), staticBinaryMissing: missing }) }
+    })
+    try {
+      const mod = await import('../src/MediaProcessor.js')
+      const err = await mod.transcodeToOpus(Buffer.from('in')).then(() => null, (e: unknown) => e)
+      expect(err).toBeInstanceOf(Error)
+      expect((err as Error).name).toBe('UnsupportedContentError')
+      const message = (err as Error).message
+      expect(message).toMatch(/ffmpeg-static is installed but its binary is missing/)
+      expect(message).toMatch(/build script/)
+      expect(message).not.toMatch(/add the optional ffmpeg-static package/)
+    } finally {
+      vi.doUnmock('../src/ffmpeg.js')
       vi.resetModules()
     }
   })

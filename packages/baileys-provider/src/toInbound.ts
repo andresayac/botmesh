@@ -89,21 +89,6 @@ export function editedMessageOf(message: WAMessage | null | undefined): WAMessag
   return { ...message, key: { ...message.key, id: originalId }, message: pm.editedMessage } as WAMessage
 }
 
-/**
- * Whether `message` (emitted by this provider) is an edit of an earlier message. An edit
- * keeps the original `ref.id`, so `ctx.reply`/`ctx.react` target the edited message; its
- * `body` is the new text and `raw` is the edit stanza.
- *
- * @example
- * ```ts
- * bot.on('message', (m) => { if (isEditedMessage(m)) audit.log('edited', m.ref.id) })
- * ```
- */
-export function isEditedMessage(message: { raw?: unknown }): boolean {
-  const raw = message.raw
-  return typeof raw === 'object' && raw !== null && editedMessageOf(raw as WAMessage) !== undefined
-}
-
 /** Plain text of a (quoted) message: its text, or the caption of its media. */
 function textOf(content: proto.IMessage | null | undefined): string {
   const m = normalizeMessageContent(content)

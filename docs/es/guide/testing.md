@@ -184,6 +184,7 @@ Estas funciones revisan una lista de eventos emitidos:
 
 ```ts
 import { assertStableIdentity, checkIdentityContract, recordEvents } from '@botmesh/core/testing'
+// p. ej. el mapeador de Baileys (sin semver): import { IdentityStore, toInbound } from '@botmesh/baileys/internal'
 
 const events = [toInbound(a, identity), toInbound(b, identity), toInbound(c, identity)]
 assertStableIdentity(events, { andres: { events: [0, 1, 2], senderId: PN, chatId: PN, kind: 'dm' } })

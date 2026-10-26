@@ -219,7 +219,7 @@ Quien escribe un provider las comprueba con los helpers de `@botmesh/core/testin
 ### `@botmesh/baileys`
 
 WhatsApp Web a través de [Baileys](https://github.com/WhiskeySockets/Baileys).
-Se vincula con un código QR (o `pairingCode`) y guarda la sesión en
+Se vincula con un código QR (o un código de emparejamiento, `pairingPhoneNumber`) y guarda la sesión en
 `sessionsDir`.
 
 ```ts
