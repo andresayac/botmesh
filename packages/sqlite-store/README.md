@@ -22,6 +22,8 @@ pnpm add @botmesh/sqlite-store better-sqlite3
 
 **pnpm 10+ skips dependency build scripts** (the step that fetches that binary) until you approve them: run `pnpm approve-builds` once, or add `onlyBuiltDependencies: [better-sqlite3]` to `pnpm-workspace.yaml`, and reinstall. Otherwise the constructor throws `better-sqlite3 is installed but its native module was never built`. A binary built for another Node.js version gets its own message (`npm rebuild better-sqlite3`).
 
+**Use `better-sqlite3` 13 on Node.js 24.19 or later.** Versions 11 and 12 are built on `node::ObjectWrap`, and a Node.js 24.19 regression ([nodejs/node#65446](https://github.com/nodejs/node/issues/65446)) can abort the process with `Assertion failed: (env) != nullptr` in `RemoveEnvironmentCleanupHook` when a prepared statement is garbage-collected. Version 13 runs on N-API and is not affected. The peer range still accepts 11 and 12 for older Node.js versions.
+
 The supported range is `^11.7.0 || ^12.0.0 || ^13.0.0`; the store is exercised against all three majors.
 
 ## Usage with Bot

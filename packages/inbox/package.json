@@ -36,7 +36,7 @@
     "@botmesh/sqlite-store": "workspace:*",
     "@types/node": "^26.1.1",
     "@types/pg": "^8.11.10",
-    "better-sqlite3": "^11.7.0",
+    "better-sqlite3": "^13.0.3",
     "pg": "^8.13.0",
     "redis": "^4.7.0",
     "typescript": "^7.0.2",

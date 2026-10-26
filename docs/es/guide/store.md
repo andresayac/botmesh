@@ -58,6 +58,10 @@ El rango soportado es `^11.7.0 || ^12.0.0 || ^13.0.0` (probado con 11.10.0, 12.1
 
 `better-sqlite3` es un módulo nativo: su script de instalación descarga (o compila) el binario. **pnpm 10 y posteriores no ejecutan los scripts de build de las dependencias** hasta que los apruebas, y el store falla al construirse con `better-sqlite3 is installed but its native module was never built`. Apruébalo una vez con `pnpm approve-builds` (o añádelo a `onlyBuiltDependencies` en `pnpm-workspace.yaml`) y reinstala. Tras actualizar Node.js, `npm rebuild better-sqlite3` arregla un binario compilado para la versión anterior. El directorio de `file` debe existir: SQLite crea el archivo, no sus carpetas.
 
+::: warning Node.js 24.19 o posterior
+Instala `better-sqlite3` 13. Las versiones 11 y 12 pueden abortar el proceso (`Assertion failed: (env) != nullptr` en `RemoveEnvironmentCleanupHook`) cuando el recolector libera una sentencia preparada, por una regresión de Node.js ([nodejs/node#65446](https://github.com/nodejs/node/issues/65446)). La versión 13 usa N-API y no se ve afectada.
+:::
+
 ```ts
 import { Bot } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'

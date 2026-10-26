@@ -18,7 +18,9 @@ export function openError(err: unknown, file: string): Error {
 function describe(err: unknown, file: string): Error {
   const message = err instanceof Error ? err.message : String(err)
   const first = message.split('\n', 1)[0]!.trim()
-  if (/could not locate the bindings file/i.test(message)) {
+  // better-sqlite3 <= 12 probes paths via `bindings`; 13 falls back to build/Release and
+  // throws MODULE_NOT_FOUND for better_sqlite3.node when there is no prebuild for the platform.
+  if (/could not locate the bindings file/i.test(message) || /cannot find module .*better_sqlite3\.node/i.test(first)) {
     return new Error(
       'SQLiteStore: better-sqlite3 is installed but its native module was never built ' +
         `(${first.replace(/\s*Tried:$/, '')}). With pnpm >= 10, allow its build script ` +

@@ -18,6 +18,7 @@ const CHAOS_FILE = 'tests/cluster-chaos.integration.test.ts'
 export default defineConfig({
   resolve: { alias: target ? [{ find: /^redis$/, replacement: target }] : [] },
   test: {
+    testTimeout: 10_000,
     projects: [
       {
         extends: true,

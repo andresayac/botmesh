@@ -40,6 +40,25 @@ describe('SQLiteStore open errors', () => {
     expect(existsSync(file)).toBe(false)
   })
 
+  it('explains a native module that was never built with better-sqlite3 13 (no prebuild, no build)', () => {
+    // v13 loads prebuilds/<platform>.node, then falls back to build/Release, and reports MODULE_NOT_FOUND.
+    const native = Object.assign(
+      new Error("Cannot find module '/app/node_modules/better-sqlite3/build/Release/better_sqlite3.node'\nRequire stack:\n- /app/node_modules/better-sqlite3/lib/binding.js"),
+      { code: 'MODULE_NOT_FOUND' },
+    )
+    const err = openError(native, './bot.db')
+    expect(err.message.split('\n')).toHaveLength(1)
+    expect(err.message).toMatch(/native module was never built/)
+    expect(err.message).toMatch(/pnpm approve-builds/)
+    expect(err.message).not.toContain('Require stack')
+    expect(err.cause).toBe(native)
+  })
+
+  it('does not mistake an unrelated missing module for an unbuilt native module', () => {
+    const err = openError(Object.assign(new Error("Cannot find module 'left-pad'"), { code: 'MODULE_NOT_FOUND' }), './bot.db')
+    expect(err.message).not.toMatch(/never built/)
+  })
+
   it('explains a native module that was never built (pnpm skips build scripts by default)', () => {
     const native = new Error(['Could not locate the bindings file. Tried:', ' → /x/build/better_sqlite3.node', ' → /x/build/Release/better_sqlite3.node'].join('\n'))
     const err = openError(native, './bot.db')
