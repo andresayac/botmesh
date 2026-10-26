@@ -95,6 +95,7 @@ const enSidebar = {
       text: 'Advanced',
       items: [
         { text: 'Sub-APIs', link: '/guide/sub-apis' },
+        { text: 'Going to production', link: '/guide/production' },
         { text: 'Deployment', link: '/guide/deploy' },
         { text: 'Running N replicas', link: '/guide/replicas' },
         { text: 'Architecture', link: '/guide/architecture' },
@@ -182,6 +183,7 @@ const esSidebar = {
       text: 'Avanzado',
       items: [
         { text: 'Sub-APIs', link: '/es/guide/sub-apis' },
+        { text: 'Pasar a producción', link: '/es/guide/produccion' },
         { text: 'Despliegue', link: '/es/guide/deploy' },
         { text: 'Varias réplicas', link: '/es/guide/replicas' },
         { text: 'Arquitectura', link: '/es/guide/arquitectura' },

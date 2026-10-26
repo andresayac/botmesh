@@ -268,7 +268,8 @@ se conserva y nunca se ejecuta.
 | `timeZone` | zona del proceso | Zona IANA por defecto de todas las tareas cron del bot, normales o durables (ver [Zonas horarias](#zonas-horarias)). Por sí sola no arranca nada. |
 
 Cada paquete de store trae su store de calendarios, que comparte la conexión y
-el prefijo del store:
+el prefijo del store (los stores de PostgreSQL, MySQL y MongoDB están en el
+repositorio y aún no en npm):
 
 | Store | `store.schedules()` | Almacenamiento |
 |---|---|---|
@@ -278,23 +279,27 @@ el prefijo del store:
 | `@botmesh/mysql-store` | `MysqlScheduleStore` | Tabla `{tablePrefix}schedules` (ids VARBINARY, hasta 1024 bytes); los reclamos hacen `SELECT … FOR UPDATE` en una transacción corta. |
 | `@botmesh/mongo-store` | `MongoScheduleStore` | Colección `{collectionPrefix}schedules`; comandos de un solo documento (`findOneAndUpdate`), así que sirve un `mongod` standalone. |
 
-```ts
-import { PostgresStore } from '@botmesh/postgres-store'
+Con varias réplicas, guarda los calendarios en el store compartido y, si
+quieres, dale al scheduler un préstamo de líder:
 
-const store = new PostgresStore({ connectionString: process.env.DATABASE_URL })
-const bot = new Bot({ provider, store, scheduler: { store: store.schedules() } })
+```ts
+import { RedisStore } from '@botmesh/redis-store'
+
+const store = new RedisStore({ url: process.env.REDIS_URL, prefix: 'mybot' })
+const bot = new Bot({ provider, store, scheduler: { store: store.schedules(), lease: store.leases() } })
 ```
 
-El bot arranca su store antes que el scheduler, y el scheduler crea la tabla
-(`CREATE TABLE IF NOT EXISTS`, idempotente). Si usas un store solo para los
+El bot arranca su store antes que el scheduler, y las tablas se crean solas
+(SQLite las crea con el resto de su esquema; los demás stores, de forma
+idempotente en el primer uso). Si usas un store solo para los
 calendarios, haz antes `await store.start()`. Los stores SQL y Mongo borran de
 forma lógica: un id olvidado conserva su fila con `deleted` activo para que su
 token de fencing nunca retroceda. Purga a mano los tombstones antiguos solo
 cuando ningún ejecutor pueda seguir teniendo su token (por ejemplo
 `DELETE FROM schedules WHERE deleted AND updated_at < <hace un día>`).
 
-Sirve cualquier objeto que implemente `ScheduleStore` (exportado desde
-`@botmesh/core`). `@botmesh/core/spi` trae `MemoryScheduleStore` como referencia y los tipos
+Sirve cualquier objeto que implemente `ScheduleStore` (el tipo se exporta
+desde `@botmesh/core` y `@botmesh/core/spi`). `@botmesh/core/spi` trae `MemoryScheduleStore` como referencia y los tipos
 de registro, y la suite compartida `test-utils/schedule-store-conformance.ts` lo comprueba.
 
 ### Garantías y límites

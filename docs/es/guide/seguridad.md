@@ -1,12 +1,52 @@
 # Seguridad
 
-Qué verifica el framework por ti en cada superficie no confiable, qué tienes
-que configurar tú y qué riesgos quedan. La sección siguiente es el resultado de
-la auditoría de octubre de 2026 de las superficies nuevas (ingress de webhooks,
-API REST del manager, canales y plugins nuevos). Para reportar una
-vulnerabilidad, sigue [`SECURITY.md`](https://github.com/andresayac/botmesh/blob/main/SECURITY.md).
+Qué tienes que configurar tú, qué verifica el framework por ti en cada
+superficie no confiable y qué riesgos quedan. Para reportar una vulnerabilidad,
+sigue [`SECURITY.md`](https://github.com/andresayac/botmesh/blob/main/SECURITY.md).
+Para saber de quién protege el framework y frente a qué, mira el
+[Modelo de amenazas](./modelo-amenazas).
+
+## Lista de comprobación para producción
+
+Lo que queda en tus manos. El resto de la página explica cada punto.
+
+- **Secretos fuera del código.** Los tokens de los providers, las claves de
+  API, los app secrets y los secretos de webhook salen del entorno o de un
+  gestor de secretos. La carpeta `sessions/` (claves de WhatsApp), `.env`, los
+  archivos del store y `*.qr.png` nunca se commitean ni se meten en una imagen.
+- **Los webhooks verifican al remitente.** Configura el secreto del canal
+  (`appSecret` y `verifyToken` para la Cloud API, `webhookSecret` para
+  Telegram, el auth token para Twilio…). Todos los providers se niegan a
+  arrancar sin él salvo que pongas `allowUnsignedWebhooks: true`: nunca lo
+  pongas en producción. Ver [Autenticación de webhooks](#autenticacion-de-webhooks).
+- **HTTPS en todas partes.** La mayoría de plataformas no firman una marca
+  de tiempo, así que una petición capturada puede repetirse; TLS impide la
+  captura.
+- **Body crudo para las firmas.** Nada de parsers de JSON delante de las
+  rutas de webhooks: las firmas se comprueban sobre los bytes recibidos
+  ([Servidor de webhooks](./servidor)).
+- **Nada de texto del usuario como origen de media.** Un string o `{ path }`
+  como media se lee del disco local. Pasa solo `{ url }` (se descarga con el
+  cliente protegido contra SSRF) o Buffers construidos con datos de confianza.
+- **Los datos personales no llegan a logs ni trazas.** Deja
+  `logIds: 'hash'` (el valor por defecto) y `telemetry.ids: 'hash'` con un
+  `idKey` secreto; no actives `telemetry.errorMessages`.
+- **Protege el store y los journals** como los mensajes que contienen:
+  permisos de archivo restringidos, copias cifradas, Redis con autenticación y
+  TLS en redes no confiables.
+- **Los endpoints de operación son privados.** Salud, métricas y cualquier
+  API de administración escuchan en una interfaz privada o detrás de
+  autenticación.
+- **Atiende las solicitudes de borrado** con `bot.deleteSubject(userId)` (y
+  `bot.exportSubject(userId)` para las de acceso).
 
 ## Auditoría de seguridad (2026-10)
+
+El resto de la página es el resultado de la auditoría de octubre de 2026 de las
+superficies nuevas (ingress de webhooks, API REST del manager, canales y
+plugins nuevos). Varios de los paquetes auditados aún no están publicados en
+npm; los publicados se listan en
+[Pasar a producción](./produccion#que-paquetes-estan-publicados).
 
 **Alcance:** `@botmesh/server`, `twilio`, `gohighlevel`, `gupshup`, `evolution`,
 `wppconnect`, `email`, `tiktok`, `chatwoot`, `voice`, `rag`, `manager` (REST

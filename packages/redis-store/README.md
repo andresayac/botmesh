@@ -1,7 +1,6 @@
 # @botmesh/redis-store
 
-> [!WARNING]
-> **Experimental — published under the `alpha` tag.** It is on npm as `0.2.0-alpha.0`; install it with the tag (`pnpm add @botmesh/redis-store@alpha`). The API may change without notice. It is tested against a real Redis (see [Integration tests](#integration-tests)).
+> **Prerelease.** Until the stable release, botmesh packages are published under a prerelease dist-tag, not `latest`. Add the current one to the package name when you install (for example `pnpm add @botmesh/redis-store@alpha redis`); the [installation guide](https://andresayac.github.io/botmesh/guide/getting-started) says which one is current. The store is tested against real Redis servers and Redis Clusters (see [Integration tests](#integration-tests)).
 
 Redis [`IStore`](https://github.com/andresayac/botmesh/tree/main/packages/core) implementation for **@botmesh/core** — distributed, shared bot state backed by Redis (node-redis 4, 5 or 6). Point any number of bot replicas at the same Redis instance and they share message logs, chats, contacts, flow checkpoints, AI conversation history and delivery cursors.
 
@@ -9,6 +8,7 @@ Redis [`IStore`](https://github.com/andresayac/botmesh/tree/main/packages/core) 
 - Everything is JSON under one configurable **prefix**, so apps/bots can share a database.
 - Optional **TTL** for ephemeral session state (conversations, checkpoints).
 - Injectable client → fully hermetic unit tests (an in-memory fake ships with the test-suite; no real Redis needed), plus an opt-in suite against a real server.
+- **`RedisDurability`**, the shared backend for durable message processing (`BotConfig.durability`): journaled inbound messages and an idempotent outbox that survive a crash, on any replica.
 - **`RedisCoordinator`** for running N replicas of one bot (`BotConfig.coordination`): per-chat turns in ingress order across replicas, and leader election for exclusive transports (Baileys).
 - **Fenced lock** helpers (`acquireLockFenced` / `renewLock` / `releaseLock`) for your own critical sections.
 - **Redis Cluster** (opt-in): pass a cluster client and every component switches to a hash-tagged key layout (see [Redis Cluster](#redis-cluster)).
@@ -41,13 +41,13 @@ const store = new RedisStore({
   prefix: 'mybot',                 // default: 'botwa' (permanent: existing data lives under it)
   sessionTtl: '7d',                // optional: expire conversations/checkpoints after 7 days
 })
-await store.start()                // connects the client (unless one was injected)
-
 const bot = new Bot({
   provider: new BaileysProvider({ session: 'demo' }),
   store,
 })
 ```
+
+The bot calls `store.start()` (which connects the client the store created) and `store.stop()` for you. Call `start()` yourself only when you use the store without a bot.
 
 ### Injecting an existing client
 
@@ -102,12 +102,15 @@ This is the default (`'legacy'`) layout. The `'cluster'` layout is described in 
 | `{prefix}:lock:{key}` | string | lock token (`SET NX PX`) | lock `ttlMs` |
 | `{prefix}:sched:{id}` | string (JSON) | durable scheduler task (`ScheduleRecord`, see `schedules()`); a deleted task leaves a small `{ deleted, fencingToken }` marker so its tokens never go backwards | — |
 | `{prefix}:lease:{key}` | string (JSON) | fenced lease (owner, deadline, token; see `leases()`) | — |
+| `{prefix}:ud:{user}:{ns}:{key}` | string (JSON) | `ctx.user` entry | the entry's own expiry |
+| `{prefix}:co:…` | various | `RedisCoordinator` turns, leaderships and heartbeats | `idleTtlMs` / lease |
+| `{prefix}:{durable:<table>}:…` | strings + ZSETs | `RedisDurability` journals (one hash tag per table) | — |
 
 `getMessagesByChat(chatId, limit)` reads the latest `limit` entries from the ZSET (`ZRANGE … BYSCORE REV LIMIT`) and fetches the JSON items, returning them oldest→newest — same windowing semantics as `@botmesh/sqlite-store`.
 
 `deleteChat(chatId)` runs as **one Lua script** (the ZSET, every item it lists and the chat record), so a message saved at the same moment either lands before the delete (and goes with it) or after it (and survives intact) — never as an orphan item missing from the chat's log. `deleteMessage` removes an item only when it is a member of that chat's ZSET. In the legacy layout scripts touch keys they compute from the prefix, so it targets a single Redis node; use the cluster layout on Redis Cluster.
 
-- **Message keys.** `messageKey(ref)` (from `@botmesh/core`) is `{chatId}:{id}` with `%` and `:` percent-escaped in each part (`%25`, `%3A`), so ids that contain `:` — Twilio's `whatsapp:+1…` chat ids — never collide (`('a:b', 'c')` and `('a', 'b:c')` used to share the key `a:b:c`). Ids without `:` or `%` keep exactly the key earlier versions wrote. Rows written by an earlier version under the old unescaped key are still read and deleted (a fallback that only runs for ids containing `:` or `%`, and only returns or deletes a row whose stored `ref` is that very message, since a legacy key can be another message's new key), and re-saving such a message moves it to the new key — no manual migration. One theoretical edge remains: an id that literally contains `%3A` and was stored by an earlier version can be overwritten by a new message whose id has `:` in the same place.
+- **Message keys.** `messageKey(ref)` (from `@botmesh/core/spi`) is `{chatId}:{id}` with `%` and `:` percent-escaped in each part (`%25`, `%3A`), so ids that contain `:` — Twilio's `whatsapp:+1…` chat ids — never collide (`('a:b', 'c')` and `('a', 'b:c')` used to share the key `a:b:c`). Ids without `:` or `%` keep exactly the key earlier versions wrote. Rows written by an earlier version under the old unescaped key are still read and deleted (a fallback that only runs for ids containing `:` or `%`, and only returns or deletes a row whose stored `ref` is that very message, since a legacy key can be another message's new key), and re-saving such a message moves it to the new key — no manual migration. One theoretical edge remains: an id that literally contains `%3A` and was stored by an earlier version can be overwritten by a new message whose id has `:` in the same place.
 
 ## Running N replicas: `RedisCoordinator`
 
@@ -149,6 +152,24 @@ try {
 - `ttlMs` must be a positive finite number (fractions are rounded up); anything else rejects with a `RangeError`. The `PX` deadline guarantees a crashed holder never wedges the fleet.
 
 The unfenced `acquireLock(key, ttlMs)` was removed: `const token = await store.acquireLock(k, ms)` becomes `const token = (await store.acquireLockFenced(k, ms))?.token` (same key, so old and new replicas still exclude each other during a rolling upgrade). Called from JavaScript, it now rejects with a `TypeError` naming the replacement.
+
+## Durable message processing: `RedisDurability`
+
+```ts
+import { RedisDurability, RedisStore } from '@botmesh/redis-store'
+
+const store = new RedisStore({ url: process.env.REDIS_URL, prefix: 'mybot' })
+const bot = new Bot({
+  provider,
+  store,
+  durability: {
+    backend: new RedisDurability({ url: process.env.REDIS_URL, prefix: 'mybot' }), // or { client }
+    instanceId: process.env.HOSTNAME, // stable per replica
+  },
+})
+```
+
+Every inbound message is journaled before the handlers run and every send goes through an outbox with an idempotency key, so a crash replays the unfinished work without sending a reply twice. Options: `client` (an existing client, never closed by the backend), `url` (create and own one), `cluster`, `prefix` (default `'botwa'`) and `logger`. Turn on Redis persistence (AOF) or the journals do not survive a Redis restart. Guide: [Durable message processing](https://andresayac.github.io/botmesh/guide/durability).
 
 ## Durable scheduler tasks
 

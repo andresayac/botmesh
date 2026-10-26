@@ -1,12 +1,48 @@
 # Security
 
-What the framework verifies for you on each untrusted surface, what you still
-have to configure, and the risks that remain. The section below is the result
-of the October 2026 audit of the newer surfaces (webhook ingress, the manager
-REST API, the newer channels and plugins). To report a vulnerability, follow
+What you have to configure, what the framework verifies for you on each
+untrusted surface, and the risks that remain. To report a vulnerability, follow
 [`SECURITY.md`](https://github.com/andresayac/botmesh/blob/main/SECURITY.md).
+For who the framework protects against what, see the [Threat model](./threat-model).
+
+## Production checklist
+
+What is left to you. The rest of this page explains each point.
+
+- **Secrets out of the code.** Provider tokens, API keys, app secrets and
+  webhook secrets come from the environment or a secret manager. The
+  `sessions/` folder (WhatsApp keys), `.env`, the store files and `*.qr.png`
+  are never committed or baked into an image.
+- **Webhooks verify their sender.** Configure the channel's secret
+  (`appSecret` and `verifyToken` for the Cloud API, `webhookSecret` for
+  Telegram, the auth token for Twilio…). Every provider refuses to start
+  without it unless you set `allowUnsignedWebhooks: true`: never set that in
+  production. See [Webhook authentication](#webhook-authentication).
+- **HTTPS everywhere.** Most platforms sign no timestamp, so a captured
+  request can be replayed; TLS stops the capture.
+- **Raw body for signatures.** No JSON body parser in front of webhook
+  routes: signatures are checked over the received bytes
+  ([Webhook server](./server)).
+- **No user text as a media source.** A string or `{ path }` media source is
+  read from local disk. Only pass `{ url }` (fetched through the SSRF-safe
+  client) or Buffers built from data you trust.
+- **Personal data stays out of logs and traces.** Keep `logIds: 'hash'`
+  (the default) and `telemetry.ids: 'hash'` with a secret `idKey`; leave
+  `telemetry.errorMessages` off.
+- **Protect the store and the journals** like the messages they hold:
+  restricted file permissions, encrypted backups, authenticated Redis with TLS
+  on untrusted networks.
+- **Operator endpoints are private.** Health, metrics and any admin API
+  listen on a private interface or behind authentication.
+- **Answer erasure requests** with `bot.deleteSubject(userId)` (and
+  `bot.exportSubject(userId)` for access requests).
 
 ## Security audit (2026-10)
+
+The rest of this page is the result of the October 2026 audit of the newer
+surfaces (webhook ingress, the manager REST API, the newer channels and
+plugins). Several audited packages are not published on npm yet; the published
+ones are listed in [Going to production](./production#which-packages-are-published).
 
 **Scope:** `@botmesh/server`, `twilio`, `gohighlevel`, `gupshup`, `evolution`,
 `wppconnect`, `email`, `tiktok`, `chatwoot`, `voice`, `rag`, `manager` (`/v1`

@@ -1,10 +1,10 @@
 # @botmesh/sqlite-store
 
-SQLite [`IStore`](https://github.com/andresayac/botmesh/tree/main/packages/core) implementation for **@botmesh/core**: persistent bot state in a single file, backed by [better-sqlite3](https://github.com/WiseLibs/better-sqlite3). Message logs, chats, contacts, flow checkpoints, AI conversation history and delivery cursors survive restarts with no server to run.
+SQLite [`IStore`](https://github.com/andresayac/botmesh/tree/main/packages/core) implementation for **@botmesh/core**: persistent bot state in a single file, backed by [better-sqlite3](https://github.com/WiseLibs/better-sqlite3). Message logs, chats, contacts, flow checkpoints, AI conversation history, `ctx.user` data and delivery cursors survive restarts with no server to run. The same file can also hold the durable scheduler's tasks and the durability journals.
 
-> **Alpha, published under the `alpha` dist-tag.** Install it with the tag (`pnpm add @botmesh/sqlite-store@alpha`); `changeset publish` does not create a `latest` tag.
+> **Prerelease.** Until the stable release, botmesh packages are published under a prerelease dist-tag, not `latest`. Add the current one to the package name when you install (for example `pnpm add @botmesh/sqlite-store@alpha better-sqlite3`); the [installation guide](https://andresayac.github.io/botmesh/guide/getting-started) says which one is current.
 
-- One file, zero config. Tables are created on construction (`CREATE TABLE IF NOT EXISTS`), so there are no migrations to run by hand.
+- One file, zero config. Tables are created and upgraded automatically when the file is opened ([schema versioning](#schema-versioning)); there are no migrations to run by hand.
 - **WAL** journal mode by default (`synchronous = NORMAL`) for better concurrent reads.
 - `getMessagesByChat(limit)` is served by a `(chat_id, timestamp)` index and returns the most recent `limit` messages **oldest→newest**, the same windowing semantics as `@botmesh/redis-store`.
 - Optional per-chat cap (`maxMessagesPerChat`) to bound growth; unbounded by default, since a persistent DB is often the full archive.
@@ -91,9 +91,11 @@ previous alpha again.
 | `contacts`      | `contact.id`                        | `StoredContact` (JSON) |
 | `checkpoints`   | key                                 | `FlowCheckpoint` (JSON: flow id, step, `c.state`) |
 | `conversations` | key                                 | `AIMessage[]` (JSON), the `@botmesh/ai` history |
-| `cursors`       | key                                 | delivery cursor string (e.g. Telegram `update_id`) |
+| `cursors`       | key                                 | delivery cursor string (e.g. Telegram `update_id`), `WELCOME` markers, handoff index |
+| `user_data`     | user id + namespace + key           | `ctx.user` entries (JSON value, optional expiry) |
 | `schedules`     | task id                             | durable scheduler tasks (`store.schedules()`): spec, next/last run, fencing token, lease |
 | `schedule_fences` | task id                           | last fencing token of each deleted durable task (tokens never go backwards) |
+| `durable`       | table + id                          | durability journals (`store.durability()`) and documents of other `DurableKv` users |
 
 ## Semantics
 
@@ -103,7 +105,7 @@ previous alpha again.
 - `getMessagesByChat(chatId, limit)`: a `limit` of `0` or less returns nothing, a fraction rounds up and `Infinity` returns the whole log.
 - Statements are prepared once per store, not on every call.
 - `purgeExpiredUserData` deletes `purgeBatchSize` rows per statement and yields to the event loop between batches, so a large backlog never blocks the bot (better-sqlite3 is synchronous) or holds the write lock for long.
-- **Message keys.** `messageKey(ref)` (from `@botmesh/core`) is `{chatId}:{id}` with `%` and `:` percent-escaped in each part (`%25`, `%3A`), so ids that contain `:` — Twilio's `whatsapp:+1…` chat ids — never collide (`('a:b', 'c')` and `('a', 'b:c')` used to share the key `a:b:c`). Ids without `:` or `%` keep exactly the key earlier versions wrote. Rows written by an earlier version under the old unescaped key are still read and deleted (a fallback that only runs for ids containing `:` or `%`, and only returns or deletes a row whose stored `ref` is that very message, since a legacy key can be another message's new key), and re-saving such a message moves it to the new key — no manual migration. One theoretical edge remains: an id that literally contains `%3A` and was stored by an earlier version can be overwritten by a new message whose id has `:` in the same place.
+- **Message keys.** `messageKey(ref)` (from `@botmesh/core/spi`) is `{chatId}:{id}` with `%` and `:` percent-escaped in each part (`%25`, `%3A`), so ids that contain `:` — Twilio's `whatsapp:+1…` chat ids — never collide (`('a:b', 'c')` and `('a', 'b:c')` used to share the key `a:b:c`). Ids without `:` or `%` keep exactly the key earlier versions wrote. Rows written by an earlier version under the old unescaped key are still read and deleted (a fallback that only runs for ids containing `:` or `%`, and only returns or deletes a row whose stored `ref` is that very message, since a legacy key can be another message's new key), and re-saving such a message moves it to the new key — no manual migration. One theoretical edge remains: an id that literally contains `%3A` and was stored by an earlier version can be overwritten by a new message whose id has `:` in the same place.
 
 ## Durable scheduler tasks
 
@@ -126,7 +128,7 @@ const store = new SQLiteStore({ file: './data/bot.db' })
 const bot = new Bot({ provider, store, durability: { backend: store.durability() } })
 ```
 
-Every write is one SQL statement conditioned on the stored version, so the compare-and-set is atomic even with several processes on the same file. `SQLiteDurableKv` (or `store.durability().kv`) is also the `DurableKv` the product packages (`@botmesh/inbox`, `@botmesh/crm`, `@botmesh/campaigns`, `@botmesh/deployments`, `@botmesh/hub`) persist to. Opt-in: nothing is created until you call it.
+Every write is one SQL statement conditioned on the stored version, so the compare-and-set is atomic even with several processes on the same file. `SQLiteDurableKv` (or `store.durability().kv`) is also the `DurableKv` the product packages (`@botmesh/inbox`, `@botmesh/crm`, `@botmesh/campaigns`, `@botmesh/deployments`, `@botmesh/hub`) persist to. The table is part of the schema; nothing is written to it unless you use it.
 
 ## Docker
 

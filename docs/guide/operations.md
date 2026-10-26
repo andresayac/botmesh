@@ -7,6 +7,8 @@ job, see [Broadcasts](./messages#broadcasts) and
 [Starting a flow programmatically](./messages#starting-a-flow-programmatically).
 To survive crashes without losing or duplicating messages (durable inbox/outbox,
 retries, dead-letter queue), see [Durable message processing](./durability).
+For health checks and the production checklist, see
+[Deployment](./deploy#health-checks) and [Going to production](./production).
 
 ## Runtime metrics
 
@@ -20,7 +22,7 @@ const m = bot.metrics()
 // {
 //   startedAt, uptimeMs, uptime,   // uptime: '3d 4h', '5m 12s'...
 //   conversations: { started, completed, ended, guarded, cancelled, timedOut, retriesExceeded, errored, avgDurationMs, active },
-//   flows: { registro: { started, completed, ended, guarded, cancelled, timedOut, retriesExceeded, errored, avgDurationMs } },
+//   flows: { signup: { started, completed, ended, guarded, cancelled, timedOut, retriesExceeded, errored, avgDurationMs } },
 //   messages: { in, out, outFailed },
 //   dropped: { duplicate, blocked, handoff },
 //   presenceSkipped: { typing, markRead },
@@ -138,4 +140,4 @@ All five share the same storage model: `Memory…Store` (reference), `Kv…Store
 
 ## Tracing (OpenTelemetry)
 
-`bot.metrics()` counts; traces explain. With `BotConfig.telemetry` the bot emits a span tree per message (inbound → dispatch → handler / conversation turn → AI model and tool calls → send), with ids hashed by default and no message content. `@botmesh/otel` sends those spans to OpenTelemetry (Jaeger, Grafana Tempo, any OTLP backend) and publishes `bot.metrics()` as OpenTelemetry metrics (`bot.plug(otelMetricsPlugin())`). Setup, span catalogue, personal-data policy and a Jaeger / Grafana Tempo example: [Tracing](./tracing).
+`bot.metrics()` counts; traces explain. With `BotConfig.telemetry` the bot emits a span tree per message (inbound → dispatch → handler / conversation turn → AI model and tool calls → send), with ids hashed by default and no message content. `@botmesh/otel` (in the repository, not on npm yet) sends those spans to OpenTelemetry (Jaeger, Grafana Tempo, any OTLP backend) and publishes `bot.metrics()` as OpenTelemetry metrics (`bot.plug(otelMetricsPlugin())`). Setup, span catalogue, personal-data policy and a Jaeger / Grafana Tempo example: [Tracing](./tracing).
