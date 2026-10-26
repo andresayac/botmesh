@@ -159,6 +159,18 @@ function matchedRows(header: unknown): number {
   return m ? Number(m[1]) : affectedRows(header)
 }
 
+/**
+ * The BIGINT sort key for a message timestamp. `StoredMessage.timestamp` is any JS number,
+ * but mysql2 renders NaN and ±Infinity as bare identifiers (ER_BAD_FIELD_ERROR) and a value
+ * past the BIGINT range is rejected, so it is floored and clamped; NaN sorts as 0. The
+ * exact value is kept in the JSON document (as PostgresStore does).
+ */
+function sortKey(timestamp: number): number {
+  const n = Math.floor(Number(timestamp))
+  if (Number.isNaN(n)) return 0
+  return Math.min(Number.MAX_SAFE_INTEGER, Math.max(-Number.MAX_SAFE_INTEGER, n))
+}
+
 function fromKey(value: unknown): string {
   return value instanceof Uint8Array ? new TextDecoder().decode(value) : String(value)
 }
@@ -296,7 +308,7 @@ export class MysqlStore implements IStore {
     await this.query(
       `INSERT INTO \`${this.t.messages}\` (id, chat_id, timestamp, msg) VALUES (?, ?, ?, ?) ` +
         'ON DUPLICATE KEY UPDATE chat_id = VALUES(chat_id), timestamp = VALUES(timestamp), msg = VALUES(msg)',
-      [messageKey(msg.ref), msg.chatId, msg.timestamp, toJson(msg)],
+      [messageKey(msg.ref), msg.chatId, sortKey(msg.timestamp), toJson(msg)],
     )
     // Drop the copy an older version wrote under the legacy key (else the
     // message would be listed twice). No-op for ids without ':' or '%'.
@@ -456,7 +468,7 @@ export class MysqlStore implements IStore {
       throw new RangeError(`MysqlStore.setCheckpointIf: expectedRevision must be a non-negative integer, got ${String(expectedRevision)}`)
     }
     const t = this.t.checkpoints
-    const json = JSON.stringify(cp)
+    const json = toJson(cp) // same sanitizing as setCheckpoint (lone surrogates)
     if (expectedRevision === 0) {
       const [inserted] = await this.query(`INSERT IGNORE INTO \`${t}\` (\`key\`, cp) VALUES (?, ?)`, [key, json])
       if (affectedRows(inserted) === 1) return true

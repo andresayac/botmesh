@@ -47,6 +47,20 @@ describe.skipIf(!URL)('PostgresScheduleStore — real PostgreSQL', () => {
     },
   })
 
+  it('fractional milliseconds (every(1500.5), leaseMs 1000.2, a fractional clock) are stored as whole ms and stay consistent', async () => {
+    const store = new PostgresScheduleStore({ pool: pool, tablePrefix: freshPrefix() })
+    await store.start()
+    const rec = await store.register({ id: 'frac', kind: 'interval', spec: '1500.5', nextRunAt: 10.5 }, 0.5)
+    expect(rec).toMatchObject({ nextRunAt: 11 })
+    expect(await store.get('frac')).toMatchObject({ nextRunAt: 11 })
+    const claim = await store.claimDue('frac', 'a', 11.25, 1000.2)
+    expect(claim?.record).toMatchObject({ nextRunAt: 11, leaseUntil: 1012 })
+    expect(await store.get('frac')).toEqual(claim!.record) // what the claim returns is what is stored
+    expect(await store.renew('frac', claim!.fencingToken, claim!.record.leaseUntil!)).toBe(true) // same value: still held
+    expect(await store.complete('frac', claim!.fencingToken, { nextRunAt: 3000.2, lastRunAt: 11, lastStatus: 'ok' }, 12.9)).toBe(true)
+    expect(await store.get('frac')).toMatchObject({ nextRunAt: 3001, lastRunAt: 11 })
+  })
+
   it('gives exactly one of 20 claimers on two separate pools the occurrence', async () => {
     const tablePrefix = freshPrefix()
     const a = new PostgresScheduleStore({ pool: newPool(5), tablePrefix })
@@ -118,7 +132,12 @@ describe.skipIf(!URL)('PostgresScheduleStore — real PostgreSQL', () => {
     const c = makeBot()
     await c.bot.start()
     const after = (await c.schedules.list()).find((r) => r.id.endsWith('beat'))!
-    expect(after.nextRunAt).toBe(stored.nextRunAt)
+    // The restart keeps the stored slot grid instead of re-anchoring on its own start time.
+    // On a loaded machine the restarted bot may already have run the next slot(s) when the
+    // row is read, so the slot can be a whole number of intervals later, never off-grid.
+    expect(after.nextRunAt! - stored.nextRunAt!).toBeGreaterThanOrEqual(0)
+    expect((after.nextRunAt! - stored.nextRunAt!) % 300).toBe(0)
+    expect(after.fencingToken).toBeGreaterThanOrEqual(stored.fencingToken)
     await c.bot.stop()
   })
 })

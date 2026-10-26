@@ -40,11 +40,15 @@ before, in memory and in a single process.
 | --- | --- | --- | --- |
 | `MemoryDurability` (the default with `durability: {}`) | `@botmesh/core` | No (retries, backoff and DLQ only) | No |
 | `FileDurability.open(path)` | `@botmesh/core` | Yes | No (a lock file refuses a second live process, and a second open in the same process until `close()`) |
-| `PostgresDurability({ pool \| connectionString, tablePrefix })` | `@botmesh/postgres-store` | Yes | Yes, with sticky per-chat routing (see [Several replicas](#several-replicas)) |
+| `PostgresDurability({ pool \| connectionString, tablePrefix, logger })` | `@botmesh/postgres-store` | Yes | Yes, with sticky per-chat routing (see [Several replicas](#several-replicas)) |
 | `RedisDurability({ client \| url, prefix })` | `@botmesh/redis-store` | Yes (with Redis persistence on) | Yes, with sticky per-chat routing (see [Several replicas](#several-replicas)) |
 | `eventsDurability({ journal })` | `@botmesh/events/durability` (private, monorepo only) | With a `FileEventJournal` opened with `{ lock: true }` or a `SharedFileEventJournal` | With a `SharedFileEventJournal` (processes on one host; see [below](#an-botmesh-events-journal)) |
 
 PostgreSQL creates one table, `{tablePrefix}durable`, idempotently on start.
+With `connectionString` it creates (and later ends) its own pool, and a connection the
+server drops while idle (restart, failover) is reported to `logger.error` and replaced on
+the next query. An injected `pool` is yours: give it a `pool.on('error', …)` listener,
+because node-postgres crashes the process when nobody listens.
 Redis uses keys under `{prefix}:{durable:inbox:<scope>}` and `{prefix}:{durable:outbox:<scope>}`.
 Neither touches the store's own tables or keys.
 

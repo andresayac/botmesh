@@ -106,6 +106,18 @@ function fromRow(row: ScheduleRow): ScheduleRecord {
   return rec
 }
 
+/*
+ * The time columns are BIGINT, which MySQL fills by ROUNDING a fractional parameter, while
+ * the scheduler accepts any finite number of milliseconds (`every(1500.5)`, a fractional
+ * `leaseMs` or clock). The record a call returns must be the stored one (a fallback in
+ * `renew` compares `lease_until` exactly), so values are sent as whole milliseconds: a
+ * deadline (next run, lease end, last run slot) rounds UP, never earlier than asked, and
+ * the caller's `now` rounds DOWN, so nothing is claimed before it is due.
+ */
+const upMs = (ms: number): number => Math.ceil(ms)
+const upMsOrNull = (ms: number | null | undefined): number | null => (ms === null || ms === undefined ? null : Math.ceil(ms))
+const downMs = (ms: number): number => Math.floor(ms)
+
 const COLUMNS = 'id, kind, spec, next_run_at, last_run_at, last_status, fencing_token, lease_owner, lease_until, deleted, updated_at'
 
 function checkBytes(what: string, value: string, max: number): void {
@@ -158,14 +170,16 @@ export class MysqlScheduleStore implements ScheduleStore {
   async register(rec: Pick<ScheduleRecord, 'id' | 'kind' | 'spec' | 'nextRunAt'>, now: number): Promise<ScheduleRecord> {
     checkBytes('the task id', rec.id, MAX_ID_BYTES)
     checkBytes('the task spec', rec.spec, MAX_SPEC_BYTES)
+    const nextRunAt = upMsOrNull(rec.nextRunAt)
+    now = downMs(now)
     for (let attempt = 1; ; attempt++) {
       try {
         await this.pool.query(
           `INSERT INTO \`${this.table}\` (id, kind, spec, next_run_at, fencing_token, deleted, updated_at) VALUES (?, ?, ?, ?, 0, 0, ?)`,
-          [rec.id, rec.kind, rec.spec, rec.nextRunAt, now],
+          [rec.id, rec.kind, rec.spec, nextRunAt, now],
         )
         // A brand-new row: soft delete means an id inserted here was never seen, so token 0.
-        return { id: rec.id, kind: rec.kind, spec: rec.spec, nextRunAt: rec.nextRunAt, fencingToken: 0, updatedAt: now }
+        return { id: rec.id, kind: rec.kind, spec: rec.spec, nextRunAt, fencingToken: 0, updatedAt: now }
       } catch (err) {
         if (errno(err) !== ER_DUP_ENTRY) throw err
       }
@@ -177,7 +191,7 @@ export class MysqlScheduleStore implements ScheduleStore {
           'lease_owner = IF(deleted, NULL, lease_owner), lease_until = IF(deleted, NULL, lease_until), ' +
           'kind = ?, spec = ?, next_run_at = ?, updated_at = ?, deleted = 0 ' +
           'WHERE id = ? AND (deleted = 1 OR kind <> ? OR spec <> ?)',
-        [rec.kind, rec.spec, rec.nextRunAt, now, rec.id, rec.kind, rec.spec],
+        [rec.kind, rec.spec, nextRunAt, now, rec.id, rec.kind, rec.spec],
       )
       const stored = await this.get(rec.id)
       if (stored) return stored
@@ -188,6 +202,8 @@ export class MysqlScheduleStore implements ScheduleStore {
 
   async claimDue(id: string, owner: string, now: number, leaseMs: number): Promise<ClaimResult | null> {
     checkBytes('the lease owner', owner, MAX_OWNER_BYTES)
+    const leaseUntil = upMs(now + leaseMs)
+    now = downMs(now)
     const conn = await this.pool.getConnection()
     let reusable = true
     try {
@@ -208,7 +224,7 @@ export class MysqlScheduleStore implements ScheduleStore {
             ...current,
             fencingToken: current.fencingToken + 1,
             leaseOwner: owner,
-            leaseUntil: now + leaseMs,
+            leaseUntil,
             updatedAt: now,
           }
           await conn.query(
@@ -237,6 +253,7 @@ export class MysqlScheduleStore implements ScheduleStore {
   }
 
   async renew(id: string, fencingToken: number, leaseUntil: number): Promise<boolean> {
+    leaseUntil = upMs(leaseUntil)
     const result = await this.pool.query(
       `UPDATE \`${this.table}\` SET lease_until = ? WHERE id = ? AND deleted = 0 AND fencing_token = ? AND lease_owner IS NOT NULL`,
       [leaseUntil, id, fencingToken],
@@ -256,7 +273,7 @@ export class MysqlScheduleStore implements ScheduleStore {
     const result = await this.pool.query(
       `UPDATE \`${this.table}\` SET next_run_at = ?, last_run_at = COALESCE(?, last_run_at), last_status = COALESCE(?, last_status), ` +
         'lease_owner = NULL, lease_until = NULL, updated_at = ? WHERE id = ? AND deleted = 0 AND fencing_token = ? AND lease_owner IS NOT NULL',
-      [patch.nextRunAt, patch.lastRunAt ?? null, patch.lastStatus ?? null, now, id, fencingToken],
+      [upMsOrNull(patch.nextRunAt), upMsOrNull(patch.lastRunAt), patch.lastStatus ?? null, downMs(now), id, fencingToken],
     )
     return affected(result) > 0
   }

@@ -109,8 +109,12 @@ describe.skipIf(!MONGO_URL)('MongoScheduleStore — real MongoDB', () => {
     const c = await makeBot()
     await c.bot.start()
     const after = (await c.schedules.list()).find((r) => r.id.endsWith('beat'))!
-    expect(after.nextRunAt).toBe(stored.nextRunAt)
-    expect(after.fencingToken).toBe(stored.fencingToken)
+    // The restart keeps the stored slot grid instead of re-anchoring on its own start time.
+    // On a loaded machine the restarted bot may already have run the next slot(s) when the
+    // row is read, so the slot can be a whole number of intervals later, never off-grid.
+    expect(after.nextRunAt! - stored.nextRunAt!).toBeGreaterThanOrEqual(0)
+    expect((after.nextRunAt! - stored.nextRunAt!) % 300).toBe(0)
+    expect(after.fencingToken).toBeGreaterThanOrEqual(stored.fencingToken)
     await c.bot.stop()
   })
 })

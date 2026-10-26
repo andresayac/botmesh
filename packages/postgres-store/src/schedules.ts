@@ -82,6 +82,17 @@ function fromRow(row: ScheduleRow): ScheduleRecord {
   return rec
 }
 
+/*
+ * The time columns are BIGINT, and PostgreSQL rejects a fractional parameter for one
+ * (22P02), while the scheduler accepts any finite number of milliseconds (`every(1500.5)`,
+ * a fractional `leaseMs` or clock). Values are sent as whole milliseconds: a deadline
+ * (next run, lease end, last run slot) rounds UP, so it never falls earlier than asked,
+ * and the caller's `now` rounds DOWN, so nothing is claimed before it is due.
+ */
+const upMs = (ms: number): number => Math.ceil(ms)
+const upMsOrNull = (ms: number | null | undefined): number | null => (ms === null || ms === undefined ? null : Math.ceil(ms))
+const downMs = (ms: number): number => Math.floor(ms)
+
 const COLUMNS = 'id, kind, spec, next_run_at, last_run_at, last_status, fencing_token, lease_owner, lease_until, updated_at'
 
 export class PostgresScheduleStore implements ScheduleStore {
@@ -144,7 +155,7 @@ export class PostgresScheduleStore implements ScheduleStore {
       'deleted = FALSE ' +
       `WHERE s.deleted OR s.kind <> EXCLUDED.kind OR s.spec <> EXCLUDED.spec RETURNING ${COLUMNS}`
     for (let attempt = 1; ; attempt++) {
-      const { rows } = await this.pool.query(upsert, [rec.id, rec.kind, rec.spec, rec.nextRunAt, now])
+      const { rows } = await this.pool.query(upsert, [rec.id, rec.kind, rec.spec, upMsOrNull(rec.nextRunAt), downMs(now)])
       if (rows[0]) return fromRow(rows[0] as ScheduleRow)
       const existing = await this.get(rec.id)
       if (existing) return existing
@@ -158,7 +169,7 @@ export class PostgresScheduleStore implements ScheduleStore {
       `UPDATE ${this.table} SET fencing_token = fencing_token + 1, lease_owner = $2, lease_until = $3, updated_at = $4 ` +
         'WHERE id = $1 AND NOT deleted AND next_run_at IS NOT NULL AND next_run_at <= $4 AND (lease_until IS NULL OR lease_until <= $4) ' +
         `RETURNING ${COLUMNS}`,
-      [id, owner, now + leaseMs, now],
+      [id, owner, upMs(now + leaseMs), downMs(now)],
     )
     if (!rows[0]) return null
     const record = fromRow(rows[0] as ScheduleRow)
@@ -168,7 +179,7 @@ export class PostgresScheduleStore implements ScheduleStore {
   async renew(id: string, fencingToken: number, leaseUntil: number): Promise<boolean> {
     const res = await this.pool.query(
       `UPDATE ${this.table} SET lease_until = $3 WHERE id = $1 AND NOT deleted AND fencing_token = $2 AND lease_owner IS NOT NULL`,
-      [id, fencingToken, leaseUntil],
+      [id, fencingToken, upMs(leaseUntil)],
     )
     return (res.rowCount ?? 0) > 0
   }
@@ -178,7 +189,7 @@ export class PostgresScheduleStore implements ScheduleStore {
       `UPDATE ${this.table} SET next_run_at = $3::bigint, last_run_at = COALESCE($4::bigint, last_run_at), ` +
         'last_status = COALESCE($5::text, last_status), lease_owner = NULL, lease_until = NULL, updated_at = $6 ' +
         'WHERE id = $1 AND NOT deleted AND fencing_token = $2 AND lease_owner IS NOT NULL',
-      [id, fencingToken, patch.nextRunAt, patch.lastRunAt ?? null, patch.lastStatus ?? null, now],
+      [id, fencingToken, upMsOrNull(patch.nextRunAt), upMsOrNull(patch.lastRunAt), patch.lastStatus ?? null, downMs(now)],
     )
     return (res.rowCount ?? 0) > 0
   }

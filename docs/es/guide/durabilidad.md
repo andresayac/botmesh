@@ -41,13 +41,17 @@ código que antes, en memoria y en un solo proceso.
 | --- | --- | --- | --- |
 | `MemoryDurability` (el de `durability: {}`) | `@botmesh/core` | No (solo reintentos, backoff y DLQ) | No |
 | `FileDurability.open(ruta)` | `@botmesh/core` | Sí | No (un archivo de lock rechaza un segundo proceso vivo, y un segundo `open()` en el mismo proceso hasta `close()`) |
-| `PostgresDurability({ pool \| connectionString, tablePrefix })` | `@botmesh/postgres-store` | Sí | Sí, con enrutado fijo por chat (ver *Varias réplicas*) |
+| `PostgresDurability({ pool \| connectionString, tablePrefix, logger })` | `@botmesh/postgres-store` | Sí | Sí, con enrutado fijo por chat (ver *Varias réplicas*) |
 | `RedisDurability({ client \| url, prefix })` | `@botmesh/redis-store` | Sí (con la persistencia de Redis activada) | Sí, con enrutado fijo por chat (ver *Varias réplicas*) |
 | `eventsDurability({ journal })` | `@botmesh/events/durability` (privado, solo en el monorepo) | Con un `FileEventJournal` abierto con `{ lock: true }` o un `SharedFileEventJournal` | Con un `SharedFileEventJournal` (procesos en un mismo host; ver *Un journal de `@botmesh/events`*) |
 
 PostgreSQL crea una tabla, `{tablePrefix}durable`, de forma idempotente al
 arrancar. Redis usa claves bajo `{prefix}:{durable:inbox:<scope>}` y
 `{prefix}:{durable:outbox:<scope>}`. Ninguno toca las tablas ni las claves del store.
+Con `connectionString`, PostgreSQL crea (y al parar cierra) su propio pool, y una conexión
+que el servidor corta mientras está ociosa (reinicio, failover) se informa a `logger.error`
+y se sustituye en la siguiente consulta. Un `pool` inyectado es tuyo: dale un listener
+`pool.on('error', …)`, porque node-postgres tumba el proceso si nadie escucha.
 
 `FileDurability.open(ruta, { appendLog: true })` (o `{ compactEvery, compactBytes, fsync }`)
 añade cada escritura confirmada a `<ruta>.log` en vez de reescribir el snapshot, y compacta

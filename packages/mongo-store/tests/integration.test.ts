@@ -326,6 +326,27 @@ describe.skipIf(!MONGO_URL)('MongoStore — real MongoDB integration', () => {
   /* Value fidelity --------------------------------------------------------- */
 
   describe('value fidelity (unicode, large JSON, BSON types)', () => {
+    // BSON cannot encode a key with U+0000 ("key ... must not contain null bytes"): such keys
+    // are stored with U+FFFD, as PostgresStore does, so a flow keyed by user text still checkpoints.
+    it('object keys holding U+0000 are stored as U+FFFD in checkpoints (plain and CAS), messages, conversations and chats', async () => {
+      const { store } = await makeStore()
+      const state = { 'k\u0000': 1, nested: { 'k\u0000': ['v\u0000'] }, $x: 2, 'a.b': 3 }
+      const safe = { 'k\ufffd': 1, nested: { 'k\ufffd': ['v\u0000'] }, $x: 2, 'a.b': 3 }
+      const cp = (revision?: number) => ({ flowId: 'f', stepIndex: 0, state, updatedAt: 1, ...(revision ? { revision } : {}) }) as unknown as FlowCheckpoint
+      await store.setCheckpoint('plain', cp())
+      expect((await store.getCheckpoint('plain'))?.state).toEqual(safe)
+      expect(await store.setCheckpointIf('cas', cp(1), 0)).toBe(true)
+      expect(await store.setCheckpointIf('cas', cp(2), 1)).toBe(true)
+      expect((await store.getCheckpoint('cas'))?.state).toEqual(safe)
+      await store.saveMessage(msg('c@x', 'nul', 'x', 1, { raw: state }))
+      expect((await store.getMessage({ id: 'nul', chatId: 'c@x' }))?.raw).toEqual(safe)
+      await store.setConversation('ai', [{ role: 'user', content: 'x', meta: state } as never])
+      expect(await store.getConversation('ai')).toEqual([{ role: 'user', content: 'x', meta: safe }])
+      await store.upsertChat({ id: 'c@x', raw: state })
+      expect((await store.getChat('c@x'))?.raw).toEqual(safe)
+      await store.stop()
+    })
+
     // Regression: optional fields left `undefined` (body, quoted, raw — Bot
     // builds StoredMessage that way) came back as `null`, breaking
     // `=== undefined` checks and re-saves that spread the stored message.

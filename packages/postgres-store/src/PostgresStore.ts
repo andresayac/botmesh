@@ -454,7 +454,7 @@ export class PostgresStore implements IStore {
       throw new RangeError(`PostgresStore.setCheckpointIf: expectedRevision must be a non-negative integer, got ${String(expectedRevision)}`)
     }
     const t = this.table('checkpoints')
-    const json = JSON.stringify(cp)
+    const json = toJsonb(cp) // same sanitizing as setCheckpoint (U+0000, lone surrogates)
     const result = expectedRevision === 0
       ? await this.query(
           `INSERT INTO ${t} (key, cp) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET cp = EXCLUDED.cp ` +

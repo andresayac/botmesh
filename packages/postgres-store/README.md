@@ -16,6 +16,8 @@ PostgreSQL [`IStore`](https://github.com/andresayac/botmesh/tree/main/packages/c
 pnpm add @botmesh/postgres-store pg
 ```
 
+`@types/pg` comes with the package (its public types reference pg's `Pool`), so a TypeScript project needs nothing else.
+
 **Requires a running PostgreSQL server** reachable from the bot (e.g. `postgres://localhost:5432/botwa`). The store creates its tables automatically on `start()` (`CREATE TABLE IF NOT EXISTS`, safe across replicas and restarts).
 
 ## Usage with Bot
@@ -87,13 +89,32 @@ An index on `(chat_id, timestamp)` backs `getMessagesByChat`. All writes are par
 - Messages, chats, contacts and cursors live forever — delete them explicitly. There is no TTL (unlike `@botmesh/redis-store`).
 - `start()` is idempotent while started; it creates a pool only when none was injected. `stop()` ends only a self-created pool — an injected pool is left open. An own-pool store can be restarted after `stop()` (fresh pool, idempotent schema pass).
 - Replicas may boot at the same moment: concurrent `CREATE TABLE IF NOT EXISTS` of the same table can lose a race on PostgreSQL's catalog (`23505` on `pg_type`), and `start()` retries that statement instead of failing.
-- `jsonb` cannot hold U+0000 or unpaired UTF-16 surrogates (e.g. text cut in the middle of an emoji). Rather than failing the whole write, those characters are stored as U+FFFD in the JSONB documents (messages, chats, contacts, checkpoints, conversations); everything else round-trips unchanged.
+- `jsonb` cannot hold U+0000 or unpaired UTF-16 surrogates (e.g. text cut in the middle of an emoji). Rather than failing the whole write, those characters are stored as U+FFFD in the JSONB documents (messages, chats, contacts, checkpoints — through `setCheckpoint` and the compare-and-set `setCheckpointIf` alike — and conversations); everything else round-trips unchanged.
 - `ctx.user` values (`{prefix}user_data.value`) are stored **exactly**, with no U+FFFD replacement. The column is `TEXT`, and PostgreSQL `TEXT` rejects a raw NUL byte too (SQLSTATE `22021`), so the value is written as its `JSON.stringify` text: U+0000 and unpaired surrogates always travel as six-character `\u0000`-style escapes (plain ASCII), which `JSON.parse` turns back into the original characters. The round trip is lossless (proved against a real server in `tests/integration.test.ts`).
 - Ids and keys (`id`, `chat_id`, `key`, and `user_id` / `namespace` / `key` in `user_data`) are `TEXT` columns stored verbatim: PostgreSQL rejects U+0000 in them (`22021`), so they must not contain it.
 - `timestamp` may be any number: the `BIGINT` sort column gets `Math.floor(timestamp)`, while the exact value is kept in the `msg` document. Order among messages with the same (floored) timestamp is not defined.
 - `deleteChat` removes the message log and the chat record in **one statement** (a data-modifying CTE), so both commit or neither does.
 - `purgeExpiredUserData` deletes `purgeBatchSize` rows per statement (picked by primary key through the expiry index) until nothing expired is left, so a large backlog never runs as one long transaction.
 - **Message keys.** `messageKey(ref)` (from `@botmesh/core`) is `{chatId}:{id}` with `%` and `:` percent-escaped in each part (`%25`, `%3A`), so ids that contain `:` — Twilio's `whatsapp:+1…` chat ids — never collide (`('a:b', 'c')` and `('a', 'b:c')` used to share the key `a:b:c`). Ids without `:` or `%` keep exactly the key earlier versions wrote. Rows written by an earlier version under the old unescaped key are still read and deleted (a fallback that only runs for ids containing `:` or `%`, and only returns or deletes a row whose stored `ref` is that very message, since a legacy key can be another message's new key), and re-saving such a message moves it to the new key — no manual migration. One theoretical edge remains: an id that literally contains `%3A` and was stored by an earlier version can be overwritten by a new message whose id has `:` in the same place.
+
+## Durability backend
+
+`PostgresDurability` (and its `PostgresDurableKv`) is the PostgreSQL backend for `BotConfig.durability` (see the [durability guide](https://github.com/andresayac/botmesh/blob/main/docs/guide/durability.md)): one table, `{tablePrefix}durable`, created idempotently by `start()` (the bot starts and stops it).
+
+```ts
+const bot = new Bot({
+  provider,
+  store: new PostgresStore({ pool }),
+  durability: { journal: new PostgresDurability({ pool }), instanceId: process.env.HOSTNAME },
+})
+```
+
+| Option | Default | Description |
+| ------ | ------- | ----------- |
+| `pool` | — | An existing pool (shared with the store). Never ended by the backend; give it its own `pool.on('error', …)`. |
+| `connectionString` | `postgres://localhost:5432/botwa` | Used to create a pool when `pool` is not given; `stop()` ends it. |
+| `tablePrefix` | `''` | Plain SQL identifier prefix for the table. |
+| `logger` | — | Receives the connection errors of idle clients of a pool the backend created (the pool reconnects on the next query). |
 
 ## Durable scheduler
 
@@ -109,6 +130,7 @@ bot.schedule('0 9 * * 1-5', { id: 'daily-report', timeZone: 'America/Bogota' }, 
 - The scheduler calls its `start()`, which creates the table (`CREATE TABLE IF NOT EXISTS`, catalog races retried). The bot starts the store first; if you use the store only for schedules, `await store.start()` yourself. A standalone `new PostgresScheduleStore({ pool, tablePrefix })` borrows any pool and never ends it.
 - `delete()` (`task.cancel()`, `bot.forgetTask(id)`) is a soft delete: the row stays with `deleted = TRUE` so the id's fencing token never goes backwards. Purge old tombstones by hand only when no runner can still hold their token, e.g. `DELETE FROM schedules WHERE deleted AND updated_at < <epoch ms a day ago>`.
 - Leases use the caller's clock (`now`): keep replicas in sync (NTP). BIGINT columns come back as numbers.
+- Times are stored in whole milliseconds (BIGINT rejects a fraction): a fractional slot, lease end or interval (`every(1500.5)`) rounds **up**, and a fractional `now` rounds **down**, so nothing is claimed before it is due.
 - `tests/schedules.integration.test.ts` runs the shared `ScheduleStore` conformance suite, concurrent claims from two pools, a concurrent schema race and a two-bot end-to-end run against a real server (same `BOTWA_TEST_POSTGRES_URL`).
 
 
