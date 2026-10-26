@@ -231,6 +231,16 @@ and resolves the provider lazily. On startup a "warmup" logs the problem to the
 error log (with the hint of which `pnpm add` to run), and from then on every
 message answers the configured `errorMessage` instead of crashing the bot.
 
+A configuration that can never work fails fast instead: `aiPlugin()` throws a
+`RangeError` / `TypeError` naming the option for a timeout that is not a finite
+number of ms (a `NaN` from `Number(process.env.X)` would fire after 1 ms), a
+`maxTokens` that is not a positive integer, a negative or `NaN`
+`context.maxMessages`, an unparsable `toolConfirm.timeout` or a tool without
+`handler`. `openai` / `ollama` without `model` log a warning at install.
+
+`bot.stop()` aborts the replies still waiting for the model (and background
+memory extraction), so a slow provider does not keep the process alive.
+
 ## Full `aiPlugin(config)` reference
 
 | Field | Type | Default | Description |
@@ -248,14 +258,14 @@ message answers the configured `errorMessage` instead of crashing the bot.
 | `context.maxMessages` | `number` | `20` | stored history window per chat (always starts with a user turn; empty answers are not stored) |
 | `autoReply` | `boolean` | `true` | registers the catch-all autoresponder |
 | `resetCommand` | `boolean` | `true` | registers `/reset` |
-| `errorMessage` | `string` | `'⚠️ Ahora no puedo responder, intenta luego.'` | answer when the provider fails or the model replies empty |
-| `refusalMessage` | `string` | `'No puedo ayudar con eso.'` | answer when the provider refuses (`stopReason === 'refusal'`: Anthropic refusal, OpenAI `refusal`, Gemini safety block) |
+| `errorMessage` | `string` | localized `ai.error` (es: `'⚠️ Ahora no puedo responder, intenta luego.'`) | answer when the provider fails or the model replies empty |
+| `refusalMessage` | `string` | localized `ai.refusal` (es: `'No puedo ayudar con eso.'`) | answer when the provider refuses (`stopReason === 'refusal'`: Anthropic refusal, OpenAI `refusal`, Gemini safety block) |
 | `humanizeTyping` | `boolean` | `true` | sends "typing…" (`ctx.typing()`) while the answer is generated; the reply then skips `BotConfig.typing`, so the indicator shows up once |
 | `tools` | `Record<string, AITool>` | — | tools the model may call (see [Tool calling](#tool-calling)) |
 | `maxSteps` | `number` | `5` | maximum model calls per turn in the tool loop |
 | `toolTimeoutMs` | `number` | `15000` | default timeout of each tool (`0` disables it) |
 | `maxStepsMessage` | `string` | localized `ai.tools.maxSteps` message (es: `'No pude completar la solicitud…'`) | answer when `maxSteps` runs out |
-| `toolConfirm` | `{ yes?: string[]; no?: string[]; timeout?: number \| string; buttons?: boolean; systemNote?: boolean \| string }` | `{ timeout: '2m', buttons: true }` | confirmation dialog for `confirm: true` tools (Yes/No buttons where the channel shows them) |
+| `toolConfirm` | `{ yes?: string[]; no?: string[]; timeout?: number \| string; buttons?: boolean; answeredNotice?: boolean; expiredNotice?: boolean; systemNote?: boolean \| string }` | `{ timeout: '2m', buttons: true }` | confirmation dialog for `confirm: true` tools (Yes/No buttons where the channel shows them) |
 | `onToolEvent` | `(e: AIToolEvent) => void` | — | audit: receives every event of the loop (also emitted as `bot.on('ai.tool')`) |
 | `memory` | `boolean \| AIMemoryConfig` | — | long-term memory per user (see [Memory](#long-term-memory-per-user)) |
 | `rag` | `AIRetriever \| AIRagConfig` | — | RAG: passages from your documents with citations (see [RAG](#rag-answers-from-your-documents)) |
@@ -525,8 +535,11 @@ is in flight, its facts are discarded: they never show up again.
 
 ## RAG (answers from your documents)
 
-`rag` accepts any object with `retrieve(query)`; the
-[`@botmesh/rag`](https://github.com/andresayac/botmesh/tree/main/packages/rag) package ships a ready one (loaders, chunking, embeddings and index):
+`rag` accepts any object with `retrieve(query)` (a vector database, a search
+API…). The experimental
+[`@botmesh/rag`](https://github.com/andresayac/botmesh/tree/main/packages/rag) package ships a ready one (loaders, chunking, embeddings and index);
+it is **not on npm yet** (use it from the monorepo), so the example below is a
+preview:
 
 ```ts
 import { createRag } from '@botmesh/rag'

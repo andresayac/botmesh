@@ -80,6 +80,15 @@ docker rm -f botwa-it-greenmail
 
 Host and ports: `BOTWA_TEST_EMAIL_HOST`, `BOTWA_TEST_EMAIL_SMTP_PORT` and `BOTWA_TEST_EMAIL_IMAP_PORT` (default `127.0.0.1`, `3025` and `3143`). More detail in the [package README](packages/email-provider/README.md#integration-tests). If you touch `email-provider`, run it locally: CI does not.
 
+### AI (`@botmesh/ai`) against a real Ollama
+
+`pnpm test` drives the real `@anthropic-ai/sdk`, `openai` and `@google/generative-ai` SDKs against local fakes of their HTTP APIs, and the Ollama provider against a fake `/api/chat` server: no network. `packages/ai/tests/ollama-live.test.ts` is an opt-in smoke test against a **real** Ollama with a pulled model (it checks the wiring, not the model's answers):
+
+```bash
+BOTWA_TEST_OLLAMA_URL=http://127.0.0.1:11434 BOTWA_TEST_OLLAMA_MODEL=qwen2.5:0.5b \
+  pnpm --filter @botmesh/ai exec vitest run tests/ollama-live.test.ts
+```
+
 ## Load, soak and leaks (`pnpm bench:soak`)
 
 `scripts/soak/soak.mjs` drives the `@botmesh/core` runtime (and `@botmesh/ai` with `MockAIProvider`) through `MockProvider`: thousands of chats and group participants running flows (`ask`/validation/retries/timeouts/`delay`), conversations with `c.idle`, `bot.onIdle`, inbound dedupe, handoff, sticky language, `ctx.user`, broadcast, metrics, the typing pacer, streaming and AI tool confirmations (buttons, typed answers, timeouts, `/reset`, stale presses). After every round it waits for the bots to go idle, forces GC and measures heap, active handles (`process.getActiveResourcesInfo()`), internal map sizes, event-loop lag and throughput. At the end it calls `stop({ drain: true })` **under load** and fails (exit code 2) if any timer is still alive. It is not part of `pnpm test`.

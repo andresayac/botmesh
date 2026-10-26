@@ -239,6 +239,16 @@ error log (with the `pnpm add` hint when an SDK is missing), and from then on
 each message replies the configured `errorMessage` instead of taking the bot
 down.
 
+A configuration that can never work fails fast instead: `aiPlugin()` throws a
+`RangeError` / `TypeError` naming the option for a timeout that is not a finite
+number of ms (a `NaN` from `Number(process.env.X)` would fire after 1 ms), a
+`maxTokens` that is not a positive integer, a negative or `NaN`
+`context.maxMessages`, an unparsable `toolConfirm.timeout` or a tool without
+`handler`. `openai` / `ollama` without `model` log a warning at install.
+
+`bot.stop()` aborts the replies still waiting for the model (and background
+memory extraction), so a slow provider does not keep the process alive.
+
 ## Full `aiPlugin(config)` reference
 
 | Field | Type | Default | Description |
@@ -247,6 +257,7 @@ down.
 | `model` | `string` | provider-dependent | model to use (required for openai/ollama) |
 | `apiKey` | `string` | env var fallback | API key (if omitted, each provider tries its conventional env var) |
 | `baseUrl` | `string` | preset-dependent | endpoint override (openai/anthropic `baseURL` / ollama host) |
+| `instance` | `AIProvider` | — | a ready-built provider (`MockAIProvider` in tests, or your own): skips resolving `provider`/`apiKey`/`model` and the lazy SDK load |
 | `persona` | `string` | — | system prompt |
 | `maxTokens` | `number` | `4096` (anthropic) / `1024` (openai, presets, gemini) | output token limit (ollama: only when set, as `options.num_predict`; memory extraction's 1024 default does not apply there). It includes thinking tokens on reasoning models |
 | `effort` | `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'` | — | reasoning effort (Anthropic only; not sent to models that reject it, such as Claude Haiku 4.5 / Sonnet 4.5) |
@@ -255,14 +266,14 @@ down.
 | `context.maxMessages` | `number` | `20` | history window kept per chat (always starts with a user turn; empty answers are not stored) |
 | `autoReply` | `boolean` | `true` | registers the catch-all autoresponder |
 | `resetCommand` | `boolean` | `true` | registers `/reset` |
-| `errorMessage` | `string` | `'⚠️ Ahora no puedo responder, intenta luego.'` | reply sent if the provider fails or the model answers nothing |
-| `refusalMessage` | `string` | `'No puedo ayudar con eso.'` | reply sent when the provider refuses (`stopReason === 'refusal'`: Anthropic refusal, OpenAI `refusal`, Gemini safety block) |
+| `errorMessage` | `string` | localized `ai.error` (es: `'⚠️ Ahora no puedo responder, intenta luego.'`) | reply sent if the provider fails or the model answers nothing |
+| `refusalMessage` | `string` | localized `ai.refusal` (es: `'No puedo ayudar con eso.'`) | reply sent when the provider refuses (`stopReason === 'refusal'`: Anthropic refusal, OpenAI `refusal`, Gemini safety block) |
 | `humanizeTyping` | `boolean` | `true` | sends "typing…" (`ctx.typing()`) while the answer is generated; the reply then skips the `BotConfig.typing` pacer, so the indicator shows once |
 | `tools` | `Record<string, AITool>` | — | functions the model may call (see [Tool calling](#tool-calling)) |
 | `maxSteps` | `number` | `5` | max model calls per turn in the tool loop |
 | `toolTimeoutMs` | `number` | `15000` | default per-tool timeout (`0` disables it) |
 | `maxStepsMessage` | `string` | localized `ai.tools.maxSteps` (es: `'No pude completar la solicitud. Intenta de nuevo con más detalle.'`) | reply when the tool loop hits `maxSteps` |
-| `toolConfirm` | `{ yes?: string[]; no?: string[]; timeout?: number \| string; systemNote?: boolean \| string }` | `{ timeout: '2m' }` | confirmation dialog of `confirm: true` tools (see [Human confirmation](/guide/ai-tools#human-confirmation)) |
+| `toolConfirm` | `{ yes?: string[]; no?: string[]; timeout?: number \| string; buttons?: boolean; answeredNotice?: boolean; expiredNotice?: boolean; systemNote?: boolean \| string }` | `{ timeout: '2m', buttons: true }` | confirmation dialog of `confirm: true` tools (see [Human confirmation](/guide/ai-tools#human-confirmation)) |
 | `format` | `'auto' \| 'whatsapp' \| 'markdown' \| 'html' \| 'plain' \| false` | `'auto'` | converts the model's Markdown to the channel's format (see [Formatting per channel](#formatting-per-channel)) |
 | `onToolEvent` | `(event: AIToolEvent) => void` | — | audit hook for every tool loop event (also emitted as `bot.on('ai.tool')`) |
 | `memory` | `boolean \| AIMemoryConfig` | — | long-term per-user memory (see [Memory and RAG](#memory-and-rag)) |
@@ -366,7 +377,9 @@ Code spans and fenced blocks are never touched, and neither are `snake_case`
 words or `2 * 3`. The stored history keeps the model's original text.
 `format: 'whatsapp'` (or any format) forces one; `format: false` sends the text
 as is. `formatMarkdown(text, format)` and `formatMarkdownStream(source, format)`
-are exported for your own handlers.
+are exported for your own handlers. With `'html'` only `http(s)`, `mailto:` and
+`tel:` URLs become `<a href>` links: anything else (a `javascript:` link a
+prompt injection could produce) stays as text.
 
 ## Voice notes
 
