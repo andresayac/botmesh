@@ -16,12 +16,24 @@ branches on top of `4487b43` (`af/ai`, `af/baileys`, `af/meta-net`, `af/redis`; 
 [API freeze round](#api-freeze-round)); the verdicts and numbers below are from after it.
 Nothing was published or pushed; the repo is still in the `alpha` prerelease.
 
+**Channel promotion (branch `pp/channels`, after the beta versioning `cda0ebe`).** Five
+channels left the private set and are public from the beta on: `@botmesh/discord`,
+`@botmesh/twilio`, `@botmesh/gupshup`, `@botmesh/email` and `@botmesh/gohighlevel`
+(changeset `promote-channels.md`, `major` from 0.1.0, so `1.0.0-beta.x` in beta mode and
+`1.0.0` after `pre exit`). That makes **15 public packages**. Their API freeze follows the
+other providers (semver main entry, wire mappers and clients in `/internal`, entry-pin
+tests, `debug` deprecated, no `ws`/`imapflow`/`nodemailer` type on a semver entry in
+`api-check`, every entry imported by `pack:smoke`). Unlike the first ten, none of them has
+been exercised against the live service by a real bot; see their rows below.
+`@botmesh/tiktok` stays private (approval-gated API, no public spec).
+
 ## Verdict
 
 | Step | Decision | Why |
 | --- | --- | --- |
 | **alpha → beta** | **GO** | Still GO. Every check below is green on the merged `main`, including all real-server suites, the Docker sandbox suites and a full build and test run on Node 22. |
 | **beta → stable, `@botmesh/core`** | **GO after one beta** | The API freeze is done for core: the main entry went from 512 to 372 names, engine internals moved to `/internal`, a semver-covered `/spi` exists for backend authors, every concept has one canonical name (the others are `@deprecated`), and the behaviour decisions (English default, `retries`/`maxAttempts`, sends need a running bot, long-text splitting, epoch-ms timestamps, presence while disconnected, the `'stopping'` event) are taken, tested and documented with migration pages. No core item from the previous report is left open; what remains is a beta used by a real bot (see [core](#core)). |
+| **beta → stable, the five promoted channels** | **GO after one beta with a live test each** | `discord`, `twilio`, `gupshup`, `email` and `gohighlevel` went through the same API freeze (see the channel promotion note at the top and their rows below), and their suites, `api-check` and `pack:smoke` pass. What they lack compared with the first ten is live use: none has been run against the real service by a bot yet, so each needs at least one live test during beta before `pre exit`. |
 | **beta → stable, the other nine public packages** | **GO after one beta** | The API freeze is done for every public package. Each one has a semver-covered main entry, and the packages that had engine helpers on it now have an `/internal` entry with no semver (`ai`, `baileys`, `redis-store`, `create-botmesh`) and, for `ai`, a `/testing` entry. Mutable exports are frozen, the option names are settled and the old names are `@deprecated` aliases. Each break has a migration note. No package has an open HIGH or MEDIUM item. |
 | **Still blocking, exactly** | **Nothing but the beta** | Decided 2026-10-26: `@botmesh/baileys` ships stable on the exact `@whiskeysockets/baileys` `7.0.0-rc14` pin, which is upstream's own npm `latest` tag (the only stable line, `6.7.x` `legacy`, lacks LID addressing). The pin and the upgrade policy are in its README. The stable line is `@botmesh/core` 2.0.0 and **1.0.0 for the other nine public packages** (changeset `first-stable-1-0.md`; with minor bumps they would have stayed on 0.2.0, which semver does not treat as stable). Nothing else blocks `pre exit` except the beta itself (see [Before stable](#before-stable-pre-exit)). |
 
@@ -38,6 +50,11 @@ Per package:
 | `@botmesh/redis-store` | GO after one beta | None. The cluster layout internals moved to `@botmesh/redis-store/internal` (deprecated re-exports kept on the main entry); the deprecated `ttl` option and `acquireLock` were removed. Real single-node and Cluster suites (chaos on) pass with node-redis 4, 5 and 6. |
 | `@botmesh/http`, `@botmesh/graph-core` | GO after one beta | None. `SecureFetchOptions` no longer extends `RequestInit` (no `redirect`; other `RequestInit` fields through a deprecated overload until stable); `resolveHost` (alias `resolvePublicHost`); `checkGraphSignature({ ... })` (positional form deprecated); graph-core is covered by semver. |
 | `create-botmesh` | GO after one beta | None. `TEMPLATES`, `agentsMd` and `findBotMeshMonorepo` live in `create-botmesh/internal` (no semver), deprecated on the main entry. |
+| `@botmesh/discord` | GO after one beta with a live test | A live test against a real Discord application (gateway login, intents, interactions, `autoAcknowledgeMs`, polls). Done: gateway/REST clients, mappers and payload types in `/internal`, `GatewayIntents` frozen, `debug` deprecated, `MESSAGE_UPDATE` edits parsed. Not blocking: votes need `MESSAGE_POLL_VOTE_ADD` parsing. |
+| `@botmesh/twilio` | GO after one beta with a live test | A live test on a real WhatsApp sender and on SMS. The typing indicator uses Twilio's `POST /v3/Indicators/Typing.json`, which is a **public beta** endpoint (best-effort: it never rejects, a 4xx turns it off for the chat for 30 min); decide before stable whether to keep it or mark it `@experimental`. Not blocking: webhook replay window (no signed timestamp; dedupe by id). |
+| `@botmesh/gupshup` | GO after one beta with a live test | Confirm with a live account that the **v1 send endpoints** (`/wa/api/v1/msg`, `/wa/api/v1/template/msg`) and v2 callbacks are still the ones Gupshup supports for new apps (there is no official machine-readable spec). Not blocking: callbacks are authenticated only by a shared `webhookToken` (Gupshup does not sign) and have a replay window. |
+| `@botmesh/email` | GO after one beta with a live test | A live test against a real IMAP/SMTP provider (the GreenMail suite, `BOTWA_TEST_EMAIL`, is the only server test today). Done: `imapflow`/`nodemailer` lazy-loaded optional peers with clear errors (checked by `pack:smoke`), MIME helpers in `/internal`. |
+| `@botmesh/gohighlevel` | GO after one beta with a live test | A live test on a real HighLevel location (OAuth/API token, conversation webhooks). Not blocking: webhook replay window (no signed timestamp) and inbound media typed `application/octet-stream`. |
 
 ## What changed
 
@@ -461,6 +478,12 @@ Still open (all LOW):
 - **create-botmesh**: `slashCommandsPlugin({ greeting })` still replaces the whole `/help`.
   Closed: `TEMPLATES`, `agentsMd` and `findBotMeshMonorepo` moved to
   `create-botmesh/internal`, deprecated on the main entry.
+- **discord, twilio, gupshup, email, gohighlevel** (promoted on `pp/channels`): none has
+  been tested live yet; one live test each is required before `pre exit` (see the
+  per-package table). Twilio's typing indicator relies on a public-beta endpoint;
+  Gupshup's v1 send API needs confirming against a current account; Twilio, Gupshup and
+  HighLevel webhooks have a replay window (no signed timestamp, dedupe by id); HighLevel
+  inbound media stays `application/octet-stream`.
 - **Across providers**: error mappers are named `to<Channel>Error` except meta, whose
   mapper is deprecated in favour of graph-core's `toGraphError`; `ingest()` return
   types still differ (documented, not unified); `debug` is deprecated in Telegram, meta
@@ -498,12 +521,13 @@ Follow-ups from the API freeze reviews (all LOW, none blocks stable):
 
 ### Private packages
 
-None is a promotion candidate yet; promoting one still means removing `"private"`,
+Discord, Twilio, Gupshup, email and HighLevel were promoted (see above). None of the
+remaining private packages is a promotion candidate yet; promoting one still means removing `"private"`,
 switching `workspace:*` to `workspace:^`, a changeset and a README section.
 
-- **channels**: webhook replay windows for Twilio, Gupshup and HighLevel (no signed
-  timestamp; dedupe by id is the mitigation); TikTok and HighLevel inbound media stay
-  `application/octet-stream`. Closed: Discord `MESSAGE_UPDATE` edits are parsed, and
+- **channels**: TikTok stays private (approval-gated API, no public spec) and its
+  inbound media stays `application/octet-stream`; the promoted channels' open items are
+  under [Other public packages](#other-public-packages). Closed: Discord `MESSAGE_UPDATE` edits are parsed, and
   Discord sends `attachments[].id` as a string, as the official spec requires.
 - **sandbox**: the hub API checks Host/Origin, needs a per-run token on POST, bounds
   bodies and answers bad input with a 4xx (fuzzed in `pnpm test`); Twilio and Discord
@@ -560,6 +584,9 @@ switching `workspace:*` to `workspace:^`, a changeset and a README section.
 - [ ] No open HIGH or MEDIUM defect in any public package.
 - [ ] At least one beta used for a few weeks by a real bot on Baileys, the Cloud API
   and Telegram, with no new MEDIUM defect.
+- [ ] One live test each for the promoted channels (Discord, Twilio, Gupshup, email,
+  HighLevel); Twilio typing-indicator decision (public-beta endpoint) and Gupshup v1
+  API confirmed.
 - [ ] Version policy chosen: core to `2.0.0`; the 0.x packages to `1.0.0` (a `major`
   changeset for each) or kept at 0.x with that choice documented.
 - [ ] Review the archived changesets in `.changeset/pre/`: `changeset pre exit` moves
