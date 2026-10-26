@@ -3,8 +3,12 @@
  * {@link InboundEvent}s. Identity is the Discord user snowflake (`author.id` /
  * `member.user.id`): stable, no member-vs-user aliasing leaks out.
  *
- *   MESSAGE_CREATE     → kind 'message'   (bots are ignored)
+ *   MESSAGE_CREATE     → kind 'message'   (bots and system messages are ignored)
  *   INTERACTION_CREATE → kind 'interaction' (button / select / slash command)
+ *
+ * Frames are read defensively: a field of the wrong type is ignored, so a
+ * malformed frame yields no event (or a poorer one), never a throw or an event
+ * with non-string ids.
  */
 
 import type {
@@ -17,16 +21,30 @@ import type {
 import {
   ComponentType,
   InteractionType,
+  type DiscordAttachment,
   type DiscordInteractionPayload,
   type DiscordMessagePayload,
+  type DiscordUser,
 } from './types.js'
 
 const DISCORD_EPOCH = 1_420_070_400_000n
 
+const str = (v: unknown): string | undefined => (typeof v === 'string' && v !== '' ? v : undefined)
+const rec = <T extends object>(v: unknown): T | undefined =>
+  (v !== null && typeof v === 'object' && !Array.isArray(v) ? (v as T) : undefined)
+const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
+
+/**
+ * Message types a person authors: DEFAULT (0) and REPLY (19). Everything else
+ * (member joins, pins, boosts, thread notices…) is a system message.
+ */
+const USER_MESSAGE_TYPES = new Set<unknown>([0, 19])
+
 /** Epoch ms encoded in a snowflake id (Discord's timestamp extraction). */
 export function snowflakeTimestamp(id: string): number {
   try {
-    return Number((BigInt(id) >> 22n) + DISCORD_EPOCH)
+    const ms = Number((BigInt(id) >> 22n) + DISCORD_EPOCH)
+    return Number.isFinite(ms) ? ms : Date.now()
   } catch {
     return Date.now()
   }
@@ -36,9 +54,9 @@ export function snowflakeTimestamp(id: string): number {
 export function parseDispatch(t: string, d: unknown, selfId?: string | null): InboundEvent | undefined {
   switch (t) {
     case 'MESSAGE_CREATE':
-      return parseMessageCreate(d as DiscordMessagePayload, selfId)
+      return parseMessageCreate(rec<DiscordMessagePayload>(d), selfId)
     case 'INTERACTION_CREATE':
-      return parseInteractionCreate(d as DiscordInteractionPayload)
+      return parseInteractionCreate(rec<DiscordInteractionPayload>(d))
     default:
       return undefined
   }
@@ -47,10 +65,10 @@ export function parseDispatch(t: string, d: unknown, selfId?: string | null): In
 /* --- MESSAGE_CREATE -------------------------------------------------------- */
 
 function describeContent(d: DiscordMessagePayload): { type: MessageType; body: string; media?: MediaRef } {
-  const body = d.content ?? ''
-  const att = d.attachments?.[0]
+  const body = typeof d.content === 'string' ? d.content : ''
+  const att = rec<DiscordAttachment>(arr(d.attachments)[0])
   if (!att) return { type: 'text', body }
-  const mime = att.content_type ?? ''
+  const mime = str(att.content_type) ?? ''
   const type: MessageType =
     mime.startsWith('image/') ? 'image'
     : mime.startsWith('video/') ? 'video'
@@ -61,62 +79,72 @@ function describeContent(d: DiscordMessagePayload): { type: MessageType; body: s
     body,
     media: {
       kind: type as MediaRef['kind'],
-      mimetype: att.content_type,
-      filename: att.filename,
-      size: att.size,
-      token: att.url,
+      mimetype: str(att.content_type),
+      filename: str(att.filename),
+      size: typeof att.size === 'number' && Number.isFinite(att.size) && att.size > 0 ? att.size : undefined,
+      token: str(att.url),
     },
   }
 }
 
 /** ISO `timestamp` of the message, else the time encoded in its snowflake id. */
-function messageTimestamp(d: DiscordMessagePayload): number {
-  const parsed = d.timestamp ? Date.parse(d.timestamp) : NaN
-  return Number.isFinite(parsed) ? parsed : snowflakeTimestamp(d.id)
+function messageTimestamp(d: DiscordMessagePayload, id: string): number {
+  const parsed = typeof d.timestamp === 'string' ? Date.parse(d.timestamp) : NaN
+  return Number.isFinite(parsed) ? parsed : snowflakeTimestamp(id)
 }
 
-function parseMessageCreate(d: DiscordMessagePayload, selfId?: string | null): InboundEvent | undefined {
-  if (!d?.author || d.author.bot) return undefined // ignore own + other bots
+function parseMessageCreate(d: DiscordMessagePayload | undefined, selfId?: string | null): InboundEvent | undefined {
+  const author = rec<DiscordUser>(d?.author)
+  const authorId = str(author?.id)
+  const id = str(d?.id)
+  const chatId = str(d?.channel_id)
+  if (!d || !author || !authorId || !id || !chatId) return undefined
+  if (author.bot) return undefined // ignore own + other bots
+  if (d.type !== undefined && !USER_MESSAGE_TYPES.has(d.type)) return undefined // system message
 
-  const chatId = d.channel_id
-  const isGroup = Boolean(d.guild_id)
+  const guildId = str(d.guild_id)
+  const isGroup = guildId !== undefined
   const { type, body, media } = describeContent(d)
+  const member = rec<{ nick?: unknown }>(d.member)
 
   const message: InboundMessage<DiscordMessagePayload> = {
-    ref: { id: d.id, chatId, native: d },
+    ref: { id, chatId, native: d },
     chat: {
       id: chatId,
       kind: isGroup ? 'group' : 'dm',
       isGroup,
       isBroadcast: false,
-      ...(d.guild_id ? { platformData: { guildId: d.guild_id } } : {}),
+      ...(guildId ? { platformData: { guildId } } : {}),
     },
     senderInfo: {
-      id: d.author.id,
-      username: d.author.username,
-      displayName: d.member?.nick ?? d.author.global_name ?? d.author.username,
-      isBot: d.author.bot,
+      id: authorId,
+      username: str(author.username),
+      displayName: str(member?.nick) ?? str(author.global_name) ?? str(author.username),
+      isBot: false,
     },
     from: chatId,
-    sender: d.author.id,
+    sender: authorId,
     chatId,
-    senderId: d.author.id,
+    senderId: authorId,
     isGroup,
     isBroadcast: false,
-    fromMe: Boolean(selfId && d.author.id === selfId),
+    fromMe: Boolean(selfId && authorId === selfId),
     type,
     body,
-    timestamp: messageTimestamp(d),
-    mentions: (d.mentions ?? []).map((m) => m.id),
+    timestamp: messageTimestamp(d, id),
+    mentions: arr(d.mentions).map((m) => str(rec<DiscordUser>(m)?.id)).filter((m): m is string => m !== undefined),
     media,
     raw: d,
   }
 
-  if (d.message_reference?.message_id) {
+  const reference = rec<NonNullable<DiscordMessagePayload['message_reference']>>(d.message_reference)
+  const quotedId = str(reference?.message_id)
+  if (quotedId) {
+    const referenced = rec<DiscordMessagePayload>(d.referenced_message)
     message.quoted = {
-      ref: { id: d.message_reference.message_id, chatId: d.message_reference.channel_id ?? chatId },
-      body: d.referenced_message?.content,
-      senderId: d.referenced_message?.author?.id,
+      ref: { id: quotedId, chatId: str(reference?.channel_id) ?? chatId },
+      body: typeof referenced?.content === 'string' ? referenced.content : undefined,
+      senderId: str(rec<DiscordUser>(referenced?.author)?.id),
     }
   }
 
@@ -125,65 +153,70 @@ function parseMessageCreate(d: DiscordMessagePayload, selfId?: string | null): I
 
 /* --- INTERACTION_CREATE ---------------------------------------------------- */
 
-function parseInteractionCreate(d: DiscordInteractionPayload): InboundEvent | undefined {
-  if (!d?.id || !d.token) return undefined
-  const user = d.member?.user ?? d.user
-  if (!user || user.bot) return undefined
+function parseInteractionCreate(d: DiscordInteractionPayload | undefined): InboundEvent | undefined {
+  const id = str(d?.id)
+  const token = str(d?.token)
+  if (!d || !id || !token) return undefined
+  const user = rec<DiscordUser>(rec<{ user?: unknown }>(d.member)?.user) ?? rec<DiscordUser>(d.user)
+  const userId = str(user?.id)
+  if (!user || !userId || user.bot) return undefined
 
   // Newer payloads also carry the partial `channel` object; without either
   // there is no chat to route to (never emit an empty chatId).
-  const chatId = d.channel_id ?? d.channel?.id
+  const chatId = str(d.channel_id) ?? str(rec<{ id?: unknown }>(d.channel)?.id)
   if (!chatId) return undefined
-  const isGroup = Boolean(d.guild_id)
-  const timestamp = snowflakeTimestamp(d.id)
+  const isGroup = str(d.guild_id) !== undefined
+  const timestamp = snowflakeTimestamp(id)
+  const data = rec<NonNullable<DiscordInteractionPayload['data']>>(d.data)
 
   let kind: InboundInteraction['kind']
-  let data = ''
+  let value: string | undefined
   switch (d.type) {
     case InteractionType.ApplicationCommand:
       kind = 'command'
-      data = d.data?.name ?? ''
+      value = str(data?.name)
       break
     case InteractionType.MessageComponent:
-      if (d.data?.component_type === ComponentType.StringSelect) {
+      if (data?.component_type === ComponentType.StringSelect) {
         // A choose()/list menu answers with the selected option value (the row id).
         kind = 'list'
-        data = d.data.values?.[0] ?? d.data.custom_id ?? ''
+        value = str(arr(data.values)[0]) ?? str(data.custom_id)
       } else {
         kind = 'button'
-        data = d.data?.custom_id ?? ''
+        value = str(data?.custom_id)
       }
       break
     case InteractionType.ModalSubmit:
       kind = 'modal'
-      data = d.data?.custom_id ?? ''
+      value = str(data?.custom_id)
       break
     case InteractionType.ApplicationCommandAutocomplete:
       kind = 'autocomplete'
-      data = d.data?.name ?? ''
+      value = str(data?.name)
       break
     default:
       return undefined // Ping etc. — internal to the gateway/REST layer
   }
+  const member = rec<{ nick?: unknown }>(d.member)
 
   const interaction: InboundInteraction<DiscordInteractionPayload> = {
     // `<id>:<token>` — acknowledgeInteraction splits it back to POST the callback.
-    interactionId: `${d.id}:${d.token}`,
-    ref: { id: d.message?.id ?? d.id, chatId, native: d },
+    interactionId: `${id}:${token}`,
+    ref: { id: str(rec<{ id?: unknown }>(d.message)?.id) ?? id, chatId, native: d },
     chat: { id: chatId, kind: isGroup ? 'group' : 'dm', isGroup, isBroadcast: false },
     senderInfo: {
-      id: user.id,
-      username: user.username,
-      displayName: d.member?.nick ?? user.global_name ?? user.username,
-      isBot: user.bot,
+      id: userId,
+      username: str(user.username),
+      displayName: str(member?.nick) ?? str(user.global_name) ?? str(user.username),
+      isBot: false,
     },
     from: chatId,
-    sender: user.id,
+    sender: userId,
     chatId,
-    senderId: user.id,
+    senderId: userId,
     isGroup,
     kind,
-    data,
+    data: value ?? '',
     // Discord requires an interaction response within ~3s.
     respondBy: timestamp + 3_000,
     timestamp,

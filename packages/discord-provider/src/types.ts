@@ -156,6 +156,8 @@ export interface DiscordMessagePayload {
   message_reference?: { message_id?: string; channel_id?: string; guild_id?: string }
   referenced_message?: DiscordMessagePayload | null
   webhook_id?: string
+  /** Message type: 0 DEFAULT, 19 REPLY; the rest are system messages (joins, pins, boosts…). */
+  type?: number
 }
 
 export const InteractionType = {
