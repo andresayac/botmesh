@@ -640,7 +640,14 @@ export class ConversationRuntime {
     // that answer again (and keep the waking message for the next wait).
     const answers = cp.answer ? await this.answersFor(cp.answer, ctx, replayOfCaptured) : undefined
     if (answers) this.handoverAnswers.set(key, answers)
-    else if (handover && !replayOfCaptured) this.handoverAnswers.set(key, [ctx])
+    else if (handover && !replayOfCaptured) {
+      // The waking message answers the parked wait: what the step sends after it is keyed by
+      // that message (as on a live delivery), not by the restored cause, whose next sequence
+      // belongs to the prompt this replica skips (it was asked before the hand-over).
+      const current = currentCause()
+      if (current) this.bufferedCauses.set(ctx, current)
+      this.handoverAnswers.set(key, [ctx])
+    }
     // enter() is fire-and-forget (it only resolves when the resumed flow ends); a rejection
     // here (e.g. a bad goto target) would otherwise become an unhandled rejection → crash.
     // Tracing: the resumed conversation's first turn ('dormant') runs under the waking

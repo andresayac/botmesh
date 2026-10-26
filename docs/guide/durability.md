@@ -51,7 +51,10 @@ Neither touches the store's own tables or keys.
 `FileDurability.open(path, { appendLog: true })` (or `{ compactEvery, compactBytes, fsync }`)
 appends each committed write to `<path>.log` instead of rewriting the snapshot, and compacts
 every 1000 entries or 4 MiB; `close()` folds the log into the snapshot. A leftover log is
-always replayed on open, even without the option.
+always replayed on open, even without the option. A journal file that cannot be read
+back (a truncated snapshot, a damaged log entry) is refused on open with an error that
+names the file, instead of being applied half-way: restore it from a backup or move it
+aside.
 
 **Several bots can share one backend.** Each bot works in its own view of the
 backend, scoped by its namespace (`tenantId`, `environmentId`, `botId`,
@@ -227,7 +230,7 @@ d.metrics()  // { inboundJournaled, inboundDuplicates, inboundReplayed, inboundD
 
 - **Leases and fencing.** A record being processed is leased to `instanceId` for
   `inbox.leaseMs` (default 60 s), and a send in flight for `outbox.leaseMs` (default
-  60 s). A heartbeat extends both while the handler or the provider call runs, so a
+  60 s; at least 20 ms, or the bot refuses the config). A heartbeat extends both while the handler or the provider call runs, so a
   slow upload is never taken for an abandoned send. If a lease expires (the process
   died or froze), another replica, or this one after a restart, claims the record
   under a new fencing token. The old holder's completion is then rejected and

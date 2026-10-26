@@ -61,12 +61,12 @@ Day rule of standard cron: when **both** day of month and day of week are
 restricted, a day matches if **either** does — `0 9 13 * 5` runs every 13th
 **and** every Friday. When one of them starts with `*` (including a step such as
 `*/2`), both must match, so `0 9 * * 1` is just "Mondays". Names (`mon`, `jan`)
-and macros (`@daily`) are not supported, and neither are values outside a
-field's range (minute 0-59, hour 0-23, day 1-31, month 1-12, weekday 0-7), a
-reversed range (`5-1`) or a zero step (`*/0`): `bot.schedule()` throws a
-`TypeError` naming the offending field instead of creating a task that never
-runs. Likewise `bot.every()` needs a positive duration and `bot.delay()` a
-non-negative one (`RangeError` otherwise).
+and macros (`@daily`) are not supported: `bot.schedule()` throws a `TypeError`
+naming the offending field instead of creating a task that never runs. So does
+an expression that can never fire: a value out of its field's range (`60` minutes,
+hour `24`, month `13`, weekday `8`), a step of `0`, an inverted range (`5-1`) or a
+day no selected month has (`0 0 30 2 *`). Likewise `bot.every()` needs a positive
+duration and `bot.delay()` a non-negative one (`RangeError` otherwise).
 
 ### Time zones
 
@@ -100,8 +100,8 @@ Daylight-saving transitions follow one documented policy. The hour field is a
 
 Run times are always strictly increasing, and every replica computes the same
 ones, so durable tasks agree on their slots, missed runs and catch-up across a
-transition. The search looks up to four years ahead with a zone (so
-`0 0 29 2 *` works) and one year without one.
+transition. The search looks up to four years ahead, with or without a zone (so
+`0 0 29 2 *` always works).
 
 ## delay — once after X time
 
@@ -202,6 +202,12 @@ policy:
 An occurrence interrupted by a crash (its runner died holding the lease) is not
 missed: once the lease expires it runs again as itself (`missed: false`), and
 the policy applies to the slots after it.
+
+Slots that fall due while an occurrence is still running (a handler slower than
+the interval, or a run that started late after a fail-over) are never dropped
+unseen under `'run-once'` and `'catch-up'`: they are claimed next and follow the
+policy (run normally within the grace period, otherwise as missed). Under `'skip'`
+the task goes on with the first slot after the run ended.
 
 A one-shot `delay` counts as one slot: `'skip'` drops a reminder that fell due
 while the bot was down, so use `'run-once'` for reminders. Its run time is

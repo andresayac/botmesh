@@ -402,8 +402,12 @@ export class DurableScheduler {
           await this.runSlots(entry, claim, [slot], false, () => this.slotAfter(entry, slot))
         } else if (slot < now - this.graceMs) {
           await this.runMissed(entry, claim, slot, now)
-        } else {
+        } else if (entry.missed === 'skip') {
           await this.runSlots(entry, claim, [slot], false, (at) => this.nextAfter(entry, slot, at))
+        } else {
+          // Slots that fell due while this one ran (a slow handler, a late fail-over claim)
+          // are claimed next and go through the policy, never dropped unseen.
+          await this.runSlots(entry, claim, [slot], false, () => this.slotAfter(entry, slot))
         }
       }
       entry.failures = 0

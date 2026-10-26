@@ -52,7 +52,9 @@ arrancar. Redis usa claves bajo `{prefix}:{durable:inbox:<scope>}` y
 `FileDurability.open(ruta, { appendLog: true })` (o `{ compactEvery, compactBytes, fsync }`)
 añade cada escritura confirmada a `<ruta>.log` en vez de reescribir el snapshot, y compacta
 cada 1000 entradas o 4 MiB; `close()` pliega el log en el snapshot. Un log sobrante se
-reproduce siempre al abrir, incluso sin la opción.
+reproduce siempre al abrir, incluso sin la opción. Un journal que no se puede volver a
+leer (un snapshot truncado, una entrada del log dañada) se rechaza al abrir con un error
+que nombra el archivo, en vez de aplicarse a medias: restáuralo de una copia o apártalo.
 
 **Varios bots pueden compartir un backend.** Cada bot trabaja en su propia vista del
 backend, acotada por su namespace (`tenantId`, `environmentId`, `botId`,
@@ -236,7 +238,7 @@ d.metrics()  // { inboundJournaled, inboundDuplicates, inboundReplayed, inboundD
 
 - **Leases y fencing.** Un registro en proceso se presta a `instanceId` durante
   `inbox.leaseMs` (60 s por defecto), y un envío en curso durante `outbox.leaseMs`
-  (60 s por defecto). Un latido extiende ambos mientras corren el handler o la llamada
+  (60 s por defecto; como mínimo 20 ms, o el bot rechaza la configuración). Un latido extiende ambos mientras corren el handler o la llamada
   al provider, así que una subida lenta nunca se toma por un envío abandonado. Si un
   préstamo vence (el proceso murió o se congeló), otra réplica, o esta misma tras
   reiniciar, toma el registro con un nuevo token de fencing. Entonces se rechaza la

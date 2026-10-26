@@ -14,7 +14,7 @@ import { mkdir, open, readFile, realpath, rename, rm, stat, writeFile } from 'no
 import { basename, dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { KvDurability } from './journal.js'
-import { MemoryKv, type KvMutation, type MemoryKvSnapshot } from './kv.js'
+import { MemoryKv, assertKvMutation, type KvMutation, type MemoryKvSnapshot } from './kv.js'
 import { AppendLog, appendLogOptions } from './fileLog.js'
 
 /** Options of {@link FileDurability.open}. */
@@ -110,6 +110,15 @@ class FileKv extends MemoryKv {
 
   /** Wait for every queued write (failures were already reported to their callers). */
   flushed(): Promise<void> { return this.writeQueue }
+}
+
+/** The error `open()` throws for a journal file it cannot read back (names the file, keeps the cause). */
+function invalidJournal(what: string, cause: unknown): Error {
+  const reason = cause instanceof Error ? cause.message : String(cause)
+  return new Error(
+    `FileDurability.open(): ${what} is not a valid durability journal (${reason}). Restore it from a backup, or move it aside to start with an empty journal (its unfinished messages and outbox records are then lost).`,
+    { cause },
+  )
 }
 
 function pidAlive(pid: number): boolean {
@@ -228,8 +237,13 @@ export class FileDurability extends KvDurability {
     const kv = new FileKv(filePath)
     let snapshot: MemoryKvSnapshot | undefined
     try {
-      snapshot = JSON.parse(await readFile(filePath, 'utf8')) as MemoryKvSnapshot
-      kv.restore(snapshot)
+      const text = await readFile(filePath, 'utf8')
+      try {
+        snapshot = JSON.parse(text) as MemoryKvSnapshot
+        kv.restore(snapshot)
+      } catch (cause) {
+        throw invalidJournal(filePath, cause)
+      }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         if (lockPath) await rm(lockPath, { force: true }).catch(() => {})
@@ -243,6 +257,14 @@ export class FileDurability extends KvDurability {
     if (logOptions || leftover) {
       try {
         const replay = await AppendLog.replay<KvMutation>(filePath, snapshot?.logSeq ?? 0)
+        // Every entry is checked before the first one is applied: all or nothing.
+        for (const { s, entry } of replay.entries) {
+          try {
+            assertKvMutation(entry)
+          } catch (cause) {
+            throw invalidJournal(`${AppendLog.pathOf(filePath)} (entry ${s})`, cause)
+          }
+        }
         for (const { entry } of replay.entries) kv.applyLogged(entry)
         if (logOptions) {
           const log = new AppendLog(filePath, logOptions)

@@ -147,7 +147,15 @@ export class MemoryKv implements DurableKv {
     for (const [t, dump] of Object.entries(snapshot.tables)) {
       if (!Array.isArray(dump)) throw new Error('invalid durability snapshot')
       const rows = new Map<string, MemoryRow>()
-      for (const [id, value, version, due, done] of dump) rows.set(id, { value, version, index: { due, done } })
+      for (const row of dump as unknown[]) {
+        // Checked before anything is replaced: a damaged row must not become a half-restored journal.
+        if (!Array.isArray(row) || row.length !== 5) throw new Error(`invalid durability snapshot: a row of "${t}" is not [id, value, version, due, done]`)
+        const [id, value, version, due, done] = row as unknown[]
+        if (typeof id !== 'string' || typeof value !== 'string' || !Number.isSafeInteger(version) || !isScore(due) || !isScore(done)) {
+          throw new Error(`invalid durability snapshot: malformed row in "${t}"`)
+        }
+        rows.set(id, { value, version: version as number, index: { due, done } })
+      }
       tables.set(t, rows)
     }
     this.tables = tables
@@ -168,4 +176,27 @@ export class MemoryKv implements DurableKv {
 
   /** Called after every committed write (the file backend persists here). */
   protected async changed(_mutation?: KvMutation): Promise<void> {}
+}
+
+/** An index score: epoch ms, or `null` when the document is not in that index. */
+function isScore(value: unknown): value is number | null {
+  return value === null || (typeof value === 'number' && Number.isFinite(value))
+}
+
+/**
+ * Throw unless `value` is a {@link KvMutation} (what an append-only log replays): a
+ * damaged log entry must be refused, never applied as a malformed row.
+ */
+export function assertKvMutation(value: unknown): asserts value is KvMutation {
+  const m = value as Partial<Record<keyof KvMutation | 'value' | 'version' | 'index', unknown>> | null
+  if (typeof m !== 'object' || m === null || typeof m.table !== 'string' || typeof m.id !== 'string') {
+    throw new Error('invalid durability log entry: expected { op, table, id }')
+  }
+  if (m.op === 'remove') return
+  if (m.op !== 'insert' && m.op !== 'replace') throw new Error(`invalid durability log entry: unknown op ${JSON.stringify(m.op)}`)
+  const index = m.index as Partial<DurableKvIndex> | null
+  if (typeof m.value !== 'string' || typeof m.version !== 'string' || !Number.isSafeInteger(Number(m.version)) ||
+      typeof index !== 'object' || index === null || !isScore(index.due) || !isScore(index.done)) {
+    throw new Error(`invalid durability log entry: malformed ${m.op}`)
+  }
 }

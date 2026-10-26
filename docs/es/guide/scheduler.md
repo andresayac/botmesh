@@ -62,12 +62,13 @@ semana, están restringidos, un día vale si cumple **cualquiera** de los dos �
 `0 9 13 * 5` corre cada día 13 **y** cada viernes. Si uno de ellos empieza por
 `*` (también un paso como `*/2`), se tienen que cumplir los dos, así que
 `0 9 * * 1` es simplemente "los lunes". Los nombres (`mon`, `jan`) y las macros (`@daily`) no están
-soportados, ni los valores fuera del rango del campo (minuto 0-59, hora 0-23,
-día 1-31, mes 1-12, día de la semana 0-7), un rango invertido (`5-1`) o un paso
-cero (`*/0`): `bot.schedule()` lanza un `TypeError` que nombra el campo inválido
-en lugar de crear una tarea que nunca se ejecuta. Del mismo modo,
-`bot.every()` necesita una duración positiva y `bot.delay()` una no negativa
-(si no, `RangeError`).
+soportados: `bot.schedule()` lanza un `TypeError` que nombra el campo inválido
+en lugar de crear una tarea que nunca se ejecuta. Lo mismo con una expresión que
+nunca puede dispararse: un valor fuera del rango de su campo (minuto `60`, hora
+`24`, mes `13`, día de la semana `8`), un paso `0`, un rango invertido (`5-1`) o
+un día que ningún mes elegido tiene (`0 0 30 2 *`).
+Del mismo modo, `bot.every()` necesita una duración positiva y `bot.delay()` una
+no negativa (si no, `RangeError`).
 
 ### Zonas horarias
 
@@ -102,9 +103,9 @@ en los campos de día:
 
 Las horas de ejecución siempre son estrictamente crecientes y todas las réplicas
 calculan las mismas, así que las tareas durables coinciden en sus huecos, en las
-ejecuciones perdidas y en el catch-up a través de un cambio de hora. Con zona,
-la búsqueda mira hasta cuatro años hacia delante (así `0 0 29 2 *` funciona);
-sin zona, un año.
+ejecuciones perdidas y en el catch-up a través de un cambio de hora. Con zona o
+sin ella, la búsqueda mira hasta cuatro años hacia delante (así `0 0 29 2 *`
+siempre funciona).
 
 ## delay — una vez después de X tiempo
 
@@ -207,6 +208,13 @@ coinciden. Los huecos perdidos siguen la política de la tarea:
 Una ejecución interrumpida por una caída (su ejecutor murió con el lease) no
 está perdida: cuando vence el lease se ejecuta otra vez como tal
 (`missed: false`), y la política se aplica a los huecos posteriores.
+
+Los huecos que vencen mientras una ejecución sigue en curso (un handler más
+lento que el intervalo, o una ejecución que empezó tarde tras un relevo) nunca se
+pierden sin más con `'run-once'` y `'catch-up'`: se reclaman a continuación y
+siguen la política (se ejecutan normalmente dentro del margen de gracia y, si no,
+como perdidos). Con `'skip'` la tarea sigue con el primer hueco posterior al final
+de la ejecución.
 
 Un `delay` de una sola vez cuenta como un hueco: `'skip'` descarta un
 recordatorio que venció con el bot caído, así que usa `'run-once'` para
