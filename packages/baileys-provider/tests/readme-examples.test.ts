@@ -31,7 +31,7 @@ describe('README examples', () => {
     const provider = new BaileysProvider({
       session: 'my-bot',
       sessionsDir,
-      pairingCode: '+57 300 123 4567', // only the digits count
+      pairingPhoneNumber: '+57 300 123 4567', // only the digits count
       qr: { terminal: false },
     })
     const bot = new Bot({ provider })

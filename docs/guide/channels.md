@@ -210,7 +210,7 @@ Provider authors check them with the helpers of `@botmesh/core/testing`
 ### `@botmesh/baileys`
 
 WhatsApp Web through [Baileys](https://github.com/WhiskeySockets/Baileys).
-Links with a QR code (or `pairingCode`) and keeps the session in
+Links with a QR code (or a pairing code, `pairingPhoneNumber`) and keeps the session in
 `sessionsDir`.
 
 ```ts

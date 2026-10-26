@@ -180,6 +180,7 @@ helpers check a list of emitted events:
 
 ```ts
 import { assertStableIdentity, checkIdentityContract, recordEvents } from '@botmesh/core/testing'
+// e.g. Baileys' mapper (no semver): import { IdentityStore, toInbound } from '@botmesh/baileys/internal'
 
 const events = [toInbound(a, identity), toInbound(b, identity), toInbound(c, identity)]
 assertStableIdentity(events, { andres: { events: [0, 1, 2], senderId: PN, chatId: PN, kind: 'dm' } })

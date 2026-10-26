@@ -8,6 +8,8 @@
  *                                         # and DANGLING references (a type stripped by stripInternal but still named by a kept signature).
  *                                         # `./internal` (no semver) is neither checked nor counted as a home: a type that a
  *                                         # semver entry needs must be nameable from a semver entry.
+ *                                         # Also NATIVE leaks: a .d.ts reachable from a semver entry that imports a
+ *                                         # transport SDK the package promises to keep opaque (SEMVER_FORBIDDEN_IMPORTS).
  *   node scripts/api-check.cjs surface    # sorted list of every exported name per entry (diff it before/after)
  *   node scripts/api-check.cjs any        # `any` in exported declarations
  *   node scripts/api-check.cjs internal   # exported symbols, and members of exported declarations, tagged @internal
@@ -26,10 +28,41 @@ const ts = require(path.join(root, 'node_modules/typescript'))
 const PUBLIC = ['core', 'baileys-provider', 'meta-provider', 'telegram-provider', 'sqlite-store', 'redis-store', 'ai', 'http', 'graph-core']
 /** Reviewed and accepted (see docs/api-review.md): the EventEmitter-compatible overloads of Bot.on/once/off/emit. */
 const ALLOWED_ANY = new Set(['Bot'])
+/**
+ * Transport SDKs whose types must never reach a semver entry's declarations (the package types
+ * their values as opaque `unknown` aliases; the SDK-typed helpers live in `./internal`).
+ */
+const SEMVER_FORBIDDEN_IMPORTS = { 'baileys-provider': ['@whiskeysockets/baileys'] }
 /** Entries without a semver promise: `missing` skips their signatures, and a type exported only there counts as missing. */
 const UNSTABLE_ENTRIES = new Set(['./internal'])
 
 let problems = 0
+
+/** Module specifiers a .d.ts imports or re-exports (comments stripped, so doc examples do not count). */
+function declarationImports(file) {
+  const text = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+  const specs = new Set()
+  for (const m of text.matchAll(/(?:\bfrom\s*|\bimport\s*\(\s*|^\s*import\s+)['"]([^'"]+)['"]/gm)) specs.add(m[1])
+  return [...specs]
+}
+
+/** Forbidden SDK imports in the .d.ts files reachable (relative imports) from `roots`: [file, specifier] pairs. */
+function forbiddenImports(roots, forbidden) {
+  const found = []
+  const seen = new Set()
+  const queue = [...roots]
+  while (queue.length) {
+    const file = queue.pop()
+    if (seen.has(file) || !fs.existsSync(file)) continue
+    seen.add(file)
+    for (const spec of declarationImports(file)) {
+      if (spec.startsWith('.')) queue.push(path.resolve(path.dirname(file), spec.replace(/\.js$/, '.d.ts')))
+      else if (forbidden.some((f) => spec === f || spec.startsWith(`${f}/`))) found.push([file, spec])
+    }
+  }
+  return found
+}
+
 for (const dir of PUBLIC) {
   const pdir = path.join(root, 'packages', dir)
   const pj = JSON.parse(fs.readFileSync(path.join(pdir, 'package.json'), 'utf8'))
@@ -117,9 +150,13 @@ for (const dir of PUBLIC) {
       visit(d, name)
     }
   }
+  const native = SEMVER_FORBIDDEN_IMPORTS[dir]
+    ? forbiddenImports(entries.filter(([k]) => !UNSTABLE_ENTRIES.has(k)).map(([, f]) => f), SEMVER_FORBIDDEN_IMPORTS[dir])
+    : []
   const out = mode === 'missing' ? [
       ...[...missing].map(([k, v]) => `MISSING ${k} <- ${[...v].slice(0, 4).join(', ')}`),
       ...[...dangling].map(([k, v]) => `DANGLING ${k} <- ${[...v].slice(0, 4).join(', ')}`),
+      ...native.map(([f, spec]) => `NATIVE ${spec} imported by ${path.relative(pdir, f).replace(/\\/g, '/')} (reachable from a semver entry)`),
     ]
     : mode === 'any' ? anys.map((a) => `ANY ${a}`)
     : mode === 'internal' ? [...new Set(internals)].map((a) => `INTERNAL ${a}`)

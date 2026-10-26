@@ -13,7 +13,7 @@ The **WhatsApp via [Baileys 7](https://github.com/WhiskeySockets/Baileys)** tran
 
 - **Node ≥ 22** (ESM-only).
 - **`@whiskeysockets/baileys` 7.0.0-rc14 or newer.** Since late July 2026 WhatsApp closes connections that use the previous handshake with `428 Connection Terminated`, even before showing the QR. rc14 brings the updated handshake (among other things, the WhatsApp Web version bundled in the package). If your lockfile resolves an older rc, upgrade it.
-- **Why a release candidate.** There is no stable Baileys 7 yet: as of October 2026 `7.0.0-rc14` is the newest release and the npm `latest` tag, and the only stable line is the `6.7.x` `legacy` tag, which lacks the LID addressing this provider is built on. The dependency is pinned to the exact rc (an rc may break between candidates) and moves to 7.0.0 when it ships. The public API of `@botmesh/baileys` does not depend on which candidate is installed.
+- **Why a release candidate.** There is no stable Baileys 7 yet: as of October 2026 (checked with `npm view baileys dist-tags` and `npm view @whiskeysockets/baileys dist-tags`) `7.0.0-rc14` is the newest release and the npm `latest` tag, and the only stable line is the `6.7.x` `legacy` tag, which lacks the LID addressing this provider is built on. The dependency is pinned to the exact rc (an rc may break between candidates) and moves to 7.0.0 when it ships. See [Upstream upgrade policy](#upstream-upgrade-policy).
 - Network egress to `wss://web.whatsapp.com` and, at startup, to `raw.githubusercontent.com`: the provider queries the latest WhatsApp Web version published by Baileys. Without access it uses the version bundled in the installed release, which is why that release must be ≥ rc14.
 
 ## Installation
@@ -35,7 +35,7 @@ The packages are published under the `alpha` dist-tag (there is no `latest` yet)
   ```
 
 - **ffmpeg** converts voice notes to Ogg/Opus. No binary is bundled: the provider runs `FFMPEG_PATH` when it is set, else the binary of the optional `ffmpeg-static` package when it is installed (with pnpm, allow its build script so it can download the binary), else `ffmpeg` on the `PATH` (`apt install ffmpeg`, `brew install ffmpeg`, `choco install ffmpeg`). `sharp` converts stickers. Both are only needed for those sends: without them the package still imports and sends everything else, and a voice note or sticker fails with an `UnsupportedContentError` that says how to install the missing tool.
-- **TypeScript:** the public types reference Baileys' own (`WAMessage`), and Baileys' `.d.ts` files do not compile with `skipLibCheck: false` (missing `@types/ws`, extensionless imports). Keep `"skipLibCheck": true`, the default of most templates.
+- **TypeScript:** the main entry (`@botmesh/baileys`) pulls in no Baileys declarations (its native values are typed as opaque `unknown` aliases), so a project that imports only from it type-checks with `"skipLibCheck": false`. `@botmesh/baileys/internal` is different: its types reference Baileys' own (`socketOf()` returns the Baileys socket type), and Baileys' `.d.ts` files do not compile with `skipLibCheck: false` (missing `@types/ws`, extensionless imports, an undeclared `EncodingNode`). If you import from `/internal`, for example `socketOf` for group or profile operations, keep `"skipLibCheck": true`, the default of most templates.
 
 ## Quickstart
 
@@ -59,7 +59,8 @@ The session is stored in `./sessions/my-bot`; later starts reconnect without a Q
 interface BaileysProviderConfig {
   session?: string            // session id, 'default' by default
   sessionsDir?: string        // root folder for sessions, './sessions' by default
-  pairingCode?: string        // phone in international format: pair with a code instead of a QR
+  pairingPhoneNumber?: string // the bot's phone in international format: pair with a code instead of a QR
+  pairingCode?: string        // deprecated alias of pairingPhoneNumber
   qr?: QrConfig               // how to show the QR (terminal, small size by default)
   rateLimit?: RateLimitConfig // anti-ban send pacing (on by default)
   reconnect?: boolean | { maxAttempts?: number; baseMs?: number; capMs?: number } // true by default
@@ -72,8 +73,8 @@ interface BaileysProviderConfig {
   pollStore?: PollStore         // poll persistence to read votes after a restart (see Polls and votes)
   remoteMedia?: RemoteMediaConfig // how outbound media URLs are downloaded (see Outbound media)
   durableMedia?: { viewOnce?: boolean } // with durability: journal view-once media too (off by default)
-  debug?: boolean               // 'debug' level on the default logger (otherwise 'error')
-  logger?: LoggerLike           // any logger with debug/info/warn/error (pino, console…); Baileys gets an adapter (toBaileysLogger)
+  logger?: LoggerLike           // any logger with debug/info/warn/error (pino, console…); Baileys gets an adapter
+  debug?: boolean               // deprecated: pass a logger, e.g. pino({ level: 'debug' }) ('debug' level on the default logger)
 }
 ```
 
@@ -88,7 +89,7 @@ By default the provider emits a QR. If the server has no camera or terminal at h
 ```ts
 const provider = new BaileysProvider({
   session: 'my-bot',
-  pairingCode: '+57 300 123 4567',   // only the digits count
+  pairingPhoneNumber: '+57 300 123 4567',   // only the digits count
   qr: { terminal: false },
 })
 const bot = new Bot({ provider })
@@ -99,7 +100,7 @@ bot.on('qr', (artifact) => {
 await bot.start()
 ```
 
-On the phone: **Linked devices → Link with phone number** and enter the code. The code is requested once per start, together with the first QR. If the request fails, the provider logs it and keeps offering the QR. The QR and the code also arrive in the `connection` event, as `authPayload`. A `pairingCode` that is not a phone number (6 to 15 digits once spaces, `+` and dashes are dropped) throws a `TypeError` in the constructor.
+On the phone: **Linked devices → Link with phone number** and enter the code. The code is requested once per start, together with the first QR. If the request fails, the provider logs it and keeps offering the QR. The QR and the code also arrive in the `connection` event, as `authPayload`. A `pairingPhoneNumber` that is not a phone number (6 to 15 digits once spaces, `+` and dashes are dropped) throws a `TypeError` in the constructor. `pairingCode` is the deprecated name of the same option (the value was always the phone number, not a code); it still works, and passing both with different numbers throws.
 
 ### QR rendering
 
@@ -179,7 +180,7 @@ The provider resolves it with an `IdentityStore` **before** emitting every event
 - In `group`, the provider translates Baileys' `modify` action (number change) into `action: 'update'`, but rc14 never gets to emit it: while processing the number change, Baileys runs `JSON.parse` on the notice's raw JIDs and throws before emitting the event. In practice, with rc14 a number change produces no `group` event at all.
 - When sending to a LID, the provider uses the PN if it knows it and, otherwise, sends directly to the LID.
 
-For advanced cases, `IdentityStore`, `provider.getPNForLID(lid)` and the JID helpers (`isPn`, `isLid`, `normalizeJid`, `sameUser`…) are exported. `toJid(number)` builds a user JID and `toJid({ groupId })` a group JID; it throws a `TypeError` for input without digits and for `{ groupId, userId }` (a group participant has no JID of its own).
+`toJid(number)` builds a user JID (the chat id to pass to `bot.send()`) and `toJid({ groupId })` a group JID; it throws a `TypeError` for input without digits and for `{ groupId, userId }` (a group participant has no JID of its own). For advanced cases, `provider.getPNForLID(lid)` resolves a LID, and `IdentityStore` and the other JID helpers (`isPn`, `isLid`, `normalizeJid`, `sameUser`…) are in `@botmesh/baileys/internal` (see [Entries](#entries)).
 
 ### Contacts with a username (2026)
 
@@ -256,7 +257,7 @@ The session folder (`creds.json` and the Signal keys) **is** the account: whoeve
 - **`stop()` vs `logoutAndDeleteSession()`.** `stop()` closes the socket and **keeps** the session: the next `start()` reconnects without a QR. `logoutAndDeleteSession()` unlinks the device in WhatsApp and deletes **only** that session's folder, so the next start asks for a new QR. Use it only when you really want to unlink.
 - **Automatic deletion.** On 401/500/411 (invalid session) the provider deletes the session folder on its own so it can pair again.
 - Add `sessions/` to `.gitignore`, restrict the folder permissions (e.g. `chmod 700`) and do not run two instances with the same session: WhatsApp would close one with `440 conflict`.
-- The provider logs no QR, codes or message bodies. With `debug: true` Baileys' log is very verbose; do not leave it on in production.
+- The provider logs no QR, codes or message bodies. With a `debug`-level logger Baileys' log is very verbose; do not leave it on in production.
 
 ## Capabilities
 
@@ -294,6 +295,32 @@ The session folder (`creds.json` and the Signal keys) **is** the account: whoeve
 
 `RateLimiterTimeout` keeps its `name` and its `chatId` and `waitedMs` fields, so code that already caught it keeps working. Because it is a `RateLimitedError`, it is also caught by a transport-portable `catch (e instanceof RateLimitedError)`; its `retryAfterMs` is the time left until the bucket blocking it recovers a token.
 
+## Entries
+
+| Import from | What it holds | Semver |
+| --- | --- | --- |
+| `@botmesh/baileys` | `BaileysProvider` and its option types, `toJid` (phone number → chat id), `isEditedMessage`, `RateLimiter` / `RateLimiterTimeout`, the `PollStore` types and the opaque native types `BaileysNativeMessage`, `BaileysSocket`, `BaileysAuthState`. | Yes |
+| `@botmesh/baileys/internal` | The JID helpers, `IdentityStore`, the mappers (`toInbound`, `toOutbound`, `toCallEvent`), media processing, reconnect classification, session-path checks, the Baileys logger adapter and the typed handles `socketOf(provider)` / `authStateOf(provider)`. | No |
+
+**Native values are opaque.** The `raw` of an inbound message, the `native` of a `MessageRef`, the `raw` of a `SendResult`, `provider.socket` and `provider.auth` are typed `unknown`: their shape belongs to the pinned Baileys release candidate, and no Baileys type is part of the main entry's declarations (`pnpm api-check` enforces it). Cast them with your own `@whiskeysockets/baileys` import, or use the `/internal` helpers:
+
+```ts
+import { socketOf } from '@botmesh/baileys/internal'
+
+const sock = socketOf(provider) // typed Baileys socket, or null when not connected
+await sock?.groupCreate('My group', ['573001234567@s.whatsapp.net'])
+```
+
+The names that moved to `/internal` are still exported by the main entry as `@deprecated` aliases until v3, except `toInbound` and `toOutbound`, whose signatures use Baileys' types.
+
+## Upstream upgrade policy
+
+- **Pinned exactly.** `@whiskeysockets/baileys` is pinned to one exact version (today `7.0.0-rc14`), never a range: release candidates have broken the handshake and the LID addressing between candidates.
+- **Each new candidate is a deliberate upgrade.** It lands in a `@botmesh/baileys` release only after the whole suite passes against it, including the LID/PN identity tests (`lid-identity`, `lid-only-identity`, `identity-contract`, `quoted-identity`, `event-identity`), and a login with a real phone. A candidate that WhatsApp needs (like rc14 for the July 2026 handshake) is shipped as a patch.
+- **7.0.0 stable.** When it ships, the pin moves to it after the same checks. The `6.7.x` `legacy` line is not supported: it lacks the LID addressing.
+- **What does not change on an upgrade:** the main entry's API. Native values are opaque, so a Baileys upgrade can only change what `/internal` and your own casts see.
+- **Overriding it** (e.g. `pnpm.overrides`) is at your own risk: an untested candidate can split identities or fail the handshake.
+
 ## Limitations
 
 - **No native buttons or lists.** WhatsApp Web stopped supporting them for unofficial clients. Use numbered menus with `choose()` (in the DSL `flow().choose(...)` or in conversations `c.choose(...)`) or a native poll with `ctx.poll(question, options)`. `ctx.buttons(...)` and the `list` content still work, but arrive as numbered text.
@@ -306,4 +333,4 @@ The session folder (`creds.json` and the Signal keys) **is** the account: whoeve
 - ESM only (`"type": "module"`); relative imports carry the `.js` extension.
 - To answer WhatsApp's resend requests (`getMessage`), the provider keeps the last 2000 messages of the chats it listens to and of the bot itself in memory. Messages from ignored chats (statuses, broadcast lists, channels) take no room.
 - Errors are logged under pino's `err` key, so the log shows message and stack. If you inject your own `logger`, keep pino's error serializer.
-- `provider.socket` exposes the Baileys socket for operations the `IProvider` does not cover (groups, profile…). Use it carefully: whatever you do there bypasses the rate limiter and the error mapping.
+- `provider.socket` exposes the Baileys socket for operations the `IProvider` does not cover (groups, profile…). It is typed `unknown` (`BaileysSocket`); `socketOf(provider)` from `@botmesh/baileys/internal` returns it typed. Use it carefully: whatever you do there bypasses the rate limiter and the error mapping.

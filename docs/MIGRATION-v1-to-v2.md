@@ -19,10 +19,10 @@ Si tu bot v1 es simple (unos cuantos `addKeyword`/respuestas de texto), la migra
 | `ctx.key` / `ctx.rawMessage` | `ctx.ref` (`MessageRef`: `{ id, chatId, native? }`) / `ctx.raw` |
 | Hook `before('send')` con payload `{ jid, content, options }` | Payload `{ chatId, content, options }` — `content` es `OutboundContent` |
 | Eventos `qr` / `ready` | Iguales: `bot.on('qr', (artifact) => ...)`, `bot.on('ready', () => ...)` |
-| `usePairingCode: true, phoneNumber: 'XXX'` + evento `pairing_code` | Opción `pairingCode: '+57300XXXXXXX'` (formato internacional completo) en `BaileysProvider`. **Ya no hay evento `pairing_code`**: el código llega como payload del evento `qr` (el artifact de auth del provider). |
+| `usePairingCode: true, phoneNumber: 'XXX'` + evento `pairing_code` | Opción `pairingPhoneNumber: '+57300XXXXXXX'` (formato internacional completo; `pairingCode` es su alias deprecado) en `BaileysProvider`. **Ya no hay evento `pairing_code`**: el código llega como payload del evento `qr` (el artifact de auth del provider). |
 | `auth_failure` | No hay evento `auth_failure` dedicado: los fallos de credenciales llegan como un cierre de conexión → `bot.on('connection', (u) => { if (u.state === 'closed') ... })` (revisa `u.reason`, p.ej. `'sessionInvalid'`). El evento `bot.on('error', ...)` es para errores de procesamiento de mensajes, no de auth. |
 | `sendButtons` (ya deprecado en v1) | **Eliminado** como botón nativo en Baileys (degrada a texto numerado). Usa `c.choose()` / `.choose()` (menú numerado) o `ctx.poll()`. Con `@botmesh/meta` sí hay botones/listas nativos. |
-| Sub-APIs `bot.groups/profile/privacy/chats/presence` | **Eliminadas del core** (específicas de WhatsApp). Ver [Sub-APIs](./guide/sub-apis) — acceso directo al socket vía `provider.socket`. |
+| Sub-APIs `bot.groups/profile/privacy/chats/presence` | **Eliminadas del core** (específicas de WhatsApp). Ver [Sub-APIs](./guide/sub-apis) — acceso directo al socket vía `socketOf(provider)` de `@botmesh/baileys/internal` (o `provider.socket`, tipado `unknown`). |
 
 ## Ejemplos antes / después
 

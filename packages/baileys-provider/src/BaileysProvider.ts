@@ -53,8 +53,9 @@ import { IdentityStore, canonicalKey, type IdentityKey } from './identity.js'
 import { normalize, isLidUser, isPnUser } from './jid.js'
 import {
   PollTracker, POLL_CACHE_MAX, decryptVote, fromStoredPoll, pollCreationOf, pollUpdateOf, recordVote, tally, toStoredPoll,
-  type PollStore, type TrackedPoll,
+  type TrackedPoll,
 } from './polls.js'
+import type { BaileysAuthState, BaileysNativeMessage, BaileysSocket, PollStore } from './types.js'
 import { contextInfoOf, editedMessageOf, editProtocolKey, isSystemMessage, toInbound } from './toInbound.js'
 import { parseBaileysMediaRef, serializeBaileysMediaRef } from './mediaRef.js'
 import { toCallEvent } from './toCallEvent.js'
@@ -118,8 +119,17 @@ export interface BaileysProviderConfig {
   editedMessages?: 'deliver' | 'ignore'
   qr?: QrConfig
   /**
-   * Phone number (international format) for pairing-code login instead of QR.
-   * An empty or blank string means QR mode; any other value without 6-15 digits throws.
+   * The bot's phone number (international format, e.g. `'+57 300 123 4567'`): log in with
+   * a pairing code (entered on the phone under Linked devices → Link with phone number)
+   * instead of scanning the QR. The code arrives as the `authPayload` of the
+   * `'authenticating'` connection event (`bot.on('qr')`). Only the digits count; an empty or
+   * blank string means QR mode; any other value without 6-15 digits throws a `TypeError`.
+   */
+  pairingPhoneNumber?: string
+  /**
+   * @deprecated Renamed to {@link BaileysProviderConfig.pairingPhoneNumber} (the value is the
+   * bot's phone number, not a code). Same meaning; removal planned for v3. Passing both with
+   * different numbers throws a `TypeError`.
    */
   pairingCode?: string
   /**
@@ -145,25 +155,43 @@ export interface BaileysProviderConfig {
    * those too. Turn journaling off for every media with `durability.inbox.mediaRefs: false`.
    */
   durableMedia?: { viewOnce?: boolean }
+  /**
+   * @deprecated Pass a `logger` (any `LoggerLike`, e.g. `pino({ level: 'debug' })`) instead.
+   * Only sets the level of the default logger (`'debug'` instead of `'error'`) and is ignored
+   * when `logger` is set. Removal planned for v3.
+   */
   debug?: boolean
-  /** Any `LoggerLike` (pino, `console`, your own). Baileys itself receives a `BaileysLogger` adapter (see {@link toBaileysLogger}). */
+  /** Any`LoggerLike` (pino, `console`, your own). Baileys itself receives a `BaileysLogger` adapter (see {@link toBaileysLogger}). */
   logger?: LoggerLike
 }
 
 /**
- * The digits of `pairingCode` (E.164: a country code plus subscriber number, at
- * most 15 digits), or `undefined` for QR mode. An empty or blank value (e.g. an
+ * The digits of a pairing phone number (E.164: a country code plus subscriber number,
+ * at most 15 digits), or `undefined` for QR mode. An empty or blank value (e.g. an
  * unset `WA_PAIRING_NUMBER=` env var) means QR mode, as it always did.
  */
-function pairingNumber(pairingCode: string | undefined): string | undefined {
-  if (pairingCode === undefined || (typeof pairingCode === 'string' && pairingCode.trim() === '')) return undefined
-  const digits = typeof pairingCode === 'string' ? pairingCode.replace(/\D/g, '') : ''
+function pairingNumber(value: string | undefined, option: string): string | undefined {
+  if (value === undefined || (typeof value === 'string' && value.trim() === '')) return undefined
+  const digits = typeof value === 'string' ? value.replace(/\D/g, '') : ''
   if (digits.length < 6 || digits.length > 15) {
     throw new TypeError(
-      "BaileysProvider: pairingCode must be the bot's phone number in international format (country code + number, 6-15 digits), e.g. '+57 300 123 4567'",
+      `BaileysProvider: ${option} must be the bot's phone number in international format (country code + number, 6-15 digits), e.g. '+57 300 123 4567'`,
     )
   }
   return digits
+}
+
+/**
+ * The pairing phone digits from `pairingPhoneNumber` or its deprecated alias `pairingCode`.
+ * Both set to different numbers is a configuration mistake and throws.
+ */
+function resolvePairingPhone(config: BaileysProviderConfig): string | undefined {
+  const canonical = pairingNumber(config.pairingPhoneNumber, 'pairingPhoneNumber')
+  const legacy = pairingNumber(config.pairingCode, 'pairingCode')
+  if (canonical !== undefined && legacy !== undefined && canonical !== legacy) {
+    throw new TypeError('BaileysProvider: pairingCode is a deprecated alias of pairingPhoneNumber and names another number; pass only pairingPhoneNumber')
+  }
+  return canonical ?? legacy
 }
 
 const cacheKey = (k: WAMessageKey) => `${k.remoteJid}:${k.id}`
@@ -206,7 +234,12 @@ export function mapSendError(err: unknown, chatId: ChatId): ProviderError {
   return wrapped
 }
 
-export class BaileysProvider implements IProvider<WAMessage> {
+/**
+ * WhatsApp Web transport over Baileys. Native values (`raw`, `ref.native`, `socket`,
+ * `auth`) are typed as opaque `unknown` aliases: their shape belongs to the pinned Baileys
+ * release candidate, not to this package's API.
+ */
+export class BaileysProvider implements IProvider<BaileysNativeMessage> {
   readonly id = 'baileys'
   readonly capabilities: ProviderCapabilities = {
     contentKinds: ['text', 'image', 'video', 'audio', 'voice', 'document', 'sticker', 'location', 'contact', 'poll', 'reaction', 'buttons', 'list', 'card'],
@@ -246,12 +279,12 @@ export class BaileysProvider implements IProvider<WAMessage> {
   /** Call id → group JID of group calls in progress (see {@link toCallEvent}). */
   private callGroups = new Map<string, string>()
   private rateLimiter: RateLimiter
-  private listeners = new Set<(e: InboundEvent<WAMessage>) => void | Promise<void>>()
+  private listeners = new Set<(e: InboundEvent<BaileysNativeMessage>) => void | Promise<void>>()
   /** Bumped by start()/stop(): a start() that sees it change while awaiting gives up. */
   private generation = 0
   /** Sockets replaced by a newer start(); their late events are ignored. */
   private retired = new WeakSet<object>()
-  /** Digits of `config.pairingCode`, or undefined for QR mode. */
+  /** Digits of `config.pairingPhoneNumber` (or its alias `pairingCode`), or undefined for QR mode. */
   private readonly pairingPhone: string | undefined
   /** The validated reconnect policy (`config.reconnect`). */
   private readonly reconnectPolicy: Required<ReconnectPolicy>
@@ -266,7 +299,7 @@ export class BaileysProvider implements IProvider<WAMessage> {
     // Validate eagerly, before any filesystem or network operation.
     resolveSessionDirectory(this.config.sessionsDir, this.config.session)
     assertBrowserConfig(config.browser)
-    this.pairingPhone = pairingNumber(config.pairingCode)
+    this.pairingPhone = resolvePairingPhone(config)
     this.reconnectPolicy = resolveReconnectPolicy(config.reconnect)
     if (config.editedMessages !== undefined && config.editedMessages !== 'deliver' && config.editedMessages !== 'ignore') {
       throw new TypeError(`BaileysProvider: editedMessages must be 'deliver' or 'ignore', got ${JSON.stringify(config.editedMessages)}`)
@@ -288,8 +321,18 @@ export class BaileysProvider implements IProvider<WAMessage> {
   get selfId(): UserId | null {
     return this.self().id || null
   }
-  get socket(): ReturnType<typeof makeWASocket> | null { return this.sock }
-  get auth() {
+  /**
+   * The live Baileys socket, or `null` before `start()` and after `stop()`. Opaque
+   * (`unknown`): use `socketOf(provider)` from `@botmesh/baileys/internal` for a typed
+   * handle. Whatever you do on it bypasses the rate limiter and the error mapping.
+   */
+  get socket(): BaileysSocket | null { return this.sock }
+  /**
+   * The auth state Baileys loaded for the session. Opaque (`unknown`): use
+   * `authStateOf(provider)` from `@botmesh/baileys/internal` for a typed handle.
+   * @throws {Error} before `start()`.
+   */
+  get auth(): BaileysAuthState {
     if (!this.authState) throw new Error('Provider not started')
     return this.authState
   }
@@ -298,7 +341,7 @@ export class BaileysProvider implements IProvider<WAMessage> {
     return resolveSessionDirectory(this.config.sessionsDir, this.config.session)
   }
 
-  onEvent(listener: (e: InboundEvent<WAMessage>) => void | Promise<void>): () => void {
+  onEvent(listener: (e: InboundEvent<BaileysNativeMessage>) => void | Promise<void>): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
   }
@@ -382,7 +425,7 @@ export class BaileysProvider implements IProvider<WAMessage> {
     this.authState = null
   }
 
-  async send(chatId: ChatId, content: OutboundContent, options?: SendOptions): Promise<SendResult<WAMessage>> {
+  async send(chatId: ChatId, content: OutboundContent, options?: SendOptions): Promise<SendResult<BaileysNativeMessage>> {
     if (!this.sock) throw new ProviderError('Provider not connected')
     // Everything below rejects through mapSendError, so send() only ever rejects
     // with ProviderError subclasses (rate-limiter timeouts and resets included).

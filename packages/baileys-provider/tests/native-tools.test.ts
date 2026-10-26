@@ -26,7 +26,7 @@ describe('native media tools load lazily', () => {
   })
 
   it('rejects a sticker or a voice note with an actionable UnsupportedContentError', async () => {
-    const { toOutbound } = await import('../src/index.js')
+    const { toOutbound } = await import('../src/internal.js')
     const sticker = await toOutbound({ kind: 'sticker', media: Buffer.from('png') }).then(() => null, (e: unknown) => e)
     expect(sticker).toBeInstanceOf(UnsupportedContentError)
     expect((sticker as Error).message).toMatch(/sharp could not be loaded/)

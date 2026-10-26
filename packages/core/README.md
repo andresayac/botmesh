@@ -50,7 +50,7 @@ await bot.start()   // scan the QR
 
 A full example (commands, media, hooks, DI, scheduler) lives in [`packages/baileys-provider/examples/bot.ts`](https://github.com/andresayac/botmesh/blob/main/packages/baileys-provider/examples/bot.ts).
 
-No camera? Set `pairingCode: '+57300XXXXXXX'` on `BaileysProvider` (full international format) and listen for `bot.on('qr', ...)` — the pairing code arrives there too.
+No camera? Set `pairingPhoneNumber: '+57300XXXXXXX'` on `BaileysProvider` (full international format) and listen for `bot.on('qr', ...)` — the pairing code arrives there too.
 
 > **Persistent flows:** `flow(...).persistent()` only survives a restart with a persistent store. The default `MemoryStore` lives in RAM; to keep checkpoints use a disk-backed store (e.g. [`@botmesh/sqlite-store`](https://github.com/andresayac/botmesh/tree/main/packages/sqlite-store)).
 

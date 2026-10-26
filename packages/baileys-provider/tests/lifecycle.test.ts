@@ -161,6 +161,38 @@ describe('config validation', () => {
     }
   })
 
+  it('pairingPhoneNumber is the canonical option: validated like pairingCode, named in the error', () => {
+    for (const pairingPhoneNumber of ['abc', '+1 23', '1234567890123456']) {
+      expect(() => make({ pairingPhoneNumber })).toThrow(/pairingPhoneNumber/)
+    }
+    expect(() => make({ pairingPhoneNumber: '+57 300 123 4567' })).not.toThrow()
+    expect(() => make({ pairingPhoneNumber: '' })).not.toThrow()
+  })
+
+  it('accepts pairingCode and pairingPhoneNumber together only when they name the same number', () => {
+    expect(() => make({ pairingPhoneNumber: '+57 300 123 4567', pairingCode: '573001234567' })).not.toThrow()
+    expect(() => make({ pairingPhoneNumber: '+57 300 123 4567', pairingCode: '+57 300 999 9999' })).toThrow(/deprecated alias of pairingPhoneNumber/)
+  })
+
+  it('requests the pairing code for pairingPhoneNumber (and for the deprecated pairingCode)', async () => {
+    for (const config of [{ pairingPhoneNumber: '+57 300 123 4567' }, { pairingCode: '+57 300 123 4567' }]) {
+      const p = make({ ...config, qr: { terminal: false } }) as unknown as {
+        authState: unknown
+        sock: unknown
+        onConnectionUpdate(u: { qr?: string }): Promise<void>
+        onEvent(l: (e: { kind: string; update?: { authPayload?: string } }) => void): () => void
+      }
+      const requestPairingCode = vi.fn(async () => 'ABCD-EFGH')
+      p.authState = { state: { creds: { registered: false } }, saveCreds: async () => {} }
+      p.sock = { requestPairingCode, end: () => {} }
+      const payloads: Array<string | undefined> = []
+      p.onEvent((e) => { if (e.kind === 'connection') payloads.push(e.update?.authPayload) })
+      await p.onConnectionUpdate({ qr: 'qr-payload' })
+      expect(requestPairingCode).toHaveBeenCalledWith('573001234567')
+      expect(payloads).toEqual(['qr-payload', 'ABCD-EFGH'])
+    }
+  })
+
   it('rejects an unknown browser preset or a malformed tuple', () => {
     expect(() => make({ browser: 'linux' })).toThrow(/browser/)
     expect(() => make({ browser: ['Mac OS', 'Chrome'] })).toThrow(/browser/)

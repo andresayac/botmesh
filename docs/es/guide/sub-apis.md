@@ -32,18 +32,24 @@ transporte soporta.
 
 Para todo lo demás — crear grupos, links de invitación, ajustes de
 privacidad, archivar/fijar/silenciar chats — accede al socket crudo desde
-el provider de Baileys. El provider mantiene un handle de depuración
-(`provider.connection`) y un getter tipado (`provider.socket`):
+el provider de Baileys. `provider.socket` lo devuelve tipado como `unknown`
+(los tipos de Baileys no forman parte de la API de `@botmesh/baileys`);
+`socketOf(provider)` de `@botmesh/baileys/internal` lo devuelve tipado como
+el socket de la versión de Baileys instalada (sin garantía semver). Importar
+`/internal` arrastra los `.d.ts` de Baileys, que no compilan con
+`skipLibCheck: false`: mantén `"skipLibCheck": true` en un proyecto que lo
+use (la entrada principal no lo necesita):
 
 ```ts
 import { Bot } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
+import { socketOf } from '@botmesh/baileys/internal'
 
 const provider = new BaileysProvider({ session: 'mi-bot' })
 const bot = new Bot({ provider })
 
 bot.on('ready', async () => {
-  const sock = provider.socket // el socket crudo de Baileys 7
+  const sock = socketOf(provider) // el socket crudo de Baileys 7, tipado
   if (!sock) return
 
   // Equivalente de bot.groups.create(...) de v1:

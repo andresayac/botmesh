@@ -21,7 +21,7 @@ const provider = new BaileysProvider({
   session: config.session,
   sessionsDir: config.sessionsDir,
   qr: { terminal: !config.pairingPhone },
-  ...(config.pairingPhone ? { pairingCode: config.pairingPhone } : {}),
+  ...(config.pairingPhone ? { pairingPhoneNumber: config.pairingPhone } : {}),
   markOnlineOnConnect: false,
   ignoreNewsletters: true,
   ignoreBroadcasts: true,

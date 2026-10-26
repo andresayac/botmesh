@@ -21,17 +21,35 @@ const loadFfmpegStatic: FfmpegStaticLoader = async () => {
   return typeof path === 'string' ? path : null
 }
 
+/** Which ffmpeg binary to run, and why the optional `ffmpeg-static` package was skipped. */
+export interface FfmpegResolution {
+  /** The binary to spawn. */
+  bin: string
+  /**
+   * The path `ffmpeg-static` exported when the package is installed but that file does not
+   * exist (its install script, which downloads the binary, did not run). Absent otherwise.
+   */
+  staticBinaryMissing?: string
+}
+
 /** The ffmpeg binary to run (see the module doc for the lookup order). */
-export async function resolveFfmpegPath(env: NodeJS.ProcessEnv = process.env, loadStatic: FfmpegStaticLoader = loadFfmpegStatic): Promise<string> {
+export async function resolveFfmpeg(env: NodeJS.ProcessEnv = process.env, loadStatic: FfmpegStaticLoader = loadFfmpegStatic): Promise<FfmpegResolution> {
   const fromEnv = env.FFMPEG_PATH?.trim()
-  if (fromEnv) return fromEnv
+  if (fromEnv) return { bin: fromEnv }
+  let path: string | null | undefined
   try {
-    const path = await loadStatic()
-    if (path && existsSync(path)) return path
+    path = await loadStatic()
   } catch {
     // ffmpeg-static is an optional peer: not installed is the normal case.
+    return { bin: 'ffmpeg' }
   }
-  return 'ffmpeg'
+  if (path && existsSync(path)) return { bin: path }
+  return path ? { bin: 'ffmpeg', staticBinaryMissing: path } : { bin: 'ffmpeg' }
+}
+
+/** The ffmpeg binary to run (see the module doc for the lookup order). */
+export async function resolveFfmpegPath(env: NodeJS.ProcessEnv = process.env, loadStatic: FfmpegStaticLoader = loadFfmpegStatic): Promise<string> {
+  return (await resolveFfmpeg(env, loadStatic)).bin
 }
 
 /** ffmpeg could not be started at all (missing binary, no permission): nothing was transcoded. */
