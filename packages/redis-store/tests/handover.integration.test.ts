@@ -120,8 +120,10 @@ for (const variant of VARIANTS) describe.skipIf(!variant.enabled)(`conversation 
   it('a step cut short after its first answer continues with that answer on the other replica (durability)', async () => {
     const prefix = nextPrefix('answer')
     let slow = true
-    const validate = async (): Promise<true> => { if (slow) { slow = false; await sleep(500) } return true }
-    const a = signup(replica(prefix, 'a', { settleMs: 50 }), { validate })
+    // settleMs must cut the slow validator short, but not the first step's two sends (a
+    // loaded Redis Cluster round trip can take tens of ms): keep a wide margin both ways.
+    const validate = async (): Promise<true> => { if (slow) { slow = false; await sleep(4_000) } return true }
+    const a = signup(replica(prefix, 'a', { settleMs: 2_000 }), { validate })
     const b = signup(replica(prefix, 'b'), { validate })
     await a.bot.start(); await b.bot.start()
     a.provider.incoming('signup', { from: 'c1' })
@@ -134,7 +136,7 @@ for (const variant of VARIANTS) describe.skipIf(!variant.enabled)(`conversation 
     }, { timeout: 5_000 })
     b.provider.incoming('ana@x.co', { from: 'c1' })
     await vi.waitFor(() => expect(texts(b.provider)).toEqual(['email?', 'done Ana ana@x.co']), { timeout: 5_000 })
-    await sleep(600)
+    await sleep(2_600)
     expect(texts(a.provider)).toEqual(['hi', 'name?'])
   })
 

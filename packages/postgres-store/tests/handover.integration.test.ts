@@ -97,8 +97,10 @@ describe.skipIf(!URL)('conversation hand-over — real PostgreSQL', { timeout: 3
   it('a step cut short after its first answer continues with that answer on the other replica', async () => {
     const s = await backends()
     let slow = true
-    const validate = async (): Promise<true> => { if (slow) { slow = false; await sleep(500) } return true }
-    const a = signup(replica(s, 'a', { settleMs: 50 }), { validate })
+    // settleMs must cut the slow validator short, but not the first step (its sends and
+    // checkpoint writes take tens of ms on a loaded database): keep a wide margin both ways.
+    const validate = async (): Promise<true> => { if (slow) { slow = false; await sleep(4_000) } return true }
+    const a = signup(replica(s, 'a', { settleMs: 2_000 }), { validate })
     const b = signup(replica(s, 'b'), { validate })
     await a.bot.start(); await b.bot.start()
     a.provider.incoming('signup', { from: 'c1' })
@@ -107,7 +109,7 @@ describe.skipIf(!URL)('conversation hand-over — real PostgreSQL', { timeout: 3
     await vi.waitFor(async () => expect((await checkpoint(s.store, 'c1'))?.answer?.inboundId).toEqual(expect.any(String)), { timeout: 5_000 })
     b.provider.incoming('ana@x.co', { from: 'c1' })
     await vi.waitFor(() => expect(texts(b.provider)).toEqual(['email?', 'done Ana ana@x.co']), { timeout: 5_000 })
-    await sleep(600)
+    await sleep(2_600)
     expect(texts(a.provider)).toEqual(['hi', 'name?'])
   })
 
