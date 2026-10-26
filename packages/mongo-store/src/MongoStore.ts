@@ -1,5 +1,5 @@
 /**
- * MongoStore — persistent {@link IStore} backed by MongoDB (official driver v6).
+ * MongoStore — persistent {@link IStore} backed by MongoDB (official `mongodb` driver, 6.x or 7.x).
  *
  * All state lives in seven collections (`messages`, `chats`, `contacts`,
  * `checkpoints`, `conversations`, `cursors`, `user_data` — each optionally prefixed) inside
@@ -37,11 +37,11 @@
  * ```
  */
 
-import { MongoClient } from 'mongodb'
 import type {
   AIMessage,
   FlowCheckpoint,
   IStore,
+  LoggerLike,
   MessageRef,
   StoredChat,
   StoredContact,
@@ -56,9 +56,18 @@ import { idString } from './ids.js'
 import { bsonSafeKeys } from './keys.js'
 import { MongoScheduleStore } from './schedules.js'
 import { MongoUserData, type UserDataDoc } from './userData.js'
+import { LazyMongoClient } from './driver.js'
 
-/** The native mongodb v6 client type (accepted through {@link MongoStoreOptions.client}). */
-export type NativeMongoClient = MongoClient
+/**
+ * A `MongoClient` from the `mongodb` driver (accepted through {@link MongoStoreOptions.client}),
+ * typed structurally so that no published declaration imports `mongodb`: a consumer needs no
+ * particular copy of the driver. The store narrows it to {@link MongoLikeClient} at the boundary.
+ */
+export interface NativeMongoClient {
+  db(...args: never[]): unknown
+  connect(...args: never[]): unknown
+  close(...args: never[]): unknown
+}
 
 /** Structural subset of the driver's cursor used by {@link MongoStore}. */
 export interface MongoLikeCursor<T extends { _id: string }> {
@@ -145,7 +154,11 @@ export interface MongoStoreOptions {
    * a positive integer, else the constructor throws a `RangeError`.
    */
   purgeBatchSize?: number
-  logger?: { error?: (...args: unknown[]) => void }
+  /**
+   * Receives lifecycle errors (client close failure). Any {@link LoggerLike} (pino,
+   * `console`, the bot's logger) fits; every method is optional.
+   */
+  logger?: Partial<LoggerLike>
 }
 
 /* Document shapes ---------------------------------------------------------- *
@@ -253,7 +266,7 @@ export class MongoStore implements IStore {
   private readonly dbName: string
   private readonly collectionPrefix: string
   private readonly maxMessagesPerChat?: number
-  private readonly logger?: { error?: (...args: unknown[]) => void }
+  private readonly logger?: Partial<LoggerLike>
   /** False once the server rejected a transaction (standalone): deleteChat stops trying sessions. */
   private transactions = true
   private started = false
@@ -282,11 +295,12 @@ export class MongoStore implements IStore {
     this.logger = opts.logger
     this.maxMessagesPerChat = opts.maxMessagesPerChat
     this.ownsClient = !opts.client
-    const client = opts.client ?? new MongoClient(opts.url ?? 'mongodb://localhost:27017')
-    // The driver's generic command signatures aren't directly assignable to the
-    // plain structural interfaces; the command subset used here matches at
-    // runtime, so narrow at the boundary.
-    this.client = client as unknown as MongoLikeClient
+    // An own client loads the driver on start(). The driver's generic command signatures
+    // aren't directly assignable to the plain structural interfaces; the command subset
+    // used here matches at runtime, so an injected client is narrowed at the boundary.
+    this.client = opts.client
+      ? (opts.client as unknown as MongoLikeClient)
+      : new LazyMongoClient(opts.url ?? 'mongodb://localhost:27017')
 
     const p = opts.collectionPrefix ?? ''
     if (INVALID_COLLECTION_PREFIX.test(p)) {
@@ -586,9 +600,12 @@ export class MongoStore implements IStore {
 /**
  * Whether `err` says the deployment cannot run transactions: a standalone server
  * (IllegalOperation, code 20, "Transaction numbers are only allowed on a replica set
- * member or mongos").
+ * member or mongos"). mongodb 6 throws that error as is; mongodb 7 replaces it with a
+ * "does not support retryable writes" error that keeps it as `errorResponse.originalError`.
  */
 function transactionsUnsupported(err: unknown): boolean {
-  const e = err as { code?: unknown; message?: unknown } | null
-  return e?.code === 20 || (typeof e?.message === 'string' && e.message.includes('Transaction numbers are only allowed'))
+  type ServerError = { code?: unknown; message?: unknown; errorResponse?: { originalError?: { code?: unknown } } } | null
+  const e = err as ServerError
+  if (e?.code === 20 || e?.errorResponse?.originalError?.code === 20) return true
+  return typeof e?.message === 'string' && e.message.includes('Transaction numbers are only allowed')
 }

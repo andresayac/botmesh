@@ -32,13 +32,13 @@ import {
   type ScheduleKind,
   type ScheduleRecord,
 } from '@botmesh/core/spi'
-import type { ConnectionLike, MysqlQueryResult, NativeMysqlPool } from './MysqlStore.js'
+import type { MysqlConnectionLike, MysqlQueryResult, NativeMysqlPool } from './MysqlStore.js'
 
 /** What {@link MysqlScheduleStore} needs from a pool. */
 export interface MysqlScheduleQueryable {
   query(sql: string, params?: readonly unknown[]): Promise<MysqlQueryResult>
   /** A dedicated connection for the claim transaction (mysql2/promise `pool.getConnection()`). */
-  getConnection(): Promise<ConnectionLike>
+  getConnection(): Promise<MysqlConnectionLike>
 }
 
 export interface MysqlScheduleStoreOptions {

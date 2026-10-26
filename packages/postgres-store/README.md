@@ -1,14 +1,14 @@
 # @botmesh/postgres-store
 
-> **Experimental — not yet published on npm.** A real, tested implementation, but the package is `private`: it is not part of the first alpha and its API may change. Use it from this monorepo (`workspace:*`); the `pnpm add` below will work once it is published.
+Shared, persistent storage for [`@botmesh/core`](https://github.com/andresayac/botmesh/tree/main/packages/core) on PostgreSQL, through [node-postgres](https://node-postgres.com/) (`pg`). Point any number of bot replicas at the same database and they share message logs, chats, contacts, `.persistent()` flow checkpoints, `ctx.user` data, AI conversation history and delivery cursors.
 
-PostgreSQL [`IStore`](https://github.com/andresayac/botmesh/tree/main/packages/core) implementation for **@botmesh/core** — persistent, shared bot state backed by PostgreSQL (node-postgres, `pg`). Point any number of bot replicas at the same database and they share message logs, chats, contacts, flow checkpoints, AI conversation history and delivery cursors.
+It also carries the PostgreSQL pieces for **several replicas of one bot**:
 
-- Documents stored as **JSONB**; per-chat logs ordered by a dedicated `timestamp BIGINT` column.
-- `getMessagesByChat(chatId, limit)` is a plain `ORDER BY timestamp DESC LIMIT n` (+ reverse) — latest `limit` messages, oldest→newest (same windowing semantics as `@botmesh/redis-store` / `@botmesh/sqlite-store`).
-- Optional **table prefix**, so apps/bots can share one database.
-- `upsertChat` / `upsertContact` shallow-merge **atomically on the server** (`jsonb ||`), so concurrent partial updates from several replicas never drop each other's fields.
-- Injectable pool → fully hermetic unit tests (an in-memory `FakePool` ships with the test-suite; no real PostgreSQL needed), plus an opt-in [integration suite](#integration-tests) against a real server.
+- **Durable scheduled tasks** (`store.schedules()`, a `PostgresScheduleStore`): every occurrence is claimed by exactly one replica.
+- **Durable inbox/outbox** (`PostgresDurability`, for `BotConfig.durability`): journaled inbound messages, idempotent sends and replay after a crash.
+- Compare-and-set checkpoints (`setCheckpointIf`), used by `BotConfig.coordination`.
+
+Documents are stored as `JSONB`; the tables are created on `start()`. The package passes the same `IStore` conformance suite as every botmesh store.
 
 ## Install
 
@@ -16,11 +16,11 @@ PostgreSQL [`IStore`](https://github.com/andresayac/botmesh/tree/main/packages/c
 pnpm add @botmesh/postgres-store pg
 ```
 
-`@types/pg` comes with the package (its public types reference pg's `Pool`), so a TypeScript project needs nothing else.
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older alpha. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/postgres-store@beta pg` during the beta (`npm view @botmesh/postgres-store dist-tags` lists the tags). Once stable, the plain command above works.
 
-**Requires a running PostgreSQL server** reachable from the bot (e.g. `postgres://localhost:5432/botwa`). The store creates its tables automatically on `start()` (`CREATE TABLE IF NOT EXISTS`, safe across replicas and restarts).
+[`pg`](https://www.npmjs.com/package/pg) `^8.13` is a **peer dependency**, loaded only when the store creates its own pool. You need a PostgreSQL server reachable from the bot (for example `postgres://localhost:5432/botwa`); the database must exist, the store creates its tables. The package's types never name `pg`, so TypeScript projects need no `@types/pg`.
 
-## Usage with Bot
+## Quick start
 
 ```ts
 import { Bot } from '@botmesh/core'
@@ -29,128 +29,115 @@ import { PostgresStore } from '@botmesh/postgres-store'
 
 const store = new PostgresStore({
   connectionString: process.env.DATABASE_URL, // default: postgres://localhost:5432/botwa
-  tablePrefix: 'mybot_',                      // default: ''
+  tablePrefix: 'mybot_', // default: ''
 })
-await store.start() // creates the pool (unless one was injected) + schema
 
-const bot = new Bot({
-  provider: new BaileysProvider({ session: 'demo' }),
-  store,
-})
+const bot = new Bot({ provider: new BaileysProvider({ session: 'my-bot' }), store })
+await bot.start() // starts the store too: creates the pool and the tables
 ```
 
-### Injecting an existing pool
+Using the store before it is started fails with an error that tells you to call `start()`. After `stop()`, a store that created its own pool can be started again.
 
-Pass an already-created `pg` `Pool` — the store then never creates or ends it, the caller owns the lifecycle:
+### Bring your own pool
+
+Pass an existing `pg` `Pool` (or anything with `query(text, values)` and `end()`): the store then never creates or ends it.
 
 ```ts
 import pg from 'pg'
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL })
-const store = new PostgresStore({ pool }) // no connectionString needed
-await store.start()                       // still (idempotently) creates the schema
+pool.on('error', (err) => console.error('idle client error', err)) // required, see below
+const store = new PostgresStore({ pool })
 ```
 
-In tests, inject an in-memory fake instead (see `tests/fakePool.ts` in this package) so the suite runs with no network and no real PostgreSQL:
+node-postgres emits `'error'` on the pool when an **idle** client loses its connection (server restart, failover), and with no listener that crashes the process. The store adds the listener only to a pool it creates itself (and reports through `logger`). One pool can be shared by the store, the schedule store and the durability backend.
+
+## Options
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `connectionString` | `string` | `'postgres://localhost:5432/botwa'` | Connection URL. Ignored when `pool` is given. |
+| `pool` | `PostgresPoolLike \| NativePostgresPool` | none | An existing pool. The store never creates or ends it; `start()` still creates the tables. |
+| `tablePrefix` | `string` | `''` | Prefix for every table (`'mybot_'` → `mybot_messages`), so several bots share one database. Letters, digits and `_` only. |
+| `maxMessagesPerChat` | `number` | unbounded | Keep only the newest N messages per chat; older rows are pruned on each save. |
+| `purgeBatchSize` | `number` | `1000` | Rows deleted per statement by `bot.purgeExpiredUserData()`; the purge loops until nothing expired is left. |
+| `logger` | `Partial<LoggerLike>` | none | Receives pool end failures and the idle-client errors of a store-created pool (pino, `console` or the bot's logger). |
+
+Invalid numbers throw a `RangeError` and an invalid `tablePrefix` an `Error` from the constructor.
+
+## Durable scheduled tasks and message processing
 
 ```ts
-const fake = new FakePool()
-const store = new PostgresStore({ pool: fake })
-await store.start()
-```
+import pg from 'pg'
+import { PostgresDurability, PostgresStore } from '@botmesh/postgres-store'
 
-## Configuration
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL })
+pool.on('error', (err) => console.error(err))
+const store = new PostgresStore({ pool })
 
-| Option             | Type                | Default                        | Description |
-| ------------------ | ------------------- | ------------------------------ | ----------- |
-| `connectionString` | `string`            | `postgres://localhost:5432/botwa` | PostgreSQL connection URL. Ignored when `pool` is provided. |
-| `tablePrefix`      | `string`            | `''`                           | Identifier prefix for every table (`'mybot_'` → `mybot_messages`). Plain identifier characters only. |
-| `pool`             | `PostgresPoolLike`  | —                              | Inject an existing `pg` `Pool`-like client (required for tests). The store never creates/ends it. |
-| `maxMessagesPerChat` | `number`          | unbounded                      | Per-chat cap: `saveMessage` prunes the oldest rows (by timestamp) beyond it. Must be a non-negative integer (else `RangeError`). |
-| `purgeBatchSize` | `number` | `1000` | Rows deleted per statement by `purgeExpiredUserData`; the purge loops until nothing expired is left, so a large backlog never runs as one long delete. Must be a positive integer (else `RangeError`). |
-| `logger`           | `{ error? }`        | —                              | Receives lifecycle errors (e.g. pool end failure) and the connection errors of idle clients of a store-created pool (the pool reconnects on the next query). An injected pool needs its own `pool.on('error', …)`: without one, node-postgres crashes the process when the server drops an idle connection. |
-
-## Schema
-
-| Table | Columns | Contents |
-| ----- | ------- | -------- |
-| `{prefix}messages` | `id TEXT PK`, `chat_id TEXT`, `timestamp BIGINT`, `msg JSONB` | `StoredMessage` keyed by `messageKey(ref)` (`chatId:id`, escaped) |
-| `{prefix}chats` | `id TEXT PK`, `data JSONB` | `StoredChat` |
-| `{prefix}contacts` | `id TEXT PK`, `data JSONB` | `StoredContact` |
-| `{prefix}checkpoints` | `key TEXT PK`, `cp JSONB` | `FlowCheckpoint` |
-| `{prefix}conversations` | `key TEXT PK`, `messages JSONB` | `AIMessage[]` |
-| `{prefix}cursors` | `key TEXT PK`, `value TEXT` | delivery cursor (e.g. Telegram `update_id`) |
-
-An index on `(chat_id, timestamp)` backs `getMessagesByChat`. All writes are parameterized `INSERT ... ON CONFLICT ... DO UPDATE` upserts; all DB access goes through a single `query(text, values)` call. Chats and contacts merge in the conflict clause itself — `data = (data - <keys set to undefined>) || patch` — which is the same `{ ...existing, ...patch }` semantics as `MemoryStore`, but atomic.
-
-## Notes
-
-- Designed for **shared state**: multiple bot replicas on one PostgreSQL database get a consistent view of history, checkpoints and cursors.
-- Messages, chats, contacts and cursors live forever — delete them explicitly. There is no TTL (unlike `@botmesh/redis-store`).
-- `start()` is idempotent while started; it creates a pool only when none was injected. `stop()` ends only a self-created pool — an injected pool is left open. An own-pool store can be restarted after `stop()` (fresh pool, idempotent schema pass).
-- Replicas may boot at the same moment: concurrent `CREATE TABLE IF NOT EXISTS` of the same table can lose a race on PostgreSQL's catalog (`23505` on `pg_type`), and `start()` retries that statement instead of failing.
-- `jsonb` cannot hold U+0000 or unpaired UTF-16 surrogates (e.g. text cut in the middle of an emoji). Rather than failing the whole write, those characters are stored as U+FFFD in the JSONB documents (messages, chats, contacts, checkpoints — through `setCheckpoint` and the compare-and-set `setCheckpointIf` alike — and conversations); everything else round-trips unchanged.
-- `ctx.user` values (`{prefix}user_data.value`) are stored **exactly**, with no U+FFFD replacement. The column is `TEXT`, and PostgreSQL `TEXT` rejects a raw NUL byte too (SQLSTATE `22021`), so the value is written as its `JSON.stringify` text: U+0000 and unpaired surrogates always travel as six-character `\u0000`-style escapes (plain ASCII), which `JSON.parse` turns back into the original characters. The round trip is lossless (proved against a real server in `tests/integration.test.ts`).
-- Ids and keys (`id`, `chat_id`, `key`, and `user_id` / `namespace` / `key` in `user_data`) are `TEXT` columns stored verbatim: PostgreSQL rejects U+0000 in them (`22021`), so they must not contain it.
-- `timestamp` may be any number: the `BIGINT` sort column gets `Math.floor(timestamp)`, while the exact value is kept in the `msg` document. Order among messages with the same (floored) timestamp is not defined.
-- `deleteChat` removes the message log and the chat record in **one statement** (a data-modifying CTE), so both commit or neither does.
-- `purgeExpiredUserData` deletes `purgeBatchSize` rows per statement (picked by primary key through the expiry index) until nothing expired is left, so a large backlog never runs as one long transaction.
-- **Message keys.** `messageKey(ref)` (from `@botmesh/core`) is `{chatId}:{id}` with `%` and `:` percent-escaped in each part (`%25`, `%3A`), so ids that contain `:` — Twilio's `whatsapp:+1…` chat ids — never collide (`('a:b', 'c')` and `('a', 'b:c')` used to share the key `a:b:c`). Ids without `:` or `%` keep exactly the key earlier versions wrote. Rows written by an earlier version under the old unescaped key are still read and deleted (a fallback that only runs for ids containing `:` or `%`, and only returns or deletes a row whose stored `ref` is that very message, since a legacy key can be another message's new key), and re-saving such a message moves it to the new key — no manual migration. One theoretical edge remains: an id that literally contains `%3A` and was stored by an earlier version can be overwritten by a new message whose id has `:` in the same place.
-
-## Durability backend
-
-`PostgresDurability` (and its `PostgresDurableKv`) is the PostgreSQL backend for `BotConfig.durability` (see the [durability guide](https://github.com/andresayac/botmesh/blob/main/docs/guide/durability.md)): one table, `{tablePrefix}durable`, created idempotently by `start()` (the bot starts and stops it).
-
-```ts
 const bot = new Bot({
   provider,
-  store: new PostgresStore({ pool }),
+  store,
+  scheduler: { store: store.schedules() }, // durable bot.schedule/every/delay tasks (registered with an id)
   durability: { backend: new PostgresDurability({ pool }), instanceId: process.env.HOSTNAME },
+})
+
+bot.schedule('0 9 * * 1-5', { id: 'daily-report', timeZone: 'America/Bogota' }, async (run) => {
+  // run.occurrenceKey identifies this occurrence (runs are at least once)
 })
 ```
 
-| Option | Default | Description |
-| ------ | ------- | ----------- |
-| `pool` | — | An existing pool (shared with the store). Never ended by the backend; give it its own `pool.on('error', …)`. |
-| `connectionString` | `postgres://localhost:5432/botwa` | Used to create a pool when `pool` is not given; `stop()` ends it. |
-| `tablePrefix` | `''` | Plain SQL identifier prefix for the table. |
-| `logger` | — | Receives the connection errors of idle clients of a pool the backend created (the pool reconnects on the next query). |
+- **Scheduler** (`{tablePrefix}schedules`): every operation is one atomic statement (`INSERT … ON CONFLICT`, `UPDATE … RETURNING`), so a claim has exactly one winner across replicas. `delete()` (`task.cancel()`, `bot.forgetTask(id)`) is a soft delete that keeps the id's fencing token; purge old tombstones by hand only when no runner can still hold their token (`DELETE FROM schedules WHERE deleted AND updated_at < <epoch ms a day ago>`). Times are whole milliseconds: a fractional slot or interval rounds up, a fractional `now` rounds down. Leases use the caller's clock, so keep replicas in sync (NTP). A standalone `new PostgresScheduleStore({ pool, tablePrefix })` borrows any pool and never ends it.
+- **Durability** (`{tablePrefix}durable`, created by the backend's `start()`, which the bot calls): every state change is an `UPDATE … WHERE version = $n`, so two replicas never claim the same record and a stale lease holder's completion is rejected by its fencing token. `PostgresDurableKv` is the same table as a plain `DurableKv` for your own durable records.
 
-## Durable scheduler
+| `PostgresDurability` option | Default | Description |
+| --- | --- | --- |
+| `pool` | none | An existing pool (shared with the store). Never ended by the backend. |
+| `connectionString` | `'postgres://localhost:5432/botwa'` | Used to create a pool when `pool` is not given; `stop()` ends it. |
+| `tablePrefix` | `''` | Prefix for the `durable` table. |
+| `logger` | none | Receives the idle-client errors of a pool the backend created. |
 
-`store.schedules()` returns a `PostgresScheduleStore` on the same pool and `tablePrefix` (table `{tablePrefix}schedules`), for `bot.schedule/every/delay(spec, { id }, fn)` durable tasks shared by any number of replicas:
+## Table layout
 
-```ts
-const store = new PostgresStore({ connectionString: process.env.DATABASE_URL })
-const bot = new Bot({ provider, store, scheduler: { store: store.schedules() } })
-bot.schedule('0 9 * * 1-5', { id: 'daily-report', timeZone: 'America/Bogota' }, async (run) => { /* … */ })
-```
+| Table | Key | Contents |
+| --- | --- | --- |
+| `messages` | `messageKey(ref)` | `StoredMessage` (`JSONB`) plus `chat_id` and a `timestamp BIGINT` sort key; indexed by `(chat_id, timestamp)` |
+| `chats` | chat id | `StoredChat` (`JSONB`) |
+| `contacts` | contact id | `StoredContact` (`JSONB`) |
+| `checkpoints` | key | `FlowCheckpoint` (`JSONB`) |
+| `conversations` | key | `@botmesh/ai` history (`AIMessage[]`, `JSONB`) |
+| `cursors` | key | delivery cursors (e.g. Telegram `update_id`), `WELCOME` markers, handoff index |
+| `user_data` | user id + namespace + key | `ctx.user` entries (exact JSON text, optional expiry, indexed) |
+| `schedules` | task id | durable scheduler tasks (`store.schedules()`) |
+| `durable` | table + id | durability journals (`PostgresDurability`) and other `DurableKv` documents |
 
-- Every operation is **one atomic statement** (`INSERT … ON CONFLICT`, `UPDATE … RETURNING`), so it only needs `pool.query()`: a claim's row lock plus READ COMMITTED's re-check give exactly one winner per occurrence.
-- The scheduler calls its `start()`, which creates the table (`CREATE TABLE IF NOT EXISTS`, catalog races retried). The bot starts the store first; if you use the store only for schedules, `await store.start()` yourself. A standalone `new PostgresScheduleStore({ pool, tablePrefix })` borrows any pool and never ends it.
-- `delete()` (`task.cancel()`, `bot.forgetTask(id)`) is a soft delete: the row stays with `deleted = TRUE` so the id's fencing token never goes backwards. Purge old tombstones by hand only when no runner can still hold their token, e.g. `DELETE FROM schedules WHERE deleted AND updated_at < <epoch ms a day ago>`.
-- Leases use the caller's clock (`now`): keep replicas in sync (NTP). BIGINT columns come back as numbers.
-- Times are stored in whole milliseconds (BIGINT rejects a fraction): a fractional slot, lease end or interval (`every(1500.5)`) rounds **up**, and a fractional `now` rounds **down**, so nothing is claimed before it is due.
-- `tests/schedules.integration.test.ts` runs the shared `ScheduleStore` conformance suite, concurrent claims from two pools, a concurrent schema race and a two-bot end-to-end run against a real server (same `BOTWA_TEST_POSTGRES_URL`).
+Every name gets the `tablePrefix`. Schema creation is idempotent (`CREATE TABLE IF NOT EXISTS`), and replicas booting at the same moment retry a lost catalog race (`23505`, `42P07`, `42710`) instead of failing. All statements are parameterized.
 
+## Errors you may see
 
-## Integration tests
+| Error | Cause and fix |
+| --- | --- |
+| `needs the PostgreSQL driver "pg", which is not installed` | Install the peer dependency (`pnpm add pg`), or pass your own `pool`. |
+| `PostgresStore is not started — call start() before using it` | The bot starts the store; if you use it on its own, `await store.start()` first. |
+| `invalid tablePrefix` | Use a plain SQL identifier prefix (`[A-Za-z_][A-Za-z0-9_]*`). |
+| `code: '22021'` (invalid byte sequence) | An id or key contains U+0000, which PostgreSQL `TEXT` rejects. Ids must not contain it. |
+| `ECONNREFUSED` / timeouts on Windows with Docker | Use `127.0.0.1` instead of `localhost`: `localhost` resolves to `::1` first and Docker Desktop's IPv6 forwarding can hang. |
 
-Unit tests run against the in-memory `FakePool`, which pattern-matches the statements the store issues, so they cannot prove that PostgreSQL accepts them. `tests/integration.test.ts` runs the shared `IStore` conformance suite plus store-specific checks (idempotent schema, persistence across `stop()`/`start()`, `maxMessagesPerChat` trimming, `deleteChat` purging the log, atomic shallow merge, unicode and multi-MB JSON, ordering/limit, concurrent writes) against a **real** server.
+## Behaviour notes
 
-It is opt-in: without `BOTWA_TEST_POSTGRES_URL` the whole file is skipped and `pnpm test` stays hermetic (no network).
+- `upsertChat` / `upsertContact` **shallow-merge on the server** (`data - <keys set to undefined> || patch`), so concurrent partial updates from several replicas never drop each other's fields.
+- `deleteChat(chatId)` removes the chat **and** its message log in one statement.
+- `getMessagesByChat(chatId, limit)` returns the newest `limit` messages, oldest first (same windowing as the other stores). Order among messages with the same millisecond is not defined.
+- `JSONB` cannot hold U+0000 or unpaired UTF-16 surrogates (text cut in the middle of an emoji): in messages, chats, contacts, checkpoints and conversations they are stored as U+FFFD instead of failing the write. `ctx.user` values are stored exactly (as JSON text, so U+0000 travels escaped).
+- `timestamp` may be any number: the sort column gets `Math.floor(timestamp)`, the document keeps the exact value.
+- Message rows are keyed by `messageKey(ref)` (`{chatId}:{id}`, with `:` and `%` escaped), so ids containing `:` (such as Twilio's `whatsapp:+1…`) never collide. Rows written by older releases under the unescaped key are still found and moved on the next save.
+- Nothing expires on its own (unlike `@botmesh/redis-store`): delete messages, chats and cursors explicitly, or cap the logs with `maxMessagesPerChat`.
 
-```bash
-# a throwaway PostgreSQL 16 on port 55432
-docker run -d --name botmesh-it-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=botwa -p 55432:5432 postgres:16-alpine
+## Development
 
-BOTWA_TEST_POSTGRES_URL=postgres://postgres:postgres@127.0.0.1:55432/botwa \
-  pnpm --filter @botmesh/postgres-store test
+The unit tests run against in-memory fake pools, with no network. Opt-in suites (`BOTWA_TEST_POSTGRES_URL`) run the shared `IStore`, `ctx.user` and `ScheduleStore` conformance suites, the durability journals, replica hand-over and concurrency checks against a real PostgreSQL; see [CONTRIBUTING](https://github.com/andresayac/botmesh/blob/main/CONTRIBUTING.md#store-integration-tests-docker) for the Docker commands.
 
-docker rm -f botmesh-it-postgres
-```
+## Links
 
-- Use `127.0.0.1` rather than `localhost` on Windows: `localhost` resolves to `::1` first and Docker Desktop's IPv6 port forward can hang until the connection timeout.
-- Each run creates its tables under a random prefix (`it<hex>_<n>_…`, one per store) and drops them in `afterAll`, so reruns and parallel CI jobs can share one database. The user in the URL needs `CREATE` on the current schema.
-- CI does not run this suite; run it locally with Docker before changing the store.
-
+- [Persistent stores guide](https://andresayac.github.io/botmesh/guide/store) · [Scheduler](https://andresayac.github.io/botmesh/guide/scheduler) · [Durable processing](https://andresayac.github.io/botmesh/guide/durability) · [Running N replicas](https://andresayac.github.io/botmesh/guide/replicas) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/postgres-store/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/postgres-store) · [Issues](https://github.com/andresayac/botmesh/issues)

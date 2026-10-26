@@ -50,6 +50,8 @@ pnpm --filter "./packages/*-store" test   # MySQL takes a few seconds to accept 
 docker rm -f botmesh-it-postgres botmesh-it-mysql botmesh-it-mongo botmesh-it-redis
 ```
 
+`mongo-store` runs on a standalone `mongod` (as above, where `deleteChat` falls back to two deletes) and on a replica set (one transaction). To cover the second path, start the container with `--replSet rs0`, run `docker exec botmesh-it-mongo mongosh --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'` once and add `/?directConnection=true` to the URL. Its suites use the `mongodb` 7 driver; `BOTWA_TEST_MONGO_DRIVER=v6` runs all of them with 6.x (the package accepts both as a peer). `mysql-store` is also checked against MariaDB: `docker run -d --name botmesh-it-mariadb -e MARIADB_ROOT_PASSWORD=root -e MARIADB_DATABASE=botwa -p 53307:3306 mariadb:11` and point `BOTWA_TEST_MYSQL_URL` at port 53307.
+
 On Windows, always use `127.0.0.1` instead of `localhost`: `localhost` resolves to `::1` first and Docker Desktop's IPv6 forwarding accepts the TCP connection only to cut it, so the hooks time out.
 
 `redis-store` also ships suites against a real **Redis Cluster** (`tests/cluster.integration.test.ts` and `tests/cluster-migrate.integration.test.ts`; the second one also uses `BOTWA_TEST_REDIS_URL`). Ports 47100-47105 stay well away from the ones above; the cluster bus (57100-57105) never leaves the container:

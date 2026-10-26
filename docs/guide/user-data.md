@@ -110,8 +110,7 @@ the `ctx` is a full `MessageContext`, so `ctx.user` works directly.
 ## Stores
 
 Every bundled store supports it: `MemoryStore` (core), `SQLiteStore` and
-`RedisStore`, and the experimental `MongoStore`, `PostgresStore` and
-`MysqlStore`. See
+`RedisStore`, `PostgresStore`, `MysqlStore` and `MongoStore`. See
 [Persistent store](./store#user-data-tables) for the tables and keys they
 use.
 

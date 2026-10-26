@@ -223,6 +223,19 @@ describe('MongoStore — lifecycle', () => {
     }
   })
 
+  it('an own client is built on start(): calls before it fail clearly, earlier handles work after it', async () => {
+    const store = new MongoStore({ url: 'mongodb://fake:27017', dbName: 'lazy' })
+    const schedules = store.schedules() // handed out at Bot construction, before start()
+    await expect(store.getChat('c')).rejects.toThrow(/not started/)
+    await expect(schedules.get('t')).rejects.toThrow(/not started/)
+    await store.start()
+    await store.upsertChat({ id: 'c', name: 'Ana' })
+    expect(await store.getChat('c')).toEqual({ id: 'c', name: 'Ana' })
+    await schedules.register({ id: 't', kind: 'interval', spec: '1000', nextRunAt: 1 }, 0)
+    expect((await schedules.get('t'))?.id).toBe('t')
+    await store.stop()
+  })
+
   it('never connects or closes an injected client', async () => {
     const fake = new FakeMongoClient() // note: connected === false
     const store = new MongoStore({ client: fake })

@@ -269,16 +269,15 @@ se conserva y nunca se ejecuta.
 | `timeZone` | zona del proceso | Zona IANA por defecto de todas las tareas cron del bot, normales o durables (ver [Zonas horarias](#zonas-horarias)). Por sí sola no arranca nada. |
 
 Cada paquete de store trae su store de calendarios, que comparte la conexión y
-el prefijo del store (los stores de PostgreSQL, MySQL y MongoDB están en el
-repositorio y aún no en npm):
+el prefijo del store:
 
 | Store | `store.schedules()` | Almacenamiento |
 |---|---|---|
 | `@botmesh/sqlite-store` | `SQLiteScheduleStore` | Tabla `schedules` (más `schedule_fences`); cada llamada es una transacción `BEGIN IMMEDIATE`. |
 | `@botmesh/redis-store` | `RedisScheduleStore` | `{prefix}:sched:{id}`, scripts de compare-and-set. |
-| `@botmesh/postgres-store` (experimental) | `PostgresScheduleStore` | Tabla `{tablePrefix}schedules`; cada llamada es una sentencia atómica (los reclamos son `UPDATE … RETURNING`). |
-| `@botmesh/mysql-store` (experimental) | `MysqlScheduleStore` | Tabla `{tablePrefix}schedules` (ids VARBINARY, hasta 1024 bytes); los reclamos hacen `SELECT … FOR UPDATE` en una transacción corta. |
-| `@botmesh/mongo-store` (experimental) | `MongoScheduleStore` | Colección `{collectionPrefix}schedules`; comandos de un solo documento (`findOneAndUpdate`), así que sirve un `mongod` standalone. |
+| `@botmesh/postgres-store` | `PostgresScheduleStore` | Tabla `{tablePrefix}schedules`; cada llamada es una sentencia atómica (los reclamos son `UPDATE … RETURNING`). |
+| `@botmesh/mysql-store` | `MysqlScheduleStore` | Tabla `{tablePrefix}schedules` (ids VARBINARY, hasta 1024 bytes); los reclamos hacen `SELECT … FOR UPDATE` en una transacción corta. |
+| `@botmesh/mongo-store` | `MongoScheduleStore` | Colección `{collectionPrefix}schedules`; comandos de un solo documento (`findOneAndUpdate`), así que sirve un `mongod` standalone. |
 
 Con varias réplicas, guarda los calendarios en el store compartido y, si
 quieres, dale al scheduler un préstamo de líder:

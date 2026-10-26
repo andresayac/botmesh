@@ -5,7 +5,7 @@
  * covered by the user-data conformance suite.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { MysqlStore, type MysqlQueryResult, type PoolLike } from '../src/MysqlStore.js'
+import { MysqlStore, type MysqlQueryResult, type MysqlPoolLike } from '../src/MysqlStore.js'
 import { FakePool } from './fakePool.js'
 
 describe('MysqlStore — user data', () => {
@@ -95,7 +95,7 @@ describe('MysqlStore — user data', () => {
   })
 
   it('returns numeric metadata when the driver yields BIGINT columns as strings (bigNumberStrings)', async () => {
-    const stringly: PoolLike = {
+    const stringly: MysqlPoolLike = {
       async query(sql: string, params?: readonly unknown[]): Promise<MysqlQueryResult> {
         const [rows, fields] = await fake.query(sql, params)
         if (!Array.isArray(rows)) return [rows, fields]

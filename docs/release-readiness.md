@@ -1,7 +1,9 @@
 # Release readiness: stable
 
-Go/no-go report for moving the ten public `@botmesh/*` packages to a **stable** release
-(core `2.0.0`, the others at a version the maintainer picks). It closes the
+Go/no-go report for moving the public `@botmesh/*` packages to a **stable** release
+(core `2.0.0`, the others at a version the maintainer picks). It covers thirteen packages:
+the ten public since the alpha and `@botmesh/postgres-store`, `@botmesh/mysql-store` and
+`@botmesh/mongo-store`, made public in the [store promotion round](#store-promotion-round). It closes the
 stable-readiness campaign of October 2026: six workstreams, each tested by one agent and
 checked by a reviewer, merged into `main` and verified together. The previous report
 (the alpha → beta campaign, base `9bcba20`) gave **GO for beta** and **NO-GO for stable**
@@ -13,8 +15,9 @@ six `fix: integrate <key>` commits, one docs commit tying the migration guides t
 more branches on top of `2726645` (`co/core`, `co/channels`, `co/sandbox`; see
 [Closeout round](#closeout-round)). A final **API freeze round** then merged four more
 branches on top of `4487b43` (`af/ai`, `af/baileys`, `af/meta-net`, `af/redis`; see
-[API freeze round](#api-freeze-round)); the verdicts and numbers below are from after it.
-Nothing was published or pushed; the repo is still in the `alpha` prerelease.
+[API freeze round](#api-freeze-round)); the verdicts and numbers below are from after it,
+except the three promoted stores, whose figures are in the
+[store promotion round](#store-promotion-round). Nothing was published or pushed.
 
 **Channel promotion (branch `pp/channels`, after the beta versioning `cda0ebe`).** Five
 channels left the private set and are public from the beta on: `@botmesh/discord`,
@@ -35,6 +38,7 @@ been exercised against the live service by a real bot; see their rows below.
 | **beta → stable, `@botmesh/core`** | **GO after one beta** | The API freeze is done for core: the main entry went from 512 to 372 names, engine internals moved to `/internal`, a semver-covered `/spi` exists for backend authors, every concept has one canonical name (the others are `@deprecated`), and the behaviour decisions (English default, `retries`/`maxAttempts`, sends need a running bot, long-text splitting, epoch-ms timestamps, presence while disconnected, the `'stopping'` event) are taken, tested and documented with migration pages. No core item from the previous report is left open; what remains is a beta used by a real bot (see [core](#core)). |
 | **beta → stable, the five promoted channels** | **GO after one beta with a live test each** | `discord`, `twilio`, `gupshup`, `email` and `gohighlevel` went through the same API freeze (see the channel promotion note at the top and their rows below), and their suites, `api-check` and `pack:smoke` pass. What they lack compared with the first ten is live use: none has been run against the real service by a bot yet, so each needs at least one live test during beta before `pre exit`. |
 | **beta → stable, the other nine public packages** | **GO after one beta** | The API freeze is done for every public package. Each one has a semver-covered main entry, and the packages that had engine helpers on it now have an `/internal` entry with no semver (`ai`, `baileys`, `redis-store`, `create-botmesh`) and, for `ai`, a `/testing` entry. Mutable exports are frozen, the option names are settled and the old names are `@deprecated` aliases. Each break has a migration note. No package has an open HIGH or MEDIUM item. |
+| **beta → stable, `postgres-store`, `mysql-store`, `mongo-store`** | **GO after one beta** | Promoted from private in the [store promotion round](#store-promotion-round) and frozen like `sqlite-store`/`redis-store`: drivers are lazy-loaded peers, no driver type reachable from a `.d.ts` (`api-check`), `logger: Partial<LoggerLike>`, store and schedule conformance suites plus the real-server suites. They first ship in this beta (`1.0.0-beta.0`), so their beta period starts now; no open HIGH or MEDIUM item. |
 | **Still blocking, exactly** | **Nothing but the beta** | Decided 2026-10-26: `@botmesh/baileys` ships stable on the exact `@whiskeysockets/baileys` `7.0.0-rc14` pin, which is upstream's own npm `latest` tag (the only stable line, `6.7.x` `legacy`, lacks LID addressing). The pin and the upgrade policy are in its README. The stable line is `@botmesh/core` 2.0.0 and **1.0.0 for the other nine public packages** (changeset `first-stable-1-0.md`; with minor bumps they would have stayed on 0.2.0, which semver does not treat as stable). Nothing else blocks `pre exit` except the beta itself (see [Before stable](#before-stable-pre-exit)). |
 
 Per package:
@@ -48,6 +52,9 @@ Per package:
 | `@botmesh/telegram` | GO after one beta | None. `pollTimeoutMs` (alias `pollTimeout`), `toTelegramError`, `@experimental` wire helpers, `debug` deprecated, poll votes parsed. |
 | `@botmesh/sqlite-store` | GO after one beta | None. Schema migrations via `PRAGMA user_version`, newer files refused untouched (`SQLiteSchemaVersionError`), DDL exports deprecated, `logger: Partial<LoggerLike>`, `busyTimeoutMs`. The schedules and durable tables are part of the schema since version 2 (a v2 file is refused by the previous alpha; rollback documented). |
 | `@botmesh/redis-store` | GO after one beta | None. The cluster layout internals moved to `@botmesh/redis-store/internal` (deprecated re-exports kept on the main entry); the deprecated `ttl` option and `acquireLock` were removed. Real single-node and Cluster suites (chaos on) pass with node-redis 4, 5 and 6. |
+| `@botmesh/postgres-store` | GO after one beta (first public in this beta) | None. `pg` is a lazy-loaded peer (only when the store or `PostgresDurability` builds its own pool, with an install hint); `NativePostgresPool` is structural, so `@types/pg` is no longer a dependency; `logger: Partial<LoggerLike>`. Main entry 11 names, no `/internal`. |
+| `@botmesh/mysql-store` | GO after one beta (first public in this beta) | None. `mysql2` is a lazy-loaded peer; `PoolLike`/`ConnectionLike` renamed `MysqlPoolLike`/`MysqlConnectionLike` (hard rename: the package was private); a statement picked as deadlock victim is retried (up to 5 times; MariaDB gap locks on concurrent save + trim). Main entry 9 names. |
+| `@botmesh/mongo-store` | GO after one beta (first public in this beta) | None. `mongodb` 6.x and 7.x accepted as a lazy-loaded peer; `deleteChat` falls back to two deletes on a standalone 7.x server; `ScheduleDoc` renamed `MongoScheduleDoc`, `MongoLikeSession` exported; a store that builds its own client rejects calls before `start()`. Main entry 12 names. |
 | `@botmesh/http`, `@botmesh/graph-core` | GO after one beta | None. `SecureFetchOptions` no longer extends `RequestInit` (no `redirect`; other `RequestInit` fields through a deprecated overload until stable); `resolveHost` (alias `resolvePublicHost`); `checkGraphSignature({ ... })` (positional form deprecated); graph-core is covered by semver. |
 | `create-botmesh` | GO after one beta | None. `TEMPLATES`, `agentsMd` and `findBotMeshMonorepo` live in `create-botmesh/internal` (no semver), deprecated on the main entry. |
 | `@botmesh/discord` | GO after one beta with a live test | A live test against a real Discord application (gateway login, intents, interactions, `autoAcknowledgeMs`, polls). Done: gateway/REST clients, mappers and payload types in `/internal`, `GatewayIntents` frozen, `debug` deprecated, `MESSAGE_UPDATE` edits parsed. Not blocking: votes need `MESSAGE_POLL_VOTE_ADD` parsing. |
@@ -338,6 +345,41 @@ skipped, 0 failed.
   the `docs/gh-pages` branch is kept). No `C:/laragon/www/af-*` folder was left. Only
   this round's containers (`af-integ-*`, the `af-integ-sb` compose project with its
   network and volumes, and their anonymous volumes) were removed.
+
+### Store promotion round
+
+Branch `pp/stores` (on top of `cda0ebe`, the beta versioning commit) made
+`@botmesh/postgres-store`, `@botmesh/mysql-store` and `@botmesh/mongo-store` public
+(changeset `stores-public.md`, `major` from `0.1.0`). Same freeze as the other stores:
+
+- **Drivers as peers.** `pg`, `mysql2` and `mongodb` are peer dependencies, loaded with
+  `await import()` only when a store (or `PostgresDurability`) creates its own pool or
+  client; a missing driver fails with an install hint. Injected pools and clients need
+  nothing else.
+- **No driver types in the API.** `NativePostgresPool`, `NativeMysqlPool` and
+  `NativeMongoClient` are structural interfaces; `api-check` forbids driver imports
+  reachable from the semver entries (`SEMVER_FORBIDDEN_IMPORTS`), and each package has a
+  native-types test.
+- **Names.** `logger: Partial<LoggerLike>` everywhere; mysql `PoolLike`/`ConnectionLike` →
+  `MysqlPoolLike`/`MysqlConnectionLike`; mongo `ScheduleDoc` → `MongoScheduleDoc`,
+  `MongoLikeSession` exported. No `@deprecated` aliases: the packages were never published.
+- **Fixes found by the real-server suites.** mysql retries an auto-committed statement picked
+  as deadlock victim; mongo recognises the 7.x driver's standalone "no transactions" error.
+- **Coverage.** Entry-pin and packaging tests per package; `pack:smoke` installs the three
+  tarballs, imports their entry and compiles a TypeScript consumer; READMEs, guides (EN/ES),
+  `llms.txt`, README, AGENTS and CONTRIBUTING list them as public.
+
+Export counts from `node scripts/api-check.cjs surface`:
+
+| Package | Main entry before | Main entry after (deprecated) | New entries |
+| --- | --- | --- | --- |
+| `@botmesh/postgres-store` | 11 | 11 (0) | none |
+| `@botmesh/mysql-store` | 9 | 9 (0) (2 renamed) | none |
+| `@botmesh/mongo-store` | 11 | 12 (0) | none |
+
+Checks on `pp/stores`: `pnpm api-check` OK (totals postgres-store 11, mysql-store 9,
+mongo-store 12); `pnpm changeset status --verbose` plans **major** →
+`1.0.0-beta.0` for the three; `pnpm pack:smoke` OK for the 13 public packages (the three stores pack at `0.1.0` until `version-packages` applies the changeset). Nothing published.
 
 ## Verification
 

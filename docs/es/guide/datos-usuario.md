@@ -114,8 +114,7 @@ lo construyó un bot. En `bot.conversation(name, async (c, ctx) => ...)` el
 ## Stores
 
 Todos los stores incluidos lo soportan: `MemoryStore` (core), `SQLiteStore` y
-`RedisStore`, y los experimentales `MongoStore`, `PostgresStore` y
-`MysqlStore`. En
+`RedisStore`, `PostgresStore`, `MysqlStore` y `MongoStore`. En
 [Store persistente](./store#tablas-de-datos-de-usuario) están las tablas y
 claves que usa cada uno.
 

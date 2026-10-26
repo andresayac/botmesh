@@ -120,7 +120,10 @@ describe.skipIf(!URL)('PostgresScheduleStore — real PostgreSQL', () => {
     const a = makeBot()
     const b = makeBot()
     await Promise.all([a.bot.start(), b.bot.start()])
+    // About 6 slots fit in 2 s; on a loaded machine the first ones come late, so wait (up to
+    // 8 s) for 5 before stopping instead of failing on a fixed sleep.
     await new Promise((r) => setTimeout(r, 2000))
+    for (const deadline = Date.now() + 6000; keys.length < 5 && Date.now() < deadline;) await new Promise((r) => setTimeout(r, 100))
     await b.bot.stop()
     const runs = keys.length
     expect(new Set(keys).size).toBe(runs)
@@ -139,5 +142,5 @@ describe.skipIf(!URL)('PostgresScheduleStore — real PostgreSQL', () => {
     expect((after.nextRunAt! - stored.nextRunAt!) % 300).toBe(0)
     expect(after.fencingToken).toBeGreaterThanOrEqual(stored.fencingToken)
     await c.bot.stop()
-  })
+  }, 20_000)
 })

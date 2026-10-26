@@ -241,8 +241,9 @@ Límites:
 
 ## Requisitos y límites
 
-- **Un store compartido**: `RedisStore` (los stores de PostgreSQL, MySQL y
-  MongoDB también sirven, pero aún no están en npm). Con `MemoryStore` o
+- **Un store compartido**: `RedisStore`, `PostgresStore`, `MysqlStore` o
+  `MongoStore` (solo Redis trae coordinador; los demás guardan el estado
+  compartido y los checkpoints con compare-and-set). Con `MemoryStore` o
   `SQLiteStore` cada réplica tiene sus propios datos.
 - **Los flujos de varios turnos deberían ser `.persistent()`** (o usa el
   [`handover`](#relevo-de-conversaciones)). Sin eso, un `bot.conversation` o

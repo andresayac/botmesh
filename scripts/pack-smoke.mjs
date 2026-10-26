@@ -75,6 +75,11 @@ import { socketOf, toInbound } from '@botmesh/baileys/internal'
 import { SQLiteStore } from '@botmesh/sqlite-store'
 import { RedisStore, migrateToClusterLayout, type RedisKeyLayout } from '@botmesh/redis-store'
 import { hashSlot, storeKeys } from '@botmesh/redis-store/internal'
+import { PostgresStore, PostgresDurability, type PostgresPoolLike } from '@botmesh/postgres-store'
+import { MysqlStore, MysqlScheduleStore } from '@botmesh/mysql-store'
+import { MongoStore, MongoScheduleStore } from '@botmesh/mongo-store'
+import { createPool } from 'mysql2/promise'
+import { MongoClient } from 'mongodb'
 import { secureFetch } from '@botmesh/http'
 import { verifySignature } from '@botmesh/graph-core'
 import { scaffold } from 'create-botmesh'
@@ -131,6 +136,17 @@ export const nativeRaw: BaileysNativeMessage = undefined
 export const durable = new KvDurability(new MemoryKv())
 export const kvRow: DurableKvEntry | undefined = undefined
 export const redisLayout: RedisKeyLayout = 'cluster'
+// SQL/Mongo stores: the drivers' own pool/client types fit the structural options (no driver
+// type is named by our declarations); the drivers are peer dependencies.
+const pgPool: PostgresPoolLike = { query: async () => ({ rows: [] }), end: async () => {} }
+export const pgStore = new PostgresStore({ pool: pgPool, tablePrefix: 'bot_' })
+export const pgDurable = new PostgresDurability({ pool: pgPool })
+const mysqlPool = createPool('mysql://127.0.0.1:1/x')
+export const mysqlStore = new MysqlStore({ pool: mysqlPool })
+export const mysqlSchedules = new MysqlScheduleStore({ pool: mysqlPool })
+const mongoClient = new MongoClient('mongodb://127.0.0.1:1')
+export const mongoStore = new MongoStore({ client: mongoClient, dbName: 'bot' })
+export const mongoSchedules = new MongoScheduleStore({ collection: mongoClient.db('bot').collection('schedules') })
 
 const createBot = defineBot((provider) => {
   const bot = new Bot({ provider })
@@ -164,6 +180,9 @@ import { MockAIProvider } from '@botmesh/ai/testing'
 import { SQLiteStore } from '@botmesh/sqlite-store'
 import { EmailProvider } from '@botmesh/email'
 import { GatewayIntents } from '@botmesh/discord'
+import { PostgresStore } from '@botmesh/postgres-store'
+import { MysqlStore } from '@botmesh/mysql-store'
+import { MongoStore } from '@botmesh/mongo-store'
 
 // The deprecated main-entry alias is the same class; exported data is frozen.
 assert.equal(DeprecatedMock, MockAIProvider)
@@ -182,6 +201,18 @@ await t2.chat.expectReply(/from ai/)
 const s = new SQLiteStore({ file: ':memory:' })
 await s.upsertChat({ id: 'c1', name: 'x' })
 assert.equal((await s.getChat('c1'))?.name, 'x')
+
+// The SQL stores run on any injected pool (here, fakes); the drivers load lazily, only for an own pool.
+const pg = new PostgresStore({ pool: { query: async () => ({ rows: [] }), end: async () => {} } })
+await pg.start()
+assert.equal(await pg.getChat('c1'), undefined)
+const noRows = async () => [[], []]
+const my = new MysqlStore({ pool: { query: noRows, getConnection: async () => ({ query: noRows, release() {} }), end: async () => {} } })
+await my.start()
+assert.equal(await my.getChat('c1'), undefined)
+// A MongoStore with its own client builds it on start(): before that, a clear "not started" error.
+const mongo = new MongoStore({ url: 'mongodb://127.0.0.1:1' })
+await assert.rejects(mongo.getChat('c1'), /not started/)
 
 // Optional SDK peers are absent: plugging works, the clear error comes only on use.
 const noop = () => {}
@@ -597,7 +628,7 @@ process.exit(bad ? 1 : 0)
   writeFileSync(join(CONSUMER, 'runtime.mjs'), RUNTIME_MJS)
   const rt = run('node', ['runtime.mjs'], { cwd: CONSUMER, timeout: 60_000 })
   if (!rt.ok || !rt.out.includes('RUNTIME OK')) fail('runtime', rt.out.split('\n').slice(-20).join('\n'))
-  else console.log('  runtime scenario OK (createTestBot, aiPlugin+MockAIProvider, SQLiteStore, lazy SDK error)')
+  else console.log('  runtime scenario OK (createTestBot, aiPlugin+MockAIProvider, SQLiteStore, SQL/Mongo stores on injected pools, lazy SDK error)')
 
   // 3d. bins.
   const binOf = (pkgName, bin) => {

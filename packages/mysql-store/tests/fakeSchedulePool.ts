@@ -12,7 +12,7 @@
  *   lock held until COMMIT/ROLLBACK; pool writes to a locked row wait for it. `failNext()`
  *   injects a server error into the next FOR UPDATE (a deadlock rolls the transaction back).
  */
-import type { ConnectionLike, MysqlQueryResult } from '../src/MysqlStore.js'
+import type { MysqlConnectionLike, MysqlQueryResult } from '../src/MysqlStore.js'
 import type { MysqlScheduleQueryable } from '../src/schedules.js'
 
 interface Row {
@@ -64,7 +64,7 @@ export class FakeSchedulePool implements MysqlScheduleQueryable {
     this.failures.push(err)
   }
 
-  async getConnection(): Promise<ConnectionLike> {
+  async getConnection(): Promise<MysqlConnectionLike> {
     this.open++
     return new FakeConnection(this)
   }
@@ -217,7 +217,7 @@ export class FakeSchedulePool implements MysqlScheduleQueryable {
   }
 }
 
-class FakeConnection implements ConnectionLike {
+class FakeConnection implements MysqlConnectionLike {
   inTransaction = false
   private done = false
 
