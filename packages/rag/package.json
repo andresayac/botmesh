@@ -17,6 +17,6 @@
   "dependencies": { "@botmesh/http": "workspace:*" },
   "peerDependencies": { "pdf-parse": ">=1.1.1" },
   "peerDependenciesMeta": { "pdf-parse": { "optional": true } },
-  "devDependencies": { "pdf-parse": "^2.4.5", "@botmesh/ai": "workspace:*", "@botmesh/core": "workspace:*", "@types/node": "^26.1.1", "typescript": "^7.0.2", "vite": "^7.3.6", "vitest": "^4.1.10" },
+  "devDependencies": { "pdf-parse": "^2.4.5", "@botmesh/ai": "workspace:*", "@botmesh/core": "workspace:*", "@types/node": "^26.1.1", "typescript": "^7.0.2", "vite": "^7.3.7", "vitest": "^4.1.12" },
   "publishConfig": { "access": "public" }
 }

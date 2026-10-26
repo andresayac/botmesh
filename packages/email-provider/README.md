@@ -156,13 +156,13 @@ With [`@botmesh/server`](../server), mount it as a route with a larger `maxBodyB
 The `tests/*.test.ts` tests are hermetic: in-memory fake IMAP and SMTP. `tests/integration.test.ts` loads the real peers (`imapflow` and `nodemailer`, `devDependencies` of the package) and talks IMAP IDLE + SMTP to a real server, [GreenMail](https://greenmail-mail-test.github.io/greenmail/), in Docker. It is skipped unless you set `BOTWA_TEST_EMAIL`:
 
 ```bash
-docker run -d --name botwa-it-greenmail \
+docker run -d --name botmesh-it-greenmail \
   -e GREENMAIL_OPTS="-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled" \
   -p 127.0.0.1:3025:3025 -p 127.0.0.1:3143:3143 greenmail/standalone:2.1.3
 
 BOTWA_TEST_EMAIL=1 pnpm --filter @botmesh/email test
 
-docker rm -f botwa-it-greenmail
+docker rm -f botmesh-it-greenmail
 ```
 
 In PowerShell: `$env:BOTWA_TEST_EMAIL = '1'`. The host and ports are changed with `BOTWA_TEST_EMAIL_HOST` (`127.0.0.1`), `BOTWA_TEST_EMAIL_SMTP_PORT` (`3025`) and `BOTWA_TEST_EMAIL_IMAP_PORT` (`3143`), the non-TLS GreenMail ports. With `greenmail.auth.disabled` any login works and mailboxes are created on the fly; each test uses fresh addresses, so it can be repeated against the same container.
