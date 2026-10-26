@@ -13,6 +13,7 @@ import { TenantDocs } from '@botmesh/tenant-kv'
 import {
   DEFAULT_LIST_LIMIT,
   DEFAULT_SCAN,
+  assertConsent,
   assertContactIds,
   assertLimit,
   cloneContact,
@@ -25,7 +26,7 @@ import { ContactNotFoundError, type Contact, type ContactInput, type ContactList
 export interface KvContactStoreOptions {
   /** Time source (epoch ms). Default `Date.now`. */
   clock?: () => number
-  /** Compare-and-set retries of `setConsent` (default 32). */
+  /** Compare-and-set retries of `upsert` and `setConsent` before a `KvContentionError` (default 32). */
   attempts?: number
 }
 
@@ -53,35 +54,31 @@ function parseContact(value: unknown): Contact {
   }
 }
 
-const backoff = (attempt: number): Promise<void> => {
-  if (attempt === 0) return Promise.resolve()
-  const ms = Math.random() * Math.min(64, 2 ** attempt)
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
 export class KvContactStore implements ContactStore {
   private readonly contacts: TenantDocs<Contact>
   private readonly clock: () => number
-  private readonly attempts: number
 
   constructor(kv: DurableKv, options: KvContactStoreOptions = {}) {
     this.clock = options.clock ?? Date.now
-    this.attempts = options.attempts ?? 32
-    if (!Number.isInteger(this.attempts) || this.attempts < 1) throw new RangeError('attempts must be a positive integer')
+    const attempts = options.attempts ?? 32
+    if (!Number.isInteger(attempts) || attempts < 1) throw new RangeError('attempts must be a positive integer')
     this.contacts = new TenantDocs<Contact>(kv, {
       family: ['crm', 'contact'],
       parse: parseContact,
       order: (contact) => -contact.updatedAt,
+      attempts,
     })
   }
 
+  /**
+   * A compare-and-set loop like `setConsent`: concurrent upserts of one contact never fail,
+   * the last one wins whole (as in `MemoryContactStore`).
+   * @throws {KvContentionError} after `attempts` lost compare-and-sets.
+   */
   async upsert(input: ContactInput): Promise<Contact> {
     const contact = normalizeContact(input, this.clock())
-    const table = this.contacts.in(contact.tenantId)
-    const current = await table.get(contact.id)
-    const written = current ? await table.replace(contact.id, current.version, contact) : await table.insert(contact.id, contact)
-    if (!written) throw new Error('contact write lost its compare-and-set')
-    return cloneContact(written.doc)
+    const written = await this.contacts.in(contact.tenantId).update(contact.id, () => contact)
+    return cloneContact(written!.doc)
   }
 
   async get(tenantId: string, id: string): Promise<Contact | undefined> {
@@ -98,17 +95,14 @@ export class KvContactStore implements ContactStore {
     return candidates.filter((contact) => matchesSegment(contact, rule)).slice(0, limit).map(cloneContact)
   }
 
+  /** @throws {ContactNotFoundError} when absent; {@link KvContentionError} after `attempts` lost compare-and-sets. */
   async setConsent(tenantId: string, id: string, marketingConsent: boolean): Promise<Contact> {
     assertContactIds(tenantId, id)
-    const table = this.contacts.in(tenantId)
-    for (let attempt = 0; attempt < this.attempts; attempt++) {
-      await backoff(attempt)
-      const current = await table.get(id)
-      if (!current) throw new ContactNotFoundError()
-      const next: Contact = { ...current.doc, marketingConsent: marketingConsent === true, updatedAt: this.clock() }
-      const written = await table.replace(id, current.version, next)
-      if (written) return cloneContact(written.doc)
-    }
-    throw new Error(`too much contention on contact ${JSON.stringify(id)} after ${this.attempts} attempts`)
+    assertConsent(marketingConsent)
+    const written = await this.contacts.in(tenantId).update(id, (current) =>
+      current && { ...current, marketingConsent, updatedAt: this.clock() },
+    )
+    if (!written) throw new ContactNotFoundError()
+    return cloneContact(written.doc)
   }
 }

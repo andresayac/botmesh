@@ -46,15 +46,43 @@ export function cloneContact(contact: Contact): Contact {
 /** The stored form of an upsert: tags deduplicated and sorted, maps copied, timestamp set. */
 export function normalizeContact(input: ContactInput, now: number): Contact {
   assertContactIds(input.tenantId, input.id)
+  assertContactFields(input)
   return {
     tenantId: input.tenantId,
     id: input.id,
     channels: { ...input.channels },
     tags: [...new Set(input.tags)].sort(),
     attributes: { ...input.attributes },
-    marketingConsent: input.marketingConsent === true,
+    marketingConsent: input.marketingConsent,
     updatedAt: now,
   }
+}
+
+const isPlainObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+const isAttributeValue = (v: unknown): boolean =>
+  typeof v === 'string' || typeof v === 'boolean' || (typeof v === 'number' && Number.isFinite(v))
+
+/** @throws {TypeError} for a consent that is not a boolean. */
+export function assertConsent(value: unknown): asserts value is boolean {
+  if (typeof value !== 'boolean') throw new TypeError('marketingConsent must be a boolean')
+}
+
+/**
+ * @throws {TypeError} naming the field, for channels that are not a map of strings, tags
+ * that are not an array of strings, attributes that are not a map of strings, finite
+ * numbers or booleans, or a non-boolean consent (none of them would survive JSON intact).
+ */
+export function assertContactFields(input: ContactInput): void {
+  if (!isPlainObject(input.channels) || !Object.values(input.channels).every((v) => typeof v === 'string')) {
+    throw new TypeError('channels must be an object of channel name → address strings')
+  }
+  if (!Array.isArray(input.tags) || !input.tags.every((tag) => typeof tag === 'string')) {
+    throw new TypeError('tags must be an array of strings')
+  }
+  if (!isPlainObject(input.attributes) || !Object.values(input.attributes).every(isAttributeValue)) {
+    throw new TypeError('attributes must be an object of strings, finite numbers or booleans')
+  }
+  assertConsent(input.marketingConsent)
 }
 
 export function matchesSegment(contact: Contact, rule: ContactSegment): boolean {
@@ -117,10 +145,11 @@ export class MemoryContactStore implements ContactStore {
 
   async setConsent(tenantId: string, id: string, marketingConsent: boolean): Promise<Contact> {
     assertContactIds(tenantId, id)
+    assertConsent(marketingConsent)
     const key = contactKey(tenantId, id)
     const contact = this.contacts.get(key)
     if (!contact) throw new ContactNotFoundError()
-    const next: Contact = { ...contact, marketingConsent: marketingConsent === true, updatedAt: this.clock() }
+    const next: Contact = { ...contact, marketingConsent, updatedAt: this.clock() }
     this.contacts.set(key, next)
     return cloneContact(next)
   }
