@@ -21,8 +21,9 @@ después de los hooks `before('send')` y antes del transporte: un contenido que
 ningún transporte puede entregar (un `text` que no es string, como
 `ctx.reply(undefined)`; media sin origen; coordenadas fuera de ±90/±180; una
 encuesta o un mensaje de botones sin opciones) rechaza con un `TypeError` que
-nombra el campo, y no se envía nada. Los límites de cada transporte (longitud
-del texto, número de botones) los sigue comprobando cada provider. Se aceptan
+nombra el campo, y no se envía nada. Los límites de cada transporte (número de
+botones, tamaño de la media) los sigue comprobando cada provider; un texto más
+largo de lo que admite el canal se divide solo (ver [Texto largo](#el-texto-largo-se-divide-solo)). Se aceptan
 todas las formas de `MediaSource`, incluida `{ native }` (una referencia propia
 del provider, como un `file_id` de Telegram).
 
@@ -31,6 +32,33 @@ Una respuesta de `ctx` que recibe un `RateLimitedError` con una espera de hasta
 termine por un límite de envío pasajero. Las esperas más largas y el resto de
 errores rechazan como antes; `bot.send()` no se reintenta (las difusiones tienen
 su propio back-off).
+
+### El texto largo se divide solo
+
+Cada canal limita la longitud de un mensaje de texto (`capabilities.maxTextLength` en
+unidades UTF-16, y `capabilities.maxTextBytes` en bytes UTF-8 en Instagram). Un envío
+`text` más largo —una respuesta de `ctx`, un `.say` de flujo, `bot.send` o una difusión—
+sale como varios mensajes, en orden, cortados en el límite más natural que cabe: párrafo,
+línea, frase y, por último, palabra. Un corte nunca parte un emoji (pares sustitutos,
+secuencias ZWJ, banderas, tonos de piel) ni el formato del chat: los enlaces y las URL
+quedan enteros, y un bloque de código, un código en línea, un `*negrita*` o un elemento
+HTML más largo que el límite se cierra al final de una parte y se reabre al inicio de la
+siguiente.
+
+```ts
+const sent = await ctx.reply(respuestaLarga) // 9000 caracteres en Telegram → 3 mensajes
+sent.id        // la última parte
+sent.parts     // el ref de cada parte, en orden (solo si el texto se dividió)
+```
+
+Cada parte es un envío completo: los hooks `before('send')`/`after('send')`, el log de
+mensajes y el outbox durable ven cada parte. Solo la primera parte conserva `quoted`; un
+`idempotencyKey` explícito recibe un sufijo `#2`, `#3`… desde la segunda parte. Si una
+parte falla, el envío rechaza y las partes restantes no se envían. El texto que cabe se
+envía intacto. `ctx.edit` nunca se divide y `ctx.stream()` divide por su cuenta. Se
+desactiva con `new Bot({ splitLongText: false })` (el provider rechaza entonces un texto
+largo con `PayloadTooLargeError`). Para dividir texto tú mismo, usa
+`splitMessage(texto, { maxLength, maxBytes, format })` de `@botmesh/core`.
 
 ## Enviar foto
 
@@ -332,7 +360,8 @@ Además de los helpers de respuesta, cada handler recibe campos de datos en
 = `from` en DMs, participant en grupos), `ctx.senderInfo`, `ctx.pushName`,
 `ctx.chat` (`{ id, kind, name?, isGroup, isBroadcast, participants? }`),
 `ctx.type`, `ctx.isGroup` / `ctx.isPrivate` / `ctx.isFromMe`,
-`ctx.mentions`, `ctx.quoted?`, `ctx.media?` (tras `loadMediaOf`), `ctx.timestamp`, `ctx.tools`
+`ctx.mentions`, `ctx.quoted?`, `ctx.media?` (tras `loadMediaOf`), `ctx.timestamp` (cuándo se
+envió el mensaje, en **milisegundos** epoch en todos los canales: `new Date(ctx.timestamp)`), `ctx.tools`
 (registro de DI), `ctx.raw` (payload nativo del provider), `ctx.ref` (la
 referencia al mensaje — `{ id, chatId, native? }`, reemplaza el `ctx.key`
 de v1), `ctx.user` (el [perfil persistente](./datos-usuario) del remitente),

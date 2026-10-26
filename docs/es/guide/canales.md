@@ -146,6 +146,48 @@ pasan a un menú de texto numerado, `ctx.edit` envía un mensaje nuevo,
   Evolution, WPPConnect, Twilio, Gupshup y HighLevel también rechazan un
   payload dirigido a otro id de provider en lugar de enviarlo.
 
+## Contrato común de los canales
+
+Las mismas reglas valen en todos los canales, así un bot se comporta igual donde corra.
+Quien escribe un provider las comprueba con los helpers de `@botmesh/core/testing`
+(ver [Testing](/es/guide/testing#contratos-de-providers)).
+
+- **Los timestamps son milisegundos epoch.** `ctx.timestamp`,
+  `InboundMessage.timestamp`, `InboundInteraction.timestamp` y
+  `DeliveryStatus.timestamp` son ms epoch en todos los canales. Los transportes que
+  informan segundos (WhatsApp, Telegram, la Cloud API) se multiplican por 1000; uno que
+  no informa hora (Twilio) usa la hora de recepción, nunca `0`. Telegram no envía la
+  hora de pulsación de un botón, así que un callback query lleva la hora de recepción.
+- **El texto largo se divide.** Cada canal declara su límite de texto y el core divide un
+  envío `text` más largo en varios mensajes (ver
+  [Mensajes](/es/guide/mensajes#el-texto-largo-se-divide-solo); `splitLongText: false`
+  lo desactiva).
+- **Las operaciones no soportadas no existen.** Una operación que el transporte no puede
+  hacer no se implementa: falta el método opcional (`typing`, `markRead`, `editMessage`,
+  `deleteMessage`) y su flag de capacidad es `false`, así que `ctx.typing()`,
+  `ctx.markRead()` y `ctx.delete()` no hacen nada. Un método que existe hace la
+  operación o rechaza; nunca es un sustituto silencioso.
+- **Demasiadas opciones rechazan.** Un transporte que muestra menos botones, filas o
+  respuestas de encuesta de las que enviaste rechaza con `UnsupportedContentError`
+  (Cloud API, Messenger, Instagram, Discord), salvo que tenga una degradación
+  documentada (texto numerado en Baileys, Evolution, WPPConnect, Gupshup, TikTok).
+- **Una ruta local de media que no se puede leer** rechaza con
+  `UnsupportedContentError` (el error de fs como `cause`), nunca con un `ENOENT` crudo.
+- **Las esperas tienen tope.** Cada llamada REST tiene timeout (`requestTimeoutMs` en la
+  Cloud API, Telegram, Discord, Messenger e Instagram) y un `RateLimitedError` nunca pide
+  más de 24 h.
+
+| Provider | `maxTextLength` | `maxTextBytes` |
+| --- | --- | --- |
+| Baileys, Evolution, WPPConnect | 65 536 | |
+| Cloud API (`meta`), Gupshup | 4096 | |
+| Telegram | 4096 | |
+| Discord, Messenger | 2000 | |
+| Instagram | 1000 | 1000 |
+| Twilio | 1600 | |
+| TikTok | 6000 (DMs; las respuestas a comentarios admiten 150) | |
+| HighLevel, Email | sin declarar (no se divide) | |
+
 ## Providers
 
 ### `@botmesh/baileys`
@@ -208,8 +250,11 @@ const provider = new CloudAPIProvider({
   `OutsideSessionWindowError`. El gestor opcional `sessionWindow` reabre el
   chat con una plantilla y reintenta: ver
   [Ventana de 24 h y costos](/es/guide/ventana-24h).
-- La API no tiene grupos, indicador de escritura ni encuestas;
-  `deleteMessage` no hace nada.
+- La API no tiene grupos, indicador de escritura ni encuestas, ni borrado para
+  todos: el provider no tiene `typing()` ni `deleteMessage()`, así que
+  `ctx.typing()` y `ctx.delete()` no hacen nada (ver el
+  [contrato común de los canales](#contrato-comun-de-los-canales)).
+- El core divide en varios mensajes el texto de más de 4096 caracteres.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/meta-provider)
 
@@ -286,8 +331,12 @@ const provider = new MessengerProvider({
 - Botones y listas nativos; las reacciones llegan pero no se pueden enviar
   (suscribe el webhook a `message_reactions`; `emoji` es el carácter y
   `removed` se marca con `unreact`).
-- El texto se limita a 2000 caracteres (`maxTextLength`), así los trozos de
-  `ctx.stream()` caben en la Send API.
+- El texto se limita a 2000 caracteres (`maxTextLength`): el texto más largo
+  se divide en varios mensajes, y los trozos de `ctx.stream()` caben en la
+  Send API.
+- Más de 3 botones (plantilla de botones) o de 10 filas de lista (plantilla
+  genérica) rechazan con `UnsupportedContentError` en vez de descartar opciones.
+- Cada llamada a la Send API vence tras `requestTimeoutMs` (60 s por defecto).
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/messenger-provider)
 
@@ -309,9 +358,13 @@ const provider = new InstagramProvider({
 - Los botones salen como quick replies; las listas se degradan a texto
   numerado.
 - Solo DMs (sin grupos); las reacciones llegan pero no se pueden enviar.
-- El texto se limita a 1000 (`maxTextLength`; Meta cuenta bytes UTF-8, así
-  que el texto no ASCII cabe menos), lo que dimensiona los trozos de
-  `ctx.stream()`.
+- El texto se limita a 1000 bytes UTF-8 (`maxTextBytes`, además de
+  `maxTextLength` 1000), así que el texto no ASCII cabe menos: el texto más
+  largo se divide en varios mensajes por bytes, y los trozos de `ctx.stream()`
+  también caben.
+- Más de 13 quick replies rechazan con `UnsupportedContentError` en vez de
+  descartar opciones.
+- Cada llamada a la Send API vence tras `requestTimeoutMs` (60 s por defecto).
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/instagram-provider)
 
@@ -336,10 +389,16 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
   (se puso antes de reiniciar o salió del LRU) rechaza con
   `UnsupportedContentError`.
 - Las interacciones tienen un plazo estricto de confirmación
-  (`interactionsRequireAck`): el core no las confirma por ti, así que un
-  handler que responde a un botón, menú o comando slash llama a
-  `ctx.acknowledge()` (o `ctx.acknowledge('texto')`) en menos de ~3 s; si no,
-  Discord muestra "This interaction failed".
+  (`interactionsRequireAck`, ~3 s). Llama a `ctx.acknowledge()` (o
+  `ctx.acknowledge('texto')`) para responder a un botón, menú o comando slash;
+  si ningún handler lo hace en `autoAcknowledgeMs` (2000 ms por defecto), el
+  provider la difiere por su cuenta y Discord nunca muestra "This interaction
+  failed". Un `ctx.acknowledge('texto')` posterior publica el texto como
+  followup (necesita `appId`). `autoAcknowledgeMs: false` lo desactiva.
+- Más de 25 botones (5 filas de 5), 25 opciones de menú o 10 respuestas de
+  encuesta rechazan con `UnsupportedContentError` en vez de descartar opciones;
+  el texto de más de 2000 caracteres se divide en varios mensajes.
+- Cada llamada REST vence tras `requestTimeoutMs` (60 s por defecto).
 - Los mensajes de sistema (entradas al servidor, fijados, boosts...) y los de
   bots no se enrutan.
 - Un mensaje reenviado trae el texto y la media reenviados (de su snapshot),
@@ -482,7 +541,9 @@ const provider = new GupshupProvider({
 ```
 
 - Los botones salen como quick replies (hasta 3), después como lista (hasta
-  10) y después como texto numerado; las listas son nativas hasta 10 filas.
+  10) y después como texto numerado; las listas son nativas hasta 10 filas. El
+  botón de la lista de los botones degradados usa `listButtonText` (por defecto
+  `'Opciones'`, máximo 20 caracteres).
 - `chatId` = los dígitos del teléfono del remitente (sin `+`), justo lo que
   espera la API de envío.
 - Media solo desde URLs públicas. Gupshup también documenta restringir por
@@ -556,6 +617,38 @@ const provider = new TikTokProvider({
   ventana de 48 h (`OutsideSessionWindowError`).
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/tiktok-provider)
+
+## Migrar desde las alphas de 2.0
+
+El [contrato común de los canales](#contrato-comun-de-los-canales) cambió algunos
+comportamientos de las versiones alpha. Revisa esto al actualizar:
+
+- **`ctx.timestamp` es milisegundos epoch en todas partes.** Baileys, la Cloud API y
+  `MockProvider` informaban segundos epoch. Quita cualquier `* 1000`
+  (`new Date(ctx.timestamp)` ya es correcto). Lo mismo vale para los timestamps de
+  `InboundMessage`, `InboundInteraction` y `DeliveryStatus` en hooks propios. Un provider
+  de terceros que aún emite segundos sigue funcionando: el core convierte un valor menor
+  que `1e12` para `ctx.timestamp` y el log de mensajes, pero actualízalo para emitir ms
+  (`assertInboundContract` lo detecta).
+- **Las pulsaciones de botones en Telegram** llevan la hora de recepción, no la fecha del
+  mensaje que tiene el teclado.
+- **Se quitaron métodos que no hacían nada**: `CloudAPIProvider#typing()` y
+  `#deleteMessage()`, `TelegramProvider#markRead()` y `DiscordProvider#markRead()`. Usa
+  `ctx.typing()`/`ctx.delete()`/`ctx.markRead()` (que ahí no hacen nada) o
+  `provider.typing?.(…)`.
+- **El texto largo se divide** en varios mensajes en vez de rechazar con
+  `PayloadTooLargeError`. `new Bot({ splitLongText: false })` recupera el comportamiento
+  anterior.
+- **Demasiadas opciones rechazan** en Discord (más de 25 botones u opciones de menú, más
+  de 10 respuestas de encuesta), Messenger (más de 3 botones, más de 10 filas de lista) e
+  Instagram (más de 13 quick replies) con `UnsupportedContentError`; antes descartaban
+  las opciones sobrantes en silencio.
+- **Discord difiere las interacciones sin responder** tras 2 s.
+  `autoAcknowledgeMs: false` recupera el comportamiento anterior.
+- **`MockProvider`** informa `capabilities.typing` y `readReceipts` como `false` salvo que
+  exista un método `typing()`/`markRead()` (antes tampoco tenían efecto), y emite
+  timestamps en ms epoch.
+- **`RateLimitedError.retryAfterMs`** tiene un tope de 24 h.
 
 ## Siguientes pasos
 
