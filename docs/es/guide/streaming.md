@@ -11,8 +11,8 @@ bot.when('cuento', async (ctx) => {
   const result = await ctx.stream(
     ctx.tools.ai.stream({ messages: [{ role: 'user', content: 'Cuéntame un cuento corto' }] }),
   )
-  result.text       // full text received
-  result.messages   // every message sent
+  result.text       // texto completo recibido
+  result.messages   // cada mensaje enviado
   result.strategy   // 'draft' | 'edit' | 'chunk' | 'buffer'
 })
 ```
@@ -109,7 +109,7 @@ también cubre el texto en streaming. El payload lleva una marca `stream`:
 ```ts
 bot.before('send', async (payload, next) => {
   if (payload.stream === 'draft' || payload.stream === 'edit') {
-    // live preview: cheap transforms only, it runs on every update
+    // vista previa en vivo: solo transformaciones baratas, corre en cada actualización
   }
   await next()
 })
@@ -126,7 +126,7 @@ El autoresponder de IA transmite su respuesta con la opción `stream`:
 bot.plug(aiPlugin({
   provider: 'anthropic',
   persona,
-  stream: true,                                        // default StreamOptions
+  stream: true,                                        // StreamOptions por defecto
   // stream: { cursor: ' ▌', canStop: true, onCancel: 'discard' },
 }))
 ```
@@ -185,7 +185,8 @@ for (const part of splitMessage(longText, 4096)) await ctx.reply(part)
 ```
 
 `resolveStreamStrategy(target, requested)` dice qué estrategia tendría un
-destino, y `findSplitPoint(text, max)` dónde se cortaría el texto.
+destino, y `findSplitPoint(text, max)` dónde se cortaría el texto. Los dos
+vienen de `@botmesh/core/internal`, sin garantía semver.
 
 ## Testing
 
@@ -195,7 +196,7 @@ destino, y `findSplitPoint(text, max)` dónde se cortaría el texto.
 import { vi } from 'vitest'
 import { createTestBot } from '@botmesh/core/testing'
 
-const { bot, chat, provider } = await createTestBot({}, { provider: { streaming: 'edit' } })
+const { bot, chat, provider } = await createTestBot({ lang: 'es' }, { provider: { streaming: 'edit' } })
 let done = false
 bot.when('hola', async (ctx) => {
   await ctx.stream(['Hola', ' humano'], { throttleMs: 0 })
@@ -203,9 +204,9 @@ bot.when('hola', async (ctx) => {
 })
 
 await chat.send('hola')
-await vi.waitFor(() => expect(done).toBe(true)) // the stream outlives chat.send()
-provider.outbox // the first message
-provider.edits  // the live and final edits
+await vi.waitFor(() => expect(done).toBe(true)) // el stream sigue después de chat.send()
+provider.outbox // el primer mensaje
+provider.edits  // las ediciones en vivo y la final
 ```
 
 `streaming: 'edit'` también expone `editMessage` (se registra en `edits`) y

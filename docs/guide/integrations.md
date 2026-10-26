@@ -424,7 +424,7 @@ import { dialogflowPlugin, whenDialogflowIntent } from '@botmesh/dialogflow'
 
 const bot = new Bot({ provider })
 
-bot.plug(dialogflowPlugin({                         // dialogflowContext is a deprecated alias
+bot.plug(dialogflowPlugin({
   credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS!), // service-account JSON
   languageCode: 'en',
   fulfillment: 'unrouted',     // reply with the agent's text when the intent has no route

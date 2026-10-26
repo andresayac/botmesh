@@ -11,7 +11,7 @@ hasta que escribe la respuesta final.
 
 ```ts
 import { aiPlugin, defineTool } from '@botmesh/ai'
-import { z } from 'zod' // optional: any schema with safeParse()
+import { z } from 'zod' // opcional: cualquier esquema con safeParse()
 
 bot.plug(aiPlugin({
   provider: 'openai',
@@ -24,13 +24,13 @@ bot.plug(aiPlugin({
       handler: async ({ q }: { q: string }) => db.products.search(q),
     },
     crear_pedido: defineTool({
-      title: 'Crear pedido', // shown to the user in the confirmation
+      title: 'Crear pedido', // lo ve el usuario en la confirmación
       description: 'Crea un pedido para el cliente. items: claves del menú y cantidades',
       schema: z.object({
         items: z.array(z.object({ producto: z.enum(['pan_centeno', 'croissant']), cantidad: z.number().int().min(1) })).min(1),
       }),
-      confirm: true, // ask the user "yes/no" before running it
-      dedupe: 'args', // never run the very same order twice in a row
+      confirm: true, // pregunta "sí/no" al usuario antes de ejecutarla
+      dedupe: 'args', // nunca registra el mismo pedido dos veces seguidas
       timeoutMs: 10_000,
       handler: async (args, { ctx }) => db.orders.create({ ...args, chat: ctx?.from }),
     }),
@@ -152,7 +152,7 @@ Las respuestas se comparan sin mayúsculas, tildes ni puntuación, y se ignoran
 las cortesías alrededor del sí/no. Las palabras de "sí" por defecto
 (`DEFAULT_YES`) son `si`, `s`, `yes`, `y`, `ok`, `okay`, `confirmo`,
 `confirmar`, `dale`, `claro`, `de acuerdo`, `acepto`, `1`, `vale`, `listo`,
-`perfecto`, `adelante`, `hazlo`, `correcto`, `está bien`, `sure`, `yeah` y
+`perfecto`, `adelante`, `hazlo`, `correcto`, `esta bien`, `sure`, `yeah` y
 `yep`; las de "no" (`DEFAULT_NO`) son `no`, `n`, `nop`, `nope`, `nel`,
 `cancelar`, `cancela`, `cancelo`, `cancel`, `negativo`, `mejor no`,
 `para nada`, `tampoco`, `no gracias`, `2` y `0`. Cámbialas con
@@ -207,7 +207,10 @@ coletilla de respuesta escrita (`ai.tools.confirmButtons`:
   responde también `ai.tools.confirmAnswered` ("Respuesta recibida: Sí." /
   "Answer received: Yes.") cuando una pulsación responde; va apagado por
   defecto porque esos canales ya muestran la elección como mensaje del
-  usuario. Ninguno de los dos avisos sale donde los botones se quitan editando.
+  usuario. Ninguno de los dos avisos sale donde los botones se quitan editando
+  ni donde la confirmación es un menú de texto numerado (Baileys, Evolution,
+  WPPConnect, Twilio, email, GoHighLevel): ahí una respuesta posterior es solo
+  texto.
 - Los canales sin botones nativos (WhatsApp vía Baileys, Evolution, WPPConnect,
   Twilio, SMS, email, GoHighLevel…) mantienen la pregunta escrita con la
   coletilla `(sí/no)`; ahí una respuesta posterior es texto normal y no hay
@@ -439,7 +442,7 @@ const ordersOf = (chat = '') => {
 const active = (chat: string | undefined, id: string) => ordersOf(chat).find((o) => o.id === id && o.estado !== 'cancelado')
 const noOrder = (id: string) => ({ error: `No existe un pedido activo ${id}. Consulta mis_pedidos.` })
 
-const bot = new Bot({ provider })
+const bot = new Bot({ provider, lang: 'es' })
 bot.plug(aiPlugin({
   provider: 'anthropic',
   persona: 'Eres el asistente de Panadería La Espiga. Usa ver_menu para los productos y cotizar_pedido para cualquier precio o total; nunca calcules importes tú.',
@@ -566,11 +569,11 @@ const r = await ctx.tools.ai.runTools(
   { messages: [{ role: 'user', content: ctx.body }] },
   { ctx },
 )
-r.text            // final answer
-r.steps           // model calls made
-r.toolResults     // every tool result, in order
-r.maxStepsReached // true when the loop stopped at maxSteps
-r.truncatedToolCalls // calls not run because the reply was cut off by the token cap
+r.text            // respuesta final
+r.steps           // llamadas al modelo realizadas
+r.toolResults     // cada resultado de herramienta, en orden
+r.maxStepsReached // true si el bucle se detuvo en maxSteps
+r.truncatedToolCalls // llamadas no ejecutadas porque la respuesta se cortó por el tope de tokens
 ```
 
 `runToolLoop()` es el mismo bucle sin `AIClient`: le pasas las herramientas,

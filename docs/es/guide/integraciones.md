@@ -63,13 +63,13 @@ import { createServer } from 'node:http'
 import { Bot } from '@botmesh/core'
 import { chatwootPlugin } from '@botmesh/chatwoot'
 
-const bot = new Bot({ provider, store, handoff: { allowCommands: ['/bot'] } })
+const bot = new Bot({ provider, store, lang: 'es', handoff: { allowCommands: ['/bot'] } })
 
 const chatwoot = chatwootPlugin({
   baseUrl: 'https://app.chatwoot.com',
-  apiKey: process.env.CHATWOOT_TOKEN!,           // access token of a user/agent
+  apiKey: process.env.CHATWOOT_TOKEN!,           // access token de un usuario/agente
   accountId: 1,
-  inboxId: 2,                                    // an "API" inbox
+  inboxId: 2,                                    // un inbox de tipo "API"
   webhookToken: process.env.CHATWOOT_WEBHOOK_TOKEN!,
   labels: { handoff: ['humano'], resume: ['bot'] },
 })
@@ -82,7 +82,7 @@ bot.when('hablar con humano', async (ctx) => {
 
 // Chatwoot: Settings → Integrations → Webhooks
 //   URL: https://bot.example.com/chatwoot?token=<CHATWOOT_WEBHOOK_TOKEN>
-//   events: message_created, conversation_status_changed
+//   eventos: message_created, conversation_status_changed
 createServer(chatwoot.webhookHandler()).listen(3001)
 await bot.start()
 ```
@@ -207,8 +207,8 @@ bot.plug(ticketsPlugin({
   closedMessage: 'Estamos fuera de horario; te respondemos al abrir (ticket #{{id}})',
   assignMessage: '{{assignee}} atiende tu ticket #{{id}}',
   closeMessage: 'Ticket #{{id}} cerrado. ¡Gracias!',
-  handoffOnAssign: true,   // bot.handoff(chatId) on assign
-  resumeOnClose: true,     // bot.resume(chatId) on close
+  handoffOnAssign: true,   // bot.handoff(chatId) al asignar
+  resumeOnClose: true,     // bot.resume(chatId) al cerrar
   onAssign: async (ticket) => notifyAgent(ticket),
 }))
 
@@ -217,7 +217,7 @@ bot.when('soporte', async (ctx) => {
   if (!ticket.created) await ctx.reply(`Ya tienes el ticket #${ticket.id}`)
 })
 
-// Agent panel / your own API
+// Panel de agentes / tu propia API
 const tickets = bot.injectTools.tickets!
 await tickets.assign('1', 'ana')
 await tickets.close('1', { reason: 'resuelto' })
@@ -317,16 +317,16 @@ Moderación de grupos que corre antes que cualquier handler.
 import { Bot } from '@botmesh/core'
 import { moderationPlugin } from '@botmesh/moderation'
 
-const bot = new Bot({ provider })            // groupMode 'all' (the default)
+const bot = new Bot({ provider, lang: 'es' }) // groupMode 'all' (el de por defecto)
 
 bot.plug(moderationPlugin({
-  provider,                                   // enables delete/kick/admins when supported
+  provider,                                   // activa delete/kick/admins si el provider los admite
   antiSpam: { maxMessages: 5, windowMs: 10_000, action: 'warn' },
   wordFilter: { banned: ['spam', 'estafa', /bit\.ly\/\w+/i], action: 'delete' },
   autoKickOnLink: true,                       // = linkFilter: { action: ['delete', 'kick'] }
   warnings: { max: 3, then: 'kick' },
   groups: {
-    [grupoStaff]: false,                      // no moderation here
+    [grupoStaff]: false,                      // sin moderación aquí
     [grupoVentas]: { wordFilter: { banned: ['gratis'] } },
   },
 }))
@@ -438,26 +438,26 @@ y todas las peticiones salen por `secureFetch`.
 import { Bot, flow } from '@botmesh/core'
 import { dialogflowPlugin, whenDialogflowIntent } from '@botmesh/dialogflow'
 
-const bot = new Bot({ provider })
+const bot = new Bot({ provider, lang: 'es' })
 
-bot.plug(dialogflowPlugin({                         // dialogflowContext es un alias obsoleto
-  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS!), // service-account JSON
+bot.plug(dialogflowPlugin({
+  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS!), // JSON de la cuenta de servicio
   languageCode: 'es',
-  fulfillment: 'unrouted',     // reply with the agent's text when the intent has no route
+  fulfillment: 'unrouted',     // responde con el texto del agente si la intención no tiene ruta
 }))
 
 const df = bot.injectTools.dialogflow!
 
-// Handler: receives the normalized result
+// Handler: recibe el resultado normalizado
 whenDialogflowIntent(bot, df, 'order.status', (ctx, r) =>
   ctx.reply(`Buscando el pedido ${String(r.parameters.order)}…`))
 
-// Flow: the parameters are copied into c.state before the first step
+// Flow: los parámetros se copian a c.state antes del primer paso
 whenDialogflowIntent(bot, df, 'book.table', flow('reserva')
   .say((_ctx, c) => `Reserva para ${String(c.state.people)} personas`)
   .ask('¿A nombre de quién?', 'name'))
 
-bot.onMessage((ctx) => ctx.reply('No te entendí'))   // unrouted messages land here
+bot.onMessage((ctx) => ctx.reply('No te entendí'))   // aquí caen los mensajes sin ruta
 ```
 
 Las rutas también pueden ir en la config:
