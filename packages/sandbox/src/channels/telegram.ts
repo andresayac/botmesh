@@ -116,13 +116,13 @@ export class TelegramSimulator extends PlatformSimulator {
   }
 
   /** Config for `new TelegramProvider(...)`: polling by default, or webhook mode with the secret. */
-  providerConfig(mode: 'polling' | 'webhook' = 'polling'): { token: string; baseUrl: string; polling: boolean; webhookSecret?: string; pollTimeout: number; mediaDownload: { allowHttp: true; allowPrivateHosts: true } } {
+  providerConfig(mode: 'polling' | 'webhook' = 'polling'): { token: string; baseUrl: string; polling: boolean; webhookSecret?: string; pollTimeoutMs: number; mediaDownload: { allowHttp: true; allowPrivateHosts: true } } {
     return {
       token: this.token,
       baseUrl: this.url,
       polling: mode === 'polling',
       ...(mode === 'webhook' ? { webhookSecret: this.webhookSecret } : {}),
-      pollTimeout: 1,
+      pollTimeoutMs: 1000,
       mediaDownload: { allowHttp: true, allowPrivateHosts: true },
     }
   }

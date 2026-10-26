@@ -95,8 +95,9 @@ navegador también podría llegar a `127.0.0.1`, así que la API se protege:
 Los botones de una encuesta envían un voto nativo en los canales cuyo provider lo convierte en
 un evento `'poll'` (`POLL_VOTE_PARSING` en `@botmesh/sandbox/providers`). En los demás
 envían el texto de la opción. Los simuladores de Telegram y Discord ya entregan votos nativos
-(`poll_answer`, `MESSAGE_POLL_VOTE_ADD`), pero sus providers aún no los interpretan. Un test
-falla en cuanto uno lo haga, así que el conjunto se actualiza junto con el provider.
+(`poll_answer`, `MESSAGE_POLL_VOTE_ADD`); hoy solo el provider de Telegram los interpreta, así
+que Telegram recibe un voto nativo y Discord el texto de la opción. Un test falla en cuanto un
+provider y el conjunto no coinciden, así que el conjunto se actualiza junto con el provider.
 
 El **bot demo** (`--bot demo`, por defecto) responde a `hola`, `menu`, `ubicacion` y
 `encuesta`, confirma la media y las ubicaciones que recibe, y pasa todo lo demás a `aiPlugin`

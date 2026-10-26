@@ -256,6 +256,10 @@ describe('hub: poll votes', () => {
   it('reports how the UI should send poll votes for each channel', async () => {
     const channels = (await raw(sandbox.url, 'GET', '/api/channels')).json() as Array<{ channel: string; pollVotes: string }>
     for (const c of channels) expect(['native', 'text']).toContain(c.pollVotes)
+    const mode = Object.fromEntries(channels.map((c) => [c.channel, c.pollVotes]))
+    if ('telegram' in mode) expect(mode['telegram']).toBe('native')
+    if ('discord' in mode) expect(mode['discord']).toBe('text')
+    if ('whatsapp' in mode) expect(mode['whatsapp']).toBe('text')
   })
 
   it('delivers a native poll vote to the Telegram and Discord simulators', async () => {

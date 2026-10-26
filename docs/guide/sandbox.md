@@ -91,8 +91,9 @@ could also reach `127.0.0.1`, so the API protects itself:
 Poll buttons send a native vote on channels whose provider turns one into a `'poll'` event
 (`POLL_VOTE_PARSING` in `@botmesh/sandbox/providers`). Everywhere else they send the
 option text. The Telegram and Discord simulators can deliver native votes (`poll_answer`,
-`MESSAGE_POLL_VOTE_ADD`), but their providers do not parse them yet. A test fails as soon as
-one of them does, so the set is updated together with the provider.
+`MESSAGE_POLL_VOTE_ADD`); today only the Telegram provider parses them, so Telegram gets a
+native vote and Discord the option text. A test fails as soon as a provider and the set
+disagree, so the set is updated together with the provider.
 
 The **demo bot** (`--bot demo`, the default) answers `hola`, `menu`, `ubicacion` and
 `encuesta`, echoes media and locations, and sends anything else to `aiPlugin` with a scripted

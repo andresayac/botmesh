@@ -48,8 +48,8 @@ The UI's JSON API is local-only:
   4xx with `{ "error": "..." }`, never a 500.
 
 Poll buttons send a native vote on channels whose provider parses one (`POLL_VOTE_PARSING`).
-On every other channel they send the option text. Today no provider parses votes:
-`tests/poll-votes.test.ts` fails as soon as Telegram or Discord starts parsing them.
+On every other channel they send the option text. Today only Telegram parses votes
+(`poll_answer`); `tests/poll-votes.test.ts` fails as soon as a provider and the set disagree.
 
 ## Official API specs
 
