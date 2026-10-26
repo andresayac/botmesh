@@ -104,6 +104,30 @@ function mediaHints(content: OutboundContent): MediaHints {
   return { kind: content.kind }
 }
 
+/**
+ * Fail fast on the config mistakes that otherwise surface much later as an
+ * opaque Graph 401 (`Bearer undefined`) or a webhook that never verifies.
+ * Messages name the field, never its value.
+ */
+function assertConfig(config: CloudAPIProviderConfig): void {
+  if (!config || typeof config !== 'object') throw new TypeError('CloudAPIProvider needs a config object')
+  const required: Array<[keyof CloudAPIProviderConfig, string]> = [
+    ['accessToken', 'the permanent (system-user) access token'],
+    ['phoneNumberId', 'the phone number id of the sending number'],
+    ['verifyToken', 'the verify token you set in the Meta webhook subscription'],
+  ]
+  for (const [field, what] of required) {
+    const value = config[field]
+    if (typeof value !== 'string' || value.trim() === '') {
+      throw new TypeError(`CloudAPIProvider: \`${field}\` is required (${what}); got ${value === undefined ? 'undefined' : `an empty or non-string value`}. Check the environment variable that feeds it.`)
+    }
+  }
+  const timeout = config.requestTimeoutMs
+  if (timeout !== undefined && !(Number.isFinite(timeout) && timeout > 0)) {
+    throw new TypeError('CloudAPIProvider: `requestTimeoutMs` must be a positive number of milliseconds')
+  }
+}
+
 export class CloudAPIProvider implements IProvider<unknown> {
   readonly id = 'meta'
   readonly capabilities: ProviderCapabilities = {
@@ -132,6 +156,7 @@ export class CloudAPIProvider implements IProvider<unknown> {
   private pending: Promise<void> | undefined
 
   constructor(config: CloudAPIProviderConfig) {
+    assertConfig(config)
     this.config = { apiVersion: 'v21.0', graphUrl: 'https://graph.facebook.com', ...config }
     this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
     this.graph = new GraphClient({
@@ -140,6 +165,7 @@ export class CloudAPIProvider implements IProvider<unknown> {
       apiVersion: this.config.apiVersion,
       graphUrl: this.config.graphUrl,
       mediaDownload: this.config.mediaDownload,
+      ...(this.config.requestTimeoutMs !== undefined ? { timeoutMs: this.config.requestTimeoutMs } : {}),
     })
     this.identity = new IdentityResolver(config.identityMap ?? new MemoryIdentityMap(), this.logger)
     // The 24 h window belongs to a business number + user pair: scope it by phone number id.

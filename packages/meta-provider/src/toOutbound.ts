@@ -19,10 +19,19 @@ export interface ResolvedMedia {
   link?: string
 }
 
-function mediaObject(media: ResolvedMedia | undefined, extra: Record<string, unknown> = {}): Record<string, unknown> {
+function mediaObject(kind: OutboundContent['kind'], media: ResolvedMedia | undefined, extra: Record<string, unknown> = {}): Record<string, unknown> {
   if (media?.id) return { id: media.id, ...extra }
   if (media?.link) return { link: media.link, ...extra }
-  throw new UnsupportedContentError('image', 'Cloud API media requires an uploaded id or a public link.')
+  throw new UnsupportedContentError(kind, 'Cloud API media requires an uploaded id or a public link.')
+}
+
+/** Graph limits of the interactive labels this mapper truncates (in characters). */
+const LIMITS = { buttons: 3, buttonTitle: 20, listButton: 20, sectionTitle: 24, rowTitle: 24, rowDescription: 72 } as const
+
+/** First `max` characters (code points: an emoji is never split into a lone surrogate). */
+function cut(text: string, max: number): string {
+  const chars = Array.from(text)
+  return chars.length <= max ? text : chars.slice(0, max).join('')
 }
 
 /**
@@ -36,20 +45,20 @@ export function toOutbound(content: OutboundContent, media?: ResolvedMedia): Rec
       return { type: 'text', text: { body: content.text } }
 
     case 'image':
-      return { type: 'image', image: mediaObject(media, content.caption ? { caption: content.caption } : {}) }
+      return { type: 'image', image: mediaObject('image', media, content.caption ? { caption: content.caption } : {}) }
     case 'video':
-      return { type: 'video', video: mediaObject(media, content.caption ? { caption: content.caption } : {}) }
+      return { type: 'video', video: mediaObject('video', media, content.caption ? { caption: content.caption } : {}) }
     case 'audio':
     case 'voice':
-      return { type: 'audio', audio: mediaObject(media) }
+      return { type: 'audio', audio: mediaObject(content.kind, media) }
     case 'document': {
       const extra: Record<string, unknown> = {}
       if (content.filename) extra.filename = content.filename
       if (content.caption) extra.caption = content.caption
-      return { type: 'document', document: mediaObject(media, extra) }
+      return { type: 'document', document: mediaObject('document', media, extra) }
     }
     case 'sticker':
-      return { type: 'sticker', sticker: mediaObject(media) }
+      return { type: 'sticker', sticker: mediaObject('sticker', media) }
 
     case 'location': {
       const location: Record<string, unknown> = { latitude: content.lat, longitude: content.lng }
@@ -71,9 +80,17 @@ export function toOutbound(content: OutboundContent, media?: ResolvedMedia): Rec
       return { type: 'reaction', reaction: { message_id: content.target.id, emoji: content.emoji } }
 
     case 'buttons': {
-      const buttons = content.buttons.slice(0, 3).map((b) => ({
+      // Graph allows 3 reply buttons: dropping the rest would hide options from the user.
+      if (content.buttons.length > LIMITS.buttons) {
+        throw new UnsupportedContentError(
+          'buttons',
+          `Cloud API reply buttons allow at most ${LIMITS.buttons} options; got ${content.buttons.length}. ` +
+            'Send a list (kind list, up to 10 rows) or a numbered choose() menu instead.',
+        )
+      }
+      const buttons = content.buttons.map((b) => ({
         type: 'reply',
-        reply: { id: b.id, title: b.title.slice(0, 20) },
+        reply: { id: b.id, title: cut(b.title, LIMITS.buttonTitle) },
       }))
       return {
         type: 'interactive',
@@ -88,11 +105,11 @@ export function toOutbound(content: OutboundContent, media?: ResolvedMedia): Rec
 
     case 'list': {
       const sections = content.sections.map((s) => ({
-        ...(s.title ? { title: s.title } : {}),
+        ...(s.title ? { title: cut(s.title, LIMITS.sectionTitle) } : {}),
         rows: s.rows.map((r) => ({
           id: r.id,
-          title: r.title.slice(0, 24),
-          ...(r.description ? { description: r.description } : {}),
+          title: cut(r.title, LIMITS.rowTitle),
+          ...(r.description ? { description: cut(r.description, LIMITS.rowDescription) } : {}),
         })),
       }))
       return {
@@ -100,7 +117,7 @@ export function toOutbound(content: OutboundContent, media?: ResolvedMedia): Rec
         interactive: {
           type: 'list',
           body: { text: content.text },
-          action: { button: content.buttonText.slice(0, 20), sections },
+          action: { button: cut(content.buttonText, LIMITS.listButton), sections },
           ...(content.footer ? { footer: { text: content.footer } } : {}),
         },
       }
@@ -122,6 +139,6 @@ export function toOutbound(content: OutboundContent, media?: ResolvedMedia): Rec
       return toFlowMessage(content)
 
     case 'poll':
-      throw new UnsupportedContentError('poll', 'WhatsApp Cloud API no soporta mensajes de encuesta (Graph 131051). Usa botones (kind buttons) o WhatsApp Flows.')
+      throw new UnsupportedContentError('poll', 'WhatsApp Cloud API does not support polls (Graph 131051). Use reply buttons (kind buttons), a list or a WhatsApp Flow form.')
   }
 }

@@ -8,7 +8,7 @@ The **official WhatsApp Cloud API (Meta)** transport for [`@botmesh/core`](https
 pnpm add @botmesh/core @botmesh/meta
 ```
 
-**No extra dependencies** — it uses Node ≥ 22's native `fetch` and `crypto`.
+Nothing else to install: Graph calls use Node ≥ 22's native `fetch` and `crypto`, and inbound media is downloaded through the SSRF-safe [`@botmesh/http`](https://github.com/andresayac/botmesh/tree/main/packages/http) (installed as a dependency).
 
 ## Requirements (Meta)
 
@@ -53,12 +53,24 @@ app.listen(3000)
 > Only for local development can you opt in explicitly with `allowUnsignedWebhooks: true`.
 > A body that is not a JSON object is answered with `400` (it never throws).
 
+## Configuration checks and timeouts
+
+The constructor fails fast, naming the field (never its value), when `accessToken`, `phoneNumberId` or
+`verifyToken` is missing or empty: a typo in an environment variable surfaces at startup instead of as a Graph
+`401` or a webhook that never verifies. Every Graph request (send, upload, mark read, media lookup) has a timeout,
+`requestTimeoutMs` (default `60000`); a request that takes longer rejects with a `ProviderError`. The media CDN
+download has its own `mediaDownload.timeoutMs` (default 15 s).
+
+```ts
+const provider = new CloudAPIProvider({ /* ... */ requestTimeoutMs: 20_000 })
+```
+
 ## What it supports
 
 | Feature | Cloud API |
 |---|---|
 | Text, image, video, audio, document, sticker, location, contact | ✅ (when you upload a `Buffer`, the MIME type comes from the document's `mimetype`, the extension, the bytes or the content type; never `application/octet-stream` for image, audio, video or sticker) |
-| **Reply buttons** (`ctx.buttons`, max 3) | ✅ native |
+| **Reply buttons** (`ctx.buttons`, max 3; more rejects with `UnsupportedContentError` instead of dropping options, so send a list) | ✅ native (titles cut to 20 characters, never inside an emoji) |
 | **Lists** (list `OutboundContent`) | ✅ native |
 | **Templates** (kind `template`, e.g. outside the 24h window) | ✅ |
 | Reactions, read receipts | ✅ |
