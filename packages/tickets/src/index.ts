@@ -10,9 +10,9 @@ import type { TicketsApi } from './types.js'
 
 export { ticketsPlugin, renderTemplate } from './ticketsPlugin.js'
 export type { TicketsPluginConfig } from './ticketsPlugin.js'
-export { TicketDesk, TicketNotFoundError } from './TicketDesk.js'
+export { TicketDesk, TicketNotFoundError, TicketContentionError } from './TicketDesk.js'
 export type { TicketDeskOptions, TicketCallbackName } from './TicketDesk.js'
-export { memoryTicketStorage, storeTicketStorage } from './storage.js'
+export { memoryTicketStorage, storeTicketStorage, durableKvTicketStorage } from './storage.js'
 export { TICKET_PRIORITIES, TICKET_STATUSES } from './types.js'
 export type {
   Ticket,

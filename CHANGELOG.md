@@ -4,6 +4,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### Defectos abiertos fuera del core tras la revisión de salida de alpha (2026-10)
+- **Bug corregido (`@botmesh/tickets`, réplicas):** dos réplicas sobre el mismo store repartían el mismo id de ticket y se pisaban el índice, porque la secuencia y el índice vivían en memoria. `TicketKeyValue` acepta ahora un `setIf` opcional (compare-and-set por valor); con él, el desk relee el índice en cada llamada, reclama cada id con compare-and-set sobre `seq` y reintenta las escrituras perdidas (`maxRetries`, 20 por defecto; después `TicketContentionError`). `memoryTicketStorage()` lo implementa y el nuevo `durableKvTicketStorage(kv, table?)` lo da sobre cualquier `DurableKv` (Postgres, Redis, SQLite, archivo). El almacenamiento por defecto (cursores del store) sigue siendo de un solo proceso.
+
 ### Publicación: changesets archivados con los nombres nuevos (2026-10)
 - **Bug corregido (bloqueaba la siguiente versión):** los 123 changesets que la primera alpha archivó en `.changeset/pre/` seguían nombrando los paquetes antiguos (`@bot-wa/*`, `create-bot-wa`). `pnpm changeset status` (y por tanto `changeset version`) fallaba con `Found changeset … for package @bot-wa/ai which is not in the workspace`, y `changeset pre exit` los habría devuelto a `.changeset/` con esos nombres. Ahora nombran `@botmesh/*` y `create-botmesh`; el texto de las notas no cambia. Un test nuevo de `pnpm test:scripts` (`scripts/smoke/changesets.test.mjs`) comprueba que todo changeset, pendiente o archivado, nombra un paquete del workspace.
 - **Informe de salida de alpha:** `docs/release-readiness.md` reúne el veredicto por paquete, los defectos abiertos, las dudas de congelación de API y la lista de comprobación para beta y estable.

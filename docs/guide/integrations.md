@@ -252,10 +252,20 @@ used without a bot: `new TicketDesk({ storage: memoryTicketStorage() })`.
   Build the panel on `bot.injectTools.tickets` and protect it yourself.
 - `list()` with a filter that may include `closed` scans every id from 1
   to the last one.
-- One process per store namespace: the desk keeps its index and id
-  sequence in memory and serializes writes **in this process only**. Two
-  replicas over the same store would hand out the same id and overwrite
-  each other's index; run the tickets plugin on one replica.
+- The default storage (the store's cursors) has no compare-and-set, so it
+  is for one process per store namespace: two replicas over it would hand
+  out the same id and overwrite each other's index. For replicas, pass a
+  storage with `setIf`, such as `durableKvTicketStorage(kv)` over the same
+  `DurableKv` (Postgres, Redis, SQLite or a file) on every replica. The desk
+  then re-reads the index on every call, claims ids with a compare-and-set
+  and retries a lost write (`maxRetries`, default 20, then
+  `TicketContentionError`).
+
+  ```ts
+  import { durableKvTicketStorage, ticketsPlugin } from '@botmesh/tickets'
+
+  bot.plug(ticketsPlugin({ storage: durableKvTicketStorage(kv) }))
+  ```
 
 ## Moderation
 
