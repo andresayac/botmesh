@@ -12,12 +12,12 @@ import * as main from '../src/index.js'
 import * as internal from '../src/internal.js'
 
 const MAIN_VALUES = [
-  'EXAMPLE_FLOW_DOCUMENT', 'MCP_INSTRUCTIONS', 'MCP_PROTOCOL_VERSION', 'MCP_PROTOCOL_VERSIONS', 'MCP_SERVER_NAME',
+  'DEFAULT_MAX_MESSAGE_LENGTH', 'EXAMPLE_FLOW_DOCUMENT', 'MCP_INSTRUCTIONS', 'MCP_PROTOCOL_VERSION', 'MCP_PROTOCOL_VERSIONS', 'MCP_SERVER_NAME',
   'MCP_SERVER_VERSION', 'createMcpServer', 'runStdio', 'serveStream',
 ]
 
 const INTERNAL_VALUES = [
-  'JSONRPC_VERSION', 'LineDecoder', 'RPC_ERROR', 'createTools', 'docsDirFromArgv', 'docsDirFromEnv', 'encodeMessage',
+  'JSONRPC_VERSION', 'LineDecoder', 'MAX_ARGUMENT_DEPTH', 'RPC_ERROR', 'checkArguments', 'createTools', 'docsDirFromArgv', 'docsDirFromEnv', 'encodeMessage',
   'errorResponse', 'idOf', 'isJsonRpcRequest', 'loadSections', 'markdownFiles', 'parseSections', 'readDocPage',
   'resultResponse', 'searchDocs', 'searchSections', 'stepKindsOf',
 ]

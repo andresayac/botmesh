@@ -6,7 +6,18 @@
  * messages and sends every diagnostic to stderr. `--docs <dir>` (or `BOTMESH_DOCS_DIR`; the deprecated `BOTWA_DOCS_DIR` is still read)
  * enables the documentation tools.
  */
-import { LineDecoder, RPC_ERROR, encodeMessage, errorResponse } from './protocol.js'
+import { statSync } from 'node:fs'
+
+import {
+  LineDecoder,
+  RPC_ERROR,
+  encodeMessage,
+  errorResponse,
+  idOf,
+  type JsonRpcFailure,
+  type JsonRpcResult,
+  type OversizedLine,
+} from './protocol.js'
 import { createMcpServer, type McpServer, type McpToolInfo } from './server.js'
 import { MCP_SERVER_VERSION } from './version.js'
 
@@ -15,8 +26,13 @@ export interface ServeOptions {
   server: McpServer
   /** Write one protocol message; a returned promise is awaited (backpressure). */
   write(line: string): void | Promise<void>
-  /** Called when a write itself fails (a broken pipe, for instance). */
+  /** Called when a write fails (a broken pipe, for instance) or the server throws. */
   reportError?(error: unknown): void
+  /**
+   * Longest accepted line, in characters (default {@link DEFAULT_MAX_MESSAGE_LENGTH}, 16 Mi).
+   * A longer line is discarded as it streams in and answered with `-32600`.
+   */
+  maxMessageLength?: number
 }
 
 export interface StdioOptions {
@@ -42,11 +58,19 @@ export function docsDirFromArgv(argv: readonly string[]): string | undefined {
   return undefined
 }
 
+/** Default {@link ServeOptions.maxMessageLength}: 16 Mi characters per line. */
+export const DEFAULT_MAX_MESSAGE_LENGTH = 16 * 1024 * 1024
+
 /**
  * Serve messages from `input` until it ends. Messages are handled one at a time so the
- * responses cannot interleave; a malformed line answers `-32700` and the session continues.
+ * responses cannot interleave; a malformed line answers `-32700`, a line longer than
+ * `maxMessageLength` answers `-32600`, a batch (a JSON array, MCP `2025-03-26`) answers an
+ * array, and the session always continues.
  */
 export async function serveStream(input: AsyncIterable<string | Uint8Array>, options: ServeOptions): Promise<void> {
+  const maxMessageLength = options.maxMessageLength ?? DEFAULT_MAX_MESSAGE_LENGTH
+  if (!(maxMessageLength > 0)) throw new RangeError('maxMessageLength must be a positive number of characters')
+
   const write = async (line: string): Promise<void> => {
     try {
       await options.write(line)
@@ -55,7 +79,22 @@ export async function serveStream(input: AsyncIterable<string | Uint8Array>, opt
     }
   }
 
-  const handleLine = async (line: string): Promise<void> => {
+  // A server that throws must not end the session: answer -32603 (requests only).
+  const handle = async (message: unknown): Promise<JsonRpcResult | JsonRpcFailure | null> => {
+    try {
+      return await options.server.handle(message)
+    } catch (error) {
+      options.reportError?.(error)
+      const id = idOf(message)
+      return id === null ? null : errorResponse(id, RPC_ERROR.internalError, 'internal error')
+    }
+  }
+
+  const handleLine = async (line: string | OversizedLine): Promise<void> => {
+    if (typeof line !== 'string') {
+      await write(encodeMessage(errorResponse(null, RPC_ERROR.invalidRequest, `message exceeds ${maxMessageLength} characters`)))
+      return
+    }
     let message: unknown
     try {
       message = JSON.parse(line)
@@ -63,11 +102,24 @@ export async function serveStream(input: AsyncIterable<string | Uint8Array>, opt
       await write(encodeMessage(errorResponse(null, RPC_ERROR.parseError, 'invalid JSON')))
       return
     }
-    const response = await options.server.handle(message)
+    if (Array.isArray(message)) {
+      if (message.length === 0) {
+        await write(encodeMessage(errorResponse(null, RPC_ERROR.invalidRequest, 'invalid JSON-RPC request: empty batch')))
+        return
+      }
+      const responses: Array<JsonRpcResult | JsonRpcFailure> = []
+      for (const entry of message) {
+        const response = await handle(entry)
+        if (response !== null) responses.push(response)
+      }
+      if (responses.length > 0) await write(encodeMessage(responses))
+      return
+    }
+    const response = await handle(message)
     if (response !== null) await write(encodeMessage(response))
   }
 
-  const decoder = new LineDecoder()
+  const decoder = new LineDecoder(maxMessageLength)
   // Streaming UTF-8 decode: a multi-byte character split across two chunks stays intact.
   const utf8 = new TextDecoder('utf-8')
   for await (const chunk of input) {
@@ -107,25 +159,54 @@ export async function runStdio(options: StdioOptions = {}): Promise<void> {
     return
   }
   if (argv.includes('--version') || argv.includes('-v')) {
-    process.stdout.write(`${MCP_SERVER_VERSION}
-`)
+    process.stdout.write(`${MCP_SERVER_VERSION}\n`)
     return
   }
   const docsDir = options.docsDir ?? docsDirFromArgv(argv) ?? docsDirFromEnv(process.env)
   const server = createMcpServer(docsDir !== undefined && docsDir !== '' ? { docsDir } : {})
   const tools: readonly McpToolInfo[] = server.tools
   process.stderr.write(`botmesh-mcp: ${tools.length} tool(s)${docsDir ? `, docs ${docsDir}` : ' (docs tools off: pass --docs <dir>)'}\n`)
+  if (docsDir && !isDirectory(docsDir)) {
+    process.stderr.write(`botmesh-mcp: warning: docs directory not found: ${docsDir} (docs_search / docs_page will fail)\n`)
+  }
+
+  // A client that goes away closes the pipe: stop writing instead of crashing on EPIPE.
+  let closed = false
+  let wake: (() => void) | undefined
+  const onStdoutError = (error: Error): void => {
+    if (!closed) process.stderr.write(`botmesh-mcp: stdout closed: ${error.message}\n`)
+    closed = true
+    wake?.()
+  }
+  process.stdout.on('error', onStdoutError)
 
   process.stdin.setEncoding('utf8')
-  await serveStream(process.stdin, {
-    server,
-    write(line) {
-      if (process.stdout.write(`${line}\n`)) return
-      // Respect backpressure: the pipe is full, wait for it to drain.
-      return new Promise<void>((resolve) => { process.stdout.once('drain', resolve) })
-    },
-    reportError(error) {
-      process.stderr.write(`botmesh-mcp: write failed: ${error instanceof Error ? error.message : String(error)}\n`)
-    },
-  })
+  try {
+    await serveStream(process.stdin, {
+      server,
+      write(line) {
+        if (closed) return
+        if (process.stdout.write(`${line}\n`)) return
+        // Respect backpressure: the pipe is full, wait for it to drain (or to break).
+        return new Promise<void>((resolve) => {
+          const onDrain = (): void => { wake?.() }
+          wake = () => { wake = undefined; process.stdout.off('drain', onDrain); resolve() }
+          process.stdout.once('drain', onDrain)
+        })
+      },
+      reportError(error) {
+        process.stderr.write(`botmesh-mcp: ${error instanceof Error ? error.message : String(error)}\n`)
+      },
+    })
+  } finally {
+    process.stdout.off('error', onStdoutError)
+  }
+}
+
+function isDirectory(path: string): boolean {
+  try {
+    return statSync(path).isDirectory()
+  } catch {
+    return false
+  }
 }

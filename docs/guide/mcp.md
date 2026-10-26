@@ -85,18 +85,23 @@ The main entry (`createMcpServer`, `serveStream`, `runStdio`, the protocol revis
 An invalid document is a **successful** call whose payload says `valid: false` with the issues:
 
 ```json
-{ "jsonrpc": "2.0", "id": 2, "result": { "content": [{ "type": "text", "text": "{\n  \"valid\": false,\n  \"issues\": [{ \"path\": \"/steps/0/text\", \"message\": \"must be string\" }]\n}" }] } }
+{ "jsonrpc": "2.0", "id": 2, "result": { "content": [{ "type": "text", "text": "{\n  \"valid\": false,\n  \"issues\": [{ \"path\": \"/steps/0/text\", \"message\": \"must be a string of 1-4096 characters\" }]\n}" }] } }
 ```
 
 `isError: true` is reserved for the **request** (missing or mistyped arguments, an unmigratable version, a path outside the docs root), so an agent can tell "my document needs work" from "my call was wrong".
+
+The arguments are checked against the `inputSchema` that `tools/list` advertises, before the tool runs: an unknown key, a missing required one, a value outside an `enum` or a range (`format`, `direction`, `target` up to the current document version, `limit` from 1 to 25) or a value nested more than 64 levels deep fails with one sentence that names it, for example `invalid arguments for flow_validate: unknown argument "doc" (accepted: "document")`. Error texts never carry absolute paths: a missing page answers `page not found: guide/x.md`.
 
 ## Protocol
 
 - `initialize` answers with `capabilities: { tools: { listChanged: false } }`, the package version and an `instructions` block that states the invariants that are expensive to get wrong (the v1 API does not exist, documents are data, a handler must not `await` a conversation it starts, ids are opaque).
 - Supported revisions: `2025-06-18`, `2025-03-26`, `2024-11-05`. A client asking for another one is answered with `2025-06-18` and decides what to do.
+- Every tool carries `annotations` (`readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false`), so a client may run them without asking for confirmation.
 - `ping`, `tools/list` and `tools/call`; anything else (`resources/*`, `prompts/*`, `logging/setLevel`) answers `-32601`, because those capabilities are not advertised.
 - **Notifications are never answered** (JSON-RPC forbids it), including `notifications/initialized`.
-- One JSON object per line. A malformed line answers `-32700` and the session continues. Nothing but protocol messages is written to stdout; diagnostics go to stderr.
+- A response sent by the client (a message with `result` or `error` and no `method`) is ignored, never answered.
+- One JSON message per line. A malformed line answers `-32700`, a line longer than `maxMessageLength` (16 Mi characters by default, `DEFAULT_MAX_MESSAGE_LENGTH`) answers `-32600` without being buffered, and the session continues. A JSON array is a batch (revision `2025-03-26`): it is answered with an array of responses, notifications left out.
+- Nothing but protocol messages is written to stdout; diagnostics go to stderr. If the client closes the pipe, the server stops writing and exits when stdin ends, without an unhandled `EPIPE`. A `--docs` directory that does not exist is reported on stderr at start-up.
 
 ## Documentation search
 
@@ -108,4 +113,4 @@ Ranking is deterministic and deliberately simple: accent- and case-insensitive t
 
 ## Tests
 
-`pnpm --filter @botmesh/mcp test` covers the framing (messages split across chunks, `\r\n`, a last line without a newline, UTF-8 chunks), every tool with valid and invalid input, the 14 step kinds, subflow resolution, migration of a versionless document, a bilingual search over a temporary tree (including `../` rejection) and the version lockstep with `package.json`.
+`pnpm --filter @botmesh/mcp test` covers the framing (messages split across chunks, `\r\n`, a last line without a newline, UTF-8 chunks, batches, oversized lines, a seeded fuzz of raw chunks), the argument checks, every tool with valid and invalid input, the 14 step kinds, subflow resolution, migration of a versionless document, a bilingual search over a temporary tree (including `../` rejection) and the version lockstep with `package.json`.

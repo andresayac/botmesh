@@ -17,7 +17,9 @@ export {
   isJsonRpcRequest,
   resultResponse,
 } from './protocol.js'
-export type { JsonRpcRequest } from './protocol.js'
+export type { JsonRpcRequest, OversizedLine } from './protocol.js'
+
+export { MAX_ARGUMENT_DEPTH, checkArguments } from './arguments.js'
 
 export { createTools, stepKindsOf } from './tools.js'
 export type { ToolDefinition, ToolOutput } from './tools.js'
