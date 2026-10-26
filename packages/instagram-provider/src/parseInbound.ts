@@ -94,14 +94,15 @@ const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
 const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
 
 /** Attachment types with a direct MediaRef mapping (token = hosted url). Null prototype: `constructor` is not a type. */
-const ATTACH_MEDIA: Readonly<Record<string, { type: MessageType; kind: MediaRef['kind'] }>> = Object.freeze(Object.assign(
-  Object.create(null) as Record<string, { type: MessageType; kind: MediaRef['kind'] }>,
+// The webhook carries no MIME type: each kind gets the usual one of the CDN (as in Messenger).
+const ATTACH_MEDIA: Readonly<Record<string, { type: MessageType; kind: MediaRef['kind']; mimetype: string }>> = Object.freeze(Object.assign(
+  Object.create(null) as Record<string, { type: MessageType; kind: MediaRef['kind']; mimetype: string }>,
   {
-    image: { type: 'image', kind: 'image' },
-    video: { type: 'video', kind: 'video' },
-    audio: { type: 'audio', kind: 'audio' },
-    file: { type: 'document', kind: 'document' },
-    story_mention: { type: 'image', kind: 'image' },
+    image: { type: 'image', kind: 'image', mimetype: 'image/jpeg' },
+    video: { type: 'video', kind: 'video', mimetype: 'video/mp4' },
+    audio: { type: 'audio', kind: 'audio', mimetype: 'audio/aac' },
+    file: { type: 'document', kind: 'document', mimetype: 'application/octet-stream' },
+    story_mention: { type: 'image', kind: 'image', mimetype: 'image/jpeg' },
   },
 ))
 
@@ -145,7 +146,7 @@ function toMessage(ev: IgMessagingEvent, chatId: string, msg: IgMessage): Inboun
       const known = attType !== undefined ? ATTACH_MEDIA[attType] : undefined
       if (known && url) {
         type = known.type
-        media = { kind: known.kind, token: url }
+        media = { kind: known.kind, mimetype: known.mimetype, token: url }
       } else {
         type = 'unknown'
         body = str(att.title) ?? str(payload?.title) ?? ''

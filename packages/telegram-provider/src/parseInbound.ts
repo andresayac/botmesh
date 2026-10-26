@@ -158,7 +158,8 @@ function mediaOf(msg: TelegramMessage): { type: MessageType; body: string; media
     return {
       type: 'image',
       body: caption,
-      media: { kind: 'image', filename: undefined, size: last.file_size, token: last.file_id },
+      // Telegram re-encodes every photo as JPEG and sends no mime_type for it.
+      media: { kind: 'image', mimetype: 'image/jpeg', filename: undefined, size: last.file_size, token: last.file_id },
     }
   }
   const single: Array<[keyof Pick<TelegramMessage, 'document' | 'audio' | 'voice' | 'video' | 'sticker'>, MediaRef['kind']]> = [
