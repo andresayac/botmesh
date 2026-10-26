@@ -700,13 +700,13 @@ importers:
   packages/instagram-provider:
     dependencies:
       '@botmesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@botmesh/graph-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../graph-core
       '@botmesh/http':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../http
       pino:
         specifier: ^10.3.1
@@ -778,13 +778,13 @@ importers:
   packages/messenger-provider:
     dependencies:
       '@botmesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@botmesh/graph-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../graph-core
       '@botmesh/http':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../http
       pino:
         specifier: ^10.3.1

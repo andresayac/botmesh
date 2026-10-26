@@ -168,8 +168,9 @@ concepto, con el antiguo como alias `@deprecated` hasta v3.
 
 El mapeador de errores de bajo nivel de cada provider se llama ahora
 `to<Canal>Error`; los canales privados tienen los mismos cambios de nombre
-(`toDiscordError`, `toMessengerError`, `toInstagramError`, `toTikTokError`,
-`toEmailError`). Los cambios de comportamiento de estos paquetes (votos de encuestas
+(`toDiscordError`, `toTikTokError`, `toEmailError`), y `@botmesh/messenger` y
+`@botmesh/instagram`, públicos desde la beta, solo traen `toMessengerError` y
+`toInstagramError`. Los cambios de comportamiento de estos paquetes (votos de encuestas
 en Telegram, ediciones en Discord, versionado del esquema de SQLite) están en
 [Notas de actualización: canales y plugins](./actualizar-canales-plugins).
 

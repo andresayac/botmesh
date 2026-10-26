@@ -27,12 +27,6 @@ export function toInstagramError(err: GraphError, retryAfterMs?: number, chatId:
   return toGraphError(err, { retryAfterMs, chatId })
 }
 
-/**
- * @deprecated Use {@link toInstagramError} (channel-prefixed like every provider's error
- * mapper). Removal planned for v3.
- */
-export const toProviderError: typeof toInstagramError = toInstagramError
-
 export class GraphClient {
   constructor(private cfg: GraphClientConfig) {}
 

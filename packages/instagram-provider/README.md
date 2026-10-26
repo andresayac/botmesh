@@ -1,8 +1,6 @@
 # @botmesh/instagram
 
-> **Experimental — not yet published on npm.** Real, tested implementation, but the package is `private`: it is not part of the first alpha and its API may change. Use it from this monorepo (`workspace:*`); the `pnpm add` below will work once it is published.
-
-**Instagram DM (Messenger API for Instagram, Meta's official API)** transport for [`@botmesh/core`](../core). It is webhook-based (it opens no socket): messages arrive at the `page` object webhook of the connected Facebook Page and sends use the Graph Send API (`me/messages`).
+The **Instagram DM** transport for [`@botmesh/core`](https://github.com/andresayac/botmesh/tree/main/packages/core), on Meta's official Messenger API for Instagram. It shares its Graph plumbing with [`@botmesh/meta`](https://www.npmjs.com/package/@botmesh/meta) and [`@botmesh/messenger`](https://www.npmjs.com/package/@botmesh/messenger) through [`@botmesh/graph-core`](https://www.npmjs.com/package/@botmesh/graph-core). It is webhook-based (it opens no socket): DMs arrive on the `page` webhook of the Facebook Page the Instagram account is connected to, and sends go through the Graph Send API (`me/messages`).
 
 ## Install
 
@@ -10,77 +8,121 @@
 pnpm add @botmesh/core @botmesh/instagram
 ```
 
-**No extra dependencies** — it uses Node ≥ 22 native `fetch` and `crypto`.
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older version. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/instagram@beta` during the beta (`npm view @botmesh/instagram dist-tags` lists the tags). Once stable, the plain command above works.
+
+Nothing else to install: Graph calls use Node.js 22's native `fetch` and `crypto`, and inbound attachments are downloaded through the SSRF-safe [`@botmesh/http`](https://www.npmjs.com/package/@botmesh/http) (a dependency).
 
 ## Requirements (Meta)
 
-1. A **professional Instagram account** (business or creator) **connected to a Facebook Page** — DMs are routed through that Page.
-2. An app at [developers.facebook.com](https://developers.facebook.com) with the **Messenger** product, the Instagram account connected (Messenger API for Instagram) and the `instagram_basic`, `instagram_manage_messages` and `pages_manage_metadata` permissions.
-3. A **Page access token** for the connected Page.
-4. Configure a **webhook** on the `page` object with the `messages`, `messaging_postback`, `message_reactions` and `message_echoes` fields, pointing at your server (with a `verify_token` you choose and, recommended, the app's `app_secret`).
+1. A **professional Instagram account** (business or creator) **connected to a Facebook Page**: DMs are routed through that Page.
+2. An app on [developers.facebook.com](https://developers.facebook.com) with the **Messenger** product, the Instagram account connected (Messenger API for Instagram) and the `instagram_basic`, `instagram_manage_messages` and `pages_manage_metadata` permissions.
+3. A **Page access token** for the connected Page, and the app's **app secret** (App settings → Basic).
+4. A public **HTTPS webhook** on the `page` object (`instagram` is also accepted) with the `messages`, `messaging_postbacks` and `message_reactions` fields, pointing at your server with a `verify_token` you choose.
 
 ## Usage
 
 ```ts
 import { Bot } from '@botmesh/core'
-import { InstagramProvider } from '@botmesh/instagram'
+import { InstagramProvider, type ChallengeQuery } from '@botmesh/instagram'
 import express from 'express'
 
 const provider = new InstagramProvider({
   accessToken: process.env.META_PAGE_TOKEN!,      // token of the connected Page
-  verifyToken: 'my-verify-secret',                // the one you set in Meta
+  verifyToken: process.env.META_VERIFY_TOKEN!,    // the one you set in Meta
   appSecret: process.env.META_APP_SECRET!,        // required: verifies X-Hub-Signature-256
-  selfId: process.env.IG_ACCOUNT_ID,              // optional: IGSID of the IG account
 })
 
 const bot = new Bot({ provider })
-bot.when('hello', (ctx) => ctx.reply('👋 Hello from Instagram!'))
+bot.when('hi', (ctx) => ctx.reply('👋 Hello from Instagram!'))
 await bot.start()
 
-// ——— YOUR server serves the webhook ———
+// Your server serves the webhook
 const app = express()
 app.get('/webhook', (req, res) => {
-  const challenge = provider.verifyChallenge(req.query as never)
-  challenge ? res.send(challenge) : res.sendStatus(403)
+  const challenge = provider.verifyChallenge(req.query as ChallengeQuery)
+  if (challenge === null) res.sendStatus(403)
+  else res.send(challenge)
 })
-app.post('/webhook', express.json({ verify: (req, _res, buf) => { (req as any).rawBody = buf } }), (req, res) => {
-  res.sendStatus(provider.ingest((req as any).rawBody ?? req.body, req.headers))
+// express.raw keeps the exact bytes Meta signed: never parse the body before ingest()
+app.post('/webhook', express.raw({ type: 'application/json', limit: '1mb' }), (req, res) => {
+  res.sendStatus(provider.ingest(req.body, req.headers))
 })
 app.listen(3000)
 ```
 
-> **Webhook signature:** `appSecret` is mandatory in production; `ingest` validates `X-Hub-Signature-256`
-> (constant-time HMAC-SHA256) and rejects forged bodies with `403`.
-> Pass it the **raw body** (not the already parsed one) so the signature computes the same.
-> For local development only, `allowUnsignedWebhooks: true` can be used explicitly.
+The same two routes work in any framework (or with the [webhook server](https://andresayac.github.io/botmesh/guide/server)): answer the `GET` with `verifyChallenge(query)` and hand the raw `POST` body and headers to `ingest()`, which does not wait for your handlers.
+
+`ingest(body, headers)` returns the HTTP status to answer with and never throws: `200` accepted, `400` for a body that is not a JSON object (or one already parsed while `appSecret` is set), `403` for a bad signature. Fields of the wrong type inside a valid body are ignored, never trusted.
+
+## Options
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `accessToken` | required | Access token of the connected Facebook Page. An empty value fails in the constructor. |
+| `verifyToken` | required | Secret of the webhook `GET` handshake. An empty value fails in the constructor. |
+| `appSecret` | required | Verifies `X-Hub-Signature-256` (constant-time HMAC-SHA256 over the raw bytes) on every `POST`. |
+| `allowUnsignedWebhooks` | `false` | Isolated local development only: accept webhooks without `appSecret` (logs a warning). |
+| `selfId` | none | The Instagram account's own id (IGSID). |
+| `requestTimeoutMs` | `60000` | Time allowed for each Send API call (send, typing, mark seen); a slower call rejects with a `ProviderError`. |
+| `apiVersion` | `'v26.0'` | Graph API version (`DEFAULT_GRAPH_API_VERSION` of `@botmesh/graph-core`). It follows the current version and moves in a minor release; pin it to stay on one. |
+| `graphUrl` | `'https://graph.facebook.com'` | Graph base URL (a proxy or a local simulator). |
+| `mediaDownload` | HTTPS, public hosts | `secureFetch` policy for inbound attachments (`maxBytes`, `timeoutMs`, `allowHttp`…). |
+| `mediaRefHosts` | Meta CDN hosts | Hosts whose attachment URLs may be journaled for durable replays (`BotConfig.durability`). |
+| `logger` | pino at `error` | Any `LoggerLike` (pino, `console`…). |
+| `debug` | `false` | **Deprecated**: pass a `logger` instead. |
 
 ## What it supports
 
 | Feature | Instagram DM |
-|---|---|
+| --- | --- |
 | Text | ✅ |
-| Image, video, audio, document | ✅ **public URL only** (the IG Send API does not accept buffers/paths) |
-| **Buttons** (`ctx.buttons`) | ✅ as **quick replies** (title ≤20) |
-| Quick reply / postback click → interaction (`kind: 'button'`) | ✅ |
-| Lists | ⚠️ degraded to numbered text (IG has no lists) |
-| **Inbound** reactions (IG DM reactions) | ✅ (`kind: 'reaction'`) |
-| Typing (`ctx.typing`) and read receipts (`mark_seen`) | ✅ (sender_action) |
-| Card (`card`) | ✅ as text (its buttons, as quick replies) |
-| Sending reactions / polls / location / contact / sticker / templates | ❌ (`UnsupportedContentError`) |
-| Groups, presence, editing/deleting messages | ❌ (does not exist in the API) |
+| Image, video, audio, document | ✅ by **public URL only** (the Send API takes no buffers or paths) |
+| Buttons (`ctx.buttons`) | ✅ as **quick replies** (max 13, titles up to 20 characters) |
+| Quick reply or postback tap → interaction (`kind: 'button'`, `data` is the button `id`) | ✅ |
+| Lists | ⚠️ degraded to numbered text (Instagram has no lists) |
+| Cards (`card`) | ⚠️ as text, its buttons as quick replies |
+| Inbound reactions (`kind: 'reaction'`) | ✅ |
+| Typing and read receipts (`sender_action`) | ✅ |
+| Inbound media download (`MediaRef.token` is the attachment URL) | ✅ |
+| Text over 1000 UTF-8 bytes (`maxTextBytes`) | ✅ split by bytes into several messages by `@botmesh/core` (non-ASCII text fits less) |
+| `ctx.sendNative('instagram', message)` | ✅ posts a Send API `message` object as is |
+| Sending reactions, polls, location, contact, sticker, templates | ❌ `UnsupportedContentError` |
+| Groups, presence, editing or deleting messages | ❌ (not in the API) |
 
-## Identity
+- **Identity:** `chatId` and `senderId` are the sender's IGSID (Instagram-scoped user id), stable and opaque. The account's own messages arrive as echoes (`is_echo`) and are not emitted; a message the user unsends (`is_deleted`) is not emitted as a new one.
+- **Media by public URL only:** upload files to public hosting and pass the URL (`'https://…'` or `{ url }`). A `Buffer`, a path or a stream rejects with `UnsupportedContentError`.
+- **Replies are not threaded on send:** `options.quoted` is ignored.
+- `acknowledgeInteraction()` is a no-op: quick replies need no ack.
 
-`chatId`/`senderId` are the sender's **IGSID** (Instagram-Scoped User ID) — stable and opaque. The bot's own messages arrive as `message.is_echo` and are discarded (they are not emitted as events).
+## Errors you may see
 
-## Notes
+Sends reject with the typed errors of `@botmesh/core` (mapping in [`@botmesh/graph-core`](https://www.npmjs.com/package/@botmesh/graph-core); `toInstagramError()` exposes it):
 
-- **Media by URL only:** upload files to public hosting and pass the URL (`ctx.photo('https://…/photo.jpg')`). A `Buffer`, path or stream throws `UnsupportedContentError`.
-- `ctx.buttons` is sent as quick replies: tappable chips below the message; the tap arrives as an interaction with `data` = the button `id`.
-- Outside the messaging window, Meta may require the user to interact first (IG platform policy); Graph errors are translated to `@botmesh/core` typed errors (`RateLimitedError` on codes 4/613; `OutsideSessionWindowError` outside the window, subcode 2534022; `RecipientUnreachableError` when the user does not exist or is unavailable, code 551 or subcodes 2018001/2534014).
-- A message the user unsends (`is_deleted`) is not emitted as a new message.
-- **Text length:** IG caps `text` at 1000 bytes of UTF-8; `capabilities.maxTextBytes` (and `maxTextLength`) is 1000, so `@botmesh/core` splits longer text by bytes and sizes the `ctx.stream()` chunks (non-ASCII text fits less).
-- **Option limits:** more than 13 quick replies reject with `UnsupportedContentError` instead of dropping options.
-- **Timeouts:** each Send API call times out after `requestTimeoutMs` (default `60000`) with a `ProviderError`.
-- **Native payloads:** `ctx.sendNative('instagram', message)` posts a Send API `message` object as-is; native content addressed to another provider id is rejected with `UnsupportedContentError`.
-- An empty `accessToken` or `verifyToken` (an unset env var) fails in the constructor, and malformed webhooks never throw: fields of the wrong type are ignored.
+| Error | Typical cause | What to do |
+| --- | --- | --- |
+| `OutsideSessionWindowError` (subcode `2534022`) | Outside the messaging window allowed by Instagram's policy | Wait for the user to write again. |
+| `RecipientUnreachableError` (code `551`, subcodes `2018001`/`2534014`) | The user does not exist or is unavailable | Stop sending to that id. |
+| `RateLimitedError` (codes `4`/`613`) | Page or app rate limit | Wait `retryAfterMs`; `ctx` sends and `bot.broadcast()` already retry short waits. |
+| `UnsupportedContentError` | Poll, reaction, location, contact, sticker, template, a non-URL media source, more than 13 quick replies | Use quick replies or text; host media and pass its URL. |
+| `ProviderError` (code `190`) | Wrong or expired Page token | Generate a new Page access token for the connected Page. |
+| `ProviderError` ("timed out") | A Send API call took longer than `requestTimeoutMs` | Check connectivity to Graph, or raise the timeout. |
+| Constructor error naming a field | `accessToken` or `verifyToken` empty, or `appSecret` missing | Check the environment variables. |
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| Meta says the callback URL could not be verified | The `GET` route answered `403`: the `verify_token` set in Meta differs from `verifyToken`, or the route does not return `verifyChallenge(query)` as plain text. |
+| Every webhook `POST` gets `403` | The signature check failed: `appSecret` is not the app's secret, or the body reached `ingest()` re-serialized (parse nothing before it; pass the raw bytes). See [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting#webhook-signature-mismatch-403). |
+| Webhook `POST`s get `400` | The body is not a JSON object, or a parsed object was passed while `appSecret` is set. |
+| The webhook verifies but no DM arrives | The Instagram account is not a professional account connected to the Page, "Allow access to messages" is off in the Instagram app's settings, or the app lacks `instagram_manage_messages`. |
+| Sends fail with a permissions error | The token is not the connected Page's token, or the app is in development mode and the recipient has no role in it. |
+
+## Internal entry
+
+`@botmesh/instagram/internal` exports the Graph client and the wire helpers (`GraphClient`, `parseInbound`, `toOutbound`) for tooling and tests. It has **no semver guarantee**: any of them may change in a minor release. Applications only need `ingest()` and the bot.
+
+## Links
+
+- [Channels guide](https://andresayac.github.io/botmesh/guide/channels#botmesh-instagram) · [Webhook server](https://andresayac.github.io/botmesh/guide/server) · [Local sandbox](https://andresayac.github.io/botmesh/guide/sandbox) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/instagram-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/instagram-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

@@ -161,8 +161,9 @@ the old one kept as a `@deprecated` alias until v3.
 | `create-botmesh` | `TEMPLATES`, `agentsMd`, `findBotMeshMonorepo`, `AgentsMdInfo` from the main entry | `getTemplate()` / `TEMPLATE_NAMES`, or `create-botmesh/internal` (no semver) |
 
 Every provider's low-level error mapper is now named `to<Channel>Error`; the private
-channels got the same renames (`toDiscordError`, `toMessengerError`,
-`toInstagramError`, `toTikTokError`, `toEmailError`). The behaviour changes of these
+channels got the same renames (`toDiscordError`, `toTikTokError`, `toEmailError`), and
+`@botmesh/messenger` and `@botmesh/instagram`, public from the beta, ship only
+`toMessengerError` and `toInstagramError`. The behaviour changes of these
 packages (Telegram poll votes, Discord edits, SQLite schema versioning) are in
 [Upgrade notes: channels & plugins](./upgrade-channels-plugins).
 

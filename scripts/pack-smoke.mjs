@@ -60,6 +60,10 @@ import { MockAIProvider, validateArgs } from '@botmesh/ai/testing'
 import { toolDefinitions, type AnthropicMessage } from '@botmesh/ai/internal'
 import { TelegramProvider } from '@botmesh/telegram'
 import { CloudAPIProvider } from '@botmesh/meta'
+import { MessengerProvider, toMessengerError, type MessengerSendResponse, type PageWebhookBody } from '@botmesh/messenger'
+import { parseInbound as parseMessengerInbound, toOutboundMessages } from '@botmesh/messenger/internal'
+import { InstagramProvider, toInstagramError, type InstagramSendResponse, type IgWebhookBody } from '@botmesh/instagram'
+import { GraphClient as InstagramGraphClient, parseInbound as parseInstagramInbound } from '@botmesh/instagram/internal'
 import { BaileysProvider, toJid, type BaileysNativeMessage } from '@botmesh/baileys'
 import { socketOf, toInbound } from '@botmesh/baileys/internal'
 import { SQLiteStore } from '@botmesh/sqlite-store'
@@ -74,7 +78,14 @@ export const providers: IProvider[] = [
   new TelegramProvider({ token: 'x', logger: console }),
   new CloudAPIProvider({ accessToken: 'a', phoneNumberId: '1', verifyToken: 'v', appSecret: 's', logger: console }),
   new BaileysProvider({ session: 'demo', logger: console }),
+  new MessengerProvider({ accessToken: 'a', verifyToken: 'v', appSecret: 's', logger: console }),
+  new InstagramProvider({ accessToken: 'a', verifyToken: 'v', appSecret: 's', logger: console }),
 ]
+// Meta Graph channels: webhook payload types on the main entry, wire helpers in /internal.
+export const metaChannelRefs = [toMessengerError, toInstagramError, parseMessengerInbound, toOutboundMessages, InstagramGraphClient, parseInstagramInbound]
+export const messengerHook: PageWebhookBody = { object: 'page', entry: [] }
+export const instagramHook: IgWebhookBody = { object: 'instagram', entry: [] }
+export const sendRaws: Array<MessengerSendResponse | InstagramSendResponse> = [{ message_id: 'm' }]
 export const store = new SQLiteStore({ file: ':memory:' })
 export const refs = [RedisStore, migrateToClusterLayout, hashSlot, storeKeys, secureFetch, verifySignature, scaffold, runCli, createPacer, messageKey, validateArgs, toolDefinitions, socketOf, toInbound, toJid]
 // A fake Anthropic client typed by the client contract on the main entry; wire names come from /internal.

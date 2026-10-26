@@ -4,7 +4,7 @@
 [![Docs](https://img.shields.io/badge/docs-andresayac.github.io%2Fbotmesh-blue)](https://andresayac.github.io/botmesh/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 
-A TypeScript framework for messaging bots. Write handlers and conversation flows once and run them on **WhatsApp** (the unofficial [Baileys 7](https://github.com/WhiskeySockets/Baileys) protocol or the **official Meta Cloud API**) and **Telegram**, with experimental providers for Messenger, Instagram, Discord, TikTok, email and more WhatsApp gateways (Evolution API, WPPConnect, Twilio, Gupshup). Try your bot in the terminal before connecting a phone, test it without a network, and add AI, persistence or multiple replicas when you need them.
+A TypeScript framework for messaging bots. Write handlers and conversation flows once and run them on **WhatsApp** (the unofficial [Baileys 7](https://github.com/WhiskeySockets/Baileys) protocol or the **official Meta Cloud API**) **Telegram**, **Facebook Messenger** and **Instagram DMs**, with experimental providers for Discord, TikTok, email and more WhatsApp gateways (Evolution API, WPPConnect, Twilio, Gupshup). Try your bot in the terminal before connecting a phone, test it without a network, and add AI, persistence or multiple replicas when you need them.
 
 **Documentation: <https://andresayac.github.io/botmesh/>** ([English](https://andresayac.github.io/botmesh/guide/getting-started) · [Español](https://andresayac.github.io/botmesh/es/guide/inicio) · [API reference](https://andresayac.github.io/botmesh/api/))
 
@@ -69,8 +69,8 @@ This is a pnpm monorepo with **45 packages**: 10 **Public**, 27 **Experimental**
 | [`@botmesh/baileys`](packages/baileys-provider) | Public | WhatsApp through Baileys 7 (unofficial, QR or pairing code). |
 | [`@botmesh/meta`](packages/meta-provider) | Public | **Official** WhatsApp Cloud API (webhook, no ban risk, native buttons/lists/templates). |
 | [`@botmesh/telegram`](packages/telegram-provider) | Public | Telegram Bot API (long-poll/webhook, inline keyboards, native polls). |
-| [`@botmesh/messenger`](packages/messenger-provider) | Experimental | Facebook Messenger (Meta Graph, quick replies/templates). |
-| [`@botmesh/instagram`](packages/instagram-provider) | Experimental | Instagram DM (Meta Graph, quick replies). |
+| [`@botmesh/messenger`](packages/messenger-provider) | Public | Facebook Messenger (Meta Graph Send API, signed webhooks, postback buttons, generic templates). Published from the beta. |
+| [`@botmesh/instagram`](packages/instagram-provider) | Public | Instagram DMs (Messenger API for Instagram, signed webhooks, quick replies). Published from the beta. |
 | [`@botmesh/discord`](packages/discord-provider) | Experimental | Discord (gateway websocket + REST, slash/components). |
 | [`@botmesh/evolution`](packages/evolution-provider) | Experimental | WhatsApp through [Evolution API](https://github.com/EvolutionAPI/evolution-api) (self-hosted REST gateway, signed webhook). |
 | [`@botmesh/wppconnect`](packages/wppconnect-provider) | Experimental | WhatsApp through WPPConnect Server (REST + token webhook). |

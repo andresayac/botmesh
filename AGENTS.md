@@ -4,7 +4,7 @@ Guía para agentes de código (y humanos) que trabajan en este repositorio. Comp
 
 ## Qué es
 
-Framework de bots de mensajería **agnóstico de transporte**, en un **monorepo pnpm** (`packages/*` y `examples/*`). El motor es `@botmesh/core`; los canales (WhatsApp vía Baileys, Cloud API, Evolution API, WPPConnect, Twilio o Gupshup; Messenger, Instagram, Telegram, Discord, GoHighLevel, email y TikTok) son paquetes que implementan `IProvider`. Hay **45 paquetes** en `packages/` y un ejemplo ejecutable en `examples/bakery-ai` (`@botmesh/example-bakery-ai`, privado). Todo es **ESM-only**, **Node >= 22** y está en alpha: los 10 paquetes públicos están en npm bajo el dist-tag `alpha` (npm puso `latest` en la primera versión publicada de cada nombre y no se mueve, así que se queda atrás: instala con `@alpha`) y el resto son privados (la publicación va por Changesets, ver [Publicar una versión](#publicar-una-versión)).
+Framework de bots de mensajería **agnóstico de transporte**, en un **monorepo pnpm** (`packages/*` y `examples/*`). El motor es `@botmesh/core`; los canales (WhatsApp vía Baileys, Cloud API, Evolution API, WPPConnect, Twilio o Gupshup; Messenger, Instagram, Telegram, Discord, GoHighLevel, email y TikTok) son paquetes que implementan `IProvider`. Hay **45 paquetes** en `packages/` y un ejemplo ejecutable en `examples/bakery-ai` (`@botmesh/example-bakery-ai`, privado). Todo es **ESM-only**, **Node >= 22** y está en alpha: los paquetes públicos (10 en npm más `messenger` e `instagram`, que se publican por primera vez en la beta) están en npm bajo el dist-tag `alpha` (npm puso `latest` en la primera versión publicada de cada nombre y no se mueve, así que se queda atrás: instala con `@alpha`) y el resto son privados (la publicación va por Changesets, ver [Publicar una versión](#publicar-una-versión)).
 
 Capas (las dependencias van siempre hacia abajo, nunca al revés):
 
@@ -22,9 +22,9 @@ Capas (las dependencias van siempre hacia abajo, nunca al revés):
 
 El nombre del directorio no siempre coincide con el del paquete (`packages/baileys-provider` → `@botmesh/baileys`, `packages/meta-provider` → `@botmesh/meta`, `packages/*-provider` → `@botmesh/<canal>`, `packages/eslint-plugin` → `eslint-plugin-botmesh`). Mira el `name` en su `package.json` antes de usar `--filter`.
 
-Solo 10 paquetes son **públicos**: `core`, `baileys`, `meta`, `telegram`, `sqlite-store`, `redis-store`, `ai`, `http`, `graph-core` y `create-botmesh`. Los otros 35 (más el ejemplo) llevan `"private": true` y nunca se publican:
+Solo 12 paquetes son **públicos**: `core`, `baileys`, `meta`, `telegram`, `messenger`, `instagram`, `sqlite-store`, `redis-store`, `ai`, `http`, `graph-core` y `create-botmesh`. Los otros 33 (más el ejemplo) llevan `"private": true` y nunca se publican:
 
-- Canales: `discord`, `messenger`, `instagram`, `evolution`, `wppconnect`, `twilio`, `gohighlevel`, `gupshup`, `email`, `tiktok`.
+- Canales: `discord`, `evolution`, `wppconnect`, `twilio`, `gohighlevel`, `gupshup`, `email`, `tiktok`.
 - Stores: `mongo-store`, `postgres-store`, `mysql-store`.
 - Plugins e infra: `server`, `wa-gateway-kit`, `rag`, `voice`, `nlu`, `dialogflow`, `chatwoot`, `tickets`, `moderation`, `manager`, `events`, `otel`.
 - Tooling: `eslint-plugin-botmesh`, `@botmesh/mcp`, `@botmesh/sandbox`.

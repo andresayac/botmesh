@@ -232,7 +232,9 @@ every transport.
 | WhatsApp (Baileys 7) | `@botmesh/baileys` | Published | Unofficial WhatsApp Web protocol, QR or pairing code |
 | WhatsApp Cloud API | `@botmesh/meta` | Published | Official Meta API, webhook, native buttons and templates |
 | Telegram | `@botmesh/telegram` | Published | Bot API, long polling or webhook |
-| Messenger, Instagram, Discord, and more | `@botmesh/messenger`, … | Experimental | Not on npm yet; see [Channels](./channels) |
+| Facebook Messenger | `@botmesh/messenger` | Published (from the beta) | Send API, webhook, postback buttons and generic templates |
+| Instagram DMs | `@botmesh/instagram` | Published (from the beta) | Messenger API for Instagram, webhook, quick replies |
+| Discord, email, gateways and more | `@botmesh/discord`, … | Experimental | Not on npm yet; see [Channels](./channels) |
 
 The official WhatsApp Cloud API, for example:
 
