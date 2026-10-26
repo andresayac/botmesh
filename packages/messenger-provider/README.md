@@ -60,7 +60,7 @@ app.listen(3000)
 | `accessToken` | — | Page Access Token (`pages_messaging`). |
 | `verifyToken` | — | Webhook GET handshake secret. |
 | `appSecret` | Yes | Verifies `X-Hub-Signature-256` on every POST. |
-| `apiVersion` | `v21.0` | Graph API version. |
+| `apiVersion` | `v26.0` (`DEFAULT_GRAPH_API_VERSION`) | Graph API version. |
 | `graphUrl` | `https://graph.facebook.com` | Graph base URL. |
 | `pageId` | `me` | Page id (or `me`). |
 | `selfId` | — | The bot's PSID (for `fromMe`). |

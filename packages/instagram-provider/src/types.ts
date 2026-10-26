@@ -19,7 +19,7 @@ export interface InstagramProviderConfig {
   appSecret?: string
   /** Explicit local-development escape hatch for unsigned webhook POSTs. */
   allowUnsignedWebhooks?: boolean
-  /** Graph API version. Default 'v21.0'. */
+  /** Graph API version, e.g. `'v26.0'`. Default: `DEFAULT_GRAPH_API_VERSION` from `@botmesh/graph-core` (the current version, `'v26.0'`). */
   apiVersion?: string
   /** Graph base URL. Default 'https://graph.facebook.com'. */
   graphUrl?: string

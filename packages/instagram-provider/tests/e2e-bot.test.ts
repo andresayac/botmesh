@@ -44,7 +44,7 @@ describe('Instagram + Bot end to end', () => {
       await until(() => calls.length === 1)
       await tick(30)
       expect(calls).toHaveLength(1)
-      expect(calls[0]!.url).toBe('https://graph.facebook.com/v21.0/me/messages')
+      expect(calls[0]!.url).toBe('https://graph.facebook.com/v26.0/me/messages')
       expect(calls[0]!.body).toEqual({ recipient: { id: 'PSID-1' }, message: { text: '¡Hola! ¿En qué te ayudo? 😊' } })
     } finally {
       await bot.stop()

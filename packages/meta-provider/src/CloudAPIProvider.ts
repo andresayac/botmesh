@@ -45,7 +45,7 @@ import { extractDrafts, resolveDrafts, type GraphWebhookBody, type InboundDraft 
 import { IdentityResolver, MemoryIdentityMap, isPromiseLike, type MaybePromise } from './identity.js'
 import { SessionWindowManager } from './sessionWindow.js'
 import { UsageTracker, pricingOf } from './pricing.js'
-import { verifyChallenge, checkGraphSignature, tryParseGraphBody, type ChallengeQuery } from '@botmesh/graph-core'
+import { verifyChallenge, checkGraphSignature, tryParseGraphBody, type ChallengeQuery, DEFAULT_GRAPH_API_VERSION } from '@botmesh/graph-core'
 
 /** Content kinds that carry a `media` source. */
 /** A Cloud API media id (numeric in practice); anything else read back from a journal is rejected. */
@@ -157,7 +157,7 @@ export class CloudAPIProvider implements IProvider<unknown> {
 
   constructor(config: CloudAPIProviderConfig) {
     assertConfig(config)
-    this.config = { apiVersion: 'v21.0', graphUrl: 'https://graph.facebook.com', ...config }
+    this.config = { apiVersion: DEFAULT_GRAPH_API_VERSION, graphUrl: 'https://graph.facebook.com', ...config }
     this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
     this.graph = new GraphClient({
       accessToken: this.config.accessToken,

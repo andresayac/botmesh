@@ -37,8 +37,8 @@
   "devDependencies": {
     "@types/node": "^26.1.1",
     "typescript": "^7.0.2",
-    "vite": "^7.3.6",
-    "vitest": "^4.1.10"
+    "vite": "^7.3.7",
+    "vitest": "^4.1.12"
   },
   "publishConfig": { "access": "public" }
 }

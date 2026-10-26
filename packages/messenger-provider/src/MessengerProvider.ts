@@ -46,6 +46,7 @@ import {
   rehydrateUrlMediaRef,
   type GraphError,
   type ChallengeQuery,
+  DEFAULT_GRAPH_API_VERSION,
 } from '@botmesh/graph-core'
 import { isAllowedHostUrl, secureFetch } from '@botmesh/http'
 import type { MessengerProviderConfig, MessengerSendResponse } from './types.js'
@@ -87,7 +88,7 @@ export class MessengerProvider implements IProvider<unknown> {
     if (typeof config.verifyToken !== 'string' || config.verifyToken === '') {
       throw new Error('MessengerProvider requires `verifyToken` (the webhook verify token you set in Meta); without it the GET handshake always fails.')
     }
-    this.config = { apiVersion: 'v21.0', graphUrl: 'https://graph.facebook.com', pageId: 'me', ...config }
+    this.config = { apiVersion: DEFAULT_GRAPH_API_VERSION, graphUrl: 'https://graph.facebook.com', pageId: 'me', ...config }
     this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
     if (config.mediaRefHosts !== undefined &&
       (!Array.isArray(config.mediaRefHosts) || config.mediaRefHosts.some((h) => typeof h !== 'string' || h.trim() === ''))) {

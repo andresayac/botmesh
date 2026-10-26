@@ -201,6 +201,14 @@ const provider = new CloudAPIProvider({
 - Si falta `accessToken`, `phoneNumberId` o `verifyToken`, el constructor
   falla con un error que nombra el campo. Cada petición a Graph tiene un
   límite de tiempo (`requestTimeoutMs`, 60 s por defecto).
+- **Versión de la Graph API:** `apiVersion` toma por defecto
+  `DEFAULT_GRAPH_API_VERSION` de `@botmesh/graph-core` (`v26.0`, publicada el
+  29-07-2026; Messenger e Instagram usan el mismo valor). Meta retira cada
+  versión unos dos años después de publicarla, así que el valor por defecto
+  sigue a la actual y cambia en una versión menor, tras revisar los payloads
+  contra el changelog de Meta. Fija `apiVersion` (por ejemplo `'v24.0'`) para
+  quedarte en una versión hasta migrar. Un estado `played` (se escuchó una
+  nota de voz) llega como `read` con `platformData.played: true`.
 - Los usuarios con username de WhatsApp pueden llegar con un BSUID en lugar
   del teléfono; el provider mantiene un id estable por persona
   (`identityMap`).

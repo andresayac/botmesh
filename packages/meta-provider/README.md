@@ -65,6 +65,15 @@ download has its own `mediaDownload.timeoutMs` (default 15 s).
 const provider = new CloudAPIProvider({ /* ... */ requestTimeoutMs: 20_000 })
 ```
 
+**Graph API version.** `apiVersion` defaults to `DEFAULT_GRAPH_API_VERSION` from `@botmesh/graph-core`, currently
+`'v26.0'` (released 2026-07-29). Meta retires each Graph version about two years after its release, so the default
+follows the current version and moves in a minor release, after the webhook and send payloads are checked against
+Meta's changelog. Pin it to stay on a version until you migrate:
+
+```ts
+const provider = new CloudAPIProvider({ /* ... */ apiVersion: 'v24.0' })
+```
+
 ## What it supports
 
 | Feature | Cloud API |

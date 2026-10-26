@@ -422,7 +422,10 @@ export function extractDrafts(body: GraphWebhookBody, logger: IdentityLogger): I
 
       const singleStatus = statuses.length === 1
       for (const st of statuses) {
-        const status = st.status
+        // `played` (a voice note was listened to, 2025-11) implies `read`: it is reported as
+        // `read` with `platformData.played`, so code that waits for read receipts sees it.
+        const played = st.status === 'played'
+        const status = played ? 'read' : st.status
         // Other values (`deleted`, `warning`…) are not delivery outcomes: never report them as failed.
         if (status !== 'sent' && status !== 'delivered' && status !== 'read' && status !== 'failed') continue
         const id = str(st.id)
@@ -432,7 +435,8 @@ export function extractDrafts(body: GraphWebhookBody, logger: IdentityLogger): I
         if (id === undefined) { drop('status', 'missing message id'); continue }
         const timestamp = epochSeconds(st.timestamp)
         const error = st.errors?.[0] ? { code: st.errors[0].code, message: st.errors[0].title } : undefined
-        const platformData = statusPlatformData(st)
+        const priced = statusPlatformData(st)
+        const platformData = played ? { ...priced, played: true } : priced
         pendingEvents.push({
           kind: 'event',
           party,

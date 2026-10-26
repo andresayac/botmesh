@@ -21,6 +21,7 @@ No extra dependencies: only `@botmesh/core` and Node ≥ 22's native `crypto`.
 
 | Export | What it is for |
 |---|---|
+| `DEFAULT_GRAPH_API_VERSION` | The Graph API version the Meta providers call by default (`'v26.0'`). It follows Meta's current version and can move in a minor release; pin `apiVersion` on the provider to stay on one. |
 | `verifyChallenge(query, verifyToken)` | Webhook `GET` handshake. Returns the `hub.challenge` to answer (HTTP 200) or `null` when the token does not match (answer 403). |
 | `verifySignature(rawBody, header, appSecret)` | Verifies `X-Hub-Signature-256` = HMAC-SHA256 of the body with the app secret, in constant time. `false` when the secret or header is missing, or they do not match. |
 | `checkGraphSignature(body, headers, appSecret, logger?)` | Ingest guard: `{ ok: true }` or `{ ok: false, status }`. With an `appSecret` it requires the **raw** body (`string`/`Buffer`/`Uint8Array`) and rejects an already-parsed one with `400`; an invalid signature gives `403`. |
