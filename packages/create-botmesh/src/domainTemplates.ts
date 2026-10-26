@@ -18,9 +18,11 @@ import {
   botMeshRange,
   baileysMain,
   aiBotConfig,
+  AI_KEY_WARNING,
   botModule,
   packageJson,
   readme,
+  requireEnv,
 } from './shared.js'
 
 export type DomainTemplateName = 'games' | 'support' | 'store' | 'restaurant' | 'clinic' | 'ai-full'
@@ -861,6 +863,7 @@ const INTENTS = {
         params: 'provider, store',
         config: aiBotConfig("provider, store, handoff: { allowCommands: ['bot'] }"),
         setup: [
+          AI_KEY_WARNING,
           ...code`
 // /start /help /reset /cancel /id /ping. Installed BEFORE aiPlugin: the AI is a catch-all.
 bot.plug(slashCommandsPlugin)
@@ -926,6 +929,7 @@ bot.use(
 )
 `,
         main: [
+          ...requireEnv(['ANTHROPIC_API_KEY']),
           '// Durable store: conversations, ctx.user profiles, AI context and handoffs survive restarts.',
           "const store = new SQLiteStore({ file: process.env.SQLITE_FILE ?? './bot.db' })",
           ...baileysMain('my-ai-full-bot', '✅ Bot connected — try "hola", "horario" or any question', ', store'),

@@ -379,7 +379,7 @@ describe('slashCommandsPlugin and WELCOME', () => {
     bot.when(WELCOME, welcome)
     await chat.send('hola')
     await chat.send('/cancel')
-    await chat.expectReply('reiniciada')
+    await chat.expectReply('cancelada')
     await chat.send('hola')
     expect(welcome).toHaveBeenCalledOnce()
   })

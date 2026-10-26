@@ -65,6 +65,19 @@ export const HANDLERS = [
   ')',
 ]
 
+/**
+ * Factory lines that install the built-in slash commands (/start /help /reset /cancel /id
+ * /ping). Commands win over an active conversation, so `/reset` or `/cancel` typed at a
+ * flow's question escapes it instead of being taken as the answer. Goes before any
+ * catch-all plugin (`aiPlugin`). Pair with `coreImports: ['slashCommandsPlugin']`.
+ */
+export const SLASH_COMMANDS = [
+  '// /start /help /reset /cancel /id /ping: commands win over an active flow, so /reset or',
+  "// /cancel always escapes one. Install it before any catch-all plugin (e.g. aiPlugin).",
+  'bot.plug(slashCommandsPlugin)',
+  '',
+]
+
 export interface BotModuleParts {
   /** Import lines after the `@botmesh/core` import (transport, plugins, stores). */
   imports: string[]
@@ -161,6 +174,30 @@ export function readme(name: string, label: string, description: string, notes: 
     '',
   ].join('\n')
 }
+
+/**
+ * First lines of a `main` block whose transport/AI cannot run without `names`: `npm start`
+ * before `.env` is filled in stops with one line naming every missing variable, before
+ * any provider is built (no request with an `undefined` token, no stack trace).
+ */
+export function requireEnv(names: string[]): string[] {
+  return [
+    '// Stop with one clear line when .env is missing or incomplete (`npm run dev` needs none of these).',
+    'const missing = [' + names.map((n) => "'" + n + "'").join(', ') + '].filter((name) => !process.env[name]?.trim())',
+    'if (missing.length > 0) {',
+    "  process.stderr.write('Missing ' + missing.join(', ') + ': copy .env.example to .env and fill it in, then run npm start again.\\n')",
+    '  process.exit(1)',
+    '}',
+    '',
+  ]
+}
+
+/**
+ * Factory line of the AI templates: under `npm run dev` (no `requireEnv` there) a missing key
+ * would only surface as an SDK authentication error on every message; say it once at boot.
+ */
+export const AI_KEY_WARNING =
+  "if (!process.env.ANTHROPIC_API_KEY) bot.logger.warn('ANTHROPIC_API_KEY is not set: the AI cannot answer until you add it to .env (see .env.example).')"
 
 /** `main` block lines shared by every Baileys-based template. */
 export function baileysMain(defaultSession: string, readyLine: string, createArgs = ''): string[] {

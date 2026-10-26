@@ -231,6 +231,12 @@ describe('scaffold — naming', () => {
     expect(sanitizeName('UPPER Case')).toBe('upper-case')
     expect(sanitizeName('ok-name')).toBe('ok-name')
   })
+
+  it('sanitizeName keeps accented letters as their base letter', () => {
+    expect(sanitizeName('Mi Bót de Peñas')).toBe('mi-bot-de-penas')
+    expect(sanitizeName('Café 🤖')).toBe('cafe')
+    expect(sanitizeName('@Tienda/Pedidos Ñandú')).toBe('@tienda/pedidos-nandu')
+  })
 })
 
 describe('scaffold — target directory guard', () => {

@@ -34,6 +34,9 @@ npm create botmesh@alpha my-bot -- --template telegram --yes
 | `telegram` | Telegram Bot API (long-polling)    | a bot token from @BotFather         |
 | `ai`       | Baileys + `@botmesh/ai` business-scoped customer-support autoresponder | `ANTHROPIC_API_KEY` (Claude), `BUSINESS_NAME` |
 
+Each of these ships a `hola` handler, a small `menu` flow and the built-in slash commands
+(`slashCommandsPlugin`: `/help`, `/reset`, `/cancel`, `/id`, `/ping`), so `/reset` or `/cancel` always escapes a flow.
+
 ### Use-case templates
 
 All of them run on WhatsApp via Baileys (scan a QR), use the v2 API (`flow()`, `bot.conversation()`, `ctx.user`)
@@ -87,6 +90,10 @@ cp .env.example .env   # optional: fill in your credentials (`dev` runs without 
 npm run dev            # chat in the terminal: simulated provider, hot reload
 npm start              # connect the real channel
 ```
+
+`npm start` in the `meta`, `telegram`, `ai` and `ai-full` projects first checks the variables it cannot run without
+and, if `.env` is missing or incomplete, stops with one line naming them (`Missing TELEGRAM_TOKEN: copy .env.example
+to .env and fill it in ...`) before connecting anything. `npm run dev` needs none of them.
 
 ## CLI options
 

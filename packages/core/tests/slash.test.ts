@@ -69,3 +69,28 @@ describe('slashCommandsPlugin', () => {
     expect(repliesTo(groupJid).filter((r) => r.includes('¿nombre?'))).toHaveLength(2)
   })
 })
+
+describe('slashCommandsPlugin built-in help (onboarding)', () => {
+  it('lists every command it installs and /cancel has its own reply (es)', async () => {
+    const { bot, chat } = await createTestBot()
+    bot.plug(slashCommandsPlugin)
+    await chat.send('/help')
+    const help = chat.lastReply()?.content
+    const text = help && 'text' in help ? help.text : ''
+    for (const cmd of ['/help', '/reset', '/cancel', '/id', '/ping']) expect(text).toContain(cmd)
+    bot.use(flow('registrar').ask('¿nombre?', 'n').say('fin'))
+    await chat.send('registrar')
+    await chat.expectReply('¿nombre?')
+    await chat.send('/cancel')
+    await chat.expectReply('✅ Conversación cancelada.')
+  })
+
+  it('lists /cancel and answers it in English too', async () => {
+    const { bot, chat } = await createTestBot({ i18n: { defaultLocale: 'en' } })
+    bot.plug(slashCommandsPlugin)
+    await chat.send('/help')
+    await chat.expectReply('/cancel — cancel the active conversation')
+    await chat.send('/cancel')
+    await chat.expectReply('✅ Conversation cancelled.')
+  })
+})
