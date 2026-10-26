@@ -11,7 +11,9 @@
  *
  * @example
  * ```ts
- * const contacts = new ContactDirectory(new KvContactStore(new PostgresDurableKv({ pool })))
+ * const kv = new PostgresDurableKv({ pool })
+ * await kv.start() // creates the table; whoever creates the kv also stops it
+ * const contacts = new ContactDirectory(new KvContactStore(kv))
  * await contacts.upsert({
  *   tenantId: 'acme',
  *   id: 'person-1',

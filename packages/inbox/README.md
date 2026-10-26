@@ -8,7 +8,9 @@ Tenant-isolated inbox for omnichannel conversations: compare-and-set (CAS) assig
 import { Inbox, KvInboxStore } from '@botmesh/inbox'
 import { PostgresDurableKv } from '@botmesh/postgres-store'
 
-const inbox = new Inbox(new KvInboxStore(new PostgresDurableKv({ pool })))
+const kv = new PostgresDurableKv({ pool })
+await kv.start() // creates the table; whoever creates the kv also stops it
+const inbox = new Inbox(new KvInboxStore(kv))
 const conversation = await inbox.projectMessage(storedMessage)
 const assigned = await inbox.assign('acme', conversation.id, 'agent-7', conversation.version)
 await inbox.handoff('acme', assigned.id, true, assigned.version)
@@ -44,8 +46,14 @@ const detach = attachInbox(bot, inbox, { tenantId: 'acme' })
 detach()
 ```
 
-`attachInbox` installs a plugin that projects every inbound message (`bot.on('message')`) and every accepted send (`after('send')`). A projection failure goes to the bot's `'error'` event and never blocks the bot.
+`attachInbox` installs a plugin that projects every inbound message (`bot.on('message')`) and every accepted send (`after('send')`); neither waits for the projection. A projection failure goes to the bot's `'error'` event with the core payload shape (`{ error }`) or, when nobody listens to `'error'`, to `bot.logger`; it never blocks or crashes the bot. Pass the bot's own `tenantId`: it defaults to `'local'`, not to `BotConfig.tenantId`.
+
+## Validation
+
+Both stores validate every write before it reaches the backend and throw a `TypeError` naming the field: `status` (`open | pending | resolved`), `handoff` (boolean), `assigneeId` (non-empty string), `slaDueAt` (finite epoch ms), `unread` (non-negative integer), and non-empty tenant, conversation, chat and author ids. Only the known fields are stored, so a malformed write can never leave a document that breaks the tenant's listings.
 
 ## Listings
 
 `list(tenantId, { status?, assigneeId?, limit?, scan? })` returns the most recent first. Conversations are ordered by `updatedAt` descending and filters apply within the `scan` (1000 by default) most recent ones; with `status: 'open' | 'pending'` only the unresolved index is scanned, so resolved history never pushes them out of the window.
+
+`listNotes(tenantId, conversationId, { limit })` returns the **oldest** notes first (100 by default) and has no cursor yet: a conversation with more notes than `limit` does not show its newest ones.

@@ -16,7 +16,9 @@
  *
  * @example
  * ```ts
- * const planner = new CampaignPlanner(new KvCampaignStore(new PostgresDurableKv({ pool })))
+ * const kv = new PostgresDurableKv({ pool })
+ * await kv.start() // creates the table; whoever creates the kv also stops it
+ * const planner = new CampaignPlanner(new KvCampaignStore(kv))
  * const run = await sendCampaign(
  *   bot, planner,
  *   { id: 'sale', tenantId: 'acme', requiredTags: ['vip'] },

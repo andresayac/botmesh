@@ -8,7 +8,9 @@ Campaign planner with consent, tag-based segmentation and durable reservations p
 import { CampaignPlanner, KvCampaignStore, sendCampaign } from '@botmesh/campaigns'
 import { PostgresDurableKv } from '@botmesh/postgres-store'
 
-const planner = new CampaignPlanner(new KvCampaignStore(new PostgresDurableKv({ pool })))
+const kv = new PostgresDurableKv({ pool })
+await kv.start() // creates the table; whoever creates the kv also stops it
+const planner = new CampaignPlanner(new KvCampaignStore(kv))
 const run = await sendCampaign(
   bot, planner,
   { id: 'sale', tenantId: 'acme', requiredTags: ['vip'] },
@@ -24,6 +26,7 @@ const run = await sendCampaign(
 - An unresolved reservation stops holding its slot once its TTL expires (`reservationTtl`, 15 minutes by default): a crashed worker never blocks the recipient forever.
 - `maxPerRecipient: 0` pauses the campaign: eligible recipients are discarded as `limit`, not `duplicate`.
 - `sentCount(tenantId, campaignId, recipientId)` returns the confirmed deliveries.
+- `plan()` validates the campaign and the whole recipient list (non-empty `id`/`tenantId`, `chatId` when given) **before** reserving anything, so an invalid entry never leaves the earlier recipients reserved.
 
 ## Real sending
 
@@ -33,6 +36,8 @@ const run = await sendCampaign(
 - Definitive failure → `markFailed` with the error message.
 - Skipped by a `before('send')` hook or left pending by an abort → `markFailed` with `'skipped'` / `'cancelled'` (releases the slot).
 - Two recipients with the same `chatId` (default `recipient.id`) are sent once; the repeats fail with `duplicate chatId`.
+- Outcomes are matched by the **target** chat id, not by the provider's `ref.chatId`, so a channel that answers with a canonical id (a phone number as a JID) still settles the delivery as `sent`.
+- If `bot.broadcast()` itself rejects (invalid options), every queued delivery is released as `failed` (`'broadcast rejected'`) and the error is rethrown, so a retry can send.
 
 `CampaignRun` returns the final deliveries, the raw `BroadcastResult` and the settlement errors (if the backend could not commit a change, the TTL releases the reservation).
 

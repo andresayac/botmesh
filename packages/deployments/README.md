@@ -37,7 +37,7 @@ const redis = new RedisDurableKv({ client, prefix: 'mybot' })   // single node o
 new DeploymentRegistry(new KvDeploymentStore(redis))
 ```
 
-Whoever creates the kv starts and stops it (`start()`/`stop()`); it can be the same one backing `BotConfig.durability` (the `product/deployments/*` tables never clash with the journal). Tables: one document per bot (`activeVersion`, publish order, reservations), one immutable document per version and a gate-run table per version. "Exactly one active version" is a property of the bot document, so publishing, reserving and rolling back are a single atomic compare-and-set on the backend; two concurrent publishes of the same version produce a single reservation.
+Whoever creates the kv starts and stops it (`start()`/`stop()`); it can be the same one backing `BotConfig.durability` (the `product/deployments/*` tables never clash with the journal). Tables: one document per bot (`activeVersion`, publish order, reservations), one immutable document per version and a gate-run table per version. "Exactly one active version" is a property of the bot document, so publishing, reserving and rolling back are a single atomic compare-and-set on the backend; two concurrent publishes of the same version produce a single reservation. An ungated `publish` also takes a short reservation (60 s) before writing the version document, so two concurrent publishes of one version with different artifacts can never store the loser's artifact.
 
 ## Publish gate (golden transcripts)
 
@@ -71,4 +71,6 @@ A gate can be any `(candidate) => boolean | GateResult` function (sync or async)
 
 - There is no gradual rollout or physical deployment: the registry only decides which version is active.
 - `list()` returns up to `limit` versions (1000 by default) in publish order; `gateRuns()` up to `limit` runs (100) from oldest to newest.
-- The reservation of a running gate expires by time (`gateTimeoutMs`); a gate that takes longer stops protecting the version.
+- The reservation of a running gate expires by time (`gateTimeoutMs`); a gate that takes longer stops protecting the version, so its pass is treated as a failure (`gate took longer than gateTimeoutMs`) and the version is not stored.
+- `maxGateDetailsBytes` counts UTF-8 bytes and never cuts a character in half.
+- `list()` returns the **oldest** `limit` versions and the bot document keeps every version: after `limit` publishes the newest ones are only reachable with `get()`/`active()`.
