@@ -79,6 +79,9 @@ export interface GenerateInput {
    *   before the iteration completes, so the value is there as soon as `for await` exits.
    * - Called only when the provider stream **ends normally**: never when it fails, is
    *   aborted (`signal`, timeout) or the consumer stops iterating early (`break`/`return`).
+   *   The built-in providers and `MockAIProvider` enforce the abort rule even when the client
+   *   ignores `signal`: an aborted stream skips the callback and rejects with the abort reason.
+   *   A custom provider should do the same (check `signal.aborted` before calling it).
    *   A Gemini answer withheld by the safety filters ends normally with `'refusal'`.
    * - An exception thrown by the callback fails the consumer's iteration.
    *
@@ -102,7 +105,8 @@ export interface AIStreamEndInfo {
 
 /**
  * The part of {@link AIConfig} a provider constructor reads (`new AnthropicProvider(client, cfg)`
- * and the others). A whole `AIConfig` is still accepted; plugin options (`persona`, `tools`,
+ * and the others). A variable typed `AIConfig` is still accepted (an object literal with plugin
+ * fields fails the excess-property check); plugin options (`persona`, `tools`,
  * `memory`…) are never read by a provider.
  */
 export type AIProviderConfig = Pick<AIConfig, 'model' | 'maxTokens' | 'effort' | 'thinking' | 'baseUrl'>
@@ -186,9 +190,9 @@ export interface AIConfig {
   /** Confirmation dialog for `confirm: true` tools (autoreply). */
   toolConfirm?: {
     /** Answers accepted as "yes" (normalized, case/accents-insensitive). Default `DEFAULT_YES`: si (also "sí"), s, yes, y, ok, okay, confirmo, confirmar, dale, claro, de acuerdo, acepto, 1. */
-    yes?: string[]
+    yes?: readonly string[]
     /** Answers taken as "no" (same normalization). Default `DEFAULT_NO`: no, n, nop, nope, cancelar, cancela, cancelo, cancel, negativo, mejor no, no gracias, ... */
-    no?: string[]
+    no?: readonly string[]
     /** How long to wait for the answer. Default '2m'. */
     timeout?: number | string
     /**

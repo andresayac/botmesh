@@ -56,7 +56,9 @@ for `maxFactLength`, silently dropping every fact).
 per `stream()` call, after the last chunk and before the iteration completes, and only when
 the stream ends normally: never when it fails, is aborted or the consumer breaks out early. An
 exception thrown by the callback fails the consumer's iteration. Every built-in provider and
-`MockAIProvider` follow it; a custom `AIProvider` that calls `onStreamEnd` should too.
+`MockAIProvider` follow it, including the abort rule when the client ignores `signal` (an
+aborted stream skips the callback and rejects with the abort reason); a custom `AIProvider`
+that calls `onStreamEnd` should too (check `signal.aborted` before calling it).
 
 **Entries and frozen data.** `MockAIProvider` moved to `@botmesh/ai/testing`, the plugin's
 helpers and the SDK wire type names to `@botmesh/ai/internal`, and the exported vocabularies,

@@ -1,5 +1,6 @@
 import type { AIProvider, GenerateInput, GenerateResult, AIProviderConfig, AIChatMessage } from '../types.js'
 import type { AIToolCall } from '../tools/types.js'
+import { endStream } from './streamEnd.js'
 
 type OllamaChatMessage = Record<string, unknown>
 interface OllamaToolCall {
@@ -115,7 +116,7 @@ export class OllamaProvider implements AIProvider {
       // Stopped early (or failed): release the connection.
       reader.cancel().catch(() => undefined)
     }
-    input.onStreamEnd?.({ stopReason })
+    endStream(input, { stopReason })
   }
 }
 

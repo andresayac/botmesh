@@ -1,6 +1,7 @@
 import type { AIProvider, GenerateInput, GenerateResult, AIProviderConfig, AIChatMessage } from '../types.js'
 import type { AIToolCall } from '../tools/types.js'
 import { anthropicModelSupport, assertThinking } from './anthropicModels.js'
+import { endStream } from './streamEnd.js'
 
 /**
  * The part of an Anthropic client (`@anthropic-ai/sdk`) the provider uses: `messages.create`
@@ -168,7 +169,7 @@ export class AnthropicProvider implements AIProvider {
     if (!streamFn) {
       const r = await this.generate(input)
       if (r.text) yield r.text
-      input.onStreamEnd?.({ stopReason: r.stopReason, ...(r.usage ? { usage: r.usage } : {}) })
+      endStream(input, { stopReason: r.stopReason, ...(r.usage ? { usage: r.usage } : {}) })
       return
     }
     let stopReason: string | undefined
@@ -195,7 +196,7 @@ export class AnthropicProvider implements AIProvider {
         if (attempt > 0 || yielded || !this.learn(err, args, sent)) throw err
       }
     }
-    input.onStreamEnd?.({ stopReason, ...(usage ? { usage } : {}) })
+    endStream(input, { stopReason, ...(usage ? { usage } : {}) })
   }
 }
 

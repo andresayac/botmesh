@@ -1,5 +1,6 @@
 import type { AIProvider, GenerateInput, GenerateResult, AIProviderConfig, AIChatMessage } from '../types.js'
 import type { AIToolCall } from '../tools/types.js'
+import { endStream } from './streamEnd.js'
 
 type ChatMessage = Record<string, unknown>
 
@@ -141,7 +142,7 @@ export class OpenAIProvider implements AIProvider {
       if (d) yield d
       stopReason = choice?.finish_reason ?? stopReason
     }
-    input.onStreamEnd?.({ stopReason: refused ? 'refusal' : stopReason })
+    endStream(input, { stopReason: refused ? 'refusal' : stopReason })
   }
 }
 

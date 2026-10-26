@@ -1,4 +1,5 @@
 import type { AIProvider, GenerateInput, GenerateResult } from './types.js'
+import { endStream } from './providers/streamEnd.js'
 
 /**
  * A scripted model turn: text and/or tool calls. Returned by a `reply`
@@ -55,6 +56,6 @@ export class MockAIProvider implements AIProvider {
     this.calls.push({ ...input, messages: [...input.messages] })
     const turn = this.turnFor(input)
     for (const ch of turn.text ?? '') yield ch
-    input.onStreamEnd?.({ stopReason: turn.stopReason ?? this.opts.stopReason })
+    endStream(input, { stopReason: turn.stopReason ?? this.opts.stopReason })
   }
 }

@@ -186,9 +186,19 @@ of every bot in the process; now it throws a `TypeError` in strict mode. Extend 
 aiPlugin({ toolConfirm: { yes: [...DEFAULT_YES, 'arre'] } })
 ```
 
+Passing them unchanged still compiles (`toolConfirm.yes`/`.no` accept a `readonly string[]`).
+
 Provider constructors now take an `AIProviderConfig` (`model`, `maxTokens`, `effort`,
 `thinking`, `baseUrl`), the part of `AIConfig` a provider reads. Passing a whole `AIConfig`
-still compiles. `GenerateInput.onStreamEnd` receives a named `AIStreamEndInfo`; its contract
+held in a variable still compiles, but an **object literal** with plugin fields now fails
+TypeScript's excess-property check (`TS2353`), because providers never read them:
+
+```ts
+new AnthropicProvider(client, { model, persona })   // before: compiled; now: TS2353
+new AnthropicProvider(client, { model })            // drop the plugin fields
+new AnthropicProvider(client, cfg)                  // or pass a variable typed AIConfig
+```
+ `GenerateInput.onStreamEnd` receives a named `AIStreamEndInfo`; its contract
 (once, after the last chunk, only on a normal end) is in
 [Upgrade notes: channels & plugins](./upgrade-channels-plugins#botmesh-ai).
 

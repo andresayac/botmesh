@@ -194,9 +194,20 @@ estricto. Extiende una copia:
 aiPlugin({ toolConfirm: { yes: [...DEFAULT_YES, 'arre'] } })
 ```
 
+Pasarlos tal cual sigue compilando (`toolConfirm.yes`/`.no` aceptan un `readonly string[]`).
+
 Los constructores de proveedores reciben ahora un `AIProviderConfig` (`model`, `maxTokens`,
 `effort`, `thinking`, `baseUrl`), la parte de `AIConfig` que lee un proveedor. Pasar un
-`AIConfig` entero sigue compilando. `GenerateInput.onStreamEnd` recibe un `AIStreamEndInfo` con
+`AIConfig` entero guardado en una variable sigue compilando, pero un **objeto literal** con
+campos del plugin falla ahora la comprobación de propiedades sobrantes de TypeScript
+(`TS2353`), porque los proveedores nunca los leen:
+
+```ts
+new AnthropicProvider(client, { model, persona })   // antes compilaba; ahora: TS2353
+new AnthropicProvider(client, { model })            // quita los campos del plugin
+new AnthropicProvider(client, cfg)                  // o pasa una variable de tipo AIConfig
+```
+ `GenerateInput.onStreamEnd` recibe un `AIStreamEndInfo` con
 nombre; su contrato (una vez, tras el último fragmento, solo si termina con normalidad) está en
 [Notas de actualización: canales y plugins](./actualizar-canales-plugins#botmesh-ai).
 

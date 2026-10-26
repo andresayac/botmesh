@@ -4,7 +4,9 @@
  *
  * - called exactly once per `stream()` call, after the last chunk was yielded and before the
  *   iteration completes, with the provider's stop reason (and usage when the provider streams it);
- * - never called when the stream fails, nor when the consumer stops iterating early;
+ * - never called when the stream fails, is aborted through `signal` (even by a client that
+ *   ignores the signal: the iteration then rejects with the abort reason), nor when the
+ *   consumer stops iterating early;
  * - an exception thrown by the callback reaches the consumer's iteration.
  */
 import { describe, expect, it } from 'vitest'
@@ -88,9 +90,10 @@ const providers: Array<[string, Factory, string]> = [
   }), 'end_turn'],
 ]
 
-const input = (onStreamEnd: (info: AIStreamEndInfo) => void): GenerateInput => ({
+const input = (onStreamEnd: (info: AIStreamEndInfo) => void, signal?: AbortSignal): GenerateInput => ({
   messages: [{ role: 'user', content: 'hi' }],
   onStreamEnd,
+  ...(signal ? { signal } : {}),
 })
 
 describe.each(providers)('%s: onStreamEnd', (_name, make, stopReason) => {
@@ -114,6 +117,15 @@ describe.each(providers)('%s: onStreamEnd', (_name, make, stopReason) => {
     let calls = 0
     const it = make(['a', 'b'], true).stream(input(() => { calls++ }))
     await expect((async () => { for await (const _ of it) { /* drain */ } })()).rejects.toThrow()
+    expect(calls).toBe(0)
+  })
+
+  it('is not called when the stream is aborted, even if the client ignores the signal', async () => {
+    let calls = 0
+    const ac = new AbortController()
+    const it = make(['a', 'b', 'c'], false).stream(input(() => { calls++ }, ac.signal))
+    // The fake clients ignore the signal, so the stream keeps going until it ends.
+    await expect((async () => { for await (const _ of it) ac.abort() })()).rejects.toThrow()
     expect(calls).toBe(0)
   })
 

@@ -490,6 +490,8 @@ semver).
 Un `AIProvider` propio que haga streaming debe respetar `GenerateInput.onStreamEnd`: llamarlo
 una vez, tras el último fragmento, solo si el stream termina con normalidad (no ante un error,
 un aborto o un `break` temprano), con un `AIStreamEndInfo` (`stopReason`, `usage` si se conoce).
+Comprueba `signal.aborted` antes de llamarlo: si no, un cliente que ignora la señal terminaría
+"con normalidad" tras un aborto.
 
 ## Roadmap
 

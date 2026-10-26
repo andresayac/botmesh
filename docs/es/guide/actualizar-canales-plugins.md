@@ -57,8 +57,10 @@ aiPlugin({ provider: 'openai', baseUrl: 'https://mi-proxy.example/v1', maxTokens
 por llamada a `stream()`, tras el último fragmento y antes de que termine la iteración, y solo
 si el stream termina con normalidad: nunca si falla, se aborta o el consumidor sale antes con
 `break`. Una excepción lanzada por el callback hace fallar la iteración del consumidor. Todos
-los proveedores integrados y `MockAIProvider` lo cumplen; un `AIProvider` propio que llame a
-`onStreamEnd` también debería.
+los proveedores integrados y `MockAIProvider` lo cumplen, también la regla del aborto cuando el
+cliente ignora `signal` (un stream abortado no llama al callback y rechaza con el motivo del
+aborto); un `AIProvider` propio que llame a `onStreamEnd` también debería (comprueba
+`signal.aborted` antes de llamarlo).
 
 **Entradas y datos congelados.** `MockAIProvider` pasa a `@botmesh/ai/testing`, los helpers del
 plugin y los nombres de los tipos de los SDK a `@botmesh/ai/internal`, y los vocabularios,

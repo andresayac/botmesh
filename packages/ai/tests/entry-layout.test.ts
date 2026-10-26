@@ -91,6 +91,11 @@ describe('@botmesh/ai exported data is frozen', () => {
   it('extending a vocabulary still works by copying', () => {
     expect(main.classifyConfirmation('arre', { yes: [...main.DEFAULT_YES, 'arre'] })).toBe('approved')
   })
+
+  it('the frozen vocabularies can be passed to aiPlugin as they are (type-checked by pnpm typecheck)', () => {
+    const cfg: main.AIConfig = { toolConfirm: { yes: main.DEFAULT_YES, no: main.DEFAULT_NO } }
+    expect(cfg.toolConfirm?.yes).toBe(main.DEFAULT_YES)
+  })
 })
 
 describe('the repo imports moved names from their new entry', () => {

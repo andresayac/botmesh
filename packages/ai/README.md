@@ -514,7 +514,9 @@ tool loop does) come from `@botmesh/ai/testing`; the old `MockAIProvider` import
 
 A custom `AIProvider` that streams should honour `GenerateInput.onStreamEnd`: call it once,
 after the last chunk, only when the stream ends normally (not on an error, an abort or an
-early `break`), with an `AIStreamEndInfo` (`stopReason`, `usage` when known).
+early `break`), with an `AIStreamEndInfo` (`stopReason`, `usage` when known). Check
+`signal.aborted` before calling it: a client that ignores the signal would otherwise end
+"normally" after an abort.
 
 ## Long-term memory per user
 

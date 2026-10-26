@@ -8,6 +8,7 @@
 
 import type { AIProvider, GenerateInput, GenerateResult, AIProviderConfig, AIChatMessage } from '../types.js'
 import type { AIToolCall, JSONSchema } from '../tools/types.js'
+import { endStream } from './streamEnd.js'
 
 /**
  * A Gemini model handle (`getGenerativeModel()` of {@link GeminiLike}): `generateContent` and,
@@ -159,7 +160,7 @@ export class GeminiProvider implements AIProvider {
     if (!model.generateContentStream) {
       const r = await this.generate(input)
       if (r.text) yield r.text
-      input.onStreamEnd?.({ stopReason: r.stopReason, ...(r.usage ? { usage: r.usage } : {}) })
+      endStream(input, { stopReason: r.stopReason, ...(r.usage ? { usage: r.usage } : {}) })
       return
     }
     const { stream } = await model.generateContentStream(this.buildArgs(input, false), this.reqOpts(input))
@@ -178,7 +179,7 @@ export class GeminiProvider implements AIProvider {
       const t = chunk.text()
       if (t) yield t
     }
-    input.onStreamEnd?.({ stopReason, ...(usage ? { usage } : {}) })
+    endStream(input, { stopReason, ...(usage ? { usage } : {}) })
   }
 }
 
