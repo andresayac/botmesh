@@ -49,6 +49,19 @@ transcripción, así que lo que lees es lo que obtienes.
 | [Bot de grupo](./bot-de-grupo) | Intermedio | WhatsApp, Telegram, Grupos | conversaciones por participante, `scope`, menciones, `groupMode`, comandos solo para admins | Un quiz de grupo con marcador y comandos de administración |
 | [WhatsApp y Telegram a la vez](./whatsapp-y-telegram) | Intermedio | WhatsApp, Telegram, SQLite | `defineBot`, dos providers, espacios de nombres del store, ids estables | Un archivo de bot que atiende dos canales desde un proceso |
 
+## IA
+
+Usan [`@botmesh/ai`](/es/guide/ai) con Anthropic por defecto; cada página muestra cómo cambiar a OpenAI, Gemini o un modelo local de Ollama. La API key siempre sale de una variable de entorno.
+
+| Ejemplo | Nivel | Etiquetas | Funcionalidades | Qué hace |
+| --- | --- | --- | --- | --- |
+| [Asistente de preguntas frecuentes con IA](./ia-faq) | Principiante | IA, Límites | autoresponder, persona, triggers de función, `/reset` | Responde dudas de una tienda con un LLM, rechaza lo que no es del tema y deja las respuestas fijas fuera del modelo. |
+| [Asistente de citas con IA](./ia-herramientas-citas) | Intermedio | IA, Herramientas | tool calling, `confirm: true`, `confirmLines`, `dedupe`, `enum` | Reserva, lista y cancela citas con tus funciones, con una confirmación antes de cada cambio. |
+| [IA con tus preguntas frecuentes](./ia-rag) | Intermedio | IA, RAG | retriever de `rag`, `appendSources`, `warmup()` | Responde a partir de un FAQ en Markdown, cita la sección que usó y admite lo que no sabe. |
+| [Respuestas de IA en streaming](./ia-streaming) | Intermedio | IA, Streaming, Telegram | `stream`, borradores / ediciones / trozos, coste y latencia | Muestra la respuesta mientras el modelo la escribe, ajustada para coste y latencia. |
+| [Enrutador con IA](./ia-enrutador) | Avanzado | IA, Flujos | `generate()`, `replyInChat()`, flujos, `bot.trigger()` | Clasifica el texto libre con el modelo, lleva los pagos a flujos deterministas y deja la charla a la IA. |
+| [IA con escalado a humano](./ia-escalado-humano) | Avanzado | IA, Herramientas, Handoff | tool calling, `ctx.handoff()`, `bot.resume()`, comandos de escape | Pasa el chat a una persona con un resumen para el agente y lo recupera con `/bot`. |
+
 El código de cada ejemplo es el mismo en WhatsApp (Baileys) y Telegram:
 solo cambia el provider. Cuando un canal muestra algo distinto (botones,
 stickers), la página del ejemplo lo dice, y la

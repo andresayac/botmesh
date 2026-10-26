@@ -48,6 +48,19 @@ example's code and checks its transcript, so what you read is what you get.
 | [Group bot](./group-bot) | Intermediate | WhatsApp, Telegram, Groups | per-participant conversations, `scope`, mentions, `groupMode`, admin-only commands | A group quiz with a scoreboard and admin commands |
 | [WhatsApp and Telegram at once](./whatsapp-and-telegram) | Intermediate | WhatsApp, Telegram, SQLite | `defineBot`, two providers, store namespaces, stable ids | One bot file serving two channels from one process |
 
+## AI
+
+They use [`@botmesh/ai`](/guide/ai) with Anthropic by default; every page shows how to switch to OpenAI, Gemini or a local Ollama model. The API key always comes from an environment variable.
+
+| Example | Level | Tags | Features | What it does |
+| --- | --- | --- | --- | --- |
+| [AI FAQ assistant](./ai-faq) | Beginner | AI, Guardrails | autoresponder, persona, function triggers, `/reset` | Answers shop questions with an LLM, declines anything off-topic and keeps fixed answers out of the model. |
+| [AI booking assistant](./ai-tools-booking) | Intermediate | AI, Tools | tool calling, `confirm: true`, `confirmLines`, `dedupe`, `enum` | Books, lists and cancels appointments through your functions, with a confirmation before each change. |
+| [AI answers from your FAQ](./ai-rag) | Intermediate | AI, RAG | `rag` retriever, `appendSources`, `warmup()` | Answers from a Markdown FAQ, cites the section it used and admits what it does not know. |
+| [Streaming AI replies](./ai-streaming) | Intermediate | AI, Streaming, Telegram | `stream`, drafts / edits / chunks, cost and latency settings | Shows the answer while the model writes it, tuned for cost and latency. |
+| [AI router](./ai-router) | Advanced | AI, Flows | `generate()`, `replyInChat()`, flows, `bot.trigger()` | Classifies free text with the model, runs payments as deterministic flows and leaves chit-chat to the AI. |
+| [AI with human escalation](./ai-handoff) | Advanced | AI, Tools, Handoff | tool calling, `ctx.handoff()`, `bot.resume()`, escape commands | Hands the chat to a person with a summary for the agent, then gets it back with `/bot`. |
+
 The bot code of every example is the same on WhatsApp (Baileys) and
 Telegram: only the provider changes. Where a channel renders something
 differently (buttons, stickers), the example page says so, and the

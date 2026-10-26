@@ -144,6 +144,17 @@ const enSidebar = {
         { text: 'WhatsApp and Telegram at once', link: '/examples/whatsapp-and-telegram' },
       ],
     },
+    {
+      text: 'AI',
+      items: [
+        { text: 'AI FAQ assistant', link: '/examples/ai-faq' },
+        { text: 'AI booking assistant', link: '/examples/ai-tools-booking' },
+        { text: 'AI answers from your FAQ', link: '/examples/ai-rag' },
+        { text: 'Streaming AI replies', link: '/examples/ai-streaming' },
+        { text: 'AI router', link: '/examples/ai-router' },
+        { text: 'AI with human escalation', link: '/examples/ai-handoff' },
+      ],
+    },
   ],
 } satisfies DefaultTheme.SidebarMulti
 
@@ -252,6 +263,17 @@ const esSidebar = {
         { text: 'Bot multi-idioma', link: '/es/ejemplos/multi-idioma' },
         { text: 'Bot de grupo', link: '/es/ejemplos/bot-de-grupo' },
         { text: 'WhatsApp y Telegram a la vez', link: '/es/ejemplos/whatsapp-y-telegram' },
+      ],
+    },
+    {
+      text: 'IA',
+      items: [
+        { text: 'Asistente de preguntas frecuentes con IA', link: '/es/ejemplos/ia-faq' },
+        { text: 'Asistente de citas con IA', link: '/es/ejemplos/ia-herramientas-citas' },
+        { text: 'IA con tus preguntas frecuentes', link: '/es/ejemplos/ia-rag' },
+        { text: 'Respuestas de IA en streaming', link: '/es/ejemplos/ia-streaming' },
+        { text: 'Enrutador con IA', link: '/es/ejemplos/ia-enrutador' },
+        { text: 'IA con escalado a humano', link: '/es/ejemplos/ia-escalado-humano' },
       ],
     },
   ],
