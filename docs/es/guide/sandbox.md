@@ -267,7 +267,7 @@ BOTWA_TEST_CHATWOOT_URL=… BOTWA_TEST_CHATWOOT_TOKEN=… BOTWA_TEST_CHATWOOT_AC
 
 | Suite | Cubre |
 | --- | --- |
-| Evolution API | salud; creación de la instancia con un webhook que envía el secreto compartido; los webhooks de QR y de conexión llegan al bot por `@botmesh/server` y se aceptan; `start()` informa del QR; errores tipados con una instancia sin emparejar y con una API key incorrecta; los webhooks falsificados reciben 401 |
+| Evolution API | salud; creación de la instancia con un webhook que envía el secreto compartido; los webhooks de QR y de conexión llegan al bot por `@botmesh/server` y se aceptan; `start()` informa del QR; una segunda instancia cuyo webhook usa `jwt_key` llega a un provider con `webhookJwtKey`; errores tipados con una instancia sin emparejar, una instancia sin sesión de WhatsApp ("not connected"), una instancia inexistente y una API key incorrecta; los webhooks falsificados reciben 401 |
 | WPPConnect Server | token a partir de la clave secreta; inicio de la sesión con el token del webhook en la query de la URL; el QR llega al bot; errores tipados con una sesión sin emparejar y con una clave incorrecta |
 | Chatwoot | ida y vuelta completa con `@botmesh/chatwoot`: los mensajes del usuario y del bot aparecen en una conversación; la respuesta de un agente publicada por la API de Chatwoot vuelve por el webhook del propio Chatwoot, llega al usuario y pasa el chat a un humano; al resolver la conversación el bot se reanuda |
 | Mailpit | los envíos SMTP de `@botmesh/email` comprobados con la API de Mailpit (identidad, `Auto-Submitted`, adjuntos). La entrada por IMAP la cubre la suite de GreenMail de `@botmesh/email` |

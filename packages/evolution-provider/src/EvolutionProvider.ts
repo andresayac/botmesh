@@ -72,10 +72,21 @@ function saysNotOnWhatsApp(body: unknown): boolean {
   return typeof message === 'string' && /not (exist|found)|exists.?:.?false/i.test(message)
 }
 
+/**
+ * True when Evolution answered with the TypeError it throws while the instance has no WhatsApp
+ * socket (never connected, or logged out): `Cannot read properties of undefined (reading 'onWhatsApp')`.
+ */
+function saysNoSession(detail: string): boolean {
+  return /Cannot read propert(y|ies) of undefined \(reading '[A-Za-z]+'\)/.test(detail)
+}
+
 /** Translate an Evolution API error response into a typed provider error. */
 export function toEvolutionError(status: number, body: unknown, chatId: ChatId, retryAfterMs?: number): ProviderError {
   const detail = describeErrorBody(body)
   const desc = `Evolution API HTTP ${status}${detail ? `: ${detail}` : ''}`
+  if (status >= 400 && saysNoSession(detail)) {
+    return new ProviderError(`The Evolution instance is not connected to WhatsApp: call start() and pair it (QR in the 'connection' update) (${desc})`)
+  }
   if (status === 429) return new RateLimitedError(retryAfterMs ?? 1000, desc)
   if (status === 413) return new PayloadTooLargeError(desc)
   if ((status === 400 || status === 404) && saysNotOnWhatsApp(body)) return new RecipientUnreachableError(chatId, desc)
@@ -240,6 +251,15 @@ export class EvolutionProvider implements IProvider<unknown> {
     return false
   }
 
+  /** Where the webhook credential is expected, for the 401 log (never the value). */
+  private expectedCredential(): string {
+    const { webhookSecret, webhookJwtKey } = this.config
+    const parts: string[] = []
+    if (webhookSecret) parts.push(`${this.config.webhookSecretHeader ?? 'x-webhook-secret'} header (or Authorization: Bearer)`)
+    if (webhookJwtKey) parts.push('Authorization: Bearer <JWT signed with jwt_key>')
+    return parts.join(' or ')
+  }
+
   /**
    * Feed one webhook POST (raw body string/Buffer — or the parsed object) plus
    * its headers. Returns the HTTP status to answer with: 200 accepted (also for
@@ -248,7 +268,10 @@ export class EvolutionProvider implements IProvider<unknown> {
    */
   ingest(rawEvent: unknown, headers?: HeaderBag): number {
     if (!this.authorized(headers)) {
-      this.logger.warn('ingest: rejected Evolution webhook with missing/invalid credentials')
+      this.logger.warn(
+        { expected: this.expectedCredential() },
+        'ingest: rejected Evolution webhook with missing/invalid credentials (the instance webhook headers must carry the configured secret or jwt_key)',
+      )
       return 401
     }
     let body: unknown = rawEvent
@@ -256,10 +279,17 @@ export class EvolutionProvider implements IProvider<unknown> {
       try {
         body = JSON.parse(rawEvent.toString())
       } catch {
-        return 400
+        body = undefined
       }
     }
-    if (!isRecord(body) || typeof body.event !== 'string') return 400
+    if (!isRecord(body) || typeof body.event !== 'string') {
+      // Authenticated but unreadable: almost always the host route (no body parser, or a parsed body of another type).
+      this.logger.warn(
+        { bodyType: rawEvent === null ? 'null' : Buffer.isBuffer(rawEvent) ? 'Buffer' : typeof rawEvent },
+        'ingest: body is not an Evolution webhook JSON ({ event, data }); pass the raw body (string/Buffer) or the object a JSON body parser produced',
+      )
+      return 400
+    }
     const hook = body as unknown as EvolutionWebhook
     if (hook.instance && hook.instance !== this.config.instance) {
       this.logger.debug('ingest: ignoring webhook for another instance')
@@ -336,7 +366,7 @@ export class EvolutionProvider implements IProvider<unknown> {
     // Best-effort: nothing is sent while disconnected (IProvider "PRESENCE WHILE DISCONNECTED").
     if (!this.presenceReady) return
     if (refs.length === 0) return
-    await this.api('POST', `/chat/markMessageAsRead/${this.instancePath}`, { readMessages: refs.map(keyFromRef) })
+    await this.api('POST', `/chat/markMessageAsRead/${this.instancePath}`, { readMessages: refs.map((r) => keyFromRef(r)) })
   }
 
   /** chat/sendPresence: `composing` / `recording` / `paused`. Evolution holds the presence for `delay` ms. */
@@ -347,12 +377,13 @@ export class EvolutionProvider implements IProvider<unknown> {
     await this.api('POST', `/chat/sendPresence/${this.instancePath}`, { number: chatId, presence, delay: state === 'paused' ? 0 : 1200 }, chatId)
   }
 
+  /** chat/deleteMessageForEveryone. Without the native key the ref is taken as the bot's own message (`fromMe: true`). */
   async deleteMessage(ref: MessageRef): Promise<void> {
-    const key = keyFromRef(ref)
+    const key = keyFromRef(ref, true)
     await this.api('DELETE', `/chat/deleteMessageForEveryone/${this.instancePath}`, {
       id: key.id,
       remoteJid: key.remoteJid,
-      fromMe: key.fromMe ?? true,
+      fromMe: key.fromMe,
       ...(key.participant ? { participant: key.participant } : {}),
     }, ref.chatId)
   }

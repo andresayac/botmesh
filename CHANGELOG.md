@@ -4,6 +4,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### `@botmesh/evolution`: correcciones encontradas contra un Evolution API v2.3.4 real (2026-10)
+- `connection.update` con `state: 'refused'` (Evolution deja de ofrecer QR al llegar a `QRCODE_LIMIT` sin vincular) se descartaba en silencio y el bot se quedaba esperando un QR que no llegaba: ahora es `closed` con motivo `sessionInvalid` y un `detail.message` que dice que hay que llamar otra vez a `start()`. Los códigos de cierre se clasifican como en `@botmesh/baileys`: 401/500/411 → `sessionInvalid`, 440/403 → `sessionTakenOver`, el resto → `transient`.
+- `deleteMessage(ref)` con una ref sin la clave nativa (leída de un store) mandaba `fromMe: false` y Evolution intentaba borrar un mensaje ajeno; ahora asume el mensaje propio (`fromMe: true`), como Baileys. Una clave nativa conserva su `fromMe`.
+- Las encuestas se validan antes de llamar a Evolution (de 2 a 12 opciones, sin pregunta ni opciones vacías y sin repetidas): rechazan con `UnsupportedContentError`, como en Baileys, en lugar de un 400 de esquema o un envío que WhatsApp no puede llevar.
+- `toEvolutionError` explica el `TypeError` que Evolution devuelve cuando la instancia no tiene sesión de WhatsApp (`Cannot read properties of undefined (reading 'onWhatsApp')`): "The Evolution instance is not connected to WhatsApp: call start() and pair it".
+- `ingest()` deja un aviso en el log cuando un webhook autenticado no es un JSON de Evolution (falta el body parser) y, en un 401, dice qué cabecera esperaba (nunca el secreto).
+- La identidad enlaza también `key.previousRemoteJid` (el LID que Evolution sustituye por `senderPn`) en los mensajes que no son `fromMe`.
+- Docs: README, guía de canales y de sandbox (EN/ES) y `llms.txt` documentan `refused`, la validación de encuestas, el `fromMe` por defecto al borrar y que `webhookByEvents` añade el evento a la URL (una ruta de path exacto responde 404). La suite Docker de `@botmesh/sandbox` cubre además el webhook con `jwt_key`, una instancia sin sesión y una instancia inexistente.
+
 ### Integración de los 26 paquetes promovidos en `main` (2026-10)
 - Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
 - Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).

@@ -23,18 +23,38 @@ export function numberedMenu(text: string, rows: Array<{ title: string }>, foote
   return [text, '', menu, footer ? `\n${footer}` : ''].filter(Boolean).join('\n')
 }
 
-/** Rebuild a Baileys key for a ref: the native key when we produced it, a best effort otherwise. */
-export function keyFromRef(ref: MessageRef): EvolutionMessageKey {
+/**
+ * Rebuild a Baileys key for a ref: the native key when we produced it, a best effort otherwise.
+ * `fromMe` is the native value or `fromMeDefault` (a ref read back from a store has no native key).
+ */
+export function keyFromRef(ref: MessageRef, fromMeDefault = false): EvolutionMessageKey {
   const native = isRecord(ref.native) ? (ref.native as EvolutionMessageKey) : undefined
   return {
     remoteJid: native?.remoteJid ?? ref.chatId,
-    fromMe: native?.fromMe ?? false,
+    fromMe: typeof native?.fromMe === 'boolean' ? native.fromMe : fromMeDefault,
     id: native?.id ?? ref.id,
     ...(native?.participant ? { participant: native.participant } : {}),
   }
 }
 
 const digits = (phone: string): string => phone.replace(/[^\d]/g, '')
+
+/** WhatsApp's ceiling for poll options. */
+const POLL_MAX_OPTIONS = 12
+
+/**
+ * Reject a poll WhatsApp cannot carry or tally (same rules as `@botmesh/baileys`): Evolution answers
+ * a schema 400 for fewer than 2 options and forwards the other cases to WhatsApp unchecked.
+ */
+function assertPoll(question: unknown, options: unknown): void {
+  const fail = (why: string): never => { throw new UnsupportedContentError('poll', `Invalid WhatsApp poll: ${why}`) }
+  if (typeof question !== 'string' || !question.trim()) fail('the question is empty')
+  if (!Array.isArray(options) || options.length < 2) fail('it needs at least 2 options')
+  const list = options as unknown[]
+  if (list.length > POLL_MAX_OPTIONS) fail(`it allows at most ${POLL_MAX_OPTIONS} options (got ${list.length})`)
+  if (list.some((o) => typeof o !== 'string' || !o.trim())) fail('an option is empty')
+  if (new Set(list).size !== list.length) fail('option names must be unique')
+}
 
 export async function toOutbound(chatId: string, content: OutboundContent): Promise<EvolutionOutbound> {
   const number = chatId
@@ -85,6 +105,7 @@ export async function toOutbound(chatId: string, content: OutboundContent): Prom
         body: { number, contact: [{ fullName: content.displayName ?? content.phone, wuid: digits(content.phone), phoneNumber: content.phone }] },
       }
     case 'poll':
+      assertPoll(content.question, content.options)
       return {
         endpoint: 'sendPoll',
         body: { number, name: content.question, selectableCount: content.multiSelect ? content.options.length : 1, values: content.options },

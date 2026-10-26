@@ -92,6 +92,54 @@ describe.skipIf(!BASE)('Evolution API (Docker) + EvolutionProvider', () => {
     expect(seen.at(-1)).toMatchObject({ state: 'closed', reason: 'sessionInvalid' })
   }, T)
 
+  it("a webhook with Evolution's jwt_key reaches a provider configured with webhookJwtKey (HS256 accepted)", async () => {
+    const jwtInstance = `botmesh-it-jwt-${randomUUID().slice(0, 8)}`
+    const jwtKey = `jwt-${randomUUID()}`
+    const jwtProvider = new EvolutionProvider({
+      baseUrl: BASE!, apiKey: KEY, instance: jwtInstance, webhookJwtKey: jwtKey,
+      http: { allowHttp: true, allowPrivateHosts: true }, logger: pino({ level: 'silent' }),
+    })
+    const seen: ConnectionUpdate[] = []
+    const codes: number[] = []
+    jwtProvider.onEvent((e) => { if (e.kind === 'connection') seen.push(e.update) })
+    const jwtIngress = await serveWebhooks([{ path: '/webhook/evolution-jwt', provider: { ingest: (raw: unknown, headers?: Record<string, string | string[] | undefined>) => { const s = jwtProvider.ingest(raw, headers); codes.push(s); return s } } }])
+    try {
+      const created = await evo('POST', '/instance/create', {
+        instanceName: jwtInstance, integration: 'WHATSAPP-BAILEYS', qrcode: true,
+        webhook: { url: `http://${DOCKER_HOST}:${jwtIngress.port}/webhook/evolution-jwt`, byEvents: false, base64: false, headers: { jwt_key: jwtKey }, events: ['QRCODE_UPDATED', 'CONNECTION_UPDATE'] },
+      })
+      expect(created.status).toBeLessThan(300)
+      await expect.poll(() => seen.some((u) => u.state === 'authenticating'), { timeout: 30_000 }).toBe(true)
+      expect(codes.length).toBeGreaterThan(0)
+      expect(codes.every((c) => c === 200)).toBe(true)
+    } finally {
+      await evo('DELETE', `/instance/logout/${jwtInstance}`).catch(() => undefined)
+      await evo('DELETE', `/instance/delete/${jwtInstance}`).catch(() => undefined)
+      await jwtIngress.close()
+    }
+  }, T)
+
+  it('an instance without a WhatsApp session rejects sends with an actionable "not connected" error', async () => {
+    const idle = `botmesh-it-idle-${randomUUID().slice(0, 8)}`
+    expect((await evo('POST', '/instance/create', { instanceName: idle, integration: 'WHATSAPP-BAILEYS', qrcode: false })).status).toBeLessThan(300)
+    try {
+      const p = new EvolutionProvider({ baseUrl: BASE!, apiKey: KEY, instance: idle, webhookSecret: secret, http: { allowHttp: true, allowPrivateHosts: true, timeoutMs: 15_000 }, logger: pino({ level: 'silent' }) })
+      const err = await p.send('573001112233@s.whatsapp.net', { kind: 'location', lat: 4.6, lng: -74.1 }).catch((e: unknown) => e)
+      expect(err).toBeInstanceOf(ProviderError)
+      expect((err as Error).message).toMatch(/not connected to WhatsApp/)
+    } finally {
+      await evo('DELETE', `/instance/delete/${idle}`).catch(() => undefined)
+    }
+  }, T)
+
+  it('an unknown instance fails start() with "Instance or resource not found" as an invalid session', async () => {
+    const ghost = new EvolutionProvider({ baseUrl: BASE!, apiKey: KEY, instance: `botmesh-it-missing-${randomUUID().slice(0, 8)}`, webhookSecret: secret, http: { allowHttp: true, allowPrivateHosts: true }, logger: pino({ level: 'silent' }) })
+    const seen: ConnectionUpdate[] = []
+    ghost.onEvent((e) => { if (e.kind === 'connection') seen.push(e.update) })
+    await expect(ghost.start()).rejects.toThrow(/Instance or resource not found/)
+    expect(seen.at(-1)).toMatchObject({ state: 'closed', reason: 'sessionInvalid' })
+  }, T)
+
   it('rejects a forged webhook (wrong secret) with 401', async () => {
     const res = await fetch(`${ingress.url}/webhook/evolution`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-webhook-secret': 'nope' }, body: JSON.stringify({ event: 'messages.upsert', instance, data: {} }) })
     expect(res.status).toBe(401)
