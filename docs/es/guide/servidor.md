@@ -14,7 +14,7 @@ hecha:
 - **Timeouts** para leer el body (`408`) y para `ingest()` (`503`).
 - **Límite de concurrencia** (`503` + `Retry-After: 1` al saturarse).
 - **Enrutado**: `GET` → `verifyChallenge()` (el handshake de Meta), `POST` →
-  `ingest(raw, headers)`. El valor que devuelve `ingest()` es el status HTTP.
+  `ingest(raw, headers, url)`. El valor que devuelve `ingest()` es el status HTTP.
 - **Endpoints de salud**: `/healthz` (liveness) y `/readyz` (readiness).
 - **Sin logs sensibles**: solo método, ruta, status, tamaños y el nombre de
   la clase de error; nunca bodies, cabeceras, query strings ni mensajes de
@@ -151,8 +151,14 @@ cosa. El adaptador de Hono necesita `Buffer` (Node, Bun, Deno, Workers con
 | `logger` | silencioso | Logger compatible con pino (solo metadatos) |
 
 Reglas de rutas: `path` debe empezar por `/`, la barra final se ignora, y las
-rutas duplicadas (o una ruta de webhook igual a una de salud) lanzan un
-`TypeError`. Una ruta cuyo provider no tiene método `ingest()` también lanza.
+rutas duplicadas (una ruta de webhook igual a una de salud, o `healthPath`
+igual a `readyPath`) lanzan un `TypeError`. También lanza una ruta cuyo
+provider no tiene método `ingest()` o cuyo `body` no es `'buffer'` ni
+`'text'`, igual que un límite no positivo, un timeout por encima de
+2147483647 ms (el mayor retardo que respeta `setTimeout`; uno mayor saltaría
+a 1 ms), un `bot` sin `getConnectionState()` y un `readiness` que no es una
+función. Todos los mensajes empiezan por `@botmesh/server:` y nombran la
+opción.
 
 Los valores por defecto se exportan como `DEFAULT_MAX_BODY_BYTES`,
 `DEFAULT_BODY_TIMEOUT_MS`, `DEFAULT_INGEST_TIMEOUT_MS` y
@@ -182,9 +188,9 @@ createIngress({
 
 | Situación | Status |
 | --- | --- |
-| `ingest()` devuelve (o resuelve) un entero 100-599 | ese status |
-| `ingest()` devuelve `{ status, body?, headers? }` | ese status; un `body` string se envía como texto, un objeto como JSON |
-| `ingest()` devuelve otra cosa / nada | `200` |
+| `ingest()` devuelve (o resuelve) un entero 200-599 | ese status |
+| `ingest()` devuelve `{ status, body?, headers? }` | ese status; un `body` string se envía como texto, un objeto como JSON; los `headers` sustituyen a los del ingress sin distinguir mayúsculas (los nombres salen en minúscula) y se ignoran los de framing/hop-by-hop (`content-length`, `transfer-encoding`, `connection`, `keep-alive`, `upgrade`, `proxy-connection`, `te`, `trailer`) |
+| `ingest()` devuelve otra cosa (también un código `1xx`) / nada | `200` |
 | `ingest()` lanza un `SyntaxError` / otro error | `400` / `500` |
 | `GET`/`HEAD` con `verifyChallenge()` → string / `null` | `200` con el challenge / `403` |
 | `GET` sin `verifyChallenge()`, u otro método | `405` (con `Allow`) |
@@ -232,7 +238,8 @@ await ingress.handle(request)              // framework-neutral entry point used
 ```
 
 `close()` sin `timeoutMs` espera hasta que terminen todas las peticiones en
-curso.
+curso; un `timeoutMs` fuera de 0-2147483647 rechaza con un `TypeError`.
+`close()` no tiene vuelta atrás: crea otro ingress para volver a servir.
 
 ## Notas por provider
 

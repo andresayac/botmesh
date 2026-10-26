@@ -6,7 +6,7 @@ Webhook ingress for the [`@botmesh/core`](https://github.com/andresayac/botmesh/
 - **Size limit** (`413`), 1 MiB by default, checked against `Content-Length` and while the stream arrives.
 - **Timeouts**: body read (`408`) and `ingest` (`503`).
 - **Concurrency cap** (`503` + `Retry-After: 1` when saturated).
-- **Routing**: `GET` → `verifyChallenge` (Meta's handshake), `POST` → `ingest(raw, headers)`; the value `ingest` returns is the HTTP status.
+- **Routing**: `GET` → `verifyChallenge` (Meta's handshake), `POST` → `ingest(raw, headers, url)`, where `url` is the request path plus its query string (WPPConnect and Gupshup read their webhook token from it, Twilio checks its signature against it); the value `ingest` returns is the HTTP status.
 - **Health**: `/healthz` (liveness, always 200) and `/readyz` (200 only while the bot is `ready`, your optional `readiness` check passes and the ingress is not shutting down).
 - **No sensitive logs**: only method, path, status, sizes and the error class *name*; never bodies, headers, query strings or error messages.
 - **No framework dependencies**: structurally typed adapters for `node:http`, Express (4 and 5), Fastify (4 and 5) and Hono, each in its own subpath.
@@ -122,9 +122,9 @@ const handler = createFetchHandler(ingress) // (Request) => Promise<Response>, 4
 
 | Situation | Status |
 | --- | --- |
-| `ingest` returns a number 100–599 | that number |
-| `ingest` returns `{ status, body, headers }` | that status; a string `body` is sent as text, an object as JSON |
-| `ingest` returns anything else, or nothing | `200` |
+| `ingest` returns an integer 200–599 | that number |
+| `ingest` returns `{ status, body, headers }` | that status; a string `body` is sent as text, an object as JSON; `headers` replace the ingress's own case-insensitively (names are sent lowercase), and framing/hop-by-hop headers (`content-length`, `transfer-encoding`, `connection`, `keep-alive`, `upgrade`, `proxy-connection`, `te`, `trailer`) are ignored |
+| `ingest` returns anything else (including a `1xx` code), or nothing | `200` |
 | `ingest` throws a `SyntaxError` / another error | `400` / `500` |
 | `GET` and `verifyChallenge` returns a string / `null` | `200` with the challenge / `403` |
 | `GET` without `verifyChallenge`, or another method | `405` (with `Allow`) |
@@ -145,6 +145,7 @@ For a framework without an adapter, build an `IngressRequest` and call `ingress.
 | Every webhook gets `500` with Express | A body parser ran first and consumed the stream. Mount `expressIngress` before it, or behind `express.raw()`. |
 | `413` on large deliveries (email with attachments, batched events) | Raise `maxBodyBytes` for that route only (`{ path, provider, maxBodyBytes }`). |
 | `/readyz` stays `503` | The bot is not `ready` (still connecting, or stopped), your `readiness` check failed, or `ingress.close()` was called. |
+| `TypeError: @botmesh/server: ...` when the app starts | A configuration mistake: missing `routes`, a path without a leading `/`, a duplicate path (also `healthPath` equal to `readyPath`), a `body` other than `'buffer'`/`'text'`, a non-positive limit, a timeout above 2147483647 ms (`setTimeout` would clamp it to 1 ms), or a `bot` without `getConnectionState()`. The message names the option. |
 | `TypeError: provider for "/x" has no ingest()` | That provider opens its own connection (Baileys, Discord, Telegram polling): it needs no ingress. |
 | A query-string webhook token is rejected (WPPConnect, Gupshup) | The ingress passes the path and query as the third argument of `ingest(raw, headers, url)`; when it is still rejected, check that a proxy in front does not strip the query string, or send the token in a header. |
 

@@ -13,7 +13,7 @@ channel POSTs events to **your** HTTP server, and you hand each request to
 - **Timeouts** for reading the body (`408`) and for `ingest()` (`503`).
 - **Concurrency limit** (`503` + `Retry-After: 1` when saturated).
 - **Routing**: `GET` → `verifyChallenge()` (Meta's handshake), `POST` →
-  `ingest(raw, headers)`. The value `ingest()` returns is the HTTP status.
+  `ingest(raw, headers, url)`. The value `ingest()` returns is the HTTP status.
 - **Health endpoints**: `/healthz` (liveness) and `/readyz` (readiness).
 - **No sensitive logs**: only method, path, status, sizes and the error
   class name; never bodies, headers, query strings or error messages.
@@ -149,8 +149,13 @@ needs `Buffer` (Node, Bun, Deno, Workers with `nodejs_compat`).
 | `logger` | silent | pino-compatible logger (metadata only) |
 
 Route rules: `path` must start with `/`, a trailing slash is ignored, and
-duplicate paths (or a webhook path equal to a health path) throw a
-`TypeError`. A route whose provider has no `ingest()` method also throws.
+duplicate paths (a webhook path equal to a health path, or `healthPath`
+equal to `readyPath`) throw a `TypeError`. A route whose provider has no
+`ingest()` method, or whose `body` is not `'buffer'` or `'text'`, also
+throws. So do a non-positive limit, a timeout above 2147483647 ms (the
+largest delay `setTimeout` honours; a bigger one would fire after 1 ms), a
+`bot` without `getConnectionState()` and a `readiness` that is not a
+function. Every message starts with `@botmesh/server:` and names the option.
 
 The defaults are exported as `DEFAULT_MAX_BODY_BYTES`,
 `DEFAULT_BODY_TIMEOUT_MS`, `DEFAULT_INGEST_TIMEOUT_MS` and
@@ -180,9 +185,9 @@ createIngress({
 
 | Situation | Status |
 | --- | --- |
-| `ingest()` returns (or resolves to) an integer 100-599 | that status |
-| `ingest()` returns `{ status, body?, headers? }` | that status; a string `body` is sent as text, an object as JSON |
-| `ingest()` returns anything else / nothing | `200` |
+| `ingest()` returns (or resolves to) an integer 200-599 | that status |
+| `ingest()` returns `{ status, body?, headers? }` | that status; a string `body` is sent as text, an object as JSON; `headers` replace the ingress's own case-insensitively (names are sent lowercase), and framing/hop-by-hop headers (`content-length`, `transfer-encoding`, `connection`, `keep-alive`, `upgrade`, `proxy-connection`, `te`, `trailer`) are ignored |
+| `ingest()` returns anything else (including a `1xx` code) / nothing | `200` |
 | `ingest()` throws a `SyntaxError` / another error | `400` / `500` |
 | `GET`/`HEAD` with `verifyChallenge()` → string / `null` | `200` with the challenge / `403` |
 | `GET` without `verifyChallenge()`, or another method | `405` (with `Allow`) |
@@ -229,7 +234,9 @@ await ingress.close({ timeoutMs: 10_000 }) // 503 for new webhooks, wait for in-
 await ingress.handle(request)              // framework-neutral entry point used by the adapters
 ```
 
-`close()` without `timeoutMs` waits until every in-flight request settles.
+`close()` without `timeoutMs` waits until every in-flight request settles;
+a `timeoutMs` outside 0-2147483647 rejects with a `TypeError`. `close()` is
+one-way: build a new ingress to serve again.
 
 ## Provider notes
 

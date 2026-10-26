@@ -33,9 +33,16 @@ export interface NodeHandlerOptions {
   onNotFound?: (req: IncomingMessage, res: ServerResponse) => void
 }
 
-/** Split `req.url` into path + query without trusting it as an absolute URL. */
+// Absolute-form request target (RFC 9112 §3.2.2): `scheme://authority` then the path.
+const ABSOLUTE_FORM = /^[a-z][a-z0-9+.-]*:\/\/[^/?#]*/i
+
+/**
+ * Split `req.url` into path + query without trusting it as an absolute URL. An
+ * absolute-form target (`http://host/path?q`) is reduced to its path; the
+ * authority is ignored, never used for routing.
+ */
 export function splitUrl(url: string | undefined): { path: string; query: URLSearchParams } {
-  const raw = url ?? '/'
+  const raw = (url ?? '/').replace(ABSOLUTE_FORM, '')
   const q = raw.indexOf('?')
   return {
     path: q >= 0 ? raw.slice(0, q) || '/' : raw || '/',
