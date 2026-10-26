@@ -129,9 +129,13 @@ createServer(async (req, res) => {
   }
   const chunks: Buffer[] = []
   let size = 0
-  for await (const chunk of req as AsyncIterable<Buffer>) {
-    if ((size += chunk.length) > 1024 * 1024) return void res.writeHead(413).end() // tope de 1 MiB
-    chunks.push(chunk)
+  try {
+    for await (const chunk of req as AsyncIterable<Buffer>) {
+      if ((size += chunk.length) > 1024 * 1024) return void res.writeHead(413).end() // tope de 1 MiB
+      chunks.push(chunk)
+    }
+  } catch {
+    return void res.destroy() // el cliente cortó la subida: se descarta sin tumbar el proceso
   }
   res.writeHead(provider.ingest(Buffer.concat(chunks), req.headers)).end()
 }).listen(3000)
