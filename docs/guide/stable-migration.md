@@ -141,6 +141,10 @@ the old one kept as a `@deprecated` alias until v3.
 | `@botmesh/meta` | `verifyChallenge`, `verifySignature` re-exports | `provider.verifyChallenge(query)` / `provider.ingest()`, or `@botmesh/graph-core` |
 | `@botmesh/meta` | `GraphClient` | the provider's methods, or `graphRequest` from `@botmesh/graph-core` |
 | `@botmesh/sqlite-store` | `SCHEDULES_SCHEMA`, `DURABLE_SCHEMA` | nothing: the store creates and migrates its tables |
+| `@botmesh/graph-core` | `checkGraphSignature(body, headers, appSecret, logger?)` | `checkGraphSignature({ body, headers, appSecret, logger })` |
+| `@botmesh/http` | `resolvePublicHost` | `resolveHost` (same function; it never filtered private answers) |
+| `@botmesh/http` | `RequestInit` fields other than `method`, `headers`, `body`, `signal` | nothing: drop them (see below) |
+| `create-botmesh` | `TEMPLATES`, `agentsMd`, `findBotMeshMonorepo`, `AgentsMdInfo` from the main entry | `getTemplate()` / `TEMPLATE_NAMES`, or `create-botmesh/internal` (no semver) |
 
 Every provider's low-level error mapper is now named `to<Channel>Error`; the private
 channels got the same renames (`toDiscordError`, `toMessengerError`,
@@ -233,6 +237,72 @@ new AnthropicProvider(client, cfg)                  // or pass a variable typed 
 `GenerateInput.onStreamEnd` receives a named `AIStreamEndInfo`; its contract
 (once, after the last chunk, only on a normal end) is in
 [Upgrade notes: channels & plugins](./upgrade-channels-plugins#botmesh-ai).
+
+## HTTP, Graph and scaffolder packages
+
+**`@botmesh/http`: closed `SecureFetchOptions`.** The options of `secureFetch` and
+`fetchBuffer` no longer extend `RequestInit`. They hold the request fields the
+client honours (`method`, `headers`, `body`, `signal`) and its policy
+(`allowHttp`, `allowPrivateHosts`, `timeoutMs`, `maxBytes`, `maxRedirects`,
+`resolver`, `fetch`).
+
+- **Breaking (types only):** `redirect` is gone. It was always overridden with
+  `'manual'`, because the client follows redirects itself and validates each
+  hop; use `maxRedirects` (`0` refuses any redirect).
+- The other `RequestInit` fields (`cache`, `keepalive`, `integrity`...) still
+  type-check through a `@deprecated` overload (`LegacySecureFetchOptions`) and
+  are still forwarded to `fetch`. They stop being accepted at stable.
+- Streaming uploads need no extra field: with a `ReadableStream` (or async
+  iterable) `body`, the client sets the `duplex: 'half'` that fetch requires.
+  Drop an explicit `duplex` along with the other `RequestInit` fields.
+- A variable typed `SecureFetchOptions` no longer accepts browser fields
+  (`mode`, `credentials`, `window`...). Remove them.
+- `resolvePublicHost` is now `resolveHost`: it resolves any host and leaves the
+  verdict to `assertSafeTarget`. The old name stays as a `@deprecated` alias.
+
+```ts
+// Before
+await fetchBuffer(url, { redirect: 'follow', cache: 'no-store', maxBytes })
+// After
+await fetchBuffer(url, { maxRedirects: 3, maxBytes })
+```
+
+**`@botmesh/graph-core`: one options object.** `checkGraphSignature` takes
+`{ body, headers, appSecret, logger }`. The positional form keeps working as a
+`@deprecated` overload with the same results. graph-core is a public package and
+is covered by semver like the others: a breaking change in it is a major bump.
+
+```ts
+// Before
+const sig = checkGraphSignature(rawBody, headers, appSecret, logger)
+// After
+const sig = checkGraphSignature({ body: rawBody, headers, appSecret, logger })
+```
+
+**`@botmesh/meta`: session-window plumbing is experimental.** What an app
+configures and queries stays public and covered by semver:
+`SessionWindowManager` (constructor, `forScope`, `state`, `isOpen`, `expiresAt`,
+`pending`, `clearPending`), `SessionWindowOptions`, the `SessionWindowStore`
+contract and its `MemorySessionWindowStore`, the report and reopen types,
+`SessionWindowReopenedError` and the constants. The hooks the provider drives
+(`send`, `noteInbound`, `noteFailedStatus`) and their `RawSend` type are now
+`@experimental`: they may change in a minor release. Nothing changes at runtime.
+See [API stability](./session-window#api-stability).
+
+**`create-botmesh`: internals in `/internal`.** The main entry is the
+scaffolder: `scaffold`, `sanitizeName`, `getTemplate` and `TEMPLATE_NAMES`.
+`TEMPLATES`, `agentsMd`, `findBotMeshMonorepo` and `AgentsMdInfo` moved to
+`create-botmesh/internal` (no semver); the main entry re-exports them as
+`@deprecated` until stable. The CLI does not change.
+
+```ts
+// Before
+import { TEMPLATES } from 'create-botmesh'
+const files = TEMPLATES.telegram.files('my-bot')
+// After
+import { getTemplate } from 'create-botmesh'
+const files = getTemplate('telegram').files('my-bot')
+```
 
 ## Sandbox API token
 

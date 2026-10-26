@@ -30,12 +30,12 @@ Per package:
 | `@botmesh/core` | GO after one beta | None. Every core item of the previous report is closed (see [core](#core)). |
 | `@botmesh/ai` | Conditional | Done: helpers and wire type names in `/internal`, `MockAIProvider` in `/testing` (deprecated main alias), exported data frozen, `onStreamEnd` contract fixed (main entry 135 → 97). Left: confirm the Kimi default model. |
 | `@botmesh/baileys` | Conditional (upstream only) | Done: native values typed as opaque `unknown` aliases (no Baileys type in the main entry's `.d.ts`, enforced by `api-check`), JID helpers, identity store and mappers in `/internal` (deprecated aliases on main, `toInbound`/`toOutbound` only in `/internal`), `pairingPhoneNumber` (alias `pairingCode`), `debug` deprecated, ffmpeg-static hint loop fixed. Left: upstream is still `7.0.0-rc14` (no stable 7.x on npm as of 2026-10-26); the pin and upgrade policy are documented in the README. |
-| `@botmesh/meta` | Conditional (small) | Done: `GraphClient`, `toProviderError`, the verify re-exports and `debug` are `@deprecated`; `phoneNumberId` is `string \| number`; `lang` for Flow labels. Left: decide whether the session-window plumbing (`SessionWindowManager`, `MemorySessionWindowStore`…) stays public or becomes `@internal`. |
+| `@botmesh/meta` | GO after one beta | None. `GraphClient`, `toProviderError`, the verify re-exports and `debug` are `@deprecated`; `phoneNumberId` is `string \| number`; `lang` for Flow labels. Session window decided: the configuration and query surface (`SessionWindowManager`, `SessionWindowOptions`, `SessionWindowStore`, `MemorySessionWindowStore`, report types) is public with semver; the provider plumbing (`send`, `noteInbound`, `noteFailedStatus`, `RawSend`) is `@experimental`. |
 | `@botmesh/telegram` | GO after one beta | None. `pollTimeoutMs` (alias `pollTimeout`), `toTelegramError`, `@experimental` wire helpers, `debug` deprecated, poll votes parsed. |
 | `@botmesh/sqlite-store` | GO after one beta | None. Schema migrations via `PRAGMA user_version`, newer files refused untouched (`SQLiteSchemaVersionError`), DDL exports deprecated, `logger: Partial<LoggerLike>`, `busyTimeoutMs`. The schedules and durable tables are still created ad hoc, outside the version (record or fold in during beta). |
 | `@botmesh/redis-store` | Conditional | Move the cluster layout internals off the main entry; remove the deprecated `ttl`/`acquireLock` options. The node-redis 5 cluster flake did not reproduce in this round (see [Verification](#verification)). |
-| `@botmesh/http`, `@botmesh/graph-core` | Conditional | Narrow `SecureFetchOptions`; options object for `checkGraphSignature`; decide whether semver covers graph-core. |
-| `create-botmesh` | Conditional (low risk) | Mark `TEMPLATES`, `agentsMd` and `findBotMeshMonorepo` `@internal`. |
+| `@botmesh/http`, `@botmesh/graph-core` | GO after one beta | None. `SecureFetchOptions` no longer extends `RequestInit` (no `redirect`; other `RequestInit` fields through a deprecated overload until stable); `resolveHost` (alias `resolvePublicHost`); `checkGraphSignature({ ... })` (positional form deprecated); graph-core is covered by semver. |
+| `create-botmesh` | GO after one beta | None. `TEMPLATES`, `agentsMd` and `findBotMeshMonorepo` live in `create-botmesh/internal` (no semver), deprecated on the main entry. |
 
 ## What changed
 
@@ -329,9 +329,11 @@ Still open (all LOW):
   `debug` deprecated, the ffmpeg-static hint no longer loops. The `read`/`played` receipt
   note does not apply to the provider today: it emits no receipt events (no
   `messages.update` / `message-receipt.update` mapping).
-- **meta**: the session-window plumbing is still public; the Cloud API typing indicator
-  is not implemented (feature after stable). Closed: `GraphClient`, `toProviderError` and
-  the verify re-exports are deprecated, `phoneNumberId` is typed `string | number`.
+- **meta**: the Cloud API typing indicator is not implemented (feature after stable).
+  Closed: `GraphClient`, `toProviderError` and the verify re-exports are deprecated,
+  `phoneNumberId` is typed `string | number`, and the session-window plumbing (`send`,
+  `noteInbound`, `noteFailedStatus`, `RawSend`) is `@experimental` while the configuration
+  and query surface stays public with semver.
 - **telegram**: `callback_data` cut at 64 bytes (documented); the poll-vote tracker is
   in memory only (last 500 polls; votes on polls sent before a restart, or by another
   replica or webhook process, are dropped) and rebuilds the tally on each vote
@@ -345,11 +347,15 @@ Still open (all LOW):
   destroy a client whose `connect()` failed. Closed: the node-redis 5 flake did not come
   back (v5 twice, plus v4 and v6, all green with chaos on), and a test asserts which
   major `BOTWA_TEST_REDIS_CLIENT` loads.
-- **http / graph-core**: `SecureFetchOptions extends RequestInit`; `resolvePublicHost`
-  naming; four positional arguments in `checkGraphSignature`; the 413 override in
-  graph-core only applies when the mapped error is a plain `ProviderError`.
-- **create-botmesh**: `TEMPLATES`, `agentsMd` and `findBotMeshMonorepo` are public;
-  `slashCommandsPlugin({ greeting })` still replaces the whole `/help`.
+- **http / graph-core**: the 413 override in graph-core only applies when the mapped
+  error is a plain `ProviderError` (kept on purpose: a Graph code that says more wins).
+  Closed: `SecureFetchOptions` is a closed set (no `redirect`; the other `RequestInit`
+  fields through a deprecated overload until stable), `resolveHost` (alias
+  `resolvePublicHost`), `checkGraphSignature({ body, headers, appSecret, logger })`
+  (positional form deprecated), and graph-core is covered by semver.
+- **create-botmesh**: `slashCommandsPlugin({ greeting })` still replaces the whole `/help`.
+  Closed: `TEMPLATES`, `agentsMd` and `findBotMeshMonorepo` moved to
+  `create-botmesh/internal`, deprecated on the main entry.
 - **Across providers**: error mappers are named `to<Channel>Error` except meta, whose
   mapper is deprecated in favour of graph-core's `toGraphError`; `ingest()` return
   types still differ (documented, not unified); `debug` is deprecated in Telegram, meta

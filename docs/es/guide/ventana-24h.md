@@ -245,6 +245,23 @@ sw.clearPending(chatId)    // drop them (each reported as 'dropped')
 También se exportan `SESSION_WINDOW_MS` (24 h) y `SESSION_WINDOW_ERROR_CODE`
 (`131047`).
 
+## Estabilidad de la API
+
+La API de la ventana de sesión tiene dos partes:
+
+- **Pública, cubierta por semver:** todo lo de esta página que una app configura
+  o consulta. `SessionWindowManager` (constructor, `forScope`, `state`, `isOpen`,
+  `expiresAt`, `pending`, `clearPending`), `SessionWindowOptions`, el contrato
+  `SessionWindowStore` y su implementación de referencia
+  `MemorySessionWindowStore`, `SessionTemplate`, `ReopenContext`, `ReopenReason`,
+  `ReopenTemplateResolver`, `SessionReport`, `SessionReportOutcome`,
+  `SessionWindowReopenedError`, `SESSION_WINDOW_MS` y `SESSION_WINDOW_ERROR_CODE`.
+- **`@experimental`, fuera de semver:** los ganchos que mueve `CloudAPIProvider`,
+  `send()`, `noteInbound()` y `noteFailedStatus()`, y su tipo `RawSend`. Pueden
+  cambiar en una versión menor. Llamarlos a mano se salta la subida única de
+  media del provider y su seguimiento de estados: envía a través del provider o
+  del bot.
+
 ## Costos y uso
 
 Cada evento `status` de la Cloud API trae la información de facturación de

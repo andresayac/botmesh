@@ -237,6 +237,23 @@ sw.clearPending(chatId)    // drop them (each reported as 'dropped')
 `SESSION_WINDOW_MS` (24 h) and `SESSION_WINDOW_ERROR_CODE` (`131047`) are
 exported too.
 
+## API stability
+
+The session-window surface is split in two:
+
+- **Public, covered by semver:** everything on this page an app configures or
+  queries. `SessionWindowManager` (constructor, `forScope`, `state`, `isOpen`,
+  `expiresAt`, `pending`, `clearPending`), `SessionWindowOptions`, the
+  `SessionWindowStore` contract and its reference `MemorySessionWindowStore`,
+  `SessionTemplate`, `ReopenContext`, `ReopenReason`, `ReopenTemplateResolver`,
+  `SessionReport`, `SessionReportOutcome`, `SessionWindowReopenedError`,
+  `SESSION_WINDOW_MS` and `SESSION_WINDOW_ERROR_CODE`.
+- **`@experimental`, outside semver:** the hooks `CloudAPIProvider` drives,
+  `send()`, `noteInbound()` and `noteFailedStatus()`, and their `RawSend` type.
+  They may change in a minor release. Calling them by hand skips the provider's
+  one-time media upload and its status bookkeeping: send through the provider
+  or the bot instead.
+
 ## Pricing and usage
 
 Every Cloud API `status` event carries Meta's billing info normalized in
