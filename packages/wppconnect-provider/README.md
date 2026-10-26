@@ -95,5 +95,9 @@ unknown events), `401` (invalid token) or `400` (not a valid webhook).
   `delete-message` and `download-media`.
 - `markRead` marks the **whole chat** (`send-seen`); WhatsApp Web has no
   per-message read receipts.
+- `baseUrl` must be an absolute `http(s)://` URL (a value without scheme fails in
+  the constructor). A wrong `secretKey` (the server answers 400 "The SECRET_KEY is
+  incorrect") rejects `start()` with the *Unauthorized* hint and a
+  `sessionInvalid` connection update.
 - For WPPConnect buttons/lists use
   `ctx.sendNative('wppconnect', { endpoint: 'send-list-message', body: {...} })`.

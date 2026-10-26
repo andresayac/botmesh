@@ -52,6 +52,7 @@ import {
 import {
   WaIdentityStore,
   describeErrorBody,
+  gatewayBaseUrl,
   isGroupJid,
   isLidJid,
   isRecord,
@@ -138,7 +139,7 @@ export class WPPConnectProvider implements IProvider<unknown> {
     if (!config.webhookToken) {
       this.logger.warn('WPPConnectProvider unsigned webhook mode explicitly enabled; never expose this endpoint publicly.')
     }
-    this.baseUrl = (config.baseUrl ?? 'http://localhost:21465').replace(/\/+$/, '')
+    this.baseUrl = gatewayBaseUrl('WPPConnectProvider', config.baseUrl ?? 'http://localhost:21465')
     this.sessionPath = encodeURIComponent(config.session)
     this.http = resolveHttpPolicy(this.baseUrl, config.http)
     this.identity = new WaIdentityStore(config.identityCacheSize, config.identityPersistence)
@@ -203,7 +204,9 @@ export class WPPConnectProvider implements IProvider<unknown> {
       this.http,
     )
     const token = isRecord(res.body) && typeof res.body.token === 'string' ? res.body.token : undefined
-    if (!res.ok || !token) throw toWppError(res.ok ? 401 : res.status, res.ok ? 'generate-token returned no token' : res.body, '')
+    // wppconnect-server answers a wrong secretKey with 400 "The SECRET_KEY is incorrect": that is an auth failure.
+    const status = res.ok || res.status === 400 ? 401 : res.status
+    if (!res.ok || !token) throw toWppError(status, res.ok ? 'generate-token returned no token' : res.body, '')
     this.token = token
     return token
   }
@@ -384,7 +387,6 @@ export class WPPConnectProvider implements IProvider<unknown> {
     return { ref: { id, chatId, native: isRecord(msg) ? { id, to: msg.to } : undefined }, raw: result }
   }
 
-  /** POST download-media { messageId } → { base64, mimetype }. */
   /** Durable media: the WPPConnect message id is enough to call `download-media` again. */
   serializeMediaRef(ref: MediaRef): SerializedMediaRef | undefined {
     const messageId = (ref.token as { messageId?: unknown } | undefined)?.messageId
@@ -401,6 +403,7 @@ export class WPPConnectProvider implements IProvider<unknown> {
     return { ...ref, token: { messageId } }
   }
 
+  /** POST download-media { messageId } → { base64, mimetype }. */
   async downloadMedia(ref: MediaRef): Promise<Buffer> {
     const token = ref.token as WppMediaToken | undefined
     if (!isRecord(token) || typeof token.messageId !== 'string') throw new ProviderError('downloadMedia requires a WPPConnect media token (MediaRef.token)')
