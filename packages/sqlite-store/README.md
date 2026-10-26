@@ -39,7 +39,7 @@ const bot = new Bot({
 await bot.start()
 ```
 
-The bot calls the store's `start()`/`stop()` for you. `stop()` closes the database (a close failure goes to `logger.error`) and `start()` reopens it, so the same store survives `bot.stop()` / `bot.start()` cycles and a failed start (the `schedules()` and `durability()` backends follow the new connection). Both are idempotent. An in-memory database (`file: ':memory:'` or `''`) stays open on `stop()`, since closing it would discard its data.
+The bot calls the store's `start()`/`stop()` for you. `stop()` closes the database (a close failure goes to `logger.error`) and `start()` reopens it, so the same store survives `bot.stop()` / `bot.start()` cycles and a failed start (the `schedules()` and `durability()` backends follow the new connection). Both are idempotent. Calling `schedules()` or `durability()` on a stopped store reopens it the same way. A message id, chat id, cursor key or cursor value with a lone UTF-16 surrogate is rejected with a `TypeError` (SQLite would store it as U+FFFD, where it could collide with another id). An in-memory database (`file: ':memory:'` or `''`) stays open on `stop()`, since closing it would discard its data.
 
 Opening errors name the file: a missing directory (`file`'s folder must exist), a file that is not a SQLite database (`code: 'SQLITE_NOTADB'`, the handle is released) or a native module that was never built.
 
