@@ -1,21 +1,21 @@
 {
   "name": "@botmesh/wa-gateway-kit",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
-  "description": "Internal building blocks shared by the WhatsApp REST gateway transports (@botmesh/evolution, @botmesh/wppconnect): JSON-over-secureFetch REST client, outbound media resolution and LID/PN identity reconciliation.",
+  "description": "Building blocks shared by the botmesh WhatsApp REST gateway transports (@botmesh/evolution, @botmesh/wppconnect): JSON-over-secureFetch REST client, outbound media resolution and LID/PN identity reconciliation.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "exports": { ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" } },
   "engines": { "node": ">=22" },
-  "keywords": ["botmesh", "whatsapp", "gateway", "internal"],
+  "keywords": ["botmesh", "whatsapp", "gateway", "evolution-api", "wppconnect", "lid"],
   "author": "Andres Aya",
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/andresayac/botmesh.git", "directory": "packages/wa-gateway-kit" },
-  "homepage": "https://github.com/andresayac/botmesh/tree/main/packages/wa-gateway-kit#readme",
+  "homepage": "https://andresayac.github.io/botmesh/guide/channels",
   "bugs": { "url": "https://github.com/andresayac/botmesh/issues" },
   "files": ["./lib/**/*"],
-  "scripts": { "build": "tsc", "test": "vitest run", "typecheck": "tsc -p tsconfig.test.json" },
-  "dependencies": { "@botmesh/core": "workspace:*", "@botmesh/http": "workspace:*" },
-  "devDependencies": { "@types/node": "^26.1.1", "typescript": "^7.0.2", "vite": "^7.3.7", "vitest": "^4.1.12" }
+  "scripts": { "build": "tsc", "test": "vitest run", "prepublishOnly": "pnpm build", "typecheck": "tsc -p tsconfig.test.json" },
+  "dependencies": { "@botmesh/core": "workspace:^", "@botmesh/http": "workspace:^" },
+  "devDependencies": { "@types/node": "^26.1.1", "typescript": "^7.0.2", "vite": "^7.3.7", "vitest": "^4.1.12" },
+  "publishConfig": { "access": "public" }
 }

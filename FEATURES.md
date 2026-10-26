@@ -538,7 +538,7 @@ bot.when(VOICE_NOTE, async (ctx) => {
 
 ### 17. Evolution API provider
 
-> **Estado: implementado** (`@botmesh/evolution`, privado): `EvolutionProvider`, salida REST e ingest de webhooks firmados, identidad canónica de WhatsApp. Guía: `docs/guide/channels.md`.
+> **Estado: implementado** (`@botmesh/evolution`, público desde la beta): `EvolutionProvider`, salida REST e ingest de webhooks firmados, identidad canónica de WhatsApp. Guía: `docs/guide/channels.md`.
 
 **Por qué pertenece:** Evolution API es la alternativa self-hosted a Baileys. Muchos usuarios la prefieren por estabilidad.
 
@@ -641,7 +641,7 @@ const bot = new Bot({
 
 ### 21. WPPConnect provider
 
-> **Estado: implementado** (`@botmesh/wppconnect`, privado): `WPPConnectProvider` sobre la API REST de wppconnect-server, webhook con token e ingest ordenado. Guía: `docs/guide/channels.md`.
+> **Estado: implementado** (`@botmesh/wppconnect`, público desde la beta): `WPPConnectProvider` sobre la API REST de wppconnect-server, webhook con token e ingest ordenado. Guía: `docs/guide/channels.md`.
 
 **Por qué pertenece:** Alternativa a Baileys con diferentes trade-offs (estabilidad, features).
 

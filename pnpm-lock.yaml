@@ -470,13 +470,13 @@ importers:
   packages/evolution-provider:
     dependencies:
       '@botmesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@botmesh/http':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../http
       '@botmesh/wa-gateway-kit':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../wa-gateway-kit
       pino:
         specifier: ^10.3.1
@@ -1297,10 +1297,10 @@ importers:
   packages/wa-gateway-kit:
     dependencies:
       '@botmesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@botmesh/http':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../http
     devDependencies:
       '@types/node':
@@ -1319,13 +1319,13 @@ importers:
   packages/wppconnect-provider:
     dependencies:
       '@botmesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@botmesh/http':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../http
       '@botmesh/wa-gateway-kit':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../wa-gateway-kit
       pino:
         specifier: ^10.3.1

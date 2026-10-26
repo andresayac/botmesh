@@ -38,9 +38,15 @@ export function normalizeJid(jid: unknown): string | undefined {
   return `${user}${trimmed.slice(at)}`
 }
 
+/** True for a WhatsApp LID (`…@lid`). */
 export const isLidJid = (jid: string): boolean => jid.endsWith('@lid')
+/** True for a group JID (`…@g.us`). */
 export const isGroupJid = (jid: string): boolean => jid.endsWith('@g.us')
 
+/**
+ * LID/PN reconciliation map: links every alias of one person to a single canonical id
+ * (see the module comment for the rules). `maxEntries` bounds the in-memory LRU (default 10 000).
+ */
 export class WaIdentityStore {
   private readonly canonicalOf = new Map<string, string>()
 

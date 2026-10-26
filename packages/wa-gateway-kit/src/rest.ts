@@ -27,6 +27,7 @@ export interface RestHttpOptions {
   fetch?: typeof globalThis.fetch
 }
 
+/** Answer of {@link restCall}: any HTTP status resolves (check `ok`); `body` is parsed JSON or the raw text. */
 export interface RestResponse {
   status: number
   ok: boolean
@@ -35,6 +36,7 @@ export interface RestResponse {
   retryAfterMs?: number
 }
 
+/** `Retry-After` header (delay in seconds or an HTTP date) in milliseconds; `undefined` when absent or unparsable. */
 export function parseRetryAfter(value: string | null): number | undefined {
   if (!value) return undefined
   const secs = Number(value)
@@ -47,6 +49,8 @@ export function parseRetryAfter(value: string | null): number | undefined {
  * Validate and normalize a gateway base URL at construction time, so a typo
  * (`localhost:8080` without the scheme) fails with an actionable message
  * instead of a misleading "only HTTPS URLs are allowed" on the first request.
+ *
+ * @throws {TypeError} when `baseUrl` is not an absolute http(s) URL.
  */
 export function gatewayBaseUrl(owner: string, baseUrl: unknown): string {
   const raw = typeof baseUrl === 'string' ? baseUrl.trim() : ''
@@ -57,7 +61,7 @@ export function gatewayBaseUrl(owner: string, baseUrl: unknown): string {
     parsed = undefined
   }
   if (!parsed || (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') || !parsed.hostname) {
-    throw new Error(`${owner}: \`baseUrl\` must be an absolute http(s) URL such as 'http://127.0.0.1:8080' (got ${JSON.stringify(baseUrl)})`)
+    throw new TypeError(`${owner}: \`baseUrl\` must be an absolute http(s) URL such as 'http://127.0.0.1:8080' (got ${JSON.stringify(baseUrl)})`)
   }
   return raw.replace(/\/+$/, '')
 }
@@ -76,6 +80,10 @@ function describeTransportError(err: unknown): string {
   return parts.join(': ') || String(err)
 }
 
+/**
+ * Fill the {@link RestHttpOptions} defaults for a gateway at `baseUrl`: plain HTTP allowed when the
+ * base URL uses it, private hosts allowed, 30 s timeout, 64 MiB response ceiling.
+ */
 export function resolveHttpPolicy(baseUrl: string, http: RestHttpOptions = {}): RestHttpOptions {
   return {
     allowHttp: http.allowHttp ?? /^http:\/\//i.test(baseUrl),
@@ -87,6 +95,13 @@ export function resolveHttpPolicy(baseUrl: string, http: RestHttpOptions = {}): 
   }
 }
 
+/**
+ * One JSON request to the gateway through `secureFetch` (@botmesh/http), never following redirects.
+ * Resolves for every HTTP status (map `status` to a typed error yourself).
+ *
+ * @throws {ProviderError} on a network failure (DNS, refused, timeout, size limit), naming the cause
+ * and `init.label` (or the URL path).
+ */
 export async function restCall(
   url: string,
   init: { method: string; headers?: Record<string, string>; body?: unknown; /** Shown in errors instead of the URL path (keep secrets out of logs). */ label?: string },
@@ -134,6 +149,7 @@ export async function restCall(
   }
 }
 
+/** Plain-object type guard (not `null`, not an array). */
 export function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x)
 }

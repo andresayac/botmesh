@@ -45,11 +45,16 @@ export interface EvolutionProviderConfig {
   identityPersistence?: IdentityPersistence
   /** Ask Evolution to transcode inbound audio to MP4 when downloading. Default false. */
   convertAudioToMp4?: boolean
-  debug?: boolean
+  /** Any pino-compatible logger (`console` works). Default: a pino logger at level `error`. */
   logger?: LoggerLike
 }
 
-/** Baileys message key as Evolution relays it (plus the LID/PN twins newer versions attach). */
+/**
+ * Baileys message key as Evolution relays it (plus the LID/PN twins newer versions attach).
+ *
+ * @experimental The shape follows the gateway's own payload, which changes between its versions;
+ * it may change in a minor release.
+ */
 export interface EvolutionMessageKey {
   remoteJid?: string
   remoteJidAlt?: string
@@ -63,6 +68,12 @@ export interface EvolutionMessageKey {
   addressingMode?: string
 }
 
+/**
+ * `contextInfo` of an Evolution message (quote and mentions).
+ *
+ * @experimental The shape follows the gateway's own payload, which changes between its versions;
+ * it may change in a minor release.
+ */
 export interface EvolutionContextInfo {
   stanzaId?: string
   participant?: string
@@ -70,7 +81,12 @@ export interface EvolutionContextInfo {
   mentionedJid?: string[]
 }
 
-/** `data` of a `messages.upsert` webhook. */
+/**
+ * `data` of a `messages.upsert` webhook (`ctx.raw` of an inbound message).
+ *
+ * @experimental The shape follows the gateway's own payload, which changes between its versions;
+ * it may change in a minor release.
+ */
 export interface EvolutionMessage {
   key: EvolutionMessageKey
   pushName?: string
@@ -83,7 +99,12 @@ export interface EvolutionMessage {
   status?: string
 }
 
-/** Envelope every Evolution webhook POST carries. */
+/**
+ * Envelope every Evolution webhook POST carries.
+ *
+ * @experimental The shape follows the gateway's own payload, which changes between its versions;
+ * it may change in a minor release.
+ */
 export interface EvolutionWebhook {
   event: string
   instance?: string
@@ -95,7 +116,7 @@ export interface EvolutionWebhook {
   apikey?: string
 }
 
-/** Opaque handle stored in `MediaRef.token`. */
+/** Opaque handle stored in `MediaRef.token` (exported from `/internal` only). */
 export interface EvolutionMediaToken {
   key: EvolutionMessageKey
   /** Present when the instance has `webhookBase64` enabled. */

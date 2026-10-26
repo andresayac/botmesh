@@ -4,6 +4,7 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
+/** Request headers as Node (`req.headers`) or Express hand them to `ingest()`; names in any case. */
 export type HeaderBag = Record<string, string | string[] | undefined>
 
 /** Case-insensitive single-value header read. */

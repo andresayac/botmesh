@@ -61,13 +61,24 @@ export interface WPPConnectProviderConfig {
    * back it with persistent storage to keep `senderId` stable across restarts.
    */
   identityPersistence?: IdentityPersistence
-  debug?: boolean
+  /** Any pino-compatible logger (`console` works). Default: a pino logger at level `error`. */
   logger?: LoggerLike
 }
 
-/** A WA-JS id: serialized string or a `Wid`/`MsgKey`-like object. */
+/**
+ * A WA-JS id: serialized string or a `Wid`/`MsgKey`-like object.
+ *
+ * @experimental The shape follows the gateway's own payload, which changes between its versions;
+ * it may change in a minor release.
+ */
 export type WppId = string | { _serialized?: string; id?: string; remote?: unknown; fromMe?: boolean; user?: string; server?: string }
 
+/**
+ * Sender of a WA-JS message.
+ *
+ * @experimental The shape follows the gateway's own payload, which changes between its versions;
+ * it may change in a minor release.
+ */
 export interface WppSender {
   id?: WppId
   pushname?: string
@@ -82,7 +93,12 @@ export interface WppSender {
   lid?: WppId
 }
 
-/** `onmessage` webhook payload (WA-JS message + `event` / `session`). */
+/**
+ * `onmessage` webhook payload (WA-JS message + `event` / `session`; `ctx.raw` of an inbound message).
+ *
+ * @experimental The shape follows the gateway's own payload, which changes between its versions;
+ * it may change in a minor release.
+ */
 export interface WppMessage {
   event?: string
   session?: string
@@ -117,7 +133,7 @@ export interface WppMessage {
   [key: string]: unknown
 }
 
-/** Opaque handle stored in `MediaRef.token`. */
+/** Opaque handle stored in `MediaRef.token` (exported from `/internal` only). */
 export interface WppMediaToken {
   messageId: string
 }

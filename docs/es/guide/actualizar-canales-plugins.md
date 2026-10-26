@@ -147,6 +147,20 @@ Opciones nuevas:
 cualquier `LoggerLike`. Las cadenas DDL exportadas `SCHEDULES_SCHEMA` y `DURABLE_SCHEMA`
 quedan deprecadas.
 
+### `@botmesh/evolution`, `@botmesh/wppconnect` y `@botmesh/wa-gateway-kit`
+
+Nuevos en npm en la beta (antes eran privados). Si los usabas desde el monorepo:
+
+- Los parsers de webhooks, los mapeadores de salida y los tokens de media (`parseWebhook`,
+  `parseMessage`, `toOutbound`, `numberedMenu`, `keyFromRef`, `target`, `jidOf`…) y los
+  helpers JWT de Evolution (`verifyHs256Jwt`, `signHs256Jwt`) pasaron a
+  `@botmesh/evolution/internal` y `@botmesh/wppconnect/internal`, sin garantía semver.
+- Los providers ya no reexportan `WaIdentityStore` ni `normalizeJid`: impórtalos de
+  `@botmesh/wa-gateway-kit`. `IdentityPersistence` y `RestHttpOptions` siguen en la entrada
+  principal de los providers.
+- Se quitó la opción `debug`: pasa un `logger` (`pino({ level: 'debug' })`).
+- Las opciones inválidas lanzan `TypeError` (antes un `Error` genérico; los mensajes no cambian).
+
 ## Paquetes privados
 
 No están en npm; estas notas solo importan dentro del monorepo o de un fork.

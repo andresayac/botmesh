@@ -127,11 +127,11 @@ export class WPPConnectProvider implements IProvider<unknown> {
   private _selfId: string | null
 
   constructor(private readonly config: WPPConnectProviderConfig) {
-    if (!config.session) throw new Error('WPPConnectProvider requires `session`')
-    if (!config.token && !config.secretKey) throw new Error('WPPConnectProvider requires `token` or `secretKey`')
-    this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
+    if (!config.session) throw new TypeError('WPPConnectProvider requires `session`')
+    if (!config.token && !config.secretKey) throw new TypeError('WPPConnectProvider requires `token` or `secretKey`')
+    this.logger = config.logger ?? pino({ level: 'error' })
     if (!config.webhookToken && !config.allowUnsignedWebhooks) {
-      throw new Error(
+      throw new TypeError(
         'WPPConnectProvider requires `webhookToken` to authenticate webhooks (wppconnect-server does not sign them). ' +
           'For isolated local development only, set `allowUnsignedWebhooks: true` explicitly.',
       )
