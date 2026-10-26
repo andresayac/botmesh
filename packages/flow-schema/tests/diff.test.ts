@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { canonicalJson, diffFlowDocuments, flowDigest, flowVersionOf, sameFlow, type FlowDocument } from '../src/index.js'
+import { diffFlowDocuments, flowDigest, flowVersionOf, sameFlow, type FlowDocument } from '../src/index.js'
+import { canonicalJson } from '../src/internal.js'
 
 const doc = (steps: FlowDocument['steps'], extra: Partial<FlowDocument> = {}): FlowDocument => ({ version: 2, id: 'x', trigger: 'hola', steps, ...extra })
 

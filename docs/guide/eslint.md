@@ -1,11 +1,5 @@
 # ESLint plugin
 
-::: warning Experimental — not published yet
-`eslint-plugin-botmesh` is private: it is not on npm and its rules may change.
-Use it from the monorepo (`"eslint-plugin-botmesh": "workspace:*"` in your
-`devDependencies`).
-:::
-
 `eslint-plugin-botmesh` catches in source code the mistakes no generic linter
 knows about: v1 API that no longer exists, a blocking `runtime.enter()`, an
 async plugin `install()`, empty triggers, waits without a timeout and per-user
@@ -17,6 +11,15 @@ It needs **ESLint 9 or later** (flat config) and Node >= 22. The `src/bot.js`
 of every [`create-botmesh`](/guide/getting-started#scaffold-a-project-with-create-botmesh)
 template passes the `strict` preset with no findings (the plugin's tests
 check it).
+
+## Install
+
+```bash
+pnpm add -D eslint eslint-plugin-botmesh
+```
+
+While the packages are in prerelease, add the dist-tag shown in
+[Getting started](/guide/getting-started).
 
 ## Usage
 
@@ -160,9 +163,9 @@ botmesh.rules     // the six rules, by name without the 'botmesh/' prefix
 botmesh.configs   // { recommended, strict } (flat configs)
 ```
 
-The rule modules are also named exports: `noV1Api`, `noAwaitRuntimeEnter`,
-`noAsyncPluginInstall`, `noEmptyTrigger`, `requireTimeoutOnAsk` and
-`preferCtxUser`.
+The rule modules are reached through `rules` (`rules['no-v1-api']`); they are
+not named exports. Each rule's `meta.docs.url` points at its section of this
+page, so editors link a finding to its explanation.
 
 ## See also
 

@@ -1,5 +1,5 @@
 /**
- * eslint-plugin-botmesh — static lint rules for @botmesh bots (FEATURES.md #40).
+ * eslint-plugin-botmesh — static lint rules for @botmesh bots.
  *
  * Complements the runtime `bot.lint()` / `lintFlows()` (broken gotos,
  * unreachable steps, duplicate triggers…) with source-level checks that need
@@ -17,6 +17,8 @@
  * ]
  * ```
  */
+
+import { readFileSync } from 'node:fs'
 
 import type { ESLint, Linter, Rule } from 'eslint'
 
@@ -55,8 +57,11 @@ export interface BotMeshPlugin extends ESLint.Plugin {
   configs: BotMeshConfigs
 }
 
+/** Name and version of this package, read from its own `package.json` (shipped in the tarball). */
+const PACKAGE = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { name: string; version: string }
+
 const plugin = {
-  meta: { name: 'eslint-plugin-botmesh', version: '0.1.0', namespace: PLUGIN_NAMESPACE },
+  meta: { name: PACKAGE.name, version: PACKAGE.version, namespace: PLUGIN_NAMESPACE },
   rules,
   configs: {} as BotMeshConfigs,
 } satisfies BotMeshPlugin
@@ -88,8 +93,6 @@ plugin.configs.strict = {
 }
 
 export const configs: BotMeshConfigs = plugin.configs
-
-export { noAsyncPluginInstall, noAwaitRuntimeEnter, noEmptyTrigger, noV1Api, preferCtxUser, requireTimeoutOnAsk }
 
 const botmesh: BotMeshPlugin = plugin
 export default botmesh

@@ -31,6 +31,7 @@ const PUBLIC = [
   'sqlite-store', 'redis-store', 'postgres-store', 'mysql-store', 'mongo-store', 'ai', 'http', 'graph-core', 'create-botmesh',
   'server', 'events', 'otel',
   'rag', 'voice', 'nlu', 'dialogflow', 'chatwoot', 'tickets', 'moderation',
+  'flow-schema', 'mcp', 'eslint-plugin',
 ]
 /** Reviewed and accepted (see docs/api-review.md): the EventEmitter-compatible overloads of Bot.on/once/off/emit. */
 const ALLOWED_ANY = new Set(['Bot'])

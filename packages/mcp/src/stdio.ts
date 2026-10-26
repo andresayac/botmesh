@@ -8,6 +8,7 @@
  */
 import { LineDecoder, RPC_ERROR, encodeMessage, errorResponse } from './protocol.js'
 import { createMcpServer, type McpServer, type McpToolInfo } from './server.js'
+import { MCP_SERVER_VERSION } from './version.js'
 
 /** Everything a single protocol session needs. */
 export interface ServeOptions {
@@ -83,9 +84,34 @@ export function docsDirFromEnv(env: Record<string, string | undefined>): string 
   return env.BOTMESH_DOCS_DIR || env.BOTWA_DOCS_DIR || undefined
 }
 
-/** Run the server over the process streams (what `bin.ts` calls). */
+/** What `botmesh-mcp --help` prints. */
+const USAGE = `Usage: botmesh-mcp [--docs <dir>]
+
+MCP server (stdio) for botmesh: validates, analyzes, migrates and diffs JSON flow documents.
+Register it in your MCP client as a stdio server; stdout is the protocol channel.
+
+Options:
+  --docs <dir>   Markdown docs tree for docs_search / docs_page (or BOTMESH_DOCS_DIR)
+  -h, --help     Show this help and exit
+  -v, --version  Print the version and exit
+`
+
+/**
+ * Run the server over the process streams (what `bin.ts` calls). `--help` / `-h` and
+ * `--version` / `-v` print to stdout and return without serving.
+ */
 export async function runStdio(options: StdioOptions = {}): Promise<void> {
-  const docsDir = options.docsDir ?? docsDirFromArgv(options.argv ?? process.argv.slice(2)) ?? docsDirFromEnv(process.env)
+  const argv = options.argv ?? process.argv.slice(2)
+  if (argv.includes('--help') || argv.includes('-h')) {
+    process.stdout.write(USAGE)
+    return
+  }
+  if (argv.includes('--version') || argv.includes('-v')) {
+    process.stdout.write(`${MCP_SERVER_VERSION}
+`)
+    return
+  }
+  const docsDir = options.docsDir ?? docsDirFromArgv(argv) ?? docsDirFromEnv(process.env)
   const server = createMcpServer(docsDir !== undefined && docsDir !== '' ? { docsDir } : {})
   const tools: readonly McpToolInfo[] = server.tools
   process.stderr.write(`botmesh-mcp: ${tools.length} tool(s)${docsDir ? `, docs ${docsDir}` : ' (docs tools off: pass --docs <dir>)'}\n`)

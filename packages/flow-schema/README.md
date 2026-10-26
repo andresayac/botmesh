@@ -1,46 +1,93 @@
 # @botmesh/flow-schema
 
-> **Private package** (`"private": true`, not published to npm). Real implementation; the API may change without notice while the alpha is out.
+**Versioned, code-free flow documents** for [`@botmesh/core`](https://www.npmjs.com/package/@botmesh/core): JSON that describes a conversation (questions, menus, conditions, media, forms, HTTP calls, handoff, an AI turn), validated against a JSON Schema and compiled to a core `CompiledFlow`. A document is data only: it cannot run code, read local files or reach private hosts, so it is safe to store, edit in a UI and hot-swap.
 
-**Versioned, code-free** flow documents: validation with precise errors, safe expressions, compilation to `CompiledFlow`, reverse export, migrations and draft/publish helpers for `@botmesh/deployments`.
+## Install
 
-```ts
-import { compileFlowDocument, validateFlowDocument } from '@botmesh/flow-schema'
-
-const document = {
-  version: 1 as const,
-  id: 'encuesta',
-  trigger: 'encuesta',
-  steps: [
-    { kind: 'ask' as const, text: '¿Tu nombre?', stateKey: 'name' },
-    { kind: 'say' as const, text: 'Gracias {{name}}' },
-  ],
-}
-if (validateFlowDocument(document).length === 0) bot.registerFlow(compileFlowDocument(document))
+```bash
+pnpm add @botmesh/core @botmesh/flow-schema
 ```
 
-## What it includes
+Node.js 22 or later, ESM only. It depends on `@botmesh/core` and [`@botmesh/http`](https://www.npmjs.com/package/@botmesh/http) (for the `http` step).
 
-- **JSON Schema** (draft 2020-12, `FLOW_DOCUMENT_SCHEMA`) and a dependency-free validator with JSON Pointer paths.
-- **Safe expression language** (`condition.if`, `guard.if`, `ask.validate.expr`): no `eval`, `Function`, regexes, indexes or prototype access.
-- **Steps**: `say`, `ask`, `choose`, `condition`, `delay`, `goto`, `end`, `media`, `form`, `guard`, `subflow`, `http`, `handoff` and `ai` (with tools by id).
-- **Compilation** to the core `CompiledFlow`; declarative steps compile 1:1 so `describe()`/`lint()` and checkpoints work per step.
-- **Reverse export** of introspectable flows (`exportFlowDocument`); an opaque `do` throws `FlowExportError` instead of being lost.
-- **Migrations** (`migrateFlowDocument`) and pure deploy helpers: `flowDigest`, `diffFlowDocuments`, `flowDocumentGate`, `publishFlow`.
-- **Subflows** resolved with `resolveSubflow` (error when missing or cyclic).
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older prerelease. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/flow-schema@beta` during the beta (`npm view @botmesh/flow-schema dist-tags` lists the tags). Once stable, the plain command above works.
 
-## Security
+## Quick start
 
-A stored document cannot execute code, read local files or escape its scope: expressions read own properties only, templates resolve paths only, URLs must be http(s), `http` requests go through `@botmesh/http` (anti-SSRF, redirects, timeout and size) and the `ai` step can only restrict already-configured tools, never add new ones.
+```ts
+import { compileFlowDocument, validateFlowDocument, type FlowDocument } from '@botmesh/flow-schema'
 
-- `http` URLs accept `{{ path }}` placeholders only in the path, query or fragment; values are percent-encoded and a bare `.`/`..` is refused, so user input can neither redirect the request (and its headers) to another host nor climb the path.
-- Form field `pattern`s are checked for catastrophic backtracking (nested repetition, alternation inside a repeated group, backreferences, lookarounds) and the compiled field matches answers with a linear-time automaton instead of the backtracking `RegExp` engine; a text field with a `pattern` but no `maxLength` is capped at 500 characters.
-- A flow may reach at most `FLOW_DOCUMENT_LIMITS.maxInlinedSteps` (5000) steps once its `subflow` steps are inlined, so a diamond of shared subflows cannot blow up compile time or memory.
-- Nested `delay` steps end with the conversation (`bot.stop()`, `/reset`, abort) instead of keeping a timer alive.
+const document: FlowDocument = {
+  version: 2,
+  id: 'checkout',
+  trigger: { keywords: ['buy', 'order'], match: 'contains' },
+  timeout: '5m',
+  steps: [
+    { kind: 'ask', text: 'Your name?', stateKey: 'name' },
+    { kind: 'condition', if: 'len(name) > 2', then: [{ kind: 'say', text: 'Hi {{name}}' }] },
+    { kind: 'handoff', reason: 'checkout' },
+  ],
+}
 
-## Integration
+const issues = validateFlowDocument(document) // [{ path: '/steps/0/text', message: '...' }] when invalid
+if (issues.length === 0) bot.registerFlow(compileFlowDocument(document))
+```
 
-- `@botmesh/manager` consumes this package for `GET /v1/flows/schema` and to compile the flows of its REST API (the contract does not change).
-- `@botmesh/deployments` owns storage; this package only provides `publishFlow`/`flowDocumentGate`.
+`compileFlowDocument()` validates too and throws `FlowDocumentError` (with the same `issues`) on an invalid document.
 
-Guide: [`docs/guide/flow-schema.md`](../../docs/guide/flow-schema.md) (English) and [`docs/es/guide/flow-schema.md`](../../docs/es/guide/flow-schema.md) (Spanish).
+## Steps
+
+| Kind | What it does |
+| --- | --- |
+| `say` | Sends text (`{{ path }}` templates allowed). |
+| `ask` | Asks and stores the answer in `c.state[stateKey]`; optional `timeout`, `maxAttempts` / `retries` and `validate: { expr, message }`. |
+| `choose` | Numbered menu (`options: [{ key, label, steps? }]`), stores the picked key. |
+| `condition` | `if` expression with `then` / `else` nested steps. |
+| `delay` | Pauses (at most 5 minutes); ends with the conversation. |
+| `goto` / `end` | Jumps to another flow / ends with an optional farewell. |
+| `media` | Image, video, audio, voice, document, sticker (http(s) URL or a URL in state) or location. |
+| `form` | Native form, or question by question where the channel has no forms. |
+| `guard` | `if` expression; when false it sends `message` and ends or redirects. |
+| `subflow` | Inlines another document, resolved with `resolveSubflow`. |
+| `http` | Request through `@botmesh/http` (anti-SSRF, redirect checks, timeout, size cap); stores the body in `stateKey`. |
+| `handoff` | Hands the chat to a human (`ctx.handoff`). |
+| `ai` | One AI turn through `ctx.tools.ai` (needs [`@botmesh/ai`](https://www.npmjs.com/package/@botmesh/ai)), optionally restricted to configured tool ids. |
+
+Expressions (`condition.if`, `guard.if`, `ask.validate.expr`) are a small safe language: literals, state paths, comparisons, `&& || !`, `+ -` and the functions `len`, `lower`, `upper`, `trim`, `number`, `string`, `contains`, `startsWith`, `endsWith`, `empty`, `oneOf`. No `eval`, `Function`, regexes, indexing or prototype access.
+
+## API
+
+| Export | What it is for |
+| --- | --- |
+| `validateFlowDocument(input)` / `isFlowDocument(input)` | Issues with JSON Pointer paths / type guard (version 2 only). A version 1 document is migrated on load. |
+| `compileFlowDocument(input, options?)` | Document → `CompiledFlow`. Options below. |
+| `exportFlowDocument(flow)` | `CompiledFlow` → document. Exact for flows compiled from a document; an opaque `do` throws `FlowExportError`. |
+| `migrateFlowDocument(input, migrations?, target?)` | Chains `FLOW_MIGRATIONS` (frozen; extend a copy). |
+| `flowDigest`, `flowVersionOf`, `diffFlowDocuments`, `sameFlow` | `sha256` over canonical JSON, a version label, a structural diff, equality ignoring key order. |
+| `flowArtifact`, `flowFromArtifact`, `flowDocumentGate`, `publishFlow` | Store a document as a deployment artifact and gate it (any registry with a compatible `publish()`). |
+| `FLOW_DOCUMENT_SCHEMA`, `FLOW_DOCUMENT_LIMITS`, `FLOW_DOCUMENT_VERSION`, `FLOW_ID_PATTERN` | The draft 2020-12 JSON Schema (deep-frozen) and its limits, for editors and code generation. |
+
+`@botmesh/flow-schema/internal` holds the expression engine and the compiler's metadata helpers. It has **no semver guarantee**.
+
+## Compile options
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `resolveSubflow` | none | `(id) => FlowDocument \| undefined` for `subflow` steps. A missing document or a cycle is a compile error. |
+| `fetch` | `secureFetch` | Custom fetch for `http` steps (tests, an egress proxy). |
+| `http` | 10 s, 64 KiB | Bounds of `http` steps: `{ timeoutMs, maxBytes, allowHttp }`. |
+| `formTimeoutMs` | the form's own option | Timeout of the waits of a nested `form` step. |
+
+## Troubleshooting
+
+- **`FlowDocumentError` on compile:** read `error.issues`; each one has the JSON Pointer of the offending node (`/steps/2/stateKey`).
+- **`unknown function` / `ExpressionError`:** only the functions listed above exist, and paths read own properties of `c.state` (plus `$body`, `$from`, `$sender`, `$isGroup`).
+- **A form `pattern` is rejected:** patterns that can backtrack catastrophically (`(a+)+`, backreferences, lookarounds) are refused; write them with a character class (`[a-z0-9-]+`).
+- **`http` step refused:** placeholders are allowed only in the URL path, query or fragment, never in the host; plain `http:` needs `http: { allowHttp: true }`, and private or loopback hosts are always refused by `@botmesh/http`.
+
+## Links
+
+- [JSON flow schema guide](https://andresayac.github.io/botmesh/guide/flow-schema) · [Forms](https://andresayac.github.io/botmesh/guide/forms) · [MCP server for flow documents](https://www.npmjs.com/package/@botmesh/mcp)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/flow-schema/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/flow-schema) · [Issues](https://github.com/andresayac/botmesh/issues)
+
+Public package, covered by semver (except `@botmesh/flow-schema/internal`).

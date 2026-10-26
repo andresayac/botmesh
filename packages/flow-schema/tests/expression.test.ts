@@ -3,7 +3,8 @@
  * keep a stored document from doing anything but reading its own scope.
  */
 import { describe, expect, it } from 'vitest'
-import { ExpressionError, EXPRESSION_LIMITS, evaluateCondition, evaluateExpression, hasTemplate, parseExpression, renderTemplate, resolvePath } from '../src/index.js'
+import { ExpressionError, EXPRESSION_LIMITS } from '../src/index.js'
+import { evaluateCondition, evaluateExpression, hasTemplate, parseExpression, renderTemplate, resolvePath } from '../src/internal.js'
 
 const ev = (src: string, scope: Record<string, unknown> = {}) => evaluateExpression(parseExpression(src), scope)
 

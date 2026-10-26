@@ -93,7 +93,8 @@ The npm packages are `@botmesh/core`, `@botmesh/baileys`, `@botmesh/meta`,
 `@botmesh/mongo-store`, `@botmesh/ai`, `@botmesh/http`, `@botmesh/graph-core`,
 `@botmesh/wa-gateway-kit`, `@botmesh/server`, `@botmesh/events`, `@botmesh/otel`,
 `@botmesh/rag`, `@botmesh/voice`, `@botmesh/nlu`, `@botmesh/dialogflow`,
-`@botmesh/chatwoot`, `@botmesh/tickets`, `@botmesh/moderation`
+`@botmesh/chatwoot`, `@botmesh/tickets`, `@botmesh/moderation`,
+`@botmesh/flow-schema`, `@botmesh/mcp`, `eslint-plugin-botmesh`
 and `create-botmesh` (all but `@botmesh/telegram`, `@botmesh/sqlite-store`,
 `@botmesh/redis-store`, `@botmesh/ai`, `@botmesh/http` and `@botmesh/graph-core`
 ship for the first time with the beta).

@@ -1,10 +1,48 @@
 # MCP server
 
-`@botmesh/mcp` (private, monorepo only) is a **Model Context Protocol** server over stdio. It gives an AI coding agent (or an editor) the project's deterministic pieces so a flow document can be written, validated, compiled, drawn, linted, migrated and diffed **without starting a bot**: no phone, no credentials, no network.
+`@botmesh/mcp` is a **Model Context Protocol** server over stdio. It gives an AI coding agent (or an editor) the project's deterministic pieces so a flow document can be written, validated, compiled, drawn, linted, migrated and diffed **without starting a bot**: no phone, no credentials, no network.
 
-Every tool is a function of its arguments. The server has **no dependencies** (the JSON-RPC transport is ~150 lines of `LineDecoder` + envelopes), never evaluates code and never writes to disk.
+Every tool is a function of its arguments. The server has **no third-party dependencies** (the JSON-RPC transport is implemented in the package), never evaluates code and never writes to disk.
 
 ## Run it
+
+MCP clients start it with `npx`; nothing to install up front:
+
+```bash
+npx -y @botmesh/mcp --help        # usage; --version prints the version
+```
+
+While the packages are in prerelease, use the dist-tag shown in
+[Getting started](/guide/getting-started) (`@botmesh/mcp@beta` during the beta),
+also in the client configurations below.
+
+### Register it in your client
+
+**Claude Code**:
+
+```bash
+claude mcp add botmesh -- npx -y @botmesh/mcp
+```
+
+or, shared with the project, `.mcp.json`:
+
+```json
+{ "mcpServers": { "botmesh": { "command": "npx", "args": ["-y", "@botmesh/mcp"] } } }
+```
+
+**Cursor** (`.cursor/mcp.json`) and **Claude Desktop** (`claude_desktop_config.json`) use the same `mcpServers` shape. **VS Code** (`.vscode/mcp.json`):
+
+```json
+{ "servers": { "botmesh": { "type": "stdio", "command": "npx", "args": ["-y", "@botmesh/mcp"] } } }
+```
+
+On Windows, a client that cannot start `npx` directly needs `"command": "cmd", "args": ["/c", "npx", "-y", "@botmesh/mcp"]`.
+
+### Documentation tools
+
+`--docs <dir>` (or `BOTMESH_DOCS_DIR`; the pre-rename `BOTWA_DOCS_DIR` is still read) points at a local Markdown tree, such as the `docs/` folder of a clone of the repository; the guides are not bundled in the package. Without it the two docs tools are **not** advertised in `tools/list`, so a client never sees a tool that cannot work.
+
+### From a checkout
 
 ```bash
 pnpm build                                     # packages resolve through lib/
@@ -12,8 +50,6 @@ pnpm build                                     # packages resolve through lib/
 node packages/mcp/lib/bin.js --docs docs       # flow tools + docs_search / docs_page
 node packages/mcp/lib/bin.js                   # flow tools only
 ```
-
-`--docs <dir>` (or `BOTMESH_DOCS_DIR`; the pre-rename `BOTWA_DOCS_DIR` is still read) points at a docs tree; without it the two docs tools are **not** advertised in `tools/list`, so a client never sees a tool that cannot work.
 
 In VS Code the repo already ships `.vscode/mcp.json`: run `pnpm build` once, then start the *botmesh* server from the MCP view.
 
@@ -23,8 +59,10 @@ In VS Code the repo already ships `.vscode/mcp.json`: run `pnpm build` once, the
 import { createMcpServer, serveStream } from '@botmesh/mcp'
 
 const server = createMcpServer({ docsDir: 'docs' })
-await serveStream(process.stdin, { server, write: (line) => process.stdout.write(`${line}\n`) })
+await serveStream(process.stdin, { server, write: (line) => { process.stdout.write(`${line}\n`) } })
 ```
+
+The main entry (`createMcpServer`, `serveStream`, `runStdio`, the protocol revisions, the server identity and `EXAMPLE_FLOW_DOCUMENT`) is covered by semver; the JSON-RPC framing, the tool catalogue and the docs search live in `@botmesh/mcp/internal`, with no semver guarantee.
 
 ## Tools
 

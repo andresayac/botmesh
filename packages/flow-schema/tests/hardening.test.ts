@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest'
 import { type FormDefinition } from '@botmesh/core'
 import { validateFormValues } from '@botmesh/core/spi'
 import { createTestBot } from '@botmesh/core/testing'
-import { ExpressionError, FlowDocumentError, compileFlowDocument, evaluateExpression, exportFlowDocument, flowDigest, parseExpression, renderTemplate, sameFlow, validateFlowDocument, type FlowDocument } from '../src/index.js'
+import { ExpressionError, FlowDocumentError, compileFlowDocument, exportFlowDocument, flowDigest, sameFlow, validateFlowDocument, type FlowDocument } from '../src/index.js'
+import { evaluateExpression, parseExpression, renderTemplate } from '../src/internal.js'
 
 const doc = (steps: FlowDocument['steps']): FlowDocument => ({ version: 2, id: 'flow', trigger: 'hola', steps })
 

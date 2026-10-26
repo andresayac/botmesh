@@ -1,9 +1,10 @@
 # Release readiness: stable
 
 Go/no-go report for moving the public `@botmesh/*` packages to a **stable** release
-(core `2.0.0`, the others at a version the maintainer picks). It covers thirteen packages:
-the ten public since the alpha and `@botmesh/postgres-store`, `@botmesh/mysql-store` and
-`@botmesh/mongo-store`, made public in the [store promotion round](#store-promotion-round). It closes the
+(core `2.0.0`, the others at a version the maintainer picks). It covers the 36 public
+packages: the ten public since the alpha and the 26 promoted during the beta (Messenger and
+Instagram, the WhatsApp REST gateways, the five channels, the [store promotion round](#store-promotion-round),
+the infrastructure and plugin rounds and the [tooling round](#promotion-round-tooling)). It closes the
 stable-readiness campaign of October 2026: six workstreams, each tested by one agent and
 checked by a reviewer, merged into `main` and verified together. The previous report
 (the alpha → beta campaign, base `9bcba20`) gave **GO for beta** and **NO-GO for stable**
@@ -62,6 +63,9 @@ Per package:
 | `@botmesh/gupshup` | GO after one beta with a live test | Confirm with a live account that the **v1 send endpoints** (`/wa/api/v1/msg`, `/wa/api/v1/template/msg`) and v2 callbacks are still the ones Gupshup supports for new apps (there is no official machine-readable spec). Not blocking: callbacks are authenticated only by a shared `webhookToken` (Gupshup does not sign) and have a replay window. |
 | `@botmesh/email` | GO after one beta with a live test | A live test against a real IMAP/SMTP provider (the GreenMail suite, `BOTWA_TEST_EMAIL`, is the only server test today). Done: `imapflow`/`nodemailer` lazy-loaded optional peers with clear errors (checked by `pack:smoke`), MIME helpers in `/internal`. |
 | `@botmesh/gohighlevel` | GO after one beta with a live test | A live test on a real HighLevel location (OAuth/API token, conversation webhooks). Not blocking: webhook replay window (no signed timestamp) and inbound media typed `application/octet-stream`. |
+| `@botmesh/flow-schema` (promoted, `pp/tooling`) | GO after one beta | None. Main entry 59 → 43; expression engine and step-source metadata in `/internal`; nested `delay`/`form` steps use the new semver hooks of `@botmesh/core/spi` instead of `/internal`; schema and migration table deep-frozen. |
+| `@botmesh/mcp` (promoted, `pp/tooling`) | GO after one beta | None. Main entry 40 → 19; framing, tool catalogue and docs search in `/internal`; `botmesh-mcp --help`/`--version`; version read from `package.json`. Exercised over stdio by the tests and the pack smoke test; not yet driven by a real MCP client (Claude Code, Cursor) from the packed tarball. |
+| `eslint-plugin-botmesh` (promoted, `pp/tooling`) | GO after one beta | None. Entry 14 → 8 (rule modules only through `rules`); `meta.version` from `package.json`; `meta.docs.url` per rule. |
 
 ## What changed
 
@@ -380,6 +384,24 @@ Export counts from `node scripts/api-check.cjs surface`:
 Checks on `pp/stores`: `pnpm api-check` OK (totals postgres-store 11, mysql-store 9,
 mongo-store 12); `pnpm changeset status --verbose` plans **major** →
 `1.0.0-beta.0` for the three; `pnpm pack:smoke` OK for the 13 public packages (the three stores pack at `0.1.0` until `version-packages` applies the changeset). Nothing published.
+
+### Promotion round: tooling
+
+Branch `pp/tooling` on top of `cda0ebe` promotes `@botmesh/flow-schema`, `@botmesh/mcp` and
+`eslint-plugin-botmesh` (changesets `major`, so `1.0.0-beta.0` in the beta pre mode) and
+adds a `minor` changeset for `@botmesh/core` (`2.0.0-beta.4`): `/spi` exports the
+flow-interpreter hooks `pauseControls` and `runFormStep` (`/spi` 93 → 95 names, also still
+in `/internal`). A public package must not import `@botmesh/core/internal`: its ranges
+(`^2.x`) would let a core minor remove a name it imports.
+
+| Package | Main entry before | Main entry after (deprecated) | New entries |
+| --- | --- | --- | --- |
+| `@botmesh/flow-schema` | 59 | 43 (0) | `/internal` 16 |
+| `@botmesh/mcp` | 40 | 19 (0) | `/internal` 23 |
+| `eslint-plugin-botmesh` | 14 | 8 (2) | none |
+
+`mcp` depends on `flow-schema`, so both move together. `@botmesh/manager` (which also
+consumes `flow-schema`), `sandbox` and the product packages stay private.
 
 ## Verification
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { FLOW_STEP_SOURCE, FlowDocumentError, compileFlowDocument, flowStepSource, type FlowDocument } from '../src/index.js'
+import { FlowDocumentError, compileFlowDocument, type FlowDocument } from '../src/index.js'
+import { FLOW_STEP_SOURCE, flowStepSource } from '../src/internal.js'
 
 const doc = (steps: FlowDocument['steps']): FlowDocument => ({ version: 2, id: 'flow', trigger: 'hola', steps })
 

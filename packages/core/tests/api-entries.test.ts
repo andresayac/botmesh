@@ -58,3 +58,16 @@ describe('semver entries', () => {
     expect(index).toMatch(/\bConversationFn,?\s*\}\s*from '\.\/conversations\/ConversationRuntime\.js'/)
   })
 })
+
+describe('flow-interpreter hooks on the SPI', () => {
+  // `@botmesh/flow-schema` (public) interprets nested declarative steps itself: it needs the
+  // cancellable pause and the form runner the core interpreter uses, under a semver promise.
+  it('the SPI exports pauseControls and runFormStep, the same values as /internal', async () => {
+    const spi = await import('../src/spi.js')
+    const internal = await import('../src/internal.js')
+    expect(typeof spi.pauseControls).toBe('function')
+    expect(typeof spi.runFormStep).toBe('function')
+    expect(spi.pauseControls).toBe(internal.pauseControls)
+    expect(spi.runFormStep).toBe(internal.runFormStep)
+  })
+})

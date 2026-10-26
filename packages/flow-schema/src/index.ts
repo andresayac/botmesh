@@ -4,9 +4,9 @@
  * - **Validation**: {@link validateFlowDocument} / {@link isFlowDocument} and the
  *   JSON Schema itself ({@link FLOW_DOCUMENT_SCHEMA}, draft 2020-12), with precise
  *   JSON-pointer issues and structural limits.
- * - **Safe expressions**: {@link parseExpression} / {@link evaluateExpression} /
- *   {@link renderTemplate}. No `eval`, no `Function`, no regexes, no property access
- *   beyond plain own-property paths.
+ * - **Safe expressions** inside documents (`condition.if`, `guard.if`, `ask.validate.expr`,
+ *   `{{ path }}` templates): no `eval`, no `Function`, no regexes, no property access beyond
+ *   plain own-property paths. The engine itself lives in `@botmesh/flow-schema/internal`.
  * - **Compilation**: {@link compileFlowDocument} turns a document into a core
  *   `CompiledFlow` (`say`, `ask`, `choose`, `delay`, `goto`, `end`, `condition`, `media`,
  *   `form`, `guard`, `subflow`, `http`, `handoff` and an `ai` step with tools by id).
@@ -17,17 +17,15 @@
  *   {@link flowDocumentGate} and {@link publishFlow} (the optional integration with
  *   `@botmesh/deployments`).
  *
- * Private package: not published to npm.
- *
  * @example
  * ```ts
  * import { compileFlowDocument, validateFlowDocument } from '@botmesh/flow-schema'
  *
  * const document = {
- *   version: 1 as const, id: 'encuesta', trigger: 'encuesta',
+ *   version: 2 as const, id: 'survey', trigger: 'survey',
  *   steps: [
- *     { kind: 'ask' as const, text: '¿Tu nombre?', stateKey: 'name' },
- *     { kind: 'say' as const, text: 'Gracias {{name}}' },
+ *     { kind: 'ask' as const, text: 'Your name?', stateKey: 'name' },
+ *     { kind: 'say' as const, text: 'Thanks {{name}}' },
  *   ],
  * }
  * if (validateFlowDocument(document).length === 0) bot.registerFlow(compileFlowDocument(document))
@@ -36,14 +34,12 @@
 
 export {
   FLOW_DOCUMENT_VERSION,
-  FLOW_DOCUMENT_LEGACY_VERSIONS,
   FLOW_DOCUMENT_SCHEMA_ID,
   FLOW_DOCUMENT_SCHEMA,
   FLOW_DOCUMENT_LIMITS,
   FLOW_ID_PATTERN,
   FlowDocumentError,
   isFlowDocument,
-  toMs,
   validateFlowDocument,
 } from './schema.js'
 export type {
@@ -58,19 +54,9 @@ export type {
   FlowStepDocument,
 } from './schema.js'
 
-export {
-  EXPRESSION_LIMITS,
-  ExpressionError,
-  evaluateCondition,
-  evaluateExpression,
-  hasTemplate,
-  parseExpression,
-  renderTemplate,
-  resolvePath,
-} from './expression.js'
-export type { ExpressionNode } from './expression.js'
+export { EXPRESSION_LIMITS, ExpressionError } from './expression.js'
 
-export { FLOW_DOCUMENT_SOURCE, FLOW_STEP_SOURCE, compileFlowDocument, flowDocumentSource, flowScope, flowStepSource } from './compile.js'
+export { compileFlowDocument } from './compile.js'
 export type { CompileFlowOptions } from './compile.js'
 
 export { FlowExportError, exportFlowDocument } from './introspect.js'
@@ -79,15 +65,21 @@ export { FLOW_MIGRATIONS, FlowMigrationError, migrateFlowDocument } from './migr
 export type { FlowMigration, MigrationResult } from './migrate.js'
 
 export {
-  canonicalJson,
   diffFlowDocuments,
   flowArtifact,
   flowDigest,
   flowDocumentGate,
   flowFromArtifact,
-  flowIssuesOf,
   flowVersionOf,
   publishFlow,
   sameFlow,
 } from './deployments.js'
-export type { FlowDifference, FlowDocumentDiff, PublishFlowOptions, FlowDeploymentCandidate, FlowGateResult, FlowDeploymentGate, FlowDeploymentRegistry } from './deployments.js'
+export type {
+  FlowDifference,
+  FlowDocumentDiff,
+  PublishFlowOptions,
+  FlowDeploymentCandidate,
+  FlowGateResult,
+  FlowDeploymentGate,
+  FlowDeploymentRegistry,
+} from './deployments.js'

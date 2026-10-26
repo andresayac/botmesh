@@ -1,10 +1,48 @@
 # Servidor MCP
 
-`@botmesh/mcp` (privado, solo monorepo) es un servidor **MCP** (Model Context Protocol) por stdio. Le da a un agente de código (o a un editor) las piezas deterministas del proyecto para escribir, validar, compilar, dibujar, lintear, migrar y comparar un documento de flujo **sin arrancar un bot**: sin teléfono, sin credenciales, sin red.
+`@botmesh/mcp` es un servidor **MCP** (Model Context Protocol) por stdio. Le da a un agente de código (o a un editor) las piezas deterministas del proyecto para escribir, validar, compilar, dibujar, lintear, migrar y comparar un documento de flujo **sin arrancar un bot**: sin teléfono, sin credenciales, sin red.
 
-Cada herramienta es una función de sus argumentos. El servidor **no tiene dependencias** (el transporte JSON-RPC son ~150 líneas de `LineDecoder` + envelopes), nunca evalúa código y nunca escribe en disco.
+Cada herramienta es una función de sus argumentos. El servidor **no tiene dependencias de terceros** (el transporte JSON-RPC está implementado en el paquete), nunca evalúa código y nunca escribe en disco.
 
 ## Arrancarlo
+
+Los clientes MCP lo arrancan con `npx`; no hay que instalar nada antes:
+
+```bash
+npx -y @botmesh/mcp --help        # uso; --version imprime la versión
+```
+
+Mientras los paquetes estén en prerelease, usa el dist-tag que indica
+[Inicio](/es/guide/inicio) (`@botmesh/mcp@beta` durante la beta), también en
+las configuraciones de cliente de abajo.
+
+### Registrarlo en tu cliente
+
+**Claude Code**:
+
+```bash
+claude mcp add botmesh -- npx -y @botmesh/mcp
+```
+
+o, compartido con el proyecto, `.mcp.json`:
+
+```json
+{ "mcpServers": { "botmesh": { "command": "npx", "args": ["-y", "@botmesh/mcp"] } } }
+```
+
+**Cursor** (`.cursor/mcp.json`) y **Claude Desktop** (`claude_desktop_config.json`) usan la misma forma `mcpServers`. **VS Code** (`.vscode/mcp.json`):
+
+```json
+{ "servers": { "botmesh": { "type": "stdio", "command": "npx", "args": ["-y", "@botmesh/mcp"] } } }
+```
+
+En Windows, un cliente que no puede arrancar `npx` directamente necesita `"command": "cmd", "args": ["/c", "npx", "-y", "@botmesh/mcp"]`.
+
+### Herramientas de documentación
+
+`--docs <dir>` (o `BOTMESH_DOCS_DIR`; el nombre anterior, `BOTWA_DOCS_DIR`, se sigue leyendo) apunta a un árbol Markdown local, como la carpeta `docs/` de un clon del repositorio; las guías no van dentro del paquete. Sin él las dos herramientas de docs **no** se anuncian en `tools/list`, así que un cliente nunca ve una herramienta que no puede funcionar.
+
+### Desde el repositorio
 
 ```bash
 pnpm build                                     # los paquetes se resuelven por lib/
@@ -12,8 +50,6 @@ pnpm build                                     # los paquetes se resuelven por l
 node packages/mcp/lib/bin.js --docs docs       # herramientas de flujo + docs_search / docs_page
 node packages/mcp/lib/bin.js                   # solo herramientas de flujo
 ```
-
-`--docs <dir>` (o `BOTMESH_DOCS_DIR`; el nombre anterior, `BOTWA_DOCS_DIR`, se sigue leyendo) apunta a un árbol de documentación; sin él las dos herramientas de docs **no** se anuncian en `tools/list`, así que un cliente nunca ve una herramienta que no puede funcionar.
 
 En VS Code el repo ya trae `.vscode/mcp.json`: ejecuta `pnpm build` una vez y arranca el servidor *botmesh* desde la vista MCP.
 
@@ -23,8 +59,10 @@ En VS Code el repo ya trae `.vscode/mcp.json`: ejecuta `pnpm build` una vez y ar
 import { createMcpServer, serveStream } from '@botmesh/mcp'
 
 const server = createMcpServer({ docsDir: 'docs' })
-await serveStream(process.stdin, { server, write: (line) => process.stdout.write(`${line}\n`) })
+await serveStream(process.stdin, { server, write: (line) => { process.stdout.write(`${line}\n`) } })
 ```
+
+La entrada principal (`createMcpServer`, `serveStream`, `runStdio`, las revisiones del protocolo, la identidad del servidor y `EXAMPLE_FLOW_DOCUMENT`) sigue semver; el framing JSON-RPC, el catálogo de herramientas y la búsqueda en la documentación viven en `@botmesh/mcp/internal`, sin garantía semver.
 
 ## Herramientas
 

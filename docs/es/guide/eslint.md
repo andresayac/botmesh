@@ -1,11 +1,5 @@
 # Plugin de ESLint
 
-::: warning Experimental — aún no publicado en npm
-`eslint-plugin-botmesh` es privado: no está en npm y sus reglas pueden cambiar.
-Úsalo desde el monorepo (`"eslint-plugin-botmesh": "workspace:*"` en tus
-`devDependencies`).
-:::
-
 `eslint-plugin-botmesh` detecta en el código fuente los errores que ningún
 linter genérico conoce: API v1 que ya no existe, un `runtime.enter()`
 bloqueante, un `install()` de plugin async, triggers vacíos, esperas sin
@@ -17,6 +11,15 @@ inalcanzables, triggers duplicados).
 Necesita **ESLint 9 o superior** (flat config) y Node >= 22. El `src/bot.js`
 de cada plantilla de [`create-botmesh`](/es/guide/inicio#crear-un-proyecto-con-create-botmesh)
 pasa el preset `strict` sin avisos (lo comprueban los tests del plugin).
+
+## Instalación
+
+```bash
+pnpm add -D eslint eslint-plugin-botmesh
+```
+
+Mientras los paquetes estén en prerelease, añade el dist-tag que indica
+[Inicio](/es/guide/inicio).
 
 ## Uso
 
@@ -163,9 +166,9 @@ botmesh.rules     // the six rules, by name without the 'botmesh/' prefix
 botmesh.configs   // { recommended, strict } (flat configs)
 ```
 
-Los módulos de las reglas también son exports con nombre: `noV1Api`,
-`noAwaitRuntimeEnter`, `noAsyncPluginInstall`, `noEmptyTrigger`,
-`requireTimeoutOnAsk` y `preferCtxUser`.
+Los módulos de las reglas se alcanzan por `rules` (`rules['no-v1-api']`); no
+son exports con nombre. El `meta.docs.url` de cada regla apunta a su sección
+de esta página, así que el editor enlaza cada aviso con su explicación.
 
 ## Ver también
 

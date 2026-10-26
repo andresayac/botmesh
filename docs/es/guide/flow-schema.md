@@ -1,6 +1,13 @@
 # Esquema JSON de flujos
 
-`@botmesh/flow-schema` (privado, solo en el monorepo) define **documentos de flujo versionados y sin código**: JSON que el manager guarda y reemplaza en caliente, que el gate de despliegues valida y que compila a un `CompiledFlow` del core.
+`@botmesh/flow-schema` define **documentos de flujo versionados y sin código**: JSON que puedes guardar, editar en una interfaz y reemplazar en caliente, que un gate de despliegues valida y que compila a un `CompiledFlow` del core.
+
+```bash
+pnpm add @botmesh/core @botmesh/flow-schema
+```
+
+Mientras los paquetes estén en prerelease, añade el dist-tag que indica
+[Inicio](/es/guide/inicio). La entrada principal sigue semver; el motor de expresiones y los helpers de metadatos del compilador viven en `@botmesh/flow-schema/internal`, sin garantía semver.
 
 Un documento es **solo datos**. Nunca lleva funciones, `eval`, imports ni expresiones arbitrarias: el único cálculo es un lenguaje de expresiones seguro y plantillas `{{ path }}`.
 

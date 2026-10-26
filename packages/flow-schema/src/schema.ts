@@ -9,6 +9,7 @@
  * templates over `c.state`/the triggering message.
  */
 
+import { deepFreeze } from './freeze.js'
 import { parseExpression, ExpressionError } from './expression.js'
 import { linearPatternIssue } from './pattern.js'
 import { upgradeV1ToV2 } from './legacy.js'
@@ -162,7 +163,7 @@ const options = {
 }
 
 /** The JSON Schema object itself (draft 2020-12). */
-export const FLOW_DOCUMENT_SCHEMA = Object.freeze({
+export const FLOW_DOCUMENT_SCHEMA = deepFreeze({
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   $id: FLOW_DOCUMENT_SCHEMA_ID,
   title: 'botmesh flow document',

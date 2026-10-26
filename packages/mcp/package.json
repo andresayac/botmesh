@@ -1,9 +1,8 @@
 {
   "name": "@botmesh/mcp",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
-  "description": "MCP server (stdio) for BotWA: validates, analyzes, migrates and diffs code-free JSON flow documents and searches the documentation. No dependencies, no network.",
+  "description": "MCP server (stdio) for botmesh: validates, analyzes, migrates and diffs code-free JSON flow documents and searches the documentation. No network.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "bin": {
@@ -13,6 +12,10 @@
     ".": {
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
+    },
+    "./internal": {
+      "types": "./lib/internal.d.ts",
+      "default": "./lib/internal.js"
     }
   },
   "engines": {
@@ -28,21 +31,34 @@
     "typecheck": "tsc -p tsconfig.test.json"
   },
   "keywords": [
+    "botmesh",
     "mcp",
     "model-context-protocol",
-    "botmesh",
+    "chatbot",
     "flows"
   ],
   "author": "Andres Aya",
   "license": "MIT",
   "dependencies": {
-    "@botmesh/core": "workspace:*",
-    "@botmesh/flow-schema": "workspace:*"
+    "@botmesh/core": "workspace:^",
+    "@botmesh/flow-schema": "workspace:^"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
     "typescript": "^7.0.2",
     "vite": "^7.3.7",
     "vitest": "^4.1.12"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andresayac/botmesh.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://andresayac.github.io/botmesh/guide/mcp",
+  "bugs": {
+    "url": "https://github.com/andresayac/botmesh/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

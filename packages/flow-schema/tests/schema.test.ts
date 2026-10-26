@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  FLOW_DOCUMENT_LIMITS,
-  FLOW_DOCUMENT_SCHEMA,
-  FLOW_DOCUMENT_VERSION,
-  FLOW_DOCUMENT_SCHEMA_ID,
-  isFlowDocument,
-  toMs,
-  validateFlowDocument,
-} from '../src/index.js'
+import { FLOW_DOCUMENT_LIMITS, FLOW_DOCUMENT_SCHEMA, FLOW_DOCUMENT_VERSION, FLOW_DOCUMENT_SCHEMA_ID, isFlowDocument, validateFlowDocument } from '../src/index.js'
+import { toMs } from '../src/internal.js'
 
 const base = () => ({
   version: FLOW_DOCUMENT_VERSION,

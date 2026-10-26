@@ -293,7 +293,7 @@ await assertTranscript(parseTranscript(readFileSync('tests/golden/checkout.json'
 
 ## Static checks
 
-[`eslint-plugin-botmesh`](/guide/eslint) (experimental) catches v1 API
+[`eslint-plugin-botmesh`](/guide/eslint) catches v1 API
 leftovers, a blocking `runtime.enter()`, async plugin `install()`, empty
 triggers, waits without a timeout and per-user state in module variables
 before the code runs.

@@ -23,10 +23,11 @@
  *     consumer .ts typechecks with moduleResolution nodenext AND bundler
  *     (including the `ctx.tools.ai` DefaultTools augmentation); a small runtime
  *     scenario (createTestBot, aiPlugin + MockAIProvider from @botmesh/ai/testing, SQLiteStore, the
- *     nlu/rag/tickets/moderation/voice plugins); optional
+ *     nlu/rag/tickets/moderation/voice plugins, a compiled flow document, the MCP `initialize`, the
+ *     lint plugin's recommended preset); optional
  *     AI SDK, email (imapflow, nodemailer), pdf-parse and @opentelemetry/api peers absent → import works, a clear
  *     lazy error only on use; the
- *     `botmesh` and `create-botmesh` bins run.
+ *     `botmesh`, `create-botmesh` and `botmesh-mcp` bins run.
  *  4. Scaffold every create-botmesh template, check its @botmesh ranges resolve
  *     to the packed versions (npm prerelease rules), then `npm install` it with
  *     its ranges UNTOUCHED: a throwaway local registry (scripts/smoke/registry.mjs,
@@ -149,6 +150,11 @@ export function wire(bot: Bot): void {
     ctx.tools.moderation?.mute(ctx.from, ctx.sender, 1000)
   })
 }
+import { compileFlowDocument, validateFlowDocument, FLOW_DOCUMENT_SCHEMA, type FlowDocument } from '@botmesh/flow-schema'
+import { renderTemplate as renderFlowTemplate } from '@botmesh/flow-schema/internal'
+import { createMcpServer, MCP_SERVER_VERSION, type McpServer } from '@botmesh/mcp'
+import { LineDecoder } from '@botmesh/mcp/internal'
+import botmeshLint, { configs as lintConfigs, type BotMeshPlugin } from 'eslint-plugin-botmesh'
 
 export const providers: IProvider[] = [
   // logger takes any LoggerLike (console included), not only pino.
@@ -224,6 +230,16 @@ export const observedBot = new Bot({
 })
 observedBot.plug(otelMetricsPlugin({ api: otelApi }))
 export const otelRefs = [SpanMetrics]
+// Code-free flows, the MCP server and the lint plugin.
+export const flowDoc: FlowDocument = { version: 2, id: 'smoke', trigger: 'smoke', steps: [{ kind: 'say', text: 'hi {{name}}' }] }
+export const flowIssues = validateFlowDocument(flowDoc).length + Object.keys(FLOW_DOCUMENT_SCHEMA).length
+export const compiledFlow = compileFlowDocument(flowDoc)
+export const rendered: string = renderFlowTemplate('{{a}}', { a: 'x' })
+export const mcp: McpServer = createMcpServer()
+export const mcpVersion: string = MCP_SERVER_VERSION
+export const decoder = new LineDecoder()
+export const lintPlugin: BotMeshPlugin = botmeshLint
+export const lintRecommended = lintConfigs.recommended
 
 const createBot = defineBot((provider) => {
   const bot = new Bot({ provider })
@@ -260,6 +276,10 @@ import { GatewayIntents } from '@botmesh/discord'
 import { PostgresStore } from '@botmesh/postgres-store'
 import { MysqlStore } from '@botmesh/mysql-store'
 import { MongoStore } from '@botmesh/mongo-store'
+import { compileFlowDocument } from '@botmesh/flow-schema'
+import { createMcpServer, MCP_SERVER_VERSION } from '@botmesh/mcp'
+import botmeshLint from 'eslint-plugin-botmesh'
+import { Linter } from 'eslint'
 
 // The deprecated main-entry alias is the same class; exported data is frozen.
 assert.equal(DeprecatedMock, MockAIProvider)
@@ -274,6 +294,20 @@ const t2 = await createTestBot()
 t2.bot.plug(aiPlugin({ instance: new MockAIProvider({ reply: 'from ai' }), humanizeTyping: false }))
 await t2.chat.send('anything')
 await t2.chat.expectReply(/from ai/)
+
+// A code-free flow document compiles and runs on the installed core.
+const tf = await createTestBot()
+tf.bot.registerFlow(compileFlowDocument({ version: 2, id: 'smoke', trigger: 'smoke', steps: [{ kind: 'say', text: 'flow ok' }] }))
+await tf.chat.send('smoke')
+await tf.chat.expectReply('flow ok')
+
+// The MCP server answers initialize with the packed version.
+const init = await createMcpServer().handle({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18' } })
+assert.equal(init.result.serverInfo.version, MCP_SERVER_VERSION)
+
+// The lint plugin's recommended preset flags the v1 API with the installed eslint.
+const lint = new Linter({ configType: 'flat' }).verify("addKeyword('a').addAnswer('x', { capture: true })", [botmeshLint.configs.recommended], 'bot.js')
+assert.ok(lint.some((m) => m.ruleId === 'botmesh/no-v1-api'), 'expected botmesh/no-v1-api to fire')
 
 const s = new SQLiteStore({ file: ':memory:' })
 await s.upsertChat({ id: 'c1', name: 'x' })
@@ -778,7 +812,7 @@ console.log('OTEL LAZY OK')
       const errors = tsc.out
         .split('\n')
         .filter((l) => /error TS\d+/.test(l))
-        .filter((l) => skipLibCheck || /^(src[\\/]|node_modules[\\/](@botmesh|create-botmesh)[\\/])/.test(l))
+        .filter((l) => skipLibCheck || /^(src[\\/]|node_modules[\\/](@botmesh|create-botmesh|eslint-plugin-botmesh)[\\/])/.test(l))
       if (errors.length) fail('types', `tsc (${mode}, skipLibCheck=${skipLibCheck}):\n    ${errors.join('\n    ')}`)
       else console.log(`  types OK (${mode}, skipLibCheck=${skipLibCheck})`)
     }
@@ -788,7 +822,7 @@ console.log('OTEL LAZY OK')
   writeFileSync(join(CONSUMER, 'runtime.mjs'), RUNTIME_MJS)
   const rt = run('node', ['runtime.mjs'], { cwd: CONSUMER, timeout: 60_000 })
   if (!rt.ok || !rt.out.includes('RUNTIME OK')) fail('runtime', rt.out.split('\n').slice(-20).join('\n'))
-  else console.log('  runtime scenario OK (createTestBot, aiPlugin+MockAIProvider, SQLiteStore, SQL/Mongo stores on injected pools, lazy SDK error, server ingress, events worker + durability, plugins)')
+  else console.log('  runtime scenario OK (createTestBot, aiPlugin+MockAIProvider, SQLiteStore, SQL/Mongo stores on injected pools, lazy SDK error, server ingress, events worker + durability, plugins, flow document, MCP initialize, lint preset)')
 
   // 3d. bins.
   const binOf = (pkgName, bin) => {
@@ -799,6 +833,7 @@ console.log('OTEL LAZY OK')
   for (const [pkgName, bin] of [
     ['@botmesh/core', 'botmesh'],
     ['create-botmesh', 'create-botmesh'],
+    ['@botmesh/mcp', 'botmesh-mcp'],
   ]) {
     const shim = join(nm, '.bin', IS_WIN ? `${bin}.cmd` : bin)
     if (!existsSync(shim)) failFor(pkgName, `npm did not link the ${bin} bin`)

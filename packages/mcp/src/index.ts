@@ -10,8 +10,9 @@
  * - `flow_example` (a canonical document that validates and lints clean)
  * - `docs_search` / `docs_page` — only when a docs directory is configured
  *
- * No dependencies, no network, no `eval`: the transport is newline-delimited JSON-RPC 2.0
- * implemented in {@link LineDecoder}, and every tool is a function of its arguments.
+ * No third-party dependencies, no network, no `eval`: the transport is newline-delimited
+ * JSON-RPC 2.0 implemented in this package, and every tool is a function of its arguments.
+ * Run it as the `botmesh-mcp` binary (`npx -y @botmesh/mcp`) or embed it with the API below.
  *
  * @example
  * ```ts
@@ -29,25 +30,12 @@ export {
 } from './server.js'
 export type { McpServer, McpServerOptions, McpToolInfo } from './server.js'
 
-export { EXAMPLE_FLOW_DOCUMENT, createTools, stepKindsOf } from './tools.js'
-export type { ToolContext, ToolDefinition, ToolOutput } from './tools.js'
+export { EXAMPLE_FLOW_DOCUMENT } from './tools.js'
+export type { ToolContext } from './tools.js'
 
-export {
-  JSONRPC_VERSION,
-  LineDecoder,
-  RPC_ERROR,
-  encodeMessage,
-  errorResponse,
-  idOf,
-  isJsonRpcRequest,
-  resultResponse,
-} from './protocol.js'
-export type { JsonRpcErrorBody, JsonRpcFailure, JsonRpcId, JsonRpcRequest, JsonRpcResult } from './protocol.js'
+export type { JsonRpcErrorBody, JsonRpcFailure, JsonRpcId, JsonRpcResult } from './protocol.js'
 
-export { markdownFiles, parseSections, readDocPage, searchDocs, searchSections } from './docs.js'
-export type { DocHit, DocSection } from './docs.js'
-
-export { docsDirFromArgv, runStdio, serveStream } from './stdio.js'
+export { runStdio, serveStream } from './stdio.js'
 export type { ServeOptions, StdioOptions } from './stdio.js'
 
 export { MCP_SERVER_NAME, MCP_SERVER_VERSION } from './version.js'

@@ -498,10 +498,10 @@ importers:
   packages/flow-schema:
     dependencies:
       '@botmesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@botmesh/http':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../http
     devDependencies:
       '@botmesh/ai':
@@ -756,10 +756,10 @@ importers:
   packages/mcp:
     dependencies:
       '@botmesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@botmesh/flow-schema':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../flow-schema
     devDependencies:
       '@types/node':

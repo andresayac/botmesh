@@ -2,7 +2,7 @@
 /**
  * Executable entry of the MCP server (stdio transport).
  *
- * Run it from a checkout with:
+ * Installed: `npx -y @botmesh/mcp` (or the `botmesh-mcp` bin). From a checkout:
  *   node packages/mcp/lib/bin.js --docs docs        # documentation tools on
  *   node packages/mcp/lib/bin.js                    # flow tools only
  *

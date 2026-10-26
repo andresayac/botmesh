@@ -31,7 +31,7 @@ import {
   type WaitOptions,
 } from '@botmesh/core'
 import { upgradeLoadedDocument } from './migrate.js'
-import { pauseControls, runFormStep } from '@botmesh/core/internal'
+import { pauseControls, runFormStep } from '@botmesh/core/spi'
 import { secureFetch, type SecureFetchOptions, type SecureFetchResponse } from '@botmesh/http'
 import { evaluateCondition, hasTemplate, parseExpression, renderTemplate, type ExpressionNode } from './expression.js'
 import { compileFormPattern } from './pattern.js'
