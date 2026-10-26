@@ -37,8 +37,8 @@ function isNotFound(err: unknown, name: string): boolean {
   return err.message.includes(`'${name}'`) || err.message.includes(`"${name}"`)
 }
 
-/** A pool configuration: a connection URI or the discrete connection options. */
-export type MysqlPoolConfig = string | { host?: string; port?: number; user?: string; password?: string; database?: string }
+/** A pool configuration: a connection URI, or the discrete connection options (overriding the matching parts of `uri` when both are set). */
+export type MysqlPoolConfig = string | { uri?: string; host?: string; port?: number; user?: string; password?: string; database?: string }
 
 /** A new mysql2/promise pool (loads the driver on first use); connections open on first query. */
 export async function createMysqlPool(config: MysqlPoolConfig): Promise<unknown> {

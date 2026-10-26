@@ -60,6 +60,9 @@ function affectedRows(result: MysqlQueryResult): number {
   return typeof header?.affectedRows === 'number' ? header.affectedRows : 0
 }
 
+/** Largest value a MEDIUMTEXT column holds (2^24 - 1 bytes). */
+const MAX_VALUE_BYTES = 16 * 1024 * 1024 - 1
+
 /** Default rows per DELETE of {@link MysqlUserData.purge}. */
 export const DEFAULT_PURGE_BATCH_SIZE = 1000
 
@@ -91,10 +94,16 @@ export class MysqlUserData {
 
   async set(entry: UserDataEntry): Promise<void> {
     if (JSON.stringify(entry.value) === undefined) throw new TypeError('user data value must be JSON-serialisable')
+    const json = toJson(entry.value)
+    // Fail fast instead of "Data too long" (MySQL) or a dropped connection (MariaDB's 16 MiB packet limit).
+    const bytes = Buffer.byteLength(json, 'utf8')
+    if (bytes > MAX_VALUE_BYTES) {
+      throw new RangeError(`MysqlStore: a ctx.user value is ${bytes} bytes as JSON; MEDIUMTEXT holds less than 16 MiB (${MAX_VALUE_BYTES} bytes)`)
+    }
     await this.query(
       `INSERT INTO \`${this.table}\` (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?) ` +
         'ON DUPLICATE KEY UPDATE value = VALUES(value), expires_at = VALUES(expires_at), updated_at = VALUES(updated_at)',
-      [entry.userId, entry.namespace, entry.key, toJson(entry.value), entry.expiresAt ?? null, entry.updatedAt],
+      [entry.userId, entry.namespace, entry.key, json, entry.expiresAt ?? null, entry.updatedAt],
     )
   }
 

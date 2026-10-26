@@ -4,6 +4,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### `@botmesh/mysql-store`: prueba de release contra MySQL 8.4 y MariaDB 11 (2026-10)
+- Un `uri` mal formado (o que no empieza por `mysql://`/`mariadb://`, o con un `#` sin codificar) lanza un `TypeError` desde el constructor que nunca repite la URI. Antes `start()` rechazaba con el `Invalid URL` de Node, cuyo campo `input` llevaba la contraseña a los logs.
+- `uri` y las opciones sueltas (`host`, `port`, `user`, `password`, `database`) se combinan: las sueltas sobrescriben la parte correspondiente de la URI. Antes, `{ uri: process.env.MYSQL_URL, password }` descartaba la URI entera y conectaba a `localhost` sin base de datos.
+- Si `start()` no llega al servidor, el error dice `host:port` y la base de datos (sin credenciales) y conserva `err.code` y el original como `cause`: con `localhost` caído, mysql2 rechazaba con un `AggregateError` de mensaje vacío.
+- `tablePrefix` admite como máximo 43 caracteres (55 en `MysqlScheduleStore`): con 44 a 51, `start()` creaba la mitad de las tablas y fallaba en el índice de `user_data`.
+- Ids y claves de más de 1024 bytes y valores de `ctx.user` de 16 MiB o más fallan con un `RangeError` antes de escribir nada (antes, `Data too long` del servidor o, en MariaDB, una conexión cerrada que hacía fallar también la siguiente sentencia).
+- Una sentencia de 1 MiB o más va por una conexión propia que se cierra si falla: una sentencia mayor que `max_allowed_packet` (16 MiB en MariaDB) hacía que el servidor cerrara la conexión, que volvía al pool y hacía fallar la siguiente sentencia, ajena. Una sentencia que no se pudo escribir en una conexión ya cerrada se envía otra vez (solo esa, que nunca llegó al servidor); `stop()` durante `start()` cierra el pool que se estaba creando.
+
 ### Integración de los 26 paquetes promovidos en `main` (2026-10)
 - Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
 - Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).

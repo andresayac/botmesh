@@ -248,6 +248,59 @@ describe.skipIf(!enabled)('MysqlStore — real MySQL integration', () => {
         await teardown()
       }
     })
+
+    it('connects with `uri` plus a separate `password` (the discrete option overrides the URI part)', async () => {
+      const url = new URL(MYSQL_URL)
+      const password = decodeURIComponent(url.password)
+      url.password = ''
+      const { store, teardown } = await makeStore({ uri: url.toString(), password })
+      try {
+        await store.setCursor('k', 'v')
+        expect(await store.getCursor('k')).toBe('v')
+      } finally {
+        await teardown()
+      }
+    })
+
+    it('a refused connection names host:port and the database, never the password', async () => {
+      const url = new URL(MYSQL_URL)
+      url.hostname = '127.0.0.1'
+      url.port = '1'
+      url.password = 'S3CRET'
+      const store = new MysqlStore({ uri: url.toString() })
+      try {
+        const err = (await store.start().catch((e: unknown) => e)) as Error & { code?: string }
+        expect(err.message).toMatch(/cannot connect to MySQL at 127\.0\.0\.1:1/)
+        expect(err.code).toBe('ECONNREFUSED')
+        expect(err.message).not.toContain('S3CRET')
+      } finally {
+        await store.stop()
+      }
+    })
+
+    it('an oversized ctx.user value fails alone: the next statement still works (MariaDB max_allowed_packet)', async () => {
+      const { store, teardown } = await makeStore()
+      try {
+        const value = 'v'.repeat(17 * 1024 * 1024)
+        await expect(store.setUserData({ userId: 'u', namespace: 'n', key: 'k', value, updatedAt: 1 })).rejects.toThrow(RangeError)
+        await store.setCursor('k', 'v')
+        expect(await store.getCursor('k')).toBe('v')
+      } finally {
+        await teardown()
+      }
+    })
+
+    it('a statement after one the server rejected for max_allowed_packet still works', async () => {
+      const { store, teardown } = await makeStore()
+      try {
+        // MariaDB's default packet limit is 16 MiB (it closes the connection); MySQL's is 64 MiB.
+        await store.saveMessage(msg('c', 'big', 'z'.repeat(17 * 1024 * 1024), 1)).catch(() => undefined)
+        for (let i = 0; i < 3; i++) await store.setCursor(`k${i}`, 'v')
+        expect(await store.getCursor('k2')).toBe('v')
+      } finally {
+        await teardown()
+      }
+    })
   })
 
   describe('legacy schema', () => {

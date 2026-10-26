@@ -45,7 +45,7 @@ import { legacyMessageKey, messageKey } from '@botmesh/core/spi'
 import { MysqlUserData } from './userData.js'
 import { toJson } from './json.js'
 import { MysqlScheduleStore } from './schedules.js'
-import { createMysqlPool } from './driver.js'
+import { createMysqlPool, type MysqlPoolConfig } from './driver.js'
 
 /**
  * A mysql2/promise pool (what `createPool` from `mysql2/promise` returns), typed
@@ -102,14 +102,112 @@ function isDeadlock(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { errno?: unknown }).errno === ER_LOCK_DEADLOCK
 }
 
+/**
+ * True when the statement never reached the server: the pool handed out a connection the
+ * server had already closed (MariaDB closes it after "packet bigger than max_allowed_packet")
+ * and writing the statement to its socket failed. Running it again is running it once.
+ */
+function isUnsentStatement(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { syscall?: unknown }).syscall === 'write'
+}
+
+/**
+ * Statements at least this large run on a connection of their own. A statement over the
+ * server's `max_allowed_packet` (16 MiB on MariaDB, 64 MiB on MySQL; never below 1 MiB)
+ * makes the server close the connection, and through `pool.query` that dead connection
+ * went back to the pool and failed the next, unrelated statement.
+ */
+const LARGE_STATEMENT_BYTES = 1024 * 1024
+
+/** UTF-8 size of a statement and its string/binary parameters (escaping not counted). */
+function statementBytes(sql: string, params?: readonly unknown[]): number {
+  let bytes = sql.length
+  if (params) {
+    for (const p of params) {
+      if (typeof p === 'string') bytes += p.length > 256 ? Buffer.byteLength(p, 'utf8') : p.length
+      else if (p instanceof Uint8Array) bytes += p.byteLength
+    }
+  }
+  return bytes
+}
+
+/** Run one statement on a dedicated connection, closed (never pooled again) when it fails. */
+async function queryOnOwnConnection(pool: MysqlPoolLike, sql: string, params?: readonly unknown[]): Promise<MysqlQueryResult> {
+  const conn = await pool.getConnection()
+  let result: MysqlQueryResult
+  try {
+    result = await conn.query(sql, params)
+  } catch (err) {
+    if (conn.destroy) conn.destroy()
+    else conn.release()
+    throw err
+  }
+  conn.release()
+  return result
+}
+
+/** Byte limit of every key column (`VARBINARY(1024)`). */
+const MAX_KEY_BYTES = 1024
+/** MySQL names are at most 64 characters; the longest the store creates is `user_data_expires_idx` (21). */
+const MAX_PREFIX_LENGTH = 64 - 'user_data_expires_idx'.length
+const utf8Encoder = new TextEncoder()
+
+/** Fail fast (nothing written) instead of the server's "Data too long for column". */
+function checkKey(what: string, value: string): void {
+  const bytes = utf8Encoder.encode(value).length
+  if (bytes > MAX_KEY_BYTES) {
+    throw new RangeError(`MysqlStore: ${what} is ${bytes} bytes in UTF-8; key columns hold at most ${MAX_KEY_BYTES} bytes`)
+  }
+}
+
+/** Network failures reported while connecting: `start()` adds where it tried to connect. */
+const CONNECT_ERRORS = new Set(['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'ETIMEDOUT', 'EHOSTUNREACH', 'ENETUNREACH', 'ECONNRESET'])
+
+const URI_SHAPE = 'mysql://user:password@host:3306/database'
+
+/**
+ * Validate a connection URI without ever echoing it (it usually holds the password): Node's
+ * `Invalid URL` error carries the whole input, which a logger would print.
+ */
+function checkUri(uri: string): void {
+  let url: URL
+  try {
+    url = new URL(uri)
+  } catch {
+    throw new TypeError(
+      `MysqlStore: \`uri\` is not a valid URL (expected ${URI_SHAPE}). ` +
+        'Percent-encode reserved characters in the user name and password (# → %23, @ → %40, / → %2F, : → %3A).',
+    )
+  }
+  if (url.protocol !== 'mysql:' && url.protocol !== 'mariadb:') {
+    throw new TypeError(`MysqlStore: \`uri\` must start with mysql:// (got the scheme ${JSON.stringify(url.protocol)}; expected ${URI_SHAPE})`)
+  }
+  if (url.hash !== '') {
+    throw new TypeError('MysqlStore: `uri` contains "#", which ends the URL there. Percent-encode it (# → %23) in the user name or password.')
+  }
+}
+
+/** Where a connection config points, for error messages: never the user or the password. */
+function describeTarget(config: MysqlPoolConfig): string {
+  const uri = typeof config === 'string' ? config : config.uri
+  const base = uri !== undefined ? new URL(uri) : undefined
+  const rest = typeof config === 'string' ? {} : config
+  const host = rest.host ?? (base?.hostname || 'localhost')
+  const port = rest.port ?? (base?.port || '3306')
+  const database = rest.database ?? (base ? decodeURIComponent(base.pathname.slice(1)) : '')
+  return `${host}:${port} (database ${JSON.stringify(database)})`
+}
+
 export interface MysqlStoreOptions {
   /**
-   * MySQL connection URI. Default: 'mysql://localhost:3306/botwa'.
-   * Ignored when `pool` is given; the host/port/... options take precedence
-   * over `uri` when any of them is set.
+   * MySQL connection URI (`mysql://user:password@host:3306/database`, reserved characters in
+   * the user name and password percent-encoded). Default: 'mysql://localhost:3306/botwa'.
+   * Ignored when `pool` is given. The host/port/user/password/database options override
+   * the matching parts of the URI (`{ uri, password }` keeps the URI's host and database).
+   * A malformed URI throws a `TypeError` from the constructor that never repeats the URI.
    */
   uri?: string
-  /** Hostname — set (with `database`) to build a config instead of a URI. */
+  /** Hostname: with or without `uri` (then the discrete options are the whole config). */
   host?: string
   port?: number
   user?: string
@@ -192,8 +290,8 @@ export class MysqlStore implements IStore {
   /** The own pool being created (the driver loads lazily), shared by concurrent `start()` calls. */
   private opening?: Promise<MysqlPoolLike>
   private ownsPool: boolean
-  private readonly uri?: string
-  private readonly config?: { host?: string; port?: number; user?: string; password?: string; database?: string }
+  /** What `start()` hands to mysql2's `createPool` when the store creates its own pool. */
+  private readonly connection: MysqlPoolConfig
   private readonly t: {
     messages: string
     chats: string
@@ -218,15 +316,26 @@ export class MysqlStore implements IStore {
     this.pool = (opts.pool ?? null) as MysqlPoolLike | null
     this.ownsPool = !opts.pool
     this.maxMessagesPerChat = opts.maxMessagesPerChat
-    this.uri = opts.uri
-    const { host, port, user, password, database } = opts
-    if (host != null || port != null || user != null || password != null || database != null) {
-      this.config = { host, port, user, password, database }
+    if (opts.uri !== undefined && !opts.pool) checkUri(opts.uri)
+    // Discrete options override the matching parts of `uri` (mysql2 merges `{ uri, ...rest }`),
+    // so `{ uri: process.env.MYSQL_URL, password: secret }` keeps the URI's host and database.
+    const discrete: Exclude<MysqlPoolConfig, string> = {}
+    for (const key of ['host', 'port', 'user', 'password', 'database'] as const) {
+      if (opts[key] != null) Object.assign(discrete, { [key]: opts[key] })
     }
+    this.connection = Object.keys(discrete).length === 0
+      ? (opts.uri ?? 'mysql://localhost:3306/botwa')
+      : opts.uri !== undefined ? { uri: opts.uri, ...discrete } : discrete
     this.logger = opts.logger
     const p = opts.tablePrefix ?? ''
     if (!/^[A-Za-z0-9_]*$/.test(p)) {
       throw new Error(`MysqlStore: invalid tablePrefix ${JSON.stringify(p)} (only [A-Za-z0-9_] allowed)`)
+    }
+    if (p.length > MAX_PREFIX_LENGTH) {
+      throw new RangeError(
+        `MysqlStore: tablePrefix is ${p.length} characters; it can be at most ${MAX_PREFIX_LENGTH} characters ` +
+          '(MySQL names are limited to 64 and the longest the store creates is `{prefix}user_data_expires_idx`)',
+      )
     }
     this.t = {
       messages: `${p}messages`,
@@ -246,14 +355,22 @@ export class MysqlStore implements IStore {
    * Concurrent saves and `maxMessagesPerChat` trims of one chat deadlock on MariaDB's gap locks.
    */
   private async query(sql: string, params?: readonly unknown[]): Promise<MysqlQueryResult> {
+    let resent = false
     for (let attempt = 1; ; attempt++) {
       const pool = this.pool
       if (pool == null) {
         throw new Error('MysqlStore: pool is not available — call start() first')
       }
       try {
-        return await pool.query(sql, params)
+        return statementBytes(sql, params) >= LARGE_STATEMENT_BYTES
+          ? await queryOnOwnConnection(pool, sql, params)
+          : await pool.query(sql, params)
       } catch (err) {
+        if (!resent && isUnsentStatement(err)) {
+          resent = true // once: the pool has dropped the dead connection by now
+          attempt--
+          continue
+        }
         if (!isDeadlock(err) || attempt >= MAX_STATEMENT_ATTEMPTS) throw err
         await new Promise((resolve) => setTimeout(resolve, Math.random() * 5 * attempt))
       }
@@ -332,6 +449,8 @@ export class MysqlStore implements IStore {
    */
   async saveMessage(msg: StoredMessage): Promise<void> {
     if (!msg.ref?.id || !msg.chatId) return
+    checkKey('the message key (messageKey(ref))', messageKey(msg.ref))
+    checkKey('the chat id', msg.chatId)
     await this.query(
       `INSERT INTO \`${this.t.messages}\` (id, chat_id, timestamp, msg) VALUES (?, ?, ?, ?) ` +
         'ON DUPLICATE KEY UPDATE chat_id = VALUES(chat_id), timestamp = VALUES(timestamp), msg = VALUES(msg)',
@@ -419,6 +538,7 @@ export class MysqlStore implements IStore {
 
   /** Shallow-merges over any existing record, atomically across processes (see {@link mergeDocument}). */
   async upsertChat(chat: StoredChat): Promise<void> {
+    checkKey('the chat id', chat.id)
     await this.mergeDocument(this.t.chats, chat.id, chat)
   }
   async getChat(chatId: string): Promise<StoredChat | undefined> {
@@ -473,6 +593,7 @@ export class MysqlStore implements IStore {
 
   /** Shallow-merges over any existing record, atomically across processes (see {@link mergeDocument}). */
   async upsertContact(contact: StoredContact): Promise<void> {
+    checkKey('the contact id', contact.id)
     await this.mergeDocument(this.t.contacts, contact.id, contact)
   }
   async getContact(userId: string): Promise<StoredContact | undefined> {
@@ -496,6 +617,7 @@ export class MysqlStore implements IStore {
     return value == null ? undefined : String(value)
   }
   async setCursor(key: string, value: string): Promise<void> {
+    checkKey('the cursor key', key)
     await this.query(
       `INSERT INTO \`${this.t.cursors}\` (\`key\`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)`,
       [key, value],
@@ -509,6 +631,7 @@ export class MysqlStore implements IStore {
     return fromJson<FlowCheckpoint>(rows[0]?.cp)
   }
   async setCheckpoint(key: string, cp: FlowCheckpoint): Promise<void> {
+    checkKey('the checkpoint key', key)
     await this.query(
       `INSERT INTO \`${this.t.checkpoints}\` (\`key\`, cp) VALUES (?, ?) ON DUPLICATE KEY UPDATE cp = VALUES(cp)`,
       [key, toJson(cp)],
@@ -528,6 +651,7 @@ export class MysqlStore implements IStore {
     if (!Number.isInteger(expectedRevision) || expectedRevision < 0) {
       throw new RangeError(`MysqlStore.setCheckpointIf: expectedRevision must be a non-negative integer, got ${String(expectedRevision)}`)
     }
+    checkKey('the checkpoint key', key)
     const t = this.t.checkpoints
     const json = toJson(cp) // same sanitizing as setCheckpoint (lone surrogates)
     if (expectedRevision === 0) {
@@ -572,6 +696,7 @@ export class MysqlStore implements IStore {
     return fromJson<AIMessage[]>(rows[0]?.messages)
   }
   async setConversation(key: string, messages: AIMessage[]): Promise<void> {
+    checkKey('the conversation key', key)
     await this.query(
       `INSERT INTO \`${this.t.conversations}\` (\`key\`, messages) VALUES (?, ?) ON DUPLICATE KEY UPDATE messages = VALUES(messages)`,
       [key, toJson(messages)],
@@ -629,7 +754,7 @@ export class MysqlStore implements IStore {
 
   async start(): Promise<void> {
     if (this.pool == null) {
-      const opening = (this.opening ??= createMysqlPool(this.config ?? this.uri ?? 'mysql://localhost:3306/botwa')
+      const opening = (this.opening ??= createMysqlPool(this.connection)
         // Narrow the native pool to the query/end subset used here.
         .then((pool) => pool as MysqlPoolLike)
         .finally(() => { this.opening = undefined }))
@@ -639,10 +764,38 @@ export class MysqlStore implements IStore {
         this.ownsPool = true
       }
     }
-    await this.migrate()
+    try {
+      await this.migrate()
+    } catch (err) {
+      throw this.ownsPool ? this.connectError(err) : err
+    }
+  }
+
+  /**
+   * A refused or unreachable server, reported with where the store tried to connect (never
+   * the credentials). mysql2 reports a refused `localhost` as an AggregateError with an
+   * EMPTY message (Node tries ::1 and 127.0.0.1); the original stays the `cause` and its
+   * `code`/`errno` are copied, so checks on `err.code` keep working.
+   */
+  private connectError(err: unknown): unknown {
+    const e = err as { code?: unknown; errno?: unknown; message?: unknown; errors?: unknown } | null
+    if (typeof e !== 'object' || e === null || typeof e.code !== 'string' || !CONNECT_ERRORS.has(e.code)) return err
+    const target = describeTarget(this.connection)
+    const details = Array.isArray(e.errors) && e.errors.length > 0
+      ? e.errors.map((x) => String((x as { message?: unknown } | null)?.message ?? x)).join('; ')
+      : String(e.message ?? '') || e.code
+    const hint = target.startsWith('localhost:')
+      ? ' On Windows with Docker, use 127.0.0.1 instead of localhost (localhost resolves to ::1 first).'
+      : ''
+    return Object.assign(
+      new Error(`MysqlStore: cannot connect to MySQL at ${target}: ${e.code} (${details}). Is the server running and reachable?${hint}`, { cause: err }),
+      { code: e.code, ...(e.errno !== undefined ? { errno: e.errno } : {}) },
+    )
   }
 
   async stop(): Promise<void> {
+    // A start() still creating the own pool: let it finish, then close that pool too.
+    if (this.opening) await this.opening.catch(() => undefined)
     if (!this.ownsPool || this.pool == null) return
     const pool = this.pool
     this.pool = null // further calls fail fast with a clear error
