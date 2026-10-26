@@ -35,6 +35,23 @@ async function started(pool = new FakeSchedulePool()) {
 }
 
 describe('MysqlScheduleStore', () => {
+  it('stores whole milliseconds and returns exactly what it stored (fractional slots, leases and clocks)', async () => {
+    // MySQL rounds a fractional BIGINT parameter; the returned record used to keep the
+    // fraction, so it disagreed with the row (and with renew's exact lease_until check).
+    const { pool, store } = await started(new FakeSchedulePool({ foundRows: false }))
+    const params: unknown[][] = []
+    const query = pool.query.bind(pool)
+    pool.query = (sql: string, values?: readonly unknown[]) => { params.push([...(values ?? [])]); return query(sql, values) }
+    expect(await store.register({ id: 't', kind: 'interval', spec: '1500.5', nextRunAt: 10.5 }, 0.5)).toMatchObject({ nextRunAt: 11, updatedAt: 0 })
+    expect(await store.claimDue('t', 'a', 10.75, 1000)).toBeNull()
+    const claim = await store.claimDue('t', 'a', 11.25, 1000.2)
+    expect(claim?.record).toMatchObject({ nextRunAt: 11, leaseUntil: 1012, updatedAt: 11 })
+    expect(await store.renew('t', claim!.fencingToken, 1011.4)).toBe(true) // rounds up to the stored 1012
+    expect(await store.complete('t', claim!.fencingToken, { nextRunAt: 3000.2, lastRunAt: 11.5, lastStatus: 'ok' }, 12.9)).toBe(true)
+    expect(await store.get('t')).toMatchObject({ nextRunAt: 3001, lastRunAt: 12, updatedAt: 12 })
+    expect(params.flat().filter((v) => typeof v === 'number' && !Number.isInteger(v))).toEqual([])
+  })
+
   it('validates the prefix and the pool', () => {
     const pool = new FakeSchedulePool()
     expect(new MysqlScheduleStore({ pool }).table).toBe('schedules')

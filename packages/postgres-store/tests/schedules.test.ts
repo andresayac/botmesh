@@ -49,6 +49,29 @@ describe('PostgresScheduleStore', () => {
     expect(await store.list()).toEqual([])
   })
 
+  it('sends whole milliseconds only (BIGINT rejects a fraction): deadlines round up, now rounds down', async () => {
+    // Real PostgreSQL rejects `1500.5` for a BIGINT parameter (22P02), which made
+    // `bot.every(1500.5, { id })`, a fractional leaseMs or a fractional clock fail every call.
+    const fake = new FakeSchedulePool()
+    const pool = {
+      query(text: string, values: unknown[] = []) {
+        const bad = values.find((v) => typeof v === 'number' && !Number.isInteger(v))
+        if (bad !== undefined) return Promise.reject(Object.assign(new Error(`invalid input syntax for type bigint: "${bad}"`), { code: '22P02' }))
+        return fake.query(text, values)
+      },
+    }
+    const store = new PostgresScheduleStore({ pool })
+    await store.start()
+    expect(await store.register({ id: 't', kind: 'interval', spec: '1500.5', nextRunAt: 10.5 }, 0.5)).toMatchObject({ nextRunAt: 11, updatedAt: 0 })
+    expect(await store.claimDue('t', 'a', 10.75, 1000)).toBeNull() // not due before the rounded-up slot
+    const claim = await store.claimDue('t', 'a', 11.25, 1000.5)
+    expect(claim?.record).toMatchObject({ nextRunAt: 11, leaseUntil: 1012, updatedAt: 11 })
+    expect(await store.renew('t', claim!.fencingToken, 2000.1)).toBe(true)
+    expect((await store.get('t'))?.leaseUntil).toBe(2001)
+    expect(await store.complete('t', claim!.fencingToken, { nextRunAt: 3000.2, lastRunAt: 11.5, lastStatus: 'ok' }, 12.9)).toBe(true)
+    expect(await store.get('t')).toMatchObject({ nextRunAt: 3001, lastRunAt: 12, updatedAt: 12 })
+  })
+
   it('returns tokens past 2^31 as numbers', async () => {
     const pool = new FakeSchedulePool()
     const store = new PostgresScheduleStore({ pool })
