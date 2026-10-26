@@ -111,9 +111,10 @@ bot › 🖼️ Recibí tu imagen image/jpeg: "Mi gato"
 ## Cómo funciona
 
 - **Un método por tipo.** `ctx.photo`, `ctx.video`, `ctx.file`,
-  `ctx.voice`, `ctx.sticker`, `ctx.location` y `ctx.contact` aceptan una
-  URL, una ruta local o un `Buffer`. `ctx.file(fuente, nombre, caption)`
-  fija el nombre que ve el usuario.
+  `ctx.voice` y `ctx.sticker` aceptan una URL, una ruta local o un `Buffer`;
+  `ctx.file(fuente, nombre, caption)` fija el nombre que ve el usuario.
+  `ctx.location(lat, lng, nombre?)` recibe coordenadas y
+  `ctx.contact(teléfono, nombreVisible?)` un número de teléfono.
 - **Los detalles del transporte se quedan en el provider.** En WhatsApp una
   nota de voz se convierte con ffmpeg y un sticker necesita el paquete
   opcional `sharp`. Telegram los envía tal cual, así que allí la URL de un
