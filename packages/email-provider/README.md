@@ -49,7 +49,7 @@ With Gmail or Microsoft 365 use an app password or OAuth2 (`accessToken` instead
 | Replies | `In-Reply-To`, `References`, `Re: <subject>` and the `From` recipient (or `Reply-To` when it is on the same domain; see `replyTo`). |
 | `send('person@x.com', ...)` | Starts a new thread with that address (`platformData.subject` for the subject). |
 | Buttons / lists / cards | Degrade to numbered text. `poll`, `reaction` and `template` throw `UnsupportedContentError`. |
-| `native` | `{ kind: 'native', provider: 'email', payload: { subject, text, html, cc, bcc, headers, attachments } }`. Attachments only accept `{ filename, content: Buffer \| Uint8Array, contentType, cid }` (for files or URLs use `image`/`document`, which go through `secureFetch`); `contentType` must be a media type and `cid`/`filename` cannot hold control characters. Threading and loop-protection headers cannot be overridden. A `document`'s `mimetype` must be a media type too (`application/pdf`), or the send rejects with `UnsupportedContentError`. |
+| `native` | `{ kind: 'native', provider: 'email', payload: { subject, text, html, cc, bcc, headers, attachments } }`. Attachments only accept `{ filename, content: Buffer \| Uint8Array, contentType, cid }` (for files or URLs use `image`/`document`, which go through `secureFetch`); `contentType` must be a media type and `cid`/`filename` cannot hold control characters. Threading and loop-protection headers cannot be overridden. A `document`'s `mimetype` must be a media type too (`application/pdf`; parameters, RFC 2231 `name*=` values and a trailing `;` are fine, and `''` means not given), or the send rejects with `UnsupportedContentError`. |
 
 `options.platformData` in `send()` accepts `subject` and `html`.
 

@@ -55,8 +55,12 @@ export function singleLine(value: string): string {
   return value.replace(/[\u0000-\u0008\u000a-\u001f\u007f]+/g, ' ')
 }
 
-const TOKEN = "[a-z0-9!#$&^_.+-]+"
-const MEDIA_TYPE = new RegExp(`^${TOKEN}/${TOKEN}(\\s*;\\s*${TOKEN}=(${TOKEN}|"[^"\\u0000-\\u001f\\u007f]*"))*\\s*$`, 'i')
+// RFC 2045 token characters (RFC 2231 extended parameters such as `name*=UTF-8''x.pdf` included).
+const TOKEN = "[a-z0-9!#$%&'*+.^_`|~-]+"
+const QUOTED = '"(?:[^"\\\\\\u0000-\\u001f\\u007f]|\\\\[^\\u0000-\\u001f\\u007f])*"'
+// Parameters are lenient on purpose (empty ones and a trailing ";" are common in real servers'
+// headers); what matters is a single-line `type/subtype` with no control characters.
+const MEDIA_TYPE = new RegExp(`^${TOKEN}/${TOKEN}(?:\\s*;(?:\\s*${TOKEN}\\s*=\\s*(?:${TOKEN}|${QUOTED}))?)*\\s*$`, 'i')
 
 /** True for a well-formed media type (`type/subtype`, optional `; name=value` parameters). */
 export function isMediaType(value: string): boolean {
@@ -97,14 +101,15 @@ function nativeAttachments(value: unknown): SmtpAttachment[] {
     for (const k of ['filename', 'contentType', 'cid'] as const) {
       if (att[k] !== undefined && typeof att[k] !== 'string') throw bad(`\`${k}\` must be a string`)
     }
-    if (typeof att.contentType === 'string' && !isMediaType(att.contentType)) throw bad('`contentType` must be a media type like "image/png"')
+    // An empty contentType means "not given" (nodemailer infers it from the filename).
+    if (typeof att.contentType === 'string' && att.contentType.trim() !== '' && !isMediaType(att.contentType)) throw bad('`contentType` must be a media type like "image/png"')
     if (typeof att.cid === 'string' && (CONTROL.test(att.cid) || /[<>\s]/.test(att.cid))) {
       throw bad('`cid` must be a plain Content-ID (no spaces, brackets or control characters)')
     }
     if (typeof att.filename === 'string' && CONTROL.test(att.filename)) throw bad('`filename` must not contain control characters')
     const out: SmtpAttachment = { content: Buffer.isBuffer(att.content) ? att.content : Buffer.from(att.content) }
     if (typeof att.filename === 'string') out.filename = att.filename
-    if (typeof att.contentType === 'string') out.contentType = att.contentType
+    if (typeof att.contentType === 'string' && att.contentType.trim() !== '') out.contentType = att.contentType
     if (typeof att.cid === 'string') out.cid = att.cid
     return out
   })
@@ -145,6 +150,8 @@ async function attachment(
   filename?: string,
   mimetype?: string,
 ): Promise<SmtpAttachment> {
+  // An empty mimetype means "not given": the fetched Content-Type or sniffing decides.
+  if (mimetype !== undefined && mimetype.trim() === '') mimetype = undefined
   if (mimetype !== undefined && !isMediaType(mimetype)) {
     throw new UnsupportedContentError(kind, `Email ${kind}: mimetype ${JSON.stringify(singleLine(mimetype).slice(0, 80))} is not a media type like "application/pdf"`)
   }

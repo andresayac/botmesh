@@ -97,9 +97,13 @@ export interface EmailIngestResult {
   reason?: EmailSkipReason
 }
 
-/** A Message-ID (without brackets) that is safe and meaningful in `In-Reply-To` / `References`. */
+/**
+ * A Message-ID (without brackets) that is safe and meaningful in `In-Reply-To` / `References`:
+ * not the synthetic id of mail that had none, and nothing that could break out of `<...>`.
+ * As lenient as inbound parsing, so legacy ids without "@" and quoted local parts still thread.
+ */
 const isPlainMessageId = (id: string): boolean =>
-  id.length <= 998 && /^[^<>@\s\u0000-\u001f\u007f]+@[^<>@\s\u0000-\u001f\u007f]+$/.test(id)
+  id.length > 0 && id.length <= 998 && !id.startsWith('synthetic-') && !/[<>\s\u0000-\u001f\u007f]/.test(id)
 
 const digestOf = (bytes: Buffer): string => createHash('sha256').update(bytes).digest('hex').slice(0, 32)
 

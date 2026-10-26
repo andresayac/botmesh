@@ -111,6 +111,18 @@ describe('quoted message ids on replies', () => {
     expect(smtp.sent[0]!.inReplyTo).toBe('<m9@x.test>')
     expect(smtp.sent[0]!.references).toEqual(['<m9@x.test>'])
   })
+
+  it('threads a reply to a real Message-ID without "@" or with a quoted local part', async () => {
+    for (const id of ['1234567890.ABCDEF.JavaMail', '"a@b"@x.test']) {
+      const { provider, smtp, messages } = setup()
+      await provider.ingest(`From: ana@x.test\r\nMessage-ID: <${id}>\r\nSubject: hi\r\n\r\nhola`)
+      const m = messages()[0]!
+      expect(m.ref.id).toBe(id)
+      await provider.send(m.chatId, { kind: 'text', text: 'ok' }, { quoted: m.ref })
+      expect(smtp.sent[0]!.inReplyTo).toBe(`<${id}>`)
+      expect(smtp.sent[0]!.references).toEqual([`<${id}>`])
+    }
+  })
 })
 
 describe('outbound attachment metadata', () => {
@@ -124,12 +136,30 @@ describe('outbound attachment metadata', () => {
     expect(smtp.sent).toHaveLength(1)
   })
 
+  it('accepts real-world mimetypes: trailing ";", RFC 2231 parameters, quoted values; "" means none', async () => {
+    const { provider, smtp } = setup()
+    const doc = (mimetype: string) => provider.send('ana@x.test', { kind: 'document', media: Buffer.from('%PDF-1.4 x'), filename: 'x.bin', mimetype })
+    await doc('text/csv; charset=utf-8;')
+    await doc("application/octet-stream; name*=UTF-8''x%20y.pdf")
+    await doc('text/plain; name="a \\"b\\".txt"')
+    await doc('application/vnd.ms-excel')
+    await doc('')
+    expect(smtp.sent).toHaveLength(5)
+    const types = smtp.sent.map((m) => (m.attachments as { contentType?: string }[] | undefined)?.[0]?.contentType)
+    expect(types.slice(0, 4)).toEqual(['text/csv; charset=utf-8;', "application/octet-stream; name*=UTF-8''x%20y.pdf", 'text/plain; name="a \\"b\\".txt"', 'application/vnd.ms-excel'])
+    expect(types[4]).toBe('application/pdf')
+    await expect(doc('text/ plain')).rejects.toBeInstanceOf(UnsupportedContentError)
+    await expect(doc('text/plain; charset=utf-8\u0000')).rejects.toBeInstanceOf(UnsupportedContentError)
+  })
+
   it('rejects native attachment contentType / cid with control characters', async () => {
     const { provider } = setup()
     const send = (att: Record<string, unknown>) => provider.send('ana@x.test', { kind: 'native', provider: 'email', payload: { text: 'x', attachments: [{ content: Buffer.from('x'), ...att }] } })
     await expect(send({ contentType: 'text/plain\r\nBcc: e@e.test' })).rejects.toBeInstanceOf(UnsupportedContentError)
     await expect(send({ cid: 'logo>\r\nBcc: e@e.test' })).rejects.toBeInstanceOf(UnsupportedContentError)
     await expect(send({ filename: 'a\r\nb.txt' })).rejects.toBeInstanceOf(UnsupportedContentError)
+    await send({ filename: 'a.csv', contentType: 'text/csv; charset=utf-8;' })
+    await send({ filename: 'a.txt', contentType: '' })
   })
 })
 
