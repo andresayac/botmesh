@@ -34,7 +34,10 @@ chat archive/pin/mute — reach through the Baileys provider to the raw
 socket. `provider.socket` returns it typed `unknown` (Baileys' types are not
 part of the `@botmesh/baileys` API); `socketOf(provider)` from
 `@botmesh/baileys/internal` returns it typed as the Baileys socket of the
-installed release (no semver guarantee):
+installed release (no semver guarantee). Importing `/internal` pulls in
+Baileys' `.d.ts` files, which do not compile with `skipLibCheck: false`:
+keep `"skipLibCheck": true` in a project that uses it (the main entry does
+not need it):
 
 ```ts
 import { Bot } from '@botmesh/core'

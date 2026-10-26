@@ -11,7 +11,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 - **`debug` deprecado** en favor de `logger` (cualquier `LoggerLike`).
 - Los predicados de JID (`isGroup`, `isPn`, `isLid`, `isBroadcast`, `isNewsletter`) devuelven `boolean` en vez de `boolean | undefined`.
 - Con `ffmpeg-static` instalado sin su binario (script de build omitido), el error de las notas de voz explica cómo permitir esa descarga en vez de volver a sugerir añadir `ffmpeg-static`.
-- **Baileys upstream:** sigue sin haber 7.x estable en npm (`baileys` y `@whiskeysockets/baileys`: `latest` = `7.0.0-rc14`, `legacy` = `6.7.24`, revisado el 2026-10-26). La dependencia sigue fijada a `7.0.0-rc14`; el README documenta el motivo y la política de actualización. Guías EN/ES (migración a estable, sub-APIs, FAQ, canales), README y `llms.txt` al día.
+- **Baileys upstream:** sigue sin haber 7.x estable en npm (`baileys` y `@whiskeysockets/baileys`: `latest` = `7.0.0-rc14`, `legacy` = `6.7.24`, revisado el 2026-10-26). La dependencia sigue fijada a `7.0.0-rc14`; el README documenta el motivo y la política de actualización. La nota de TypeScript del README ya no pide `skipLibCheck: true` para todo: la entrada principal compila sin él y solo `@botmesh/baileys/internal` (p. ej. `socketOf`) arrastra los `.d.ts` de Baileys, que no compilan con `skipLibCheck: false`. Guías EN/ES (migración a estable, sub-APIs, FAQ, canales), README y `llms.txt` al día.
 
 ### `@botmesh/core` y canales: pendientes de la versión estable (2026-10)
 Cierra los pendientes del core del informe de preparación para estable. Cada cambio de comportamiento tiene su apartado en la guía de migración (`docs/guide/migration-2.md`, `docs/es/guide/migracion-2.md`).

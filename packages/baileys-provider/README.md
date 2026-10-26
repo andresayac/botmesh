@@ -35,7 +35,7 @@ The packages are published under the `alpha` dist-tag (there is no `latest` yet)
   ```
 
 - **ffmpeg** converts voice notes to Ogg/Opus. No binary is bundled: the provider runs `FFMPEG_PATH` when it is set, else the binary of the optional `ffmpeg-static` package when it is installed (with pnpm, allow its build script so it can download the binary), else `ffmpeg` on the `PATH` (`apt install ffmpeg`, `brew install ffmpeg`, `choco install ffmpeg`). `sharp` converts stickers. Both are only needed for those sends: without them the package still imports and sends everything else, and a voice note or sticker fails with an `UnsupportedContentError` that says how to install the missing tool.
-- **TypeScript:** the public types reference Baileys' own (`WAMessage`), and Baileys' `.d.ts` files do not compile with `skipLibCheck: false` (missing `@types/ws`, extensionless imports). Keep `"skipLibCheck": true`, the default of most templates.
+- **TypeScript:** the main entry (`@botmesh/baileys`) pulls in no Baileys declarations (its native values are typed as opaque `unknown` aliases), so a project that imports only from it type-checks with `"skipLibCheck": false`. `@botmesh/baileys/internal` is different: its types reference Baileys' own (`socketOf()` returns the Baileys socket type), and Baileys' `.d.ts` files do not compile with `skipLibCheck: false` (missing `@types/ws`, extensionless imports, an undeclared `EncodingNode`). If you import from `/internal`, for example `socketOf` for group or profile operations, keep `"skipLibCheck": true`, the default of most templates.
 
 ## Quickstart
 

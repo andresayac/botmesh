@@ -35,7 +35,10 @@ privacidad, archivar/fijar/silenciar chats — accede al socket crudo desde
 el provider de Baileys. `provider.socket` lo devuelve tipado como `unknown`
 (los tipos de Baileys no forman parte de la API de `@botmesh/baileys`);
 `socketOf(provider)` de `@botmesh/baileys/internal` lo devuelve tipado como
-el socket de la versión de Baileys instalada (sin garantía semver):
+el socket de la versión de Baileys instalada (sin garantía semver). Importar
+`/internal` arrastra los `.d.ts` de Baileys, que no compilan con
+`skipLibCheck: false`: mantén `"skipLibCheck": true` en un proyecto que lo
+use (la entrada principal no lo necesita):
 
 ```ts
 import { Bot } from '@botmesh/core'

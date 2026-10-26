@@ -10,4 +10,4 @@ API freeze of the WhatsApp (Baileys) transport before stable:
 - **`debug` is deprecated** in favour of `logger` (any `LoggerLike`).
 - The JID predicates (`isGroup`, `isPn`, `isLid`, `isBroadcast`, `isNewsletter`) return `boolean` instead of `boolean | undefined`.
 - When `ffmpeg-static` is installed without its binary (its build script was skipped), the voice-note error now says to allow that download instead of suggesting to add `ffmpeg-static` again.
-- README: the entries, opaque native types and the upstream upgrade policy (Baileys stays pinned to `7.0.0-rc14`: no stable 7.x exists on npm).
+- README: the TypeScript note now says that only `@botmesh/baileys/internal` needs `skipLibCheck: true` (the main entry type-checks without it); the entries, opaque native types and the upstream upgrade policy (Baileys stays pinned to `7.0.0-rc14`: no stable 7.x exists on npm).
