@@ -83,8 +83,8 @@ These are not on npm; the notes matter only inside the monorepo or a fork.
   `webhookAllowUntimedSignature: true` only for a sender that cannot add the timestamp.
 - **`@botmesh/discord`:** `ctx.interaction.id` (`interactionId`) is the bare interaction id;
   the token stays in the provider. `acknowledgeInteraction()` still accepts the old
-  `"<id>:<token>"` form. Interactions the bot does not acknowledge within `autoAckMs` (2 s)
-  are deferred for it; set `autoAckMs: false` to keep doing it yourself.
+  `"<id>:<token>"` form. Interactions the bot does not acknowledge within `autoAcknowledgeMs` (2 s; `autoAckMs` is its deprecated alias)
+  are deferred for it; set `autoAcknowledgeMs: false` to keep doing it yourself.
 - **`@botmesh/messenger` / `@botmesh/instagram`:** more than 3 buttons (or 10 list rows) on
   Messenger, or more than 13 quick replies on Instagram, reject with
   `UnsupportedContentError` instead of being cut.

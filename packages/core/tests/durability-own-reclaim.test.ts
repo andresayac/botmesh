@@ -7,7 +7,8 @@
  * matrix on Redis Cluster timed out now and then. Here the interleaving is forced.
  */
 import { describe, expect, it } from 'vitest'
-import { Bot, KvDurability, MemoryKv, MemoryStore, type DurabilityBackend, type OutboxJournal } from '../src/index.js'
+import { Bot, MemoryStore, type DurabilityBackend } from '../src/index.js'
+import { KvDurability, MemoryKv, type OutboxJournal } from '../src/spi.js'
 import { MockProvider, crashable } from '../src/testing/index.js'
 
 function silentLogger(): never {

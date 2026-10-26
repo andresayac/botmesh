@@ -27,7 +27,7 @@ describe('flow-schema without a runtime dependency on deployments', () => {
 
   it('publishFlow still works with a DeploymentRegistry', async () => {
     const registry = new DeploymentRegistry(new MemoryDeploymentStore())
-    const doc: FlowDocument = { version: 1, id: 'f', trigger: 'hola', steps: [{ kind: 'say', text: 'hi' }] }
+    const doc: FlowDocument = { version: 2, id: 'f', trigger: 'hola', steps: [{ kind: 'say', text: 'hi' }] }
     const deployment = await publishFlow(registry, 't', 'b', doc)
     expect(deployment.artifact).toBe(JSON.stringify(doc))
   })

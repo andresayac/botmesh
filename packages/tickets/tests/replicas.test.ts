@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MemoryKv } from '@botmesh/core'
+import { MemoryKv } from '@botmesh/core/spi'
 import { TicketDesk, TicketContentionError, durableKvTicketStorage, memoryTicketStorage, type TicketKeyValue } from '../src/index.js'
 
 /** A storage whose reads yield to the event loop, so two desks really interleave. */

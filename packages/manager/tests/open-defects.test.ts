@@ -18,8 +18,8 @@ import {
   type FlowDocument,
 } from '../src/index.js'
 
-const main: FlowDocument = { version: 1, id: 'main', trigger: 'start', steps: [{ kind: 'say', text: 'main' }, { kind: 'subflow', flowId: 'shared' }] }
-const shared = (text: string): FlowDocument => ({ version: 1, id: 'shared', trigger: 'shared-only', steps: [{ kind: 'say', text }] })
+const main: FlowDocument = { version: 2, id: 'main', trigger: 'start', steps: [{ kind: 'say', text: 'main' }, { kind: 'subflow', flowId: 'shared' }] }
+const shared = (text: string): FlowDocument => ({ version: 2, id: 'shared', trigger: 'shared-only', steps: [{ kind: 'say', text }] })
 
 /** A config store whose next put() fails (a full disk, a lost database). */
 class FlakyStore extends MemoryBotConfigStore {
@@ -50,7 +50,7 @@ describe('flows go live only after they are persisted', () => {
     const manager = new BotManager({ configStore: store, factory: () => bot })
     await manager.createBot({ id: 'b', flows: [shared('s')], autoStart: false })
     store.failNext = true
-    await expect(manager.addFlow('b', { version: 1, id: 'extra', trigger: 'x', steps: [{ kind: 'say', text: 'x' }] })).rejects.toThrow(/disk full/)
+    await expect(manager.addFlow('b', { version: 2, id: 'extra', trigger: 'x', steps: [{ kind: 'say', text: 'x' }] })).rejects.toThrow(/disk full/)
     expect(bot.hasFlow('extra')).toBe(false)
     expect(manager.listFlowDocuments('b').map((f) => f.id)).toEqual(['shared'])
     await bot.stop()
