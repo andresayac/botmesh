@@ -1,7 +1,10 @@
 /**
- * @botmesh/wa-gateway-kit — internal building blocks shared by the WhatsApp
- * REST gateway transports (@botmesh/evolution, @botmesh/wppconnect). Private:
- * never published; each provider re-exports the public pieces it documents.
+ * @botmesh/wa-gateway-kit — building blocks shared by the WhatsApp REST gateway
+ * transports (@botmesh/evolution, @botmesh/wppconnect): the JSON-over-secureFetch
+ * REST client, outbound media resolution and LID/PN identity reconciliation.
+ *
+ * Public and covered by semver: the providers depend on it with a caret range,
+ * so every export here is a contract (pinned in tests/entry.test.ts).
  */
 
 export {

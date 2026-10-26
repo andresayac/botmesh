@@ -88,10 +88,11 @@ All of these are opt-in: without the option, the bot runs exactly as before.
 
 The npm packages are `@botmesh/core`, `@botmesh/baileys`, `@botmesh/meta`,
 `@botmesh/telegram`, `@botmesh/messenger`, `@botmesh/instagram`,
-`@botmesh/sqlite-store`, `@botmesh/redis-store`, `@botmesh/ai`,
-`@botmesh/http`, `@botmesh/graph-core` and `create-botmesh`
-(`@botmesh/messenger` and `@botmesh/instagram` ship for the first time with
-the beta).
+`@botmesh/evolution`, `@botmesh/wppconnect`, `@botmesh/sqlite-store`,
+`@botmesh/redis-store`, `@botmesh/ai`, `@botmesh/http`, `@botmesh/graph-core`,
+`@botmesh/wa-gateway-kit` and `create-botmesh` (`@botmesh/messenger`,
+`@botmesh/instagram`, `@botmesh/evolution`, `@botmesh/wppconnect` and
+`@botmesh/wa-gateway-kit` ship for the first time with the beta).
 Some pages also describe packages that live only in the
 [repository](https://github.com/andresayac/botmesh/tree/main/packages) for now
 (the PostgreSQL, MySQL and MongoDB stores, `@botmesh/server`, `@botmesh/otel`,

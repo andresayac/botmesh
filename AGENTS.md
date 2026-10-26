@@ -4,7 +4,7 @@ Guía para agentes de código (y humanos) que trabajan en este repositorio. Comp
 
 ## Qué es
 
-Framework de bots de mensajería **agnóstico de transporte**, en un **monorepo pnpm** (`packages/*` y `examples/*`). El motor es `@botmesh/core`; los canales (WhatsApp vía Baileys, Cloud API, Evolution API, WPPConnect, Twilio o Gupshup; Messenger, Instagram, Telegram, Discord, GoHighLevel, email y TikTok) son paquetes que implementan `IProvider`. Hay **45 paquetes** en `packages/` y un ejemplo ejecutable en `examples/bakery-ai` (`@botmesh/example-bakery-ai`, privado). Todo es **ESM-only**, **Node >= 22** y está en prerelease (modo pre `beta` de Changesets): 10 de los paquetes públicos ya están en npm bajo el dist-tag `alpha` (npm puso `latest` en la primera versión publicada de cada nombre y no se mueve, así que se queda atrás: instala con `@alpha`); la próxima publicación sale con el dist-tag `beta` e incluye por primera vez `messenger` e `instagram`, que todavía no están en npm. El resto son privados (la publicación va por Changesets, ver [Publicar una versión](#publicar-una-versión)).
+Framework de bots de mensajería **agnóstico de transporte**, en un **monorepo pnpm** (`packages/*` y `examples/*`). El motor es `@botmesh/core`; los canales (WhatsApp vía Baileys, Cloud API, Evolution API, WPPConnect, Twilio o Gupshup; Messenger, Instagram, Telegram, Discord, GoHighLevel, email y TikTok) son paquetes que implementan `IProvider`. Hay **45 paquetes** en `packages/` y un ejemplo ejecutable en `examples/bakery-ai` (`@botmesh/example-bakery-ai`, privado). Todo es **ESM-only**, **Node >= 22** y está en prerelease (modo pre `beta` de Changesets): 10 de los 36 paquetes públicos ya están en npm bajo el dist-tag `alpha` (npm puso `latest` en la primera versión publicada de cada nombre y no se mueve, así que se queda atrás: instala con `@alpha`); la próxima publicación sale con el dist-tag `beta` e incluye por primera vez los otros 26 (canales, stores, infra, plugins y tooling promovidos en la beta), que todavía no están en npm. El resto son privados (la publicación va por Changesets, ver [Publicar una versión](#publicar-una-versión)).
 
 Capas (las dependencias van siempre hacia abajo, nunca al revés):
 
@@ -22,13 +22,12 @@ Capas (las dependencias van siempre hacia abajo, nunca al revés):
 
 El nombre del directorio no siempre coincide con el del paquete (`packages/baileys-provider` → `@botmesh/baileys`, `packages/meta-provider` → `@botmesh/meta`, `packages/*-provider` → `@botmesh/<canal>`, `packages/eslint-plugin` → `eslint-plugin-botmesh`). Mira el `name` en su `package.json` antes de usar `--filter`.
 
-Solo 12 paquetes son **públicos**: `core`, `baileys`, `meta`, `telegram`, `messenger`, `instagram`, `sqlite-store`, `redis-store`, `ai`, `http`, `graph-core` y `create-botmesh`. Los otros 33 (más el ejemplo) llevan `"private": true` y nunca se publican:
+Solo 36 paquetes son **públicos**: `core`; los canales `baileys`, `meta`, `telegram`, `messenger`, `instagram`, `discord`, `evolution`, `wppconnect`, `twilio`, `gohighlevel`, `gupshup` y `email`; los stores `sqlite-store`, `redis-store`, `postgres-store`, `mysql-store` y `mongo-store`; la infra `http`, `graph-core`, `wa-gateway-kit`, `server`, `events` y `otel`; los plugins `ai`, `rag`, `voice`, `nlu`, `dialogflow`, `chatwoot`, `tickets` y `moderation`; y `flow-schema`, `create-botmesh`, `eslint-plugin-botmesh` y `mcp`. Los 26 promovidos en la beta (todos salvo los 10 originales: `core`, `baileys`, `meta`, `telegram`, `sqlite-store`, `redis-store`, `ai`, `http`, `graph-core` y `create-botmesh`) aún no están en npm; los que lo necesitan tienen una entrada `/internal` sin semver. Los otros 9 (más el ejemplo) llevan `"private": true` y nunca se publican:
 
-- Canales: `discord`, `evolution`, `wppconnect`, `twilio`, `gohighlevel`, `gupshup`, `email`, `tiktok`.
-- Stores: `mongo-store`, `postgres-store`, `mysql-store`.
-- Plugins e infra: `server`, `wa-gateway-kit`, `rag`, `voice`, `nlu`, `dialogflow`, `chatwoot`, `tickets`, `moderation`, `manager`, `events`, `otel`.
-- Tooling: `eslint-plugin-botmesh`, `@botmesh/mcp`, `@botmesh/sandbox`.
-- Producto: `inbox`, `crm`, `hub`, `campaigns`, `deployments`, `tenant-kv` (todos persistentes sobre cualquier `DurableKv`) y `flow-schema` (documentos de flujo sin código).
+- Canales: `tiktok`.
+- Plugins e infra: `manager`.
+- Tooling: `@botmesh/sandbox`.
+- Producto: `inbox`, `crm`, `hub`, `campaigns`, `deployments` y `tenant-kv` (todos persistentes sobre cualquier `DurableKv`).
 - Ejemplo: `@botmesh/example-bakery-ai`.
 
 Un paquete público no puede depender de uno privado, y sus dependencias internas se declaran como `"workspace:^"` (al empaquetar salen como `^x.y.z`, así npm deduplica `@botmesh/core`).

@@ -115,12 +115,12 @@ export class EvolutionProvider implements IProvider<unknown> {
   private _selfId: string | null
 
   constructor(private readonly config: EvolutionProviderConfig) {
-    if (!config.baseUrl) throw new Error('EvolutionProvider requires `baseUrl`')
-    if (!config.apiKey) throw new Error('EvolutionProvider requires `apiKey`')
-    if (!config.instance) throw new Error('EvolutionProvider requires `instance`')
-    this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
+    if (!config.baseUrl) throw new TypeError('EvolutionProvider requires `baseUrl`')
+    if (!config.apiKey) throw new TypeError('EvolutionProvider requires `apiKey`')
+    if (!config.instance) throw new TypeError('EvolutionProvider requires `instance`')
+    this.logger = config.logger ?? pino({ level: 'error' })
     if (!config.webhookSecret && !config.webhookJwtKey && !config.allowUnsignedWebhooks) {
-      throw new Error(
+      throw new TypeError(
         'EvolutionProvider requires `webhookSecret` (custom webhook header) or `webhookJwtKey` (Evolution jwt_key) ' +
           'to authenticate webhooks. For isolated local development only, set `allowUnsignedWebhooks: true` explicitly.',
       )

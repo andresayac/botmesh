@@ -59,6 +59,11 @@ import { aiPlugin, type AIClient, type AnthropicLike, type AIStreamEndInfo } fro
 import { MockAIProvider, validateArgs } from '@botmesh/ai/testing'
 import { toolDefinitions, type AnthropicMessage } from '@botmesh/ai/internal'
 import { TelegramProvider } from '@botmesh/telegram'
+import { EvolutionProvider, toEvolutionError, type EvolutionMessage } from '@botmesh/evolution'
+import { parseWebhook as parseEvolutionWebhook } from '@botmesh/evolution/internal'
+import { WPPConnectProvider, toWppError, type WppMessage } from '@botmesh/wppconnect'
+import { parseWebhook as parseWppWebhook } from '@botmesh/wppconnect/internal'
+import { WaIdentityStore, type IdentityPersistence } from '@botmesh/wa-gateway-kit'
 import { CloudAPIProvider } from '@botmesh/meta'
 import { MessengerProvider, toMessengerError, type MessengerSendResponse, type PageWebhookBody } from '@botmesh/messenger'
 import { parseInbound as parseMessengerInbound, toOutboundMessages } from '@botmesh/messenger/internal'
@@ -80,12 +85,20 @@ export const providers: IProvider[] = [
   new BaileysProvider({ session: 'demo', logger: console }),
   new MessengerProvider({ accessToken: 'a', verifyToken: 'v', appSecret: 's', logger: console }),
   new InstagramProvider({ accessToken: 'a', verifyToken: 'v', appSecret: 's', logger: console }),
+  new EvolutionProvider({ baseUrl: 'http://127.0.0.1:8080', apiKey: 'k', instance: 'i', webhookSecret: 's', logger: console }),
+  new WPPConnectProvider({ session: 's', token: 't', webhookToken: 'w', logger: console }),
 ]
 // Meta Graph channels: webhook payload types on the main entry, wire helpers in /internal.
 export const metaChannelRefs = [toMessengerError, toInstagramError, parseMessengerInbound, toOutboundMessages, InstagramGraphClient, parseInstagramInbound]
 export const messengerHook: PageWebhookBody = { object: 'page', entry: [] }
 export const instagramHook: IgWebhookBody = { object: 'instagram', entry: [] }
 export const sendRaws: Array<MessengerSendResponse | InstagramSendResponse> = [{ message_id: 'm' }]
+// WhatsApp REST gateways: a durable LID/PN map from the shared kit; wire shapes are @experimental types.
+export const identityMap: IdentityPersistence = { get: () => undefined, set: () => {} }
+export const gatewayIds = new WaIdentityStore(100, identityMap)
+export const evolutionRaw: EvolutionMessage | undefined = undefined
+export const wppRaw: WppMessage | undefined = undefined
+export const gatewayRefs = [toEvolutionError, toWppError, parseEvolutionWebhook, parseWppWebhook]
 export const store = new SQLiteStore({ file: ':memory:' })
 export const refs = [RedisStore, migrateToClusterLayout, hashSlot, storeKeys, secureFetch, verifySignature, scaffold, runCli, createPacer, messageKey, validateArgs, toolDefinitions, socketOf, toInbound, toJid]
 // A fake Anthropic client typed by the client contract on the main entry; wire names come from /internal.

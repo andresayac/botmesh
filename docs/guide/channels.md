@@ -40,16 +40,16 @@ needs an app, a phone number or a public URL.
 | `@botmesh/messenger` | `messenger-provider` | On npm (from the beta) | Facebook Messenger (Send API) |
 | `@botmesh/instagram` | `instagram-provider` | On npm (from the beta) | Instagram DMs (Messenger API for Instagram) |
 | `@botmesh/discord` | `discord-provider` | Not on npm yet | Discord (gateway + REST) |
-| `@botmesh/evolution` | `evolution-provider` | Not on npm yet | Evolution API v2 (self-hosted WhatsApp gateway) |
-| `@botmesh/wppconnect` | `wppconnect-provider` | Not on npm yet | WPPConnect Server (self-hosted WhatsApp gateway) |
+| `@botmesh/evolution` | `evolution-provider` | On npm (from the beta) | Evolution API v2 (self-hosted WhatsApp gateway) |
+| `@botmesh/wppconnect` | `wppconnect-provider` | On npm (from the beta) | WPPConnect Server (self-hosted WhatsApp gateway) |
 | `@botmesh/twilio` | `twilio-provider` | Not on npm yet | Twilio Programmable Messaging (WhatsApp + SMS/MMS) |
 | `@botmesh/gohighlevel` | `gohighlevel-provider` | Not on npm yet | HighLevel (LeadConnector) Conversations API |
 | `@botmesh/gupshup` | `gupshup-provider` | Not on npm yet | Gupshup WhatsApp API |
 | `@botmesh/email` | `email-provider` | Not on npm yet | Email (IMAP IDLE + SMTP) |
 | `@botmesh/tiktok` | `tiktok-provider` | Not on npm yet | TikTok API for Business (comments + Business Messaging) |
 
-The five **On npm** channels are installed with `pnpm add` and follow
-semver (Messenger and Instagram are published from the beta on). The others have `"private": true` in their `package.json`: they are
+The **On npm** channels are installed with `pnpm add` and follow
+semver (those marked "from the beta" ship to npm for the first time with the beta). The others have `"private": true` in their `package.json`: they are
 implemented and tested, but they are **not published to npm** and their API
 may still change. Use them from a clone of the monorepo (`"workspace:*"`).
 The same goes for [`@botmesh/server`](/guide/server) and the
@@ -72,8 +72,9 @@ The same goes for [`@botmesh/server`](/guide/server) and the
   Evolution API or WPPConnect Server. The bot talks to that gateway over
   REST and receives its webhooks. Both gateways drive WhatsApp Web, so the
   same caveats as Baileys apply (unofficial, no reliable native buttons).
-  The shared pieces (REST client, media, LID/PN reconciliation) live in the
-  private `@botmesh/wa-gateway-kit`; you install the channel, never the kit.
+  The shared pieces (REST client, media, LID/PN reconciliation) live in
+  `@botmesh/wa-gateway-kit`, a public dependency of both; you install the
+  channel, not the kit (unless you write a transport for another gateway).
 - **`@botmesh/twilio`** / **`@botmesh/gupshup`**: you send WhatsApp through
   that provider's account. Templates are supported; Twilio also covers
   SMS/MMS with the same class.
@@ -584,12 +585,16 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/discord-provider)
 
-### `@botmesh/evolution` (not on npm yet)
+### `@botmesh/evolution`
 
 [Evolution API](https://github.com/EvolutionAPI/evolution-api) v2, a
 self-hosted WhatsApp REST gateway built on Baileys. Outbound: REST with the
 `apikey` header. Inbound: the instance webhook, authenticated with a shared
 secret header or Evolution's `jwt_key` (HS256 JWT).
+
+```bash
+pnpm add @botmesh/core @botmesh/evolution   # during the beta: @beta on both
+```
 
 ```ts
 import { EvolutionProvider } from '@botmesh/evolution'
@@ -612,11 +617,15 @@ const provider = new EvolutionProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/evolution-provider)
 
-### `@botmesh/wppconnect` (not on npm yet)
+### `@botmesh/wppconnect`
 
 [WPPConnect Server](https://github.com/wppconnect-team/wppconnect-server),
 a self-hosted gateway on WhatsApp Web (WA-JS). REST with a Bearer token;
 webhooks authenticated with a token in the webhook URL.
+
+```bash
+pnpm add @botmesh/core @botmesh/wppconnect   # during the beta: @beta on both
+```
 
 ```ts
 import { WPPConnectProvider } from '@botmesh/wppconnect'

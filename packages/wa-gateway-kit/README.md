@@ -1,14 +1,91 @@
-# @botmesh/wa-gateway-kit (private)
+# @botmesh/wa-gateway-kit
 
-Internal package: the code shared by the WhatsApp REST gateway transports
-[`@botmesh/evolution`](../evolution-provider) and
-[`@botmesh/wppconnect`](../wppconnect-provider). It is `"private": true`, never
-published, and its API can change at any time. Use those providers instead;
-they re-export the public pieces (`WaIdentityStore`, `normalizeJid`,
-`IdentityPersistence`, `RestHttpOptions`).
+Building blocks shared by the WhatsApp REST gateway transports of
+[`@botmesh/core`](https://www.npmjs.com/package/@botmesh/core):
+[`@botmesh/evolution`](https://www.npmjs.com/package/@botmesh/evolution) (Evolution API) and
+[`@botmesh/wppconnect`](https://www.npmjs.com/package/@botmesh/wppconnect) (WPPConnect Server).
+Both talk to a self-hosted gateway built on WhatsApp Web, so they share the same REST client,
+the same outbound media handling and the same LID/PN identity reconciliation; this package
+holds that code once.
 
-| Module | Contents |
+**You do not need it to build a bot**: it is installed as a dependency of those providers,
+which re-export the types their options use (`IdentityPersistence`, `RestHttpOptions`). Use
+it directly when you write a transport for another WhatsApp Web gateway and want the same
+guarantees.
+
+## Install
+
+```bash
+pnpm add @botmesh/wa-gateway-kit
+```
+
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older alpha. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/wa-gateway-kit@beta` during the beta (`npm view @botmesh/wa-gateway-kit dist-tags` lists the tags). Once stable, the plain command above works.
+
+Node.js 22 or later, ESM only. It depends only on `@botmesh/core` and
+[`@botmesh/http`](https://www.npmjs.com/package/@botmesh/http).
+
+## Quick example
+
+```ts
+import { ProviderError } from '@botmesh/core'
+import { WaIdentityStore, gatewayBaseUrl, resolveHttpPolicy, restCall } from '@botmesh/wa-gateway-kit'
+
+const baseUrl = gatewayBaseUrl('MyGatewayProvider', 'http://localhost:8080') // TypeError without http(s)://
+const http = resolveHttpPolicy(baseUrl, { timeoutMs: 15_000 })
+
+// JSON over secureFetch: no redirects, size and time limits, no URL path in errors when `label` is set.
+const res = await restCall(`${baseUrl}/message/sendText/demo`, {
+  method: 'POST',
+  headers: { apikey: process.env.GATEWAY_KEY! },
+  body: { number: '573001112233', text: 'hi' },
+  label: 'sendText',
+}, http)
+if (!res.ok) throw new ProviderError(`gateway answered ${res.status}`)
+
+// One stable id per person, whether the gateway sends the phone-number JID or the LID.
+const ids = new WaIdentityStore(10_000)
+ids.resolve('123456789@lid', '573001112233@s.whatsapp.net') // → '573001112233@s.whatsapp.net'
+ids.lookup('123456789@lid')                                  // → '573001112233@s.whatsapp.net'
+```
+
+## API
+
+| Export | What it does |
 | --- | --- |
-| `rest.ts` | `restCall` (JSON over `secureFetch`, no redirects, secrets kept out of error messages), `resolveHttpPolicy`, `parseRetryAfter`, `describeErrorBody`, `isRecord` |
-| `media.ts` | `resolveMedia` (public URL passthrough, everything else inline base64), `guessMimetype`, `toDataUri` |
-| `identity.ts` | `WaIdentityStore` (bounded LRU LID/PN reconciliation with optional persistence), `normalizeJid`, `isLidJid`, `isGroupJid` |
+| `restCall(url, init, http)` | JSON request through `secureFetch` with `maxRedirects: 0`. Resolves to `{ status, ok, body, retryAfterMs }` for any HTTP answer; a network failure rejects with a `ProviderError` that names the cause (`ECONNREFUSED`, `TIMEOUT`...) and shows `init.label` (or the URL path) instead of the full URL. |
+| `resolveHttpPolicy(baseUrl, http?)` | Fills the `RestHttpOptions` defaults: `allowHttp` when `baseUrl` is `http://`, `allowPrivateHosts: true` (the gateway is usually local), `timeoutMs` 30 s, `maxBytes` 64 MiB. |
+| `gatewayBaseUrl(owner, baseUrl)` | Validates and trims the base URL; throws a `TypeError` naming `owner` when it is not an absolute http(s) URL. |
+| `parseRetryAfter(value)` | `Retry-After` (seconds or HTTP date) in milliseconds. |
+| `describeErrorBody(body)` | One readable line from a gateway error body (at most 300 characters). |
+| `isRecord(value)` | Plain-object type guard. |
+| `resolveMedia(kind, source, opts?)` | Outbound media: an `http(s)` URL (or `{ native: string }`) passes through, anything else (Buffer, path, stream) becomes base64 with a MIME type. An unreadable path rejects with `UnsupportedContentError`. Returns a `ResolvedMedia`. |
+| `toDataUri(media)`, `guessMimetype(kind, filename?, explicit?)` | Data URI (or the plain URL) and best-effort MIME type. |
+| `WaIdentityStore(maxEntries?, persistence?)` | Bounded LRU that links the phone-number JID and the LID of the same person to one canonical id (`resolve`, `lookup`, `has`, `size`). With an `IdentityPersistence`, the map survives restarts. |
+| `normalizeJid(jid)`, `isLidJid(jid)`, `isGroupJid(jid)` | JID helpers: strip the device suffix, detect `@lid` and `@g.us`. |
+
+Types: `RestHttpOptions`, `RestResponse`, `ResolvedMedia`, `IdentityPersistence`.
+
+## Identity rules
+
+`WaIdentityStore.resolve(primary, ...twins)` picks the canonical id once and keeps it: the
+phone-number JID when it is known the first time the person is seen, otherwise the first
+alias seen. A later message that reveals the phone number keeps the id the conversation
+already uses. Since "first seen" depends on message order, back the store with an
+`IdentityPersistence` (synchronous `get`/`set` that must not throw) on durable storage, or the
+id of a contact first seen with the LID only can change after a restart.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| `TypeError` "`baseUrl` must be an absolute http(s) URL" | Include the scheme: `http://localhost:8080`, not `localhost:8080`. |
+| A gateway on `https://` inside your network is refused | `allowPrivateHosts` defaults to `true`; if you set it to `false`, private and loopback addresses are blocked by the SSRF guard. |
+| A large media download fails | Raise `maxBytes` (64 MiB by default): gateways return media inline as base64. |
+| `restCall` resolved but the call failed | `restCall` does not throw on HTTP errors: check `res.ok` and map `res.status` to a typed error (see `toEvolutionError` / `toWppError`). |
+
+## Links
+
+- [Channels guide](https://andresayac.github.io/botmesh/guide/channels) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/wa-gateway-kit/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/wa-gateway-kit) · [Issues](https://github.com/andresayac/botmesh/issues)
+
+Public package, covered by semver: a breaking change is a major version.

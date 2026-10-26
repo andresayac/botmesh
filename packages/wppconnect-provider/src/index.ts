@@ -2,14 +2,13 @@
  * @botmesh/wppconnect — wppconnect-server (WA-JS REST gateway) transport for
  * @botmesh/core. REST outbound (Bearer token) + token-checked webhook ingest,
  * LID/PN identity reconciliation, media download, typed errors.
+ *
+ * This entry is covered by semver (the WA-JS wire types are `@experimental`).
+ * The webhook parser and the outbound mapper live in
+ * `@botmesh/wppconnect/internal`, which has no semver guarantee.
  */
 
 export { WPPConnectProvider, toWppError } from './WPPConnectProvider.js'
-export { parseWebhook, parseMessage, serializedId, jidOf, remoteOfMessageId, lidsIn } from './parseInbound.js'
-export type { ParseContext } from './parseInbound.js'
-export { toOutbound, target, numberedMenu } from './toOutbound.js'
-export type { WppOutbound } from './toOutbound.js'
-// Shared with @botmesh/evolution through the private @botmesh/wa-gateway-kit.
-export { WaIdentityStore, normalizeJid } from '@botmesh/wa-gateway-kit'
+export type { HeaderBag } from './webhookAuth.js'
 export type { IdentityPersistence, RestHttpOptions } from '@botmesh/wa-gateway-kit'
-export type { WPPConnectProviderConfig, WppMessage, WppSender, WppId, WppMediaToken } from './types.js'
+export type { WPPConnectProviderConfig, WppMessage, WppSender, WppId } from './types.js'

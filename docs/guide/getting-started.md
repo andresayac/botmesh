@@ -234,7 +234,8 @@ every transport.
 | Telegram | `@botmesh/telegram` | Published | Bot API, long polling or webhook |
 | Facebook Messenger | `@botmesh/messenger` | Published (from the beta) | Send API, webhook, postback buttons and generic templates |
 | Instagram DMs | `@botmesh/instagram` | Published (from the beta) | Messenger API for Instagram, webhook, quick replies |
-| Discord, email, gateways and more | `@botmesh/discord`, … | Experimental | Not on npm yet; see [Channels](./channels) |
+| WhatsApp via Evolution API / WPPConnect | `@botmesh/evolution`, `@botmesh/wppconnect` | Published (from the beta) | Your self-hosted WhatsApp Web gateway, REST + authenticated webhook |
+| Discord, email, Twilio and more | `@botmesh/discord`, … | Experimental | Not on npm yet; see [Channels](./channels) |
 
 The official WhatsApp Cloud API, for example:
 

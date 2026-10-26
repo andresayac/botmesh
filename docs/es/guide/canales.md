@@ -41,16 +41,16 @@ teléfono ni una URL pública.
 | `@botmesh/messenger` | `messenger-provider` | En npm (desde la beta) | Facebook Messenger (Send API) |
 | `@botmesh/instagram` | `instagram-provider` | En npm (desde la beta) | DMs de Instagram (Messenger API for Instagram) |
 | `@botmesh/discord` | `discord-provider` | Aún no en npm | Discord (gateway + REST) |
-| `@botmesh/evolution` | `evolution-provider` | Aún no en npm | Evolution API v2 (gateway de WhatsApp self-hosted) |
-| `@botmesh/wppconnect` | `wppconnect-provider` | Aún no en npm | WPPConnect Server (gateway de WhatsApp self-hosted) |
+| `@botmesh/evolution` | `evolution-provider` | En npm (desde la beta) | Evolution API v2 (gateway de WhatsApp self-hosted) |
+| `@botmesh/wppconnect` | `wppconnect-provider` | En npm (desde la beta) | WPPConnect Server (gateway de WhatsApp self-hosted) |
 | `@botmesh/twilio` | `twilio-provider` | Aún no en npm | Twilio Programmable Messaging (WhatsApp + SMS/MMS) |
 | `@botmesh/gohighlevel` | `gohighlevel-provider` | Aún no en npm | HighLevel (LeadConnector) Conversations API |
 | `@botmesh/gupshup` | `gupshup-provider` | Aún no en npm | Gupshup WhatsApp API |
 | `@botmesh/email` | `email-provider` | Aún no en npm | Email (IMAP IDLE + SMTP) |
 | `@botmesh/tiktok` | `tiktok-provider` | Aún no en npm | TikTok API for Business (comentarios + Business Messaging) |
 
-Los cinco canales **En npm** se instalan con `pnpm add` y siguen semver
-(Messenger e Instagram se publican desde la beta). Los
+Los canales **En npm** se instalan con `pnpm add` y siguen semver (los
+marcados "desde la beta" se publican por primera vez con la beta). Los
 demás llevan `"private": true` en su `package.json`: están implementados y con
 tests, pero **no se publican en npm** y su API todavía puede cambiar. Úsalos
 desde un clon del monorepo (`"workspace:*"`). Lo mismo vale para
@@ -75,8 +75,9 @@ desde un clon del monorepo (`"workspace:*"`). Lo mismo vale para
   Evolution API o un WPPConnect Server. El bot habla con ese gateway por REST
   y recibe sus webhooks. Ambos gateways manejan WhatsApp Web, así que valen
   las mismas advertencias que con Baileys (no oficial, sin botones nativos
-  fiables). Lo común (cliente REST, media, reconciliación LID/PN) vive en el
-  paquete privado `@botmesh/wa-gateway-kit`; se instala el canal, nunca el kit.
+  fiables). Lo común (cliente REST, media, reconciliación LID/PN) vive en
+  `@botmesh/wa-gateway-kit`, una dependencia pública de ambos; se instala el
+  canal, no el kit (salvo que escribas un transporte para otro gateway).
 - **`@botmesh/twilio`** / **`@botmesh/gupshup`**: envías WhatsApp a través de
   la cuenta de ese proveedor. Admiten plantillas; Twilio cubre además SMS/MMS
   con la misma clase.
@@ -608,12 +609,16 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/discord-provider)
 
-### `@botmesh/evolution` (aún no en npm)
+### `@botmesh/evolution`
 
 [Evolution API](https://github.com/EvolutionAPI/evolution-api) v2, un
 gateway REST de WhatsApp self-hosted construido sobre Baileys. Salida: REST
 con la cabecera `apikey`. Entrada: el webhook de la instancia, autenticado con
 un secreto compartido en cabecera o con el `jwt_key` de Evolution (JWT HS256).
+
+```bash
+pnpm add @botmesh/core @botmesh/evolution   # durante la beta: @beta en ambos
+```
 
 ```ts
 import { EvolutionProvider } from '@botmesh/evolution'
@@ -637,11 +642,15 @@ const provider = new EvolutionProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/evolution-provider)
 
-### `@botmesh/wppconnect` (aún no en npm)
+### `@botmesh/wppconnect`
 
 [WPPConnect Server](https://github.com/wppconnect-team/wppconnect-server), un
 gateway self-hosted sobre WhatsApp Web (WA-JS). REST con token Bearer;
 webhooks autenticados con un token en la URL del webhook.
+
+```bash
+pnpm add @botmesh/core @botmesh/wppconnect   # durante la beta: @beta en ambos
+```
 
 ```ts
 import { WPPConnectProvider } from '@botmesh/wppconnect'

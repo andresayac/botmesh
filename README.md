@@ -4,7 +4,7 @@
 [![Docs](https://img.shields.io/badge/docs-andresayac.github.io%2Fbotmesh-blue)](https://andresayac.github.io/botmesh/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 
-A TypeScript framework for messaging bots. Write handlers and conversation flows once and run them on **WhatsApp** (the unofficial [Baileys 7](https://github.com/WhiskeySockets/Baileys) protocol or the **official Meta Cloud API**) **Telegram**, **Facebook Messenger** and **Instagram DMs**, with experimental providers for Discord, TikTok, email and more WhatsApp gateways (Evolution API, WPPConnect, Twilio, Gupshup). Try your bot in the terminal before connecting a phone, test it without a network, and add AI, persistence or multiple replicas when you need them.
+A TypeScript framework for messaging bots. Write handlers and conversation flows once and run them on **WhatsApp** (the unofficial [Baileys 7](https://github.com/WhiskeySockets/Baileys) protocol, the **official Meta Cloud API**, the self-hosted **Evolution API** and **WPPConnect** gateways, Twilio or Gupshup), **Telegram**, **Facebook Messenger**, **Instagram DMs**, **Discord**, **email**, SMS (Twilio) and HighLevel CRM conversations, with an experimental provider for TikTok. Try your bot in the terminal before connecting a phone, test it without a network, and add AI, persistence or multiple replicas when you need them.
 
 **Documentation: <https://andresayac.github.io/botmesh/>** ([English](https://andresayac.github.io/botmesh/guide/getting-started) · [Español](https://andresayac.github.io/botmesh/es/guide/inicio) · [API reference](https://andresayac.github.io/botmesh/api/))
 
@@ -55,7 +55,7 @@ The [getting started guide](https://andresayac.github.io/botmesh/guide/getting-s
 
 ## Packages
 
-This is a pnpm monorepo with **45 packages**: 10 **Public**, 27 **Experimental** and 8 **Product** and internal ones. They are not all equally mature, and the **Status** column says so plainly:
+This is a pnpm monorepo with **45 packages**: 36 **Public**, 3 **Experimental** and 6 **Product** and internal ones. They are not all equally mature, and the **Status** column says so plainly:
 
 - **Public**: published on npm and covered by semver from the stable release on (prerelease builds until then).
 - **Experimental**: real, tested implementation, but the package is `private`. Not published yet and its API may change.
@@ -72,8 +72,8 @@ This is a pnpm monorepo with **45 packages**: 10 **Public**, 27 **Experimental**
 | [`@botmesh/messenger`](packages/messenger-provider) | Public | Facebook Messenger (Meta Graph Send API, signed webhooks, postback buttons, generic templates). Published from the beta. |
 | [`@botmesh/instagram`](packages/instagram-provider) | Public | Instagram DMs (Messenger API for Instagram, signed webhooks, quick replies). Published from the beta. |
 | [`@botmesh/discord`](packages/discord-provider) | Experimental | Discord (gateway websocket + REST, slash/components). |
-| [`@botmesh/evolution`](packages/evolution-provider) | Experimental | WhatsApp through [Evolution API](https://github.com/EvolutionAPI/evolution-api) (self-hosted REST gateway, signed webhook). |
-| [`@botmesh/wppconnect`](packages/wppconnect-provider) | Experimental | WhatsApp through WPPConnect Server (REST + token webhook). |
+| [`@botmesh/evolution`](packages/evolution-provider) | Public | WhatsApp through [Evolution API](https://github.com/EvolutionAPI/evolution-api) (self-hosted REST gateway, signed webhook). |
+| [`@botmesh/wppconnect`](packages/wppconnect-provider) | Public | WhatsApp through WPPConnect Server (REST + token webhook). |
 | [`@botmesh/twilio`](packages/twilio-provider) | Experimental | WhatsApp and SMS through Twilio Programmable Messaging (`X-Twilio-Signature` webhooks). |
 | [`@botmesh/gupshup`](packages/gupshup-provider) | Experimental | WhatsApp through Gupshup (API v1 + v2 callbacks). |
 | [`@botmesh/gohighlevel`](packages/gohighlevel-provider) | Experimental | GoHighLevel / LeadConnector (Conversations API + signed `InboundMessage` webhooks). |
@@ -100,7 +100,7 @@ This is a pnpm monorepo with **45 packages**: 10 **Public**, 27 **Experimental**
 | **Shared infrastructure** (dependencies of the public packages) | | |
 | [`@botmesh/http`](packages/http) | Public | Safe HTTP client: anti-SSRF, redirect validation, timeouts and download limits. |
 | [`@botmesh/graph-core`](packages/graph-core) | Public | Shared Meta Graph helpers (webhook verification, error mapping, ingest guard) used by meta/messenger/instagram. |
-| [`@botmesh/wa-gateway-kit`](packages/wa-gateway-kit) | Internal | Code shared by the WhatsApp REST gateways (`evolution`, `wppconnect`): REST client over `secureFetch`, outbound media resolution and LID/PN identity reconciliation. Private; not installed directly. |
+| [`@botmesh/wa-gateway-kit`](packages/wa-gateway-kit) | Public | Code shared by the WhatsApp REST gateways (`evolution`, `wppconnect`): REST client over `secureFetch`, outbound media resolution and LID/PN identity reconciliation. Installed as their dependency. |
 | [`@botmesh/server`](packages/server) | Experimental | Webhook ingress for the providers: raw body, size limits, timeouts, concurrency and health endpoints for `node:http`, Express, Fastify and Hono (no dependencies). |
 | **Product / operations** (private, persistent) | | |
 | [`@botmesh/inbox`](packages/inbox) | Product | Persistent omni-channel inbox: CAS assignment, handoff, notes, unread, SLA and ledger projection (`attachInbox`). |

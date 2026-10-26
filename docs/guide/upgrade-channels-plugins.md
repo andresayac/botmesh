@@ -155,6 +155,20 @@ The `debug` option is deprecated in both: pass a `logger` instead. More than 3 b
 (or 10 list rows) on Messenger, or more than 13 quick replies on Instagram, reject with
 `UnsupportedContentError` instead of being cut.
 
+### `@botmesh/evolution`, `@botmesh/wppconnect` and `@botmesh/wa-gateway-kit`
+
+New on npm in the beta (they were private before). If you used them from the monorepo:
+
+- The webhook parsers, outbound mappers and media tokens (`parseWebhook`, `parseMessage`,
+  `toOutbound`, `numberedMenu`, `keyFromRef`, `target`, `jidOf`…) and Evolution's JWT helpers
+  (`verifyHs256Jwt`, `signHs256Jwt`) moved to `@botmesh/evolution/internal` and
+  `@botmesh/wppconnect/internal`, which have no semver guarantee.
+- `WaIdentityStore` and `normalizeJid` are no longer re-exported by the providers: import
+  them from `@botmesh/wa-gateway-kit`. `IdentityPersistence` and `RestHttpOptions` stay on
+  the providers' main entry.
+- The `debug` option was removed: pass a `logger` (`pino({ level: 'debug' })`).
+- Invalid options throw a `TypeError` (it was a plain `Error`; the messages are the same).
+
 ## Private packages
 
 These are not on npm; the notes matter only inside the monorepo or a fork.
