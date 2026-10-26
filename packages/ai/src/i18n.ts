@@ -146,13 +146,11 @@ function builtinLocale(lang: string | undefined): BuiltinLocale | undefined {
 
 /**
  * Built-in catalog for a context: its `lang` when one ships (`es`, `en`), else the
- * bot's default locale when one ships, else English. Without any language at all
- * (no context) Spanish, the core's default locale.
+ * bot's default locale when one ships, else English (also without any context: the
+ * core's default locale).
  */
 function catalogFor(ctx: AITranslatable | undefined): BuiltinLocale {
-  const lang = ctx?.lang
-  const fallback = ctx?.defaultLang
-  return builtinLocale(lang) ?? builtinLocale(fallback) ?? (lang || fallback ? 'en' : 'es')
+  return builtinLocale(ctx?.lang) ?? builtinLocale(ctx?.defaultLang) ?? 'en'
 }
 
 function builtin(ctx: AITranslatable | undefined, key: string): string | undefined {

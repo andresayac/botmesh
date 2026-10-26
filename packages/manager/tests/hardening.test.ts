@@ -30,8 +30,8 @@ async function tempDir(): Promise<string> {
   return dir
 }
 
-const main: FlowDocument = { version: 1, id: 'main', trigger: 'start', steps: [{ kind: 'say', text: 'main' }, { kind: 'subflow', flowId: 'shared' }] }
-const shared: FlowDocument = { version: 1, id: 'shared', trigger: 'shared-only', steps: [{ kind: 'say', text: 'from shared' }] }
+const main: FlowDocument = { version: 2, id: 'main', trigger: 'start', steps: [{ kind: 'say', text: 'main' }, { kind: 'subflow', flowId: 'shared' }] }
+const shared: FlowDocument = { version: 2, id: 'shared', trigger: 'shared-only', steps: [{ kind: 'say', text: 'from shared' }] }
 
 describe('config-backed bots with subflows', () => {
   it('createBot() and restore() resolve subflow steps against the bot\'s own flows', async () => {
@@ -60,7 +60,7 @@ describe('config-backed bots with subflows', () => {
   it('a diamond of subflows (exponential when inlined) is refused fast at createBot() and at restore()', async () => {
     // f0 calls f1 three times, f1 calls f2 three times...: 3^15 inlined steps from a few KB of JSON.
     const flows: FlowDocument[] = Array.from({ length: 16 }, (_, i) => ({
-      version: 1,
+      version: 2,
       id: `f${i}`,
       trigger: `t${i}`,
       steps: i === 15 ? [{ kind: 'say', text: 'leaf' }] : Array.from({ length: 3 }, () => ({ kind: 'subflow' as const, flowId: `f${i + 1}` })),
@@ -86,7 +86,7 @@ describe('config-backed bots with subflows', () => {
     const store = new MemoryBotConfigStore()
     const factory = () => new Bot({ provider: new MockProvider() })
     const manager = new BotManager({ configStore: store, factory })
-    const nested: FlowDocument = { version: 1, id: 'nested', trigger: 'n', steps: [{ kind: 'condition', if: 'true', then: [{ kind: 'subflow', flowId: 'shared' }] }] }
+    const nested: FlowDocument = { version: 2, id: 'nested', trigger: 'n', steps: [{ kind: 'condition', if: 'true', then: [{ kind: 'subflow', flowId: 'shared' }] }] }
     await manager.createBot({ id: 'b4', flows: [shared, nested], autoStart: false })
     await expect(manager.removeFlow('b4', 'shared')).rejects.toMatchObject({ code: 'CONFLICT' })
     expect(manager.listFlowDocuments('b4').map((f) => f.id)).toEqual(['shared', 'nested'])

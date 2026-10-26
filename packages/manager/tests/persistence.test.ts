@@ -81,7 +81,7 @@ function fakeFactory(): { factory: BotFactory; built: FakeBot[] } {
   return { factory, built }
 }
 
-const helloFlow: FlowDocument = { version: 1, id: 'hola', trigger: 'hola', steps: [{ kind: 'say', text: 'hola!' }] }
+const helloFlow: FlowDocument = { version: 2, id: 'hola', trigger: 'hola', steps: [{ kind: 'say', text: 'hola!' }] }
 
 describe('BotManager multi-tenant persistence', () => {
   it('createBot builds through the factory, persists and starts', async () => {

@@ -30,7 +30,7 @@ type ButtonsContent = Extract<OutboundContent, { kind: 'buttons' }>
 async function setup(opts: { provider?: MockProviderOptions; confirm?: ConfirmWithOptions; cfg?: Partial<AIPluginConfig>; explicitCtx?: boolean } = {}) {
   const runs: string[] = []
   const followUps: string[] = []
-  const { bot, chat, provider } = await createTestBot({}, { provider: opts.provider ?? {} })
+  const { bot, chat, provider } = await createTestBot({ lang: 'es' }, { provider: opts.provider ?? {} })
   bot.plug(aiPlugin({
     __provider: scripted(),
     autoReply: false,

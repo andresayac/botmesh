@@ -37,6 +37,11 @@ import type { TracingImpl } from '../../telemetry/tracing.js'
 /** Mutable start/stop state of a bot (one object, shared by every module). */
 export interface LifecycleState {
   isStarted: boolean
+  /**
+   * Sends reach the provider (see `BotNotRunningError`): opened when the transport step
+   * starts (a `'ready'` listener may send), closed when it stops or its start is rolled back.
+   */
+  sendsOpen: boolean
   /** Inbound events are processed (false before `start()` and from the first line of `stop()`). */
   acceptingInbound: boolean
   /**
@@ -58,6 +63,7 @@ export interface LifecycleState {
 export function createLifecycleState(): LifecycleState {
   return {
     isStarted: false,
+    sendsOpen: false,
     acceptingInbound: false,
     pacedSendsOpen: false,
     connState: 'closed',
@@ -136,6 +142,8 @@ export interface BotKernel {
   readonly durable: DurableEngine | null
   /** Tracing (`BotConfig.telemetry`); `null` when off — every instrumentation site checks it first. */
   readonly tracing: TracingImpl | null
+  /** A chat/sender id as it may appear in a log line (`BotConfig.logIds`: hashed by default). */
+  readonly logId: (id: string | undefined) => string | undefined
 }
 
 /**

@@ -59,7 +59,7 @@ const makeRt = () => new ConversationRuntime({ controlsFactory: (rt, handle, ctx
 
 describe('flow().use(subFlow)', () => {
   it('runs the sub-flow inline, merges its state and returns to the parent', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const direccion = flow('direccion').ask('¿Calle?', 'calle').ask('¿Ciudad?', 'ciudad')
     bot.use(
       flow('pedido')
@@ -102,7 +102,7 @@ describe('flow().use(subFlow)', () => {
   })
 
   it('c.retry() in a parent step after .use() re-runs the returned sub-flow', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const errors: unknown[] = []
     bot.on('error', (e) => { errors.push(e) })
     bot.use(
@@ -125,7 +125,7 @@ describe('flow().use(subFlow)', () => {
   it('a retry after .use() shares the sub-flow wait budget', async () => {
     const onError = vi.fn()
     const rt = new ConversationRuntime({ controlsFactory: (r, handle, ctx) => createControls(r, handle, ctx), onError })
-    const sub = flow('sub').ask('¿Email?', 'email', { retries: 2 })
+    const sub = flow('sub').ask('¿Email?', 'email', { maxAttempts: 2 })
     const f = flow('p').use(sub).do((_ctx, c) => { c.retry('mal') }).compile()
     const start = msg('p')
     const run = rt.enter(flowToConversation(f), start)
@@ -136,7 +136,7 @@ describe('flow().use(subFlow)', () => {
     await run
     // Two retries consume the sub-flow ask's budget of 2 → the "too many attempts" ending.
     expect(onError).not.toHaveBeenCalled()
-    expect(start.reply.mock.calls.map((c) => c[0])).toEqual(['¿Email?', 'mal', '❌ Demasiados intentos. Conversación terminada.'])
+    expect(start.reply.mock.calls.map((c) => c[0])).toEqual(['¿Email?', 'mal', '❌ Too many attempts. Conversation ended.'])
   })
 
   it('a retry after a wait-less .use() step is still unavailable', async () => {
@@ -168,7 +168,7 @@ describe('choose() children and going back', () => {
   })
 
   it('an option goto leaves the sub-menu and goes back to the main menu', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const main = flow('menu').id('menu').choose('Menú principal', { juegos: { label: 'Juegos', goto: 'juegos' }, salir: 'Salir' })
       .say('Adiós')
     const juegos = flow([]).id('juegos')
@@ -187,7 +187,7 @@ describe('choose() children and going back', () => {
   })
 
   it('an option with then + goto runs the then first, then jumps', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.use(flow([]).id('destino').say('en destino'))
     bot.use(flow('ir').choose('¿Ir?', { si: { label: 'Sí', then: (_ctx, c) => c.say('saliendo'), goto: 'destino' } }).say('nunca'))
     await chat.send('ir')
@@ -204,14 +204,14 @@ describe('choose() children and going back', () => {
 
 describe('flow().guard()', () => {
   it('continues when the predicate passes', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.use(flow('soporte').guard(() => true, 'cerrado').say('¿En qué te ayudo?'))
     await chat.send('soporte')
     await chat.expectReply('¿En qué te ayudo?')
   })
 
   it('sends the message and ends the conversation when it fails', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.use(flow('soporte').guard(async () => false, 'Fuera de horario, vuelve mañana').say('¿En qué te ayudo?'))
     await chat.send('soporte')
     await chat.expectReply('Fuera de horario')
@@ -224,7 +224,7 @@ describe('flow().guard()', () => {
   })
 
   it('redirects to another conversation (with an optional message)', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.use(flow([]).id('no-permiso').say('No tienes permiso'))
     bot.use(flow('admin').guard((ctx) => ctx.sender === 'admin', { redirect: 'no-permiso', message: 'Verificando…' }).say('Panel'))
     await chat.send('admin')
@@ -260,7 +260,7 @@ describe('flow().guard()', () => {
 
 describe('schema validation in ask()/waitText()', () => {
   it('stores the parsed value and re-prompts with the issue message', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const seen: unknown[] = []
     bot.use(
       flow('registro')
@@ -306,7 +306,7 @@ describe('schema validation in ask()/waitText()', () => {
   })
 
   it('c.ask / c.waitText return the parsed value in async conversations', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.conversation('calc', async (c, ctx) => {
       const a = await c.ask('¿A?', { schema: z.number(0, 'positivo') })
       expectTypeOf(a).toEqualTypeOf<number>()
@@ -339,7 +339,7 @@ describe('schema validation in ask()/waitText()', () => {
     const run = rt.enter(flowToConversation(f), start)
     await vi.waitFor(() => expect(texts(start.reply)).toContain('¿?'))
     rt.deliver(msg('no'))
-    await vi.waitFor(() => expect(texts(start.reply)).toContain('❌ Entrada inválida, intenta de nuevo.'))
+    await vi.waitFor(() => expect(texts(start.reply)).toContain('❌ Invalid input, please try again.'))
     rt.deliver(msg('si'))
     await run
     expect(start.reply.mock.calls.at(-1)?.[0]).toBe('v=async')
@@ -347,8 +347,8 @@ describe('schema validation in ask()/waitText()', () => {
   })
 
   it('schema rejections share the retries budget', async () => {
-    const { bot, chat } = await createTestBot({ conversation: { retriesMessage: 'Demasiados intentos' } })
-    bot.use(flow('n').ask('¿N?', 'n', { schema: z.number(0, 'mal'), retries: 2 }).say('ok'))
+    const { bot, chat } = await createTestBot({ lang: 'es', conversation: { retriesMessage: 'Demasiados intentos' } })
+    bot.use(flow('n').ask('¿N?', 'n', { schema: z.number(0, 'mal'), maxAttempts: 2 }).say('ok'))
     await chat.send('n')
     await chat.send('x')
     await chat.expectReply('Debe ser un número')
@@ -363,7 +363,7 @@ describe('schema validation in ask()/waitText()', () => {
 
 describe('flow().media()', () => {
   it('sends every kind through the matching ctx helper', async () => {
-    const { bot, provider, chat } = await createTestBot()
+    const { bot, provider, chat } = await createTestBot({ lang: 'es' })
     bot.use(
       flow('demo')
         .media('image', 'https://x.test/a.png')
@@ -486,7 +486,7 @@ describe('per-step delays', () => {
   it('bot.stop() during a delay leaves no timer behind', async () => {
     vi.useFakeTimers()
     try {
-      const { bot, chat } = await createTestBot()
+      const { bot, chat } = await createTestBot({ lang: 'es' })
       const after = vi.fn()
       bot.use(flow('d').say('hi').delay('3s').do(after))
       const sent = chat.send('d')
@@ -562,7 +562,7 @@ describe('typed flow state', () => {
   })
 
   it('typed builders register with bot.use / bot.when', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const typed = flow('edad').ask('¿Edad?', 'edad', { schema: z.number(0, 'x') }).say((_ctx, c) => `doble ${c.state.edad * 2}`)
     bot.use(typed)
     bot.when('edad2', typed)

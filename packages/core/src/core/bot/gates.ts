@@ -14,14 +14,14 @@ import type { BotKernel } from './kernel.js'
  * `dropped.blocked` and, with `log`, debug-logged as `{ gate, chatId, senderId }`.
  */
 export function admitAccess(
-  k: Pick<BotKernel, 'access' | 'counters' | 'logger'>,
+  k: Pick<BotKernel, 'access' | 'counters' | 'logger' | 'logId'>,
   ids: { chatId: ChatId; senderId: UserId },
   log?: string,
 ): boolean {
   const gate = checkAccess(k.access.blacklist, k.access.whitelist, ids)
   if (gate === 'allowed') return true
   k.counters.blockedDropped()
-  if (log !== undefined) k.logger.debug({ gate, chatId: ids.chatId, senderId: ids.senderId }, log)
+  if (log !== undefined) k.logger.debug({ gate, chatId: k.logId(ids.chatId), senderId: k.logId(ids.senderId) }, log)
   return false
 }
 
@@ -31,12 +31,12 @@ export function admitAccess(
  * `{ gate: 'handoff', chatId, senderId }`.
  */
 export function admitHandoff(
-  k: Pick<BotKernel, 'handoffs' | 'counters' | 'logger'>,
+  k: Pick<BotKernel, 'handoffs' | 'counters' | 'logger' | 'logId'>,
   subject: Parameters<HandoffRegistry['admits']>[0] & { sender?: UserId },
   log?: string,
 ): boolean {
   if (k.handoffs.admits(subject)) return true
   k.counters.handoffDropped()
-  if (log !== undefined) k.logger.debug({ gate: 'handoff', chatId: subject.from, senderId: subject.sender }, log)
+  if (log !== undefined) k.logger.debug({ gate: 'handoff', chatId: k.logId(subject.from), senderId: k.logId(subject.sender) }, log)
   return false
 }

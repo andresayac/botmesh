@@ -9,7 +9,7 @@ import { validateFormValues } from '@botmesh/core/spi'
 import { createTestBot } from '@botmesh/core/testing'
 import { ExpressionError, FlowDocumentError, compileFlowDocument, evaluateExpression, exportFlowDocument, flowDigest, parseExpression, renderTemplate, sameFlow, validateFlowDocument, type FlowDocument } from '../src/index.js'
 
-const doc = (steps: FlowDocument['steps']): FlowDocument => ({ version: 1, id: 'flow', trigger: 'hola', steps })
+const doc = (steps: FlowDocument['steps']): FlowDocument => ({ version: 2, id: 'flow', trigger: 'hola', steps })
 
 function ctxAndControls(state: Record<string, unknown>) {
   const c = { state, say: async () => {}, ask: async () => '', choose: async () => '', goto: () => {}, end: () => {} }
@@ -163,7 +163,7 @@ describe('subflow expansion', () => {
       const steps: FlowDocument['steps'] = i === n - 1
         ? [{ kind: 'say', text: 'leaf' }]
         : nested ? [{ kind: 'condition', if: 'true', then: calls }] : calls
-      docs.set(`f${i}`, { version: 1, id: `f${i}`, trigger: `t${i}`, steps })
+      docs.set(`f${i}`, { version: 2, id: `f${i}`, trigger: `t${i}`, steps })
     }
     return docs
   }
@@ -201,7 +201,7 @@ describe('nested delays', () => {
   it('a delay inside a branch ends with bot.stop() instead of keeping a timer alive', async () => {
     const { bot, chat, provider } = await createTestBot()
     bot.registerFlow(compileFlowDocument({
-      version: 1, id: 'later', trigger: 'later',
+      version: 2, id: 'later', trigger: 'later',
       steps: [{ kind: 'condition', if: 'true', then: [{ kind: 'say', text: 'espera' }, { kind: 'delay', duration: '5m' }, { kind: 'say', text: 'tarde' }] }],
     }))
     const timers = () => process.getActiveResourcesInfo().filter((r) => r === 'Timeout').length
@@ -256,7 +256,7 @@ describe('fuzz', () => {
     }
     let valid = 0
     for (let i = 0; i < 1500; i++) {
-      const document = { version: 1, id: id(), trigger: pick(['hola', ['a', 'b'], { keywords: ['x'], match: 'contains' }, '']), ...(rnd() < 0.3 ? { timeout: '5m' } : {}), steps: Array.from({ length: 1 + Math.floor(rnd() * 4) }, () => step(0)) }
+      const document = { version: 2, id: id(), trigger: pick(['hola', ['a', 'b'], { keywords: ['x'], match: 'contains' }, '']), ...(rnd() < 0.3 ? { timeout: '5m' } : {}), steps: Array.from({ length: 1 + Math.floor(rnd() * 4) }, () => step(0)) }
       const issues = validateFlowDocument(document)
       if (issues.length) {
         expect(() => compileFlowDocument(document)).toThrow(FlowDocumentError)

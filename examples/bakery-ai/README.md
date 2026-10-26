@@ -298,8 +298,9 @@ The example is in English. To serve customers in another language:
    (yes/no)", the Yes/No button labels, slash-command replies) come from the i18n catalog.
    The bot pins them to English with `i18n: { defaultLocale: 'en', locales: ['en'] }`,
    so they always match the English persona even when the customer's client reports
-   another language (Telegram sends its `language_code`). For a Spanish-only bot set
-   `i18n: { defaultLocale: 'es', locales: ['es'] }` (bundled Spanish texts), or register
+   another language (Telegram sends its `language_code`). English is also the core
+   default since 2.0. For a Spanish-only bot set `lang: 'es'` instead (bundled Spanish
+   texts, no per-customer language resolution), or register
    your own language with `bot.locale('fr', { ai: { tools: { confirm: '...' } }, core: { ... } })`
    and list it in `locales`.
    **Bilingual instead:** use `locales: ['en', 'es']` so each customer gets the

@@ -281,7 +281,7 @@ describe('automatic typing on ctx replies', () => {
     const logger = { trace() {}, debug: (...a: unknown[]) => { debug.push(a[0]) }, info() {}, warn() {}, error() {}, fatal() {}, child() { return logger } }
     const provider = new MessagingMock()
     provider.typingError = new Error('400: Request input may be invalid')
-    const bot = await makeBot(provider, { logger })
+    const bot = await makeBot(provider, { logger, logIds: 'raw' })
     await runHandler(bot, provider, async (ctx) => {
       await ctx.typing()
       await ctx.recording()

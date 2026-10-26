@@ -29,6 +29,8 @@ export interface BotCoordinationDeps {
   provider: IProvider
   runtime: ConversationRuntime
   logger: { warn: (obj: object, msg?: string) => void; error: (obj: object, msg?: string) => void }
+  /** How a chat key appears in log lines (the bot's `logIds` policy). Default: as is. */
+  logId?: (id: string) => string | undefined
   /** Late-bound `bot.emit`. */
   emit: (event: string, payload: unknown) => void
   /** The bot's error path (`'error'` event or log). */
@@ -70,12 +72,12 @@ export class BotCoordination {
         await runtime.refreshDormant(key)
       },
       lost: (key, error) => {
-        deps.logger.warn({ key, fence: error.fence, reason: error.reason }, 'chat turn lost; aborting local work for the chat')
+        deps.logger.warn({ key: deps.logId ? deps.logId(key) : key, fence: error.fence, reason: error.reason }, 'chat turn lost; aborting local work for the chat')
         void runtime.suspend(key)
       },
       settle: (key) => runtime.whenSettled(key),
       expire: async (key) => {
-        deps.logger.warn({ key }, 'conversation step outlived coordination.settleMs; suspending it (resumes from its checkpoint)')
+        deps.logger.warn({ key: deps.logId ? deps.logId(key) : key }, 'conversation step outlived coordination.settleMs; suspending it (resumes from its checkpoint)')
         await runtime.suspend(key)
         await runtime.refreshDormant(key)
       },

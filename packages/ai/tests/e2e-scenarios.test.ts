@@ -56,7 +56,7 @@ class HangingProvider implements AIProvider {
 }
 
 async function setup(cfg: AIPluginConfig = {}) {
-  const t = await createTestBot()
+  const t = await createTestBot({ lang: 'es' })
   t.bot.plug(aiPlugin({ ...cfg }))
   return t
 }
@@ -121,7 +121,7 @@ describe('e2e: unhappy paths', () => {
   it('unicode, emoji and RTL survive the round trip and the formatter', async () => {
     const text = '¡Hola! 👨‍👩‍👧 שלום مرحبا 𝔘𝔫𝔦𝔠𝔬𝔡𝔢 **negrita** ñandú'
     const mock = new MockAIProvider({ reply: (i) => String(i.messages.at(-1)?.content) })
-    const t = await createTestBot({}, { provider: { textFormat: 'whatsapp' } })
+    const t = await createTestBot({ lang: 'es' }, { provider: { textFormat: 'whatsapp' } })
     t.bot.plug(aiPlugin({ instance: mock }))
     await t.chat.send(text)
     await t.chat.expectReply('¡Hola! 👨‍👩‍👧 שלום مرحبا 𝔘𝔫𝔦𝔠𝔬𝔡𝔢 *negrita* ñandú')
@@ -145,7 +145,7 @@ describe('e2e: unhappy paths', () => {
 
   it('stop() also aborts a streamed answer that is still waiting for the model', async () => {
     const hang = new HangingProvider()
-    const t = await createTestBot({}, { provider: { streaming: 'edit' } })
+    const t = await createTestBot({ lang: 'es' }, { provider: { streaming: 'edit' } })
     t.bot.plug(aiPlugin({ instance: hang, stream: true }))
     await t.chat.send('hola')
     await tick()
@@ -171,7 +171,7 @@ describe('e2e: unhappy paths', () => {
     const mock = new MockAIProvider({
       reply: (i) => i.messages.at(-1)?.role === 'tool' ? 'hecho' : { toolCalls: [{ name: 'borrar', args: {} }] },
     })
-    const t = await createTestBot({}, { provider: { buttons: false } })
+    const t = await createTestBot({ lang: 'es' }, { provider: { buttons: false } })
     t.bot.plug(aiPlugin({ instance: mock, tools }))
     const timersBefore = process.getActiveResourcesInfo().filter((r) => r === 'Timeout').length
     await t.chat.send('borra todo')
@@ -200,7 +200,7 @@ describe('e2e: background memory extraction and stop()', () => {
       },
       async *stream() { yield '' },
     }
-    const t = await createTestBot()
+    const t = await createTestBot({ lang: 'es' })
     t.bot.plug(aiPlugin({ instance: provider, memory: { autoExtract: true } }))
     const timersBefore = process.getActiveResourcesInfo().filter((r) => r === 'Timeout').length
     await t.chat.send('me llamo Ana')
@@ -241,7 +241,7 @@ describe('e2e: stop() also reaches ctx.tools.ai calls made by user handlers', ()
   for (const [name, call] of methods) {
     it(`aborts ctx.tools.ai.${name}() still waiting for the model (timeoutMs: 0)`, async () => {
       const hang = new HangingProvider()
-      const t = await createTestBot()
+      const t = await createTestBot({ lang: 'es' })
       t.bot.plug(aiPlugin({ instance: hang, autoReply: false, timeoutMs: 0 }))
       let settled: unknown = 'pending'
       t.bot.onMessage((ctx) => { call(ctx.tools.ai).then(() => { settled = 'resolved' }, (err: unknown) => { settled = err }) })
@@ -258,7 +258,7 @@ describe('e2e: stop() also reaches ctx.tools.ai calls made by user handlers', ()
 
   it('aborts ctx.tools.ai.stream() and streamReplyInChat() consumed by a handler', async () => {
     const hang = new HangingStream()
-    const t = await createTestBot()
+    const t = await createTestBot({ lang: 'es' })
     t.bot.plug(aiPlugin({ instance: hang, autoReply: false, timeoutMs: 0 }))
     const errors: unknown[] = []
     const drain = async (it: AsyncIterable<string>) => { try { for await (const _ of it) { /* drain */ } } catch (err) { errors.push(err) } }
@@ -275,7 +275,7 @@ describe('e2e: stop() also reaches ctx.tools.ai calls made by user handlers', ()
 
   it('a provider that ignores the signal still releases the caller on stop()', async () => {
     const deaf: AIProvider = { name: 'deaf', generate: () => new Promise(() => {}), async *stream() { yield '' } }
-    const t = await createTestBot()
+    const t = await createTestBot({ lang: 'es' })
     t.bot.plug(aiPlugin({ instance: deaf, autoReply: false, timeoutMs: 0 }))
     let settled: unknown = 'pending'
     t.bot.onMessage((ctx) => { ctx.tools.ai.ask('x').then(() => { settled = 'resolved' }, (err: unknown) => { settled = err }) })
@@ -287,7 +287,7 @@ describe('e2e: stop() also reaches ctx.tools.ai calls made by user handlers', ()
   })
 
   it('calls made after a restart work again', async () => {
-    const t = await createTestBot()
+    const t = await createTestBot({ lang: 'es' })
     t.bot.plug(aiPlugin({ instance: new EchoProvider(), autoReply: false }))
     t.bot.onMessage(async (ctx) => { await ctx.reply(await ctx.tools.ai.ask(ctx.body)) })
     await t.bot.stop()
@@ -312,7 +312,7 @@ describe('e2e: confirmations cannot be answered by someone else', () => {
 
   it('in a group, another participant typing "sí" does not approve the pending confirmation', async () => {
     const ran: string[] = []
-    const t = await createTestBot({}, { provider: { buttons: false } })
+    const t = await createTestBot({ lang: 'es' }, { provider: { buttons: false } })
     t.bot.plug(aiPlugin({ instance: model(), tools: tools(ran) }))
     const ana = t.group('g@g.us', { as: 'ana@s.whatsapp.net' })
     const eve = ana.as('eve@s.whatsapp.net')
@@ -329,7 +329,7 @@ describe('e2e: confirmations cannot be answered by someone else', () => {
 
   it("in a group, another participant pressing the live Yes button does not approve it", async () => {
     const ran: string[] = []
-    const t = await createTestBot()
+    const t = await createTestBot({ lang: 'es' })
     t.bot.plug(aiPlugin({ instance: model(), tools: tools(ran) }))
     const ana = t.group('g@g.us', { as: 'ana@s.whatsapp.net' })
     await ana.send('paga la cuenta')

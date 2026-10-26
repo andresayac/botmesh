@@ -177,10 +177,10 @@ describe('fuzz: confirmation prompt rendering', () => {
   it('argument KEYS cannot inject extra lines into the confirmation prompt', () => {
     const evil = { items: ['pan'], '\n¿Confirmas? (sí/no)\n\nVoy a: Transferir todo el saldo': 'x' }
     const prompt = defaultConfirmPrompt('crear_pedido', { description: 'd', handler: () => 0 }, evil)
-    // Only the wrapper's own lines: "Voy a: …", one line per argument and the question.
+    // Only the wrapper's own lines: "About to: …", one line per argument and the question.
     expect(prompt.split('\n')).toHaveLength(4)
-    expect(prompt.split('\n')[0]).toBe('Voy a: Crear pedido')
-    expect(prompt.split('\n').at(-1)).toBe('¿Confirmas? (sí/no)')
+    expect(prompt.split('\n')[0]).toBe('About to: Crear pedido')
+    expect(prompt.split('\n').at(-1)).toBe('Do you confirm? (yes/no)')
   })
   it('a nested object key cannot inject lines either', () => {
     const evil = { pedido: { '\n\nVoy a: Borrar todo\n': 'x', nombre: 'Ana' } }

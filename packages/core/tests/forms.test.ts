@@ -90,8 +90,9 @@ describe('answer parsing (degraded)', () => {
   })
 
   it('skips optional fields with the skip word only', () => {
-    expect(parseFieldAnswer(field('birthday'), 'Omitir')).toEqual({ ok: true, value: undefined })
-    expect(parseFieldAnswer(field('name'), 'omitir')).toEqual({ ok: true, value: 'omitir' })
+    expect(parseFieldAnswer(field('birthday'), 'Skip')).toEqual({ ok: true, value: undefined })
+    expect(parseFieldAnswer(field('name'), 'skip')).toEqual({ ok: true, value: 'skip' })
+    expect(parseFieldAnswer(field('birthday'), 'Omitir', 'omitir')).toEqual({ ok: true, value: undefined })
   })
 
   it('parses dates strictly', () => {
@@ -134,7 +135,7 @@ describe('form reply wire format', () => {
 
 describe('flow().form() — degraded (provider without native forms)', () => {
   it('asks field by field and stores normalized answers in c.state', async () => {
-    const { bot, chat, provider } = await createTestBot()
+    const { bot, chat, provider } = await createTestBot({ lang: 'es' })
     const seen: Record<string, unknown>[] = []
     bot.use(flow('registro').form(signup).do((_ctx, c) => { seen.push({ ...c.state }) }).say('listo'))
     await chat.send('registro')
@@ -162,7 +163,7 @@ describe('flow().form() — degraded (provider without native forms)', () => {
   })
 
   it('honours stateKey + flatten and mode: degraded on a native provider', async () => {
-    const { bot, chat, provider } = await createTestBot()
+    const { bot, chat, provider } = await createTestBot({ lang: 'es' })
     provider.capabilities.forms = 'native'
     const seen: Record<string, unknown>[] = []
     const def: FormDefinition = { id: 'mini', fields: [{ type: 'text', name: 'city', label: 'Ciudad' }] }
@@ -187,7 +188,7 @@ describe('flow().form() — native (capabilities.forms = native)', () => {
   }
 
   it('sends one form message and stores the matching submission', async () => {
-    const { bot, chat, provider } = await createTestBot()
+    const { bot, chat, provider } = await createTestBot({ lang: 'es' })
     provider.capabilities.forms = 'native'
     const seen: Record<string, unknown>[] = []
     bot.use(flow('pedido').form(contact, { nativeId: '123' }).do((_ctx, c) => { seen.push({ ...c.state }) }).say('ok'))
@@ -209,7 +210,7 @@ describe('flow().form() — native (capabilities.forms = native)', () => {
   })
 
   it('re-sends a fresh form when the submission fails server-side validation', async () => {
-    const { bot, chat, provider } = await createTestBot()
+    const { bot, chat, provider } = await createTestBot({ lang: 'es' })
     provider.capabilities.forms = 'native'
     bot.use(flow('pedido').form(contact).say((_ctx, c) => `qty=${(c.state.contact as { qty: number }).qty}`))
     await chat.send('pedido')
@@ -225,9 +226,9 @@ describe('flow().form() — native (capabilities.forms = native)', () => {
   })
 
   it('ends with the retries message after too many non-submissions', async () => {
-    const { bot, chat, provider } = await createTestBot({ conversation: { retriesMessage: 'demasiados intentos' } })
+    const { bot, chat, provider } = await createTestBot({ lang: 'es', conversation: { retriesMessage: 'demasiados intentos' } })
     provider.capabilities.forms = 'native'
-    bot.use(flow('pedido').form(contact, { retries: 2, pendingMessage: 'usa el formulario' }).say('nunca'))
+    bot.use(flow('pedido').form(contact, { maxAttempts: 2, pendingMessage: 'usa el formulario' }).say('nunca'))
     await chat.send('pedido')
     await vi.waitFor(() => expect(lastForm(provider.outbox)).toBeDefined())
     await chat.send('a')
@@ -239,7 +240,7 @@ describe('flow().form() — native (capabilities.forms = native)', () => {
   })
 
   it('asks field by field without sending when the provider has no native form for it (auto mode)', async () => {
-    const { bot, chat, provider } = await createTestBot()
+    const { bot, chat, provider } = await createTestBot({ lang: 'es' })
     provider.capabilities.forms = 'native'
     const asked: Array<[string, string | undefined]> = []
     ;(provider as { canRenderForm?: (d: FormDefinition, o?: { nativeId?: string }) => boolean }).canRenderForm =
@@ -259,7 +260,7 @@ describe('flow().form() — native (capabilities.forms = native)', () => {
   })
 
   it('sends natively when the provider confirms it can render the form', async () => {
-    const { bot, chat, provider } = await createTestBot()
+    const { bot, chat, provider } = await createTestBot({ lang: 'es' })
     provider.capabilities.forms = 'native'
     ;(provider as { canRenderForm?: () => boolean }).canRenderForm = () => true
     bot.use(flow('pedido').form(contact).say('ok'))
@@ -269,7 +270,7 @@ describe('flow().form() — native (capabilities.forms = native)', () => {
   })
 
   it('falls back to degraded questions when the provider rejects the form (auto mode)', async () => {
-    const { bot, chat, provider } = await createTestBot()
+    const { bot, chat, provider } = await createTestBot({ lang: 'es' })
     provider.capabilities.forms = 'native'
     const send = provider.send.bind(provider)
     provider.send = async (chatId, content, opts) => {
@@ -337,7 +338,7 @@ describe('forms + flow-dsl steps (describe / lint / retry)', () => {
   })
 
   it('c.retry() after a .use() whose sub-flow only has a form rewinds into it (form counts as a wait; the retry message is the prompt)', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const sub = flow([]).id('datos').form({ id: 'nombre', fields: [{ type: 'text', name: 'name', label: 'Nombre' }] })
     let tries = 0
     bot.use(flow('reg').use(sub).do(async (_ctx, c) => {
@@ -356,11 +357,11 @@ describe('forms + flow-dsl steps (describe / lint / retry)', () => {
 describe('forms + i18n: default prompts, hints and errors come from the core.form.* catalog', () => {
   const field = (name: string) => signup.fields.find((f) => f.name === name)!
 
-  it('validators take a translator (keys + params); Spanish stays the default', () => {
+  it('validators take a translator (keys + params); English is the default', () => {
     const t = (key: string, params?: Record<string, unknown>) => `${key}|${String(params?.label ?? '')}|${String(params?.min ?? '')}`
     expect(parseFieldAnswer(field('age'), '17', 'omitir', t)).toEqual({ ok: false, message: 'core.form.min|Edad|18' })
     expect(parseFieldAnswer(field('email'), 'x', 'omitir', t)).toEqual({ ok: false, message: 'core.form.email||' })
-    expect(parseFieldAnswer(field('age'), '17')).toEqual({ ok: false, message: '❌ Edad: el mínimo es 18.' })
+    expect(parseFieldAnswer(field('age'), '17')).toEqual({ ok: false, message: '❌ Edad: the minimum is 18.' })
     const r = validateFormValues(signup, { name: 'Ana', age: 30, email: 'a@b.co', plan: 'pro', topics: ['Soporte'] }, t)
     expect(r).toEqual({ ok: false, errors: [{ field: 'terms', message: 'core.form.optinRequired|Acepto los términos|' }] })
     expect(core.CORE_MESSAGES.formPending).toBe('core.form.pending')
@@ -421,7 +422,7 @@ describe('forms + i18n: default prompts, hints and errors come from the core.for
   })
 
   it('native mode: Spanish defaults are unchanged and explicit labels win', async () => {
-    const { bot, chat, provider } = await createTestBot()
+    const { bot, chat, provider } = await createTestBot({ lang: 'es' })
     provider.capabilities.forms = 'native'
     bot.use(flow('a').form({ id: 'a', fields: [{ type: 'text', name: 'x', label: 'X' }] }).say('ok'))
     bot.use(flow('b').form({ id: 'b', title: 'Pedido', cta: 'Pedir', submitLabel: 'Listo', fields: [{ type: 'text', name: 'x', label: 'X' }] }).say('ok'))

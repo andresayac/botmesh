@@ -19,7 +19,7 @@ const bot = new Bot({
 
 bot.conversation('support', async (c, ctx) => {
   await ctx.reply('🛠️ *Technical support*\nDescribe your issue in one sentence (you have 2 minutes):')
-  const issue = await c.waitText({ timeout: '2m', retries: 2 })
+  const issue = await c.waitText({ timeout: '2m', maxAttempts: 3 })
 
   const priority = await c.choose('How urgent is it?', {
     high: 'Urgent 🔴',
@@ -39,7 +39,7 @@ await bot.start()
    mensaje que la disparó, `c` es el `ConversationControls` de esta
    conversación
 2. `ctx.reply(...)` anuncia el flujo, y luego
-   `c.waitText({ timeout: '2m', retries: 2 })` espera hasta 2 minutos por
+   `c.waitText({ timeout: '2m', maxAttempts: 3 })` espera hasta 2 minutos por
    una respuesta de texto
 3. Si el usuario no responde en 2 minutos, se lanza un `ConversationTimeout`,
    la conversación termina, y el bot envía el `conversation.timeoutMessage`

@@ -7,6 +7,7 @@
 import { createHash } from 'node:crypto'
 import { DeploymentRegistry, type Deployment, type DeploymentCandidate, type DeploymentGate, type GateResult } from '@botmesh/deployments'
 import { compileFlowDocument } from './compile.js'
+import { upgradeLoadedDocument } from './migrate.js'
 import { FlowDocumentError, validateFlowDocument, type FlowDocument, type FlowDocumentIssue } from './schema.js'
 
 /** Canonical JSON: object keys sorted recursively, arrays kept in order. */
@@ -43,12 +44,14 @@ export function flowArtifact(document: FlowDocument): string {
   return JSON.stringify(document)
 }
 
-/** Parse and validate an artifact produced by {@link flowArtifact}. */
+/** Parse and validate an artifact produced by {@link flowArtifact} (a version 1 artifact comes back migrated). */
 export function flowFromArtifact(artifact: string): FlowDocument {
   let parsed: unknown
   try { parsed = JSON.parse(artifact) } catch (error) {
     throw new FlowDocumentError([{ path: '', message: `artifact is not JSON: ${(error as Error).message}` }])
   }
+  // A version 1 artifact is read as its migration to the current version.
+  parsed = upgradeLoadedDocument(parsed)
   const issues = validateFlowDocument(parsed)
   if (issues.length) throw new FlowDocumentError(issues)
   return parsed as FlowDocument

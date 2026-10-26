@@ -53,6 +53,13 @@ describe('computeBackoff', () => {
     expect(resolveAutoReconnect(true).enabled).toBe(true)
     expect(resolveAutoReconnect({ enabled: false }).enabled).toBe(false)
   })
+
+  it('retries is the restart budget after the first failure; maxRetries is its deprecated alias', () => {
+    expect(resolveAutoReconnect({ retries: 2 }).maxRetries).toBe(2)
+    expect(resolveAutoReconnect({ maxRetries: 4 }).maxRetries).toBe(4)
+    expect(resolveAutoReconnect({}).maxRetries).toBe(5)
+    expect(() => resolveAutoReconnect({ retries: 1, maxRetries: 2 })).toThrow(RangeError)
+  })
 })
 
 describe('BotManager auto-reconnect supervision', () => {

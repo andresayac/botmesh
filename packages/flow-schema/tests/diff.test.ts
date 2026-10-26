@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { canonicalJson, diffFlowDocuments, flowDigest, flowVersionOf, sameFlow, type FlowDocument } from '../src/index.js'
 
-const doc = (steps: FlowDocument['steps'], extra: Partial<FlowDocument> = {}): FlowDocument => ({ version: 1, id: 'x', trigger: 'hola', steps, ...extra })
+const doc = (steps: FlowDocument['steps'], extra: Partial<FlowDocument> = {}): FlowDocument => ({ version: 2, id: 'x', trigger: 'hola', steps, ...extra })
 
 describe('flow diff and digest', () => {
   it('reports no changes for structurally identical documents (key order ignored)', () => {
     const a = doc([{ kind: 'say', text: 'hola' }])
-    const b = { steps: [{ text: 'hola', kind: 'say' }], trigger: 'hola', id: 'x', version: 1 } as FlowDocument
+    const b = { steps: [{ text: 'hola', kind: 'say' }], trigger: 'hola', id: 'x', version: 2 } as FlowDocument
     expect(sameFlow(a, b)).toBe(true)
     expect(diffFlowDocuments(a, b)).toMatchObject({ changed: false, metadata: [], added: [], removed: [], changedSteps: [] })
     expect(canonicalJson(a)).toBe(canonicalJson(b))

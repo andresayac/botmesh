@@ -30,7 +30,7 @@ describe('tool confirmation on Telegram', () => {
   it('is an inline keyboard; the callback resolves it, is answered and the keyboard is removed', async () => {
     const calls = fakeTelegram()
     const provider = new TelegramProvider({ token: 'T', polling: false, allowUnsignedWebhooks: true, selfId: '9' })
-    const bot = new Bot({ provider })
+    const bot = new Bot({ provider, lang: 'es' })
     const ran: unknown[] = []
     bot.plug(aiPlugin({
       __provider: new MockAIProvider({

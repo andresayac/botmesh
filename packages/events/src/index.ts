@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
-import { link, mkdir, open, readFile, realpath, rename, rm, stat, utimes, writeFile } from 'node:fs/promises'
+import { link, mkdir, open, readFile, realpath, rename, rm, stat, utimes } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
-import { AppendLog, appendLogOptions, type AppendLogOptions, type AppendLogReplay } from './fileLog.js'
+import { AppendLog, appendLogOptions, syncDirectory, writeSnapshotFile, type AppendLogOptions, type AppendLogReplay } from './fileLog.js'
 
 export interface EventContext {
   tenantId: string
@@ -490,6 +490,12 @@ export interface FileEventJournalOptions {
    * `@botmesh/events/durability`. Default `false`.
    */
   lock?: boolean
+  /**
+   * `fsync` every snapshot before it replaces the previous one (and the directory after the
+   * rename, where the platform allows it), so a power loss cannot leave an empty or partial
+   * journal. Default `false` (atomic temp file + rename, possibly still in the OS cache).
+   */
+  fsync?: boolean
 }
 
 /** Parse a journal snapshot (format version 1 or 2, plus the append-log sequence). @throws {Error} when it is not one. */
@@ -635,6 +641,8 @@ export class FileEventJournal implements LeasedEventJournal {
     private readonly lockKey: string | undefined,
     /** Saved side state, including names this process never registers (kept on rewrite). */
     private readonly savedSidecars: Record<string, unknown>,
+    /** `FileEventJournalOptions.fsync`. */
+    private readonly fsync = false,
   ) {}
 
   /** The file is held under the advisory lock (`open(path, { lock: true })`) and the journal is not closed. */
@@ -647,6 +655,7 @@ export class FileEventJournal implements LeasedEventJournal {
    *   holds it or another open journal of this process does.
    */
   static async open(filePath: string, options: FileEventJournalOptions = {}): Promise<FileEventJournal> {
+    if (options.fsync !== undefined && typeof options.fsync !== 'boolean') throw new TypeError('FileEventJournal.open(): fsync must be a boolean')
     const lockPath = options.lock === true ? `${filePath}.lock` : undefined
     let key: string | undefined
     if (lockPath) {
@@ -680,7 +689,7 @@ export class FileEventJournal implements LeasedEventJournal {
       }
     }
     await releaseMutex?.()
-    return new FileEventJournal(filePath, MemoryEventJournal.fromSnapshot(records), lockPath, key, sidecars)
+    return new FileEventJournal(filePath, MemoryEventJournal.fromSnapshot(records), lockPath, key, sidecars, options.fsync === true)
   }
   async append<TPayload>(envelope: EventEnvelope<TPayload>): Promise<boolean> { const changed = await this.memory.append(envelope); if (changed) await this.persist(); return changed }
   async appendRecord<TPayload>(envelope: EventEnvelope<TPayload>, options?: AppendEventOptions): Promise<{ status: 'appended' | 'duplicate'; record: EventRecord }> {
@@ -752,8 +761,9 @@ export class FileEventJournal implements LeasedEventJournal {
       await mkdir(dirname(this.filePath), { recursive: true })
       const temporary = `${this.filePath}.${randomUUID()}.tmp`
       try {
-        await writeFile(temporary, this.snapshotJson(), 'utf8')
+        await writeSnapshotFile(temporary, this.snapshotJson(), this.fsync)
         await rename(temporary, this.filePath)
+        if (this.fsync) await syncDirectory(this.filePath)
       } catch (error) {
         await rm(temporary, { force: true }).catch(() => {})
         throw error
@@ -792,6 +802,11 @@ export interface SharedFileEventJournalOptions {
    * is always replayed on open (and folded into the next snapshot).
    */
   appendLog?: boolean | AppendLogOptions
+  /**
+   * `fsync` every snapshot before it replaces the previous one (and the directory after the
+   * rename, where the platform allows it). Also the default of `appendLog.fsync`. Default `false`.
+   */
+  fsync?: boolean
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
@@ -939,6 +954,8 @@ export class SharedFileEventJournal implements LeasedEventJournal {
     private readonly heartbeatMs: number,
     /** Resolved append-log options, or `undefined` for whole-snapshot writes. */
     private readonly appendLog: Required<AppendLogOptions> | undefined,
+    /** `SharedFileEventJournalOptions.fsync`. */
+    private readonly fsync = false,
   ) {}
 
   /**
@@ -956,7 +973,14 @@ export class SharedFileEventJournal implements LeasedEventJournal {
       throw new TypeError('SharedFileEventJournal: heartbeatMs must be positive and lower than staleLockMs')
     }
     // Validated before any lock/registry side effect.
-    const appendLog = appendLogOptions(options.appendLog, 'SharedFileEventJournal.open()')
+    if (options.fsync !== undefined && typeof options.fsync !== 'boolean') throw new TypeError('SharedFileEventJournal: fsync must be a boolean')
+    const fsync = options.fsync === true
+    const appendLog = appendLogOptions(
+      fsync && typeof options.appendLog === 'object' && options.appendLog !== null && options.appendLog.fsync === undefined
+        ? { ...options.appendLog, fsync: true }
+        : fsync && options.appendLog === true ? { fsync: true } : options.appendLog,
+      'SharedFileEventJournal.open()',
+    )
     await mkdir(dirname(filePath), { recursive: true })
     const singleLock = `${filePath}.lock`
     const key = await lockKey(singleLock)
@@ -973,7 +997,14 @@ export class SharedFileEventJournal implements LeasedEventJournal {
         throw error
       }
     }
-    return new SharedFileEventJournal(filePath, `${filePath}.mutex`, singleLock, key, lockTimeoutMs, staleLockMs, heartbeatMs, appendLog)
+    // A corrupt line in the middle of a leftover log is refused now, not on the first write.
+    try {
+      await AppendLog.verify(filePath)
+    } catch (error) {
+      unregisterShared(key)
+      throw error
+    }
+    return new SharedFileEventJournal(filePath, `${filePath}.mutex`, singleLock, key, lockTimeoutMs, staleLockMs, heartbeatMs, appendLog, fsync)
   }
 
   async append<TPayload>(envelope: EventEnvelope<TPayload>): Promise<boolean> {
@@ -1145,8 +1176,9 @@ export class SharedFileEventJournal implements LeasedEventJournal {
   private async persist(records: EventRecord[], sidecars: Record<string, unknown>, logSeq?: number): Promise<void> {
     const temporary = `${this.filePath}.${randomUUID()}.tmp`
     try {
-      await writeFile(temporary, snapshotText(records, sidecars, logSeq), 'utf8')
+      await writeSnapshotFile(temporary, snapshotText(records, sidecars, logSeq), this.fsync)
       await retrying(() => rename(temporary, this.filePath))
+      if (this.fsync) await syncDirectory(this.filePath)
     } catch (error) {
       await rm(temporary, { force: true }).catch(() => {})
       throw error

@@ -272,7 +272,7 @@ const support = baileysTemplate({
   session: 'support-bot',
   readyLine: '✅ Support bot connected — send it "hola"',
   coreImports: ['userOf'],
-  config: "{ provider, handoff: { allowCommands: ['bot'] } }",
+  config: "{ provider, lang: 'es', handoff: { allowCommands: ['bot'] } }",
   prelude: code`
 const BUSINESS = process.env.BUSINESS_NAME ?? 'Mi Empresa'
 

@@ -99,6 +99,8 @@ interface LoggerLike {
 /** What the engine needs from its Bot. */
 export interface DurableEngineDeps {
   logger: LoggerLike
+  /** How a chat id appears in log lines (the bot's `logIds` policy). Default: as is. */
+  logId?: (id: string) => string | undefined
   namespace: StoreNamespace
   /**
    * Run a journaled event through the normal inbound pipeline (access lists re-checked,
@@ -590,7 +592,7 @@ export class DurableEngine implements DurabilityControl {
       return { key, record }
     }
     this.counters.outboxDiverged++
-    this.deps.logger.warn({ key, chatId, policy: this.onDiverged }, 'replayed send differs from the one recorded under its key')
+    this.deps.logger.warn({ key, chatId: this.deps.logId ? this.deps.logId(chatId) : chatId, policy: this.onDiverged }, 'replayed send differs from the one recorded under its key')
     if (this.onDiverged === 'skip') return { key, record }
     const moved = `${key}~${fingerprint.slice(0, 12)}`
     return { key: moved, record: await this.outbox.get(moved) }
@@ -614,7 +616,7 @@ export class DurableEngine implements DurabilityControl {
     const encoded = this.encodeSend(payload)
     if (!encoded) {
       this.counters.outboxBypassed++
-      this.deps.logger.warn({ key, chatId: payload.chatId, kind: payload.content.kind }, 'send bypasses the outbox (unencodable or above maxPayloadBytes)')
+      this.deps.logger.warn({ key, chatId: this.deps.logId ? this.deps.logId(payload.chatId) : payload.chatId, kind: payload.content.kind }, 'send bypasses the outbox (unencodable or above maxPayloadBytes)')
       return call()
     }
     const running = this.deliveries.get(key)

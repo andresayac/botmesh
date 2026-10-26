@@ -8,7 +8,7 @@ A document is **data only**. It never carries functions, `eval`, module imports 
 import { compileFlowDocument, validateFlowDocument } from '@botmesh/flow-schema'
 
 const document = {
-  version: 1 as const,
+  version: 2 as const,
   id: 'checkout',
   trigger: { keywords: ['comprar', 'pedido'], match: 'contains' },
   timeout: '5m',
@@ -26,7 +26,7 @@ if (validateFlowDocument(document).length === 0) bot.registerFlow(compileFlowDoc
 
 | Field | Notes |
 | --- | --- |
-| `version` | Must be `1`. Use `migrateFlowDocument()` for older shapes. |
+| `version` | `2`. A version 1 document is still accepted and migrated on load (its `retries: N` becomes `maxAttempts: N`); use `migrateFlowDocument()` for older shapes. |
 | `id` | `^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$`; the flow's name on the bot. |
 | `trigger` | A keyword, an array, or `{ keywords, match: 'equals' \| 'contains' \| 'startsWith' \| 'endsWith', scope: 'dm' \| 'group' \| 'all' }`. |
 | `timeout` | Flow timeout (ms or `'30s'`, `'5m'`, `'1h'`; at most 7 days). |
@@ -38,7 +38,7 @@ if (validateFlowDocument(document).length === 0) bot.registerFlow(compileFlowDoc
 | Kind | What it does |
 | --- | --- |
 | `say` | Sends text (templates allowed). |
-| `ask` | Sends text, waits for an answer and stores it in `c.state[stateKey]`; optional `timeout`, `retries` and `validate: { expr, message }` (`$answer` holds the raw answer). |
+| `ask` | Sends text, waits for an answer and stores it in `c.state[stateKey]`; optional `timeout`, `maxAttempts` (answers in total) or `retries` (after the first) and `validate: { expr, message }` (`$answer` holds the raw answer). |
 | `choose` | Numbered menu (`options: [{ key, label, steps? }]`), stores the picked key. |
 | `condition` | `if` expression plus `then`/`else` nested steps. |
 | `delay` | Pauses (`'500ms'`… at most 5 minutes). |
@@ -72,7 +72,7 @@ Templates (`{{ path }}`) only read own properties of `c.state` plus `$body`, `$f
 `validateFlowDocument()` returns JSON-pointer paths:
 
 ```ts
-validateFlowDocument({ version: 1, id: 'x', trigger: 'x', steps: [{ kind: 'ask', text: '', stateKey: 'bad key' }] })
+validateFlowDocument({ version: 2, id: 'x', trigger: 'x', steps: [{ kind: 'ask', text: '', stateKey: 'bad key' }] })
 // [{ path: '/steps/0/text', message: '...' }, { path: '/steps/0/stateKey', message: '...' }]
 ```
 
@@ -96,7 +96,7 @@ import { migrateFlowDocument } from '@botmesh/flow-schema'
 const { document, from, applied } = migrateFlowDocument(storedDraft)
 ```
 
-Version 0 (no `version`, the pre-versioned shape) becomes version 1. A version newer than the package is rejected; migrations can be extended and chained (`migrateFlowDocument(input, migrations, target)`).
+Version 0 (no `version`, the pre-versioned shape) becomes version 1. Version 1 becomes version 2: `retries` on `ask`/`form` steps meant the answers in total in v1, so `retries: N` is rewritten to `maxAttempts: N` (a `retries: 0` to `maxAttempts: 1`) and the flow keeps its behaviour; in v2 `retries` counts the answers after the first, like the core. `validateFlowDocument`, `compileFlowDocument` and `flowFromArtifact` apply that migration to v1 documents on load; `isFlowDocument` only accepts version 2. A version newer than the package is rejected; migrations can be extended and chained (`migrateFlowDocument(input, migrations, target)`).
 
 ## Reverse export
 

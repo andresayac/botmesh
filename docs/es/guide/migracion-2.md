@@ -1,0 +1,199 @@
+# Migrar a 2.0
+
+`@botmesh/core` 2.0 sale de la serie alpha con unos pocos cambios de
+comportamiento deliberados. Esta página explica cada uno, qué cambió y cómo
+mantener el comportamiento anterior cuando todavía es posible. La mayoría de
+los bots necesitan como mucho dos cambios: `lang: 'es'` si el bot habla
+español y `maxAttempts` donde una espera usaba `retries`.
+
+| Cambio | A quién afecta | Qué hacer |
+| --- | --- | --- |
+| [Los textos internos pasan a inglés](#los-textos-internos-pasan-a-ingles) | Bots que contaban con los textos en español | Añade `lang: 'es'` |
+| [`retries` y `maxAttempts`](#retries-y-maxattempts) | Esperas, formularios y flujos JSON con `retries` | Cambia `retries: N` por `maxAttempts: N` |
+| [Los envíos necesitan el bot en marcha](#los-envios-necesitan-el-bot-en-marcha) | Código que envía antes de `start()` o después de `stop()` | Envía después de `start()` o captura `BotNotRunningError` |
+| [Los flujos se validan al definirlos](#los-flujos-se-validan-al-definirlos) | `choose({})`, `ask(texto, '')` | Corrige la definición |
+| [Un envío de `ctx` limitado se reintenta una vez](#un-envio-de-ctx-limitado-se-reintenta-una-vez) | Bots sobre transportes que responden 429 | Nada, o ajusta `rateLimitRetry` |
+| [Eventos de provider inválidos](#eventos-de-provider-invalidos) | Providers propios | Emite eventos bien formados |
+| [Un hook que llama a `next()` dos veces](#un-hook-que-llama-a-next-dos-veces) | Hooks con ese error | Llama a `next()` una sola vez |
+| [Los ids de los logs van hasheados](#los-ids-de-los-logs-van-hasheados) | Búsquedas en logs por teléfono o id de chat | `logIds: 'raw'` para depurar en local |
+| [Logs append dañados](#logs-append-danados) | `FileDurability` / `SharedFileEventJournal` con `appendLog` | Repara el log si `open` lo rechaza |
+| [`MemoryCoordinationHub` expulsa chats inactivos](#memorycoordinationhub-expulsa-chats-inactivos) | Tests que inspeccionan el hub | Nada |
+| [`broadcast({ maxRetries })`](#reintentos-de-broadcast) | Difusiones | Renómbralo a `retries` (el alias se mantiene) |
+| [Las etiquetas de WhatsApp Flows pasan a inglés](#las-etiquetas-de-whatsapp-flows-pasan-a-ingles) | Formularios de `@botmesh/meta` publicados con `toFlowJson` / `publishForm` | Pasa `lang: 'es'` |
+
+## Los textos internos pasan a inglés
+
+Los textos que el core escribe por ti (expiración de la conversación,
+"demasiados intentos", avisos de las esperas, respuestas de los comandos slash,
+pistas de los formularios y la palabra para omitir un campo) estaban en español
+salvo que el bot configurara i18n. Ahora están en inglés: la palabra para omitir
+es `skip`, el mensaje de reintentos es `❌ Too many attempts. Conversation
+ended.`, etc. `@botmesh/ai` hace lo mismo: sus textos internos (pregunta de
+confirmación, botones Sí/No, respuestas de reserva, línea de fuentes) están en
+inglés cuando no se conoce el idioma.
+
+Los textos en español siguen incluidos. Una opción los recupera sin activar la
+resolución de idioma por usuario:
+
+```ts
+const bot = new Bot({ provider, lang: 'es' })
+```
+
+`i18n: { defaultLocale: 'es' }` también sirve, pero activa la resolución de
+idioma (preferencia guardada, idioma del cliente, detector). Consulta
+[Internacionalización](./i18n#un-bot-en-un-solo-idioma-lang). Las plantillas de
+`create-botmesh` ya ponen `lang: 'es'`.
+
+## `retries` y `maxAttempts`
+
+Toda opción `retries` significa ahora lo mismo: intentos **después** del
+primero. Así funcionaba ya `durability.outbox.retries`, pero en las esperas
+(`ask`, `waitText`, `choose`…), los pasos de formulario y los pasos `ask`/`form`
+de los flujos JSON `retries: N` significaba N respuestas en total. El total
+tiene ahora su propia opción:
+
+- `maxAttempts: N`: la espera acepta N respuestas en total, la primera incluida.
+- `retries: N`: equivale a `maxAttempts: N + 1`.
+
+El valor por defecto no cambia (3 respuestas en total). Para conservar el
+comportamiento de las alphas, cambia el nombre de la opción:
+
+```ts
+// 2.0 alpha: 3 respuestas en total
+flow('x').ask('¿Email?', 'email', { validate, retries: 3 })
+// 2.0: lo mismo
+flow('x').ask('¿Email?', 'email', { validate, maxAttempts: 3 })
+```
+
+Pasar las dos con valores que no cuadran lanza un `TypeError`. Los valores
+inválidos (`maxAttempts: 0`, `retries: -1`) lanzan al definir el flujo.
+`bot.broadcast()` sigue la misma convención (ver [más abajo](#reintentos-de-broadcast)).
+
+El código que aún no hayas renombrado sigue funcionando con una respuesta más que
+antes. Para que se note, el bot escribe **un aviso** (`logger.warn`, una vez por
+bot) la primera vez que una espera, un formulario o un paso de flujo usa
+`retries` sin `maxAttempts`. Poner `maxAttempts` (sola o con un `retries` que
+cuadre) lo silencia.
+
+Los documentos de flujo JSON (`@botmesh/flow-schema`, que guardan el manager y
+`@botmesh/deployments`) no cambian de significado: el formato pasa a la
+**versión 2** y un documento de la versión 1 se migra al cargarlo
+(`validateFlowDocument`, `compileFlowDocument`, `flowFromArtifact` o, de forma
+explícita, `migrateFlowDocument`). La migración 1 → 2 reescribe `retries: N` como
+`maxAttempts: N` (un `retries: 0` antiguo se comportaba como 1 y pasa a
+`maxAttempts: 1`), así que los flujos v1 publicados conservan su presupuesto. En
+un documento de la versión 2, `retries` tiene el significado nuevo.
+`isFlowDocument()` solo acepta la versión actual.
+
+## Los envíos necesitan el bot en marcha
+
+`bot.send()`, `ctx.reply()`, las ediciones y las actualizaciones de stream
+hechas antes de `bot.start()` (o tras un arranque fallido) o después de
+`bot.stop()` llegaban al provider. Ahora rechazan con `BotNotRunningError`
+(`code: 'BOT_NOT_RUNNING'`) y no envían nada. Los envíos se aceptan desde que
+el transporte empieza a conectar, así que un listener de `'ready'` puede seguir
+enviando.
+
+Las llamadas concurrentes a `start()` / `stop()` se ejecutan de una en una y en
+orden: la última decide el estado final (`start(); stop(); start()` termina en
+marcha).
+
+## Los flujos se validan al definirlos
+
+Estos casos solo fallaban cuando un usuario llegaba al paso. Ahora lanzan un
+`TypeError` al definir el flujo:
+
+- `.choose(prompt, {})` (sin opciones), `options` que no es un objeto, o una
+  opción sin etiqueta;
+- `.ask(texto, '')` o `.choose(prompt, opciones, '')` (clave de estado vacía);
+- `maxAttempts` / `retries` inválidos en `.ask()`, `.choose()` y `.form()`.
+
+## Un envío de `ctx` limitado se reintenta una vez
+
+Un envío de `ctx` (en un handler, un flujo o una conversación) que el transporte
+rechaza con un `RateLimitedError` que pide esperar como mucho 5 s se reintenta
+en el sitio. Las alphas reintentaban dos veces; 2.0 reintenta una vez por
+defecto y permite configurarlo:
+
+```ts
+new Bot({ provider, rateLimitRetry: { retries: 2, maxWaitMs: '10s' } })
+new Bot({ provider, rateLimitRetry: false })   // nunca reintentar en el sitio
+```
+
+`bot.send()` no se reintenta (las difusiones y el outbox durable tienen su
+propio back-off).
+
+## Eventos de provider inválidos
+
+Un evento que rompe el contrato normalizado (no es un objeto, `kind`
+desconocido, un mensaje sin `chatId`, `ref`, `senderId`, `type` o `body`…)
+fallaba dentro del pipeline con un `TypeError` genérico. Ahora se descarta y se
+informa una sola vez en el evento `'error'` como `InvalidProviderEventError`,
+que nombra el provider y el campo roto (nunca ids ni contenido de mensajes).
+
+## Un hook que llama a `next()` dos veces
+
+Un hook `before` que llamaba a `next()` dos veces lanzaba
+`next() called multiple times` y el mensaje se perdía. Ahora se conserva el
+primer despacho (el resto de la cadena corre una vez y cada `next()` posterior
+devuelve la misma promesa) y el mal uso se informa en el evento `'error'`.
+
+## Los ids de los logs van hasheados
+
+Las líneas de log del propio bot (descartes por listas de acceso y handoff,
+"dispatching message", fallos del indicador de escritura, claves de
+conversación) llevaban los ids de chat y de remitente tal cual: teléfonos o
+correos. Ahora pasan por una política de ids, `BotConfig.logIds`:
+
+- `'hash'` (por defecto): HMAC-SHA256 de 16 caracteres, estable dentro del
+  proceso. Con trazas activas es el mismo hash que el de los spans (se reutiliza
+  `telemetry.idKey`).
+- `'raw'`: los ids tal cual, para depurar en local.
+- `'omit'`: sin ids.
+
+## Logs append dañados
+
+Con `appendLog`, una línea mala al **final** de `<archivo>.log` es una escritura
+cortada y se recorta, como antes. Una línea mala en **medio** se trataba igual,
+y se perdían en silencio todas las entradas posteriores. `FileDurability.open()`
+y `SharedFileEventJournal.open()` rechazan ahora ese log con un error de `code`
+`'APPEND_LOG_CORRUPT'` (indica el archivo, la línea y el byte) y no lo tocan:
+restáuralo desde una copia o córtalo en esa línea.
+
+Los snapshots pueden forzarse a disco antes de reemplazar al anterior:
+`FileDurability.open(ruta, { fsync: true })`, y la misma opción `fsync` en
+`FileEventJournal` y `SharedFileEventJournal`.
+
+## `MemoryCoordinationHub` expulsa chats inactivos
+
+El hub de coordinación en proceso guardaba el estado de cada chat para siempre.
+Ahora expulsa los chats inactivos por encima de `maxIdleKeys` (por defecto
+10.000; `Infinity` los conserva todos). Los fences siguen siendo monótonos tras
+una expulsión; un chat recreado informa `previousHolder: null`, así que su
+siguiente titular refresca su estado. El chat que se está usando nunca se
+expulsa, así que `maxIdleKeys: 0` conserva solo el último chat inactivo.
+
+## Reintentos de `broadcast` {#reintentos-de-broadcast}
+
+`bot.broadcast(ids, contenido, { maxRetries })` pasa a ser `{ retries }`, con el
+mismo significado (reintentos después del primer envío de cada chat).
+`maxRetries` sigue funcionando y queda obsoleto. `autoReconnect.maxRetries` del
+manager se renombra igual.
+
+## Las etiquetas de WhatsApp Flows pasan a inglés
+
+`@botmesh/meta` construye el WhatsApp Flow nativo de un formulario con
+`toFlowJson()` y `provider.publishForm()`. La etiqueta del botón de envío queda
+fijada en el Flow publicado, y su valor por defecto seguía en español
+(`'Enviar'`) mientras el core pasaba a inglés. Ahora usa el locale por defecto del
+core: `'Submit'`. Los textos de reserva que se usan al enviar una definición sin
+contexto de bot (`'Open form'`, `'Fill in the form.'`) también. Para conservar
+las etiquetas en español:
+
+```ts
+toFlowJson(definicion, { lang: 'es' })
+provider.publishForm(definicion, { flowJson: { lang: 'es' } })
+```
+
+Un `submitLabel` en la definición siempre manda. Los formularios que envía un bot
+ya usan el `ctx.lang` del usuario para el botón y el cuerpo.

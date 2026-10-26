@@ -36,7 +36,8 @@ describe('flow document validation', () => {
   it('rejects non-objects, unknown properties and a wrong version', () => {
     expect(validateFlowDocument(null)).toEqual([{ path: '', message: 'must be an object' }])
     expect(issuesOf((doc) => { doc.extra = true }).map((i) => i.path)).toContain('/extra')
-    expect(issuesOf((doc) => { doc.version = 2 })[0]).toEqual({ path: '/version', message: 'must be 1' })
+    expect(issuesOf((doc) => { doc.version = 3 })[0]).toEqual({ path: '/version', message: 'must be 2 (or 1, migrated on load; see migrateFlowDocument)' })
+    expect(issuesOf((doc) => { doc.version = 1 })).toEqual([])
     expect(issuesOf((doc) => { doc.id = 'bad id' })[0]?.message).toMatch(/must match/)
     expect(issuesOf((doc) => { doc.steps = [] })[0]).toEqual({ path: '/steps', message: 'must be a non-empty array' })
   })

@@ -98,7 +98,7 @@ const { flowId } = await provider.publishForm(signup, { categories: ['SIGN_UP'] 
 writeFileSync('signup.flow.json', JSON.stringify(toFlowJson(signup), null, 2))
 ```
 
-If a form has no associated Flow (neither `config.flows` nor `.form(def, { nativeId })`), the step asks field by field like on any other channel. `flowJsonWarnings(def)` warns about labels WhatsApp will truncate. The button (`cta`) and the message body follow the user's `ctx.lang` (`core.form.*` catalogue); the submit label stays fixed in the published Flow, so pick its language with `toFlowJson(def, { lang: 'en' })` / `publishForm(def, { flowJson: { lang: 'en' } })` (default `'es'`) or define `submitLabel`. Flows with an endpoint (`data_exchange`, encrypted dynamic screens) are not supported yet.
+If a form has no associated Flow (neither `config.flows` nor `.form(def, { nativeId })`), the step asks field by field like on any other channel. `flowJsonWarnings(def)` warns about labels WhatsApp will truncate. The button (`cta`) and the message body follow the user's `ctx.lang` (`core.form.*` catalogue); the submit label stays fixed in the published Flow, so pick its language with `toFlowJson(def, { lang: 'es' })` / `publishForm(def, { flowJson: { lang: 'es' } })` (default `'en'`, the core default locale) or define `submitLabel`. Flows with an endpoint (`data_exchange`, encrypted dynamic screens) are not supported yet.
 
 ## 24-hour window
 

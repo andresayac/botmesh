@@ -47,6 +47,7 @@ export type Config = BotConfigForAlias
 export type {
   BotConfig,
   BuiltinStoreConfig,
+  RateLimitRetryOptions,
   IProvider,
   ProviderCapabilities,
   ConnectionState,
@@ -195,6 +196,7 @@ export type { StoreNamespace } from './store/NamespacedStore.js'
 
 // Config validation
 export { validateConfig, ConfigValidationError } from './utils/validateConfig.js'
+export { BotNotRunningError, InvalidProviderEventError } from './core/errors.js'
 
 // Durations and timeouts
 export { parseDuration, TimeoutError } from './utils/timers.js'

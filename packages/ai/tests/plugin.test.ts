@@ -8,7 +8,7 @@ import { aiPlugin } from '../src/plugin.js'
 import type { AIPluginConfig } from '../src/plugin.js'
 
 async function botWithAI(cfg: AIPluginConfig = {}, mock: AIProvider = new MockAIProvider({ reply: 'IA responde' })) {
-  const { bot, chat } = await createTestBot()
+  const { bot, chat } = await createTestBot({ lang: 'es' })
   const unplug = bot.plug(aiPlugin({ __provider: mock, persona: 'ACME', ...cfg }))
   return { bot, chat, mock, unplug }
 }

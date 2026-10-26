@@ -19,7 +19,7 @@ const bot = new Bot({
 
 bot.conversation('support', async (c, ctx) => {
   await ctx.reply('🛠️ *Technical support*\nDescribe your issue in one sentence (you have 2 minutes):')
-  const issue = await c.waitText({ timeout: '2m', retries: 2 })
+  const issue = await c.waitText({ timeout: '2m', maxAttempts: 3 })
 
   const priority = await c.choose('How urgent is it?', {
     high: 'Urgent 🔴',
@@ -37,7 +37,7 @@ await bot.start()
 
 1. User sends "support" and the conversation starts — `ctx` is the message
    that triggered it, `c` is the `ConversationControls` for this conversation
-2. `ctx.reply(...)` announces the flow, then `c.waitText({ timeout: '2m', retries: 2 })`
+2. `ctx.reply(...)` announces the flow, then `c.waitText({ timeout: '2m', maxAttempts: 3 })`
    waits up to 2 minutes for a text reply
 3. If the user goes silent for 2 minutes, a `ConversationTimeout` is thrown, the
    conversation ends, and the bot sends the `conversation.timeoutMessage`

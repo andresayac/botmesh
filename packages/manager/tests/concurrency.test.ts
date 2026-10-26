@@ -56,7 +56,7 @@ describe('BotManager concurrency', () => {
       factory: async () => { await sleep(5); return new Bot({ provider: new MockProvider() }) },
     })
     await manager.createBot({ id: 'y' })
-    const flow: FlowDocument = { version: 1, id: 'hola', trigger: 'hola', steps: [{ kind: 'say', text: 'hi' }] }
+    const flow: FlowDocument = { version: 2, id: 'hola', trigger: 'hola', steps: [{ kind: 'say', text: 'hi' }] }
     await Promise.all([
       manager.updateBot('y', { provider: { type: 'v2' } }),
       manager.addFlow('y', flow),

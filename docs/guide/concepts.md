@@ -143,6 +143,13 @@ experimental Messenger, Instagram and Discord transports plug into the same
 engine. All transports feed the bot
 the same normalized events.
 
+Sends need a running bot: before `bot.start()` and after `bot.stop()`,
+`bot.send()` and `ctx.reply()` reject with `BotNotRunningError` and nothing
+reaches the provider (a `'ready'` listener may already send). Concurrent
+`start()` / `stop()` calls run one at a time, in call order. An event that
+breaks the provider contract is dropped and reported on `'error'` as an
+`InvalidProviderEventError`.
+
 ### 2. when — simple responses
 
 ```ts

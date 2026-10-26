@@ -28,7 +28,7 @@ export type {
 export { buildMessageContext } from './core/context.js'
 export type { BuildContextDeps } from './core/provider.js'
 export { HookSystem } from './hooks/HookSystem.js'
-export type { RegisteredHook, HookLogger } from './hooks/HookSystem.js'
+export type { RegisteredHook, HookLogger, HookSystemOptions } from './hooks/HookSystem.js'
 
 // Conversation runtime
 export { ConversationRuntime } from './conversations/ConversationRuntime.js'

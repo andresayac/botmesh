@@ -61,6 +61,7 @@ export type {
   StoreKind,
   BuiltinStoreConfig,
   BotConfig,
+  RateLimitRetryOptions,
   LoggerLike,
   StoredMessage,
   StoredChat,
@@ -383,6 +384,19 @@ export type Trigger =
 export interface WaitOptions {
   timeout?: number | string
   validate?: (body: string, ctx: RuntimeMessage) => true | string | Promise<true | string>
+  /**
+   * Total answers the wait accepts, the first one included, before the conversation ends
+   * with the "too many attempts" message (`RetriesExceeded`). Invalid answers and
+   * `c.retry()` calls count. Default `3`; `Infinity` = unlimited.
+   */
+  maxAttempts?: number
+  /**
+   * Retries AFTER the first answer: `retries: N` is `maxAttempts: N + 1`. Pass one of the two.
+   *
+   * Breaking in 2.0: during the alphas `retries: N` meant N total attempts; use
+   * `maxAttempts: N` to keep that behaviour. A wait that sets `retries` without
+   * `maxAttempts` logs one warning per bot (`logger.warn`) to flag the change.
+   */
   retries?: number
   otherwise?: string
   filter?: (ctx: RuntimeMessage) => boolean

@@ -385,7 +385,7 @@ export class Bot extends EventEmitter {
    * Send `content` (a string is sent as text) to many chats: in batches of `batchSize`
    * (default 10) with `concurrency` parallel sends (default 1), pausing `delayBetween`
    * between batches. A `RateLimitedError` pauses the whole broadcast for its
-   * `retryAfterMs` and retries that chat (up to `maxRetries`, default 3); other errors
+   * `retryAfterMs` and retries that chat (up to `retries` times after the first send, default 3); other errors
    * are recorded and the broadcast goes on. Abort `signal` to stop early — never-attempted
    * chats come back in `pending`. `bot.stop()` cancels it the same way (with `drain`,
    * stop waits for its in-flight sends), and a broadcast started on a bot that is not

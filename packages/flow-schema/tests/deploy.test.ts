@@ -10,7 +10,7 @@ import {
   type FlowDocument,
 } from '../src/index.js'
 
-const valid = (): FlowDocument => ({ version: 1, id: 'sale', trigger: 'sale', steps: [{ kind: 'say', text: 'Hola' }] })
+const valid = (): FlowDocument => ({ version: 2, id: 'sale', trigger: 'sale', steps: [{ kind: 'say', text: 'Hola' }] })
 
 function registry(): DeploymentRegistry {
   return new DeploymentRegistry(new MemoryDeploymentStore(), { clock: () => 1_700_000_000_000 })
@@ -47,7 +47,7 @@ describe('flow deployment integration', () => {
 
   it('refuses an invalid document before touching the registry', async () => {
     const deployments = registry()
-    const bad = { version: 1, id: 'x', trigger: 'x', steps: [{ kind: 'say' }] } as unknown as FlowDocument
+    const bad = { version: 2, id: 'x', trigger: 'x', steps: [{ kind: 'say' }] } as unknown as FlowDocument
     await expect(publishFlow(deployments, 'acme', 'support', bad, { version: 'draft-1' })).rejects.toBeInstanceOf(FlowDocumentError)
     expect(await deployments.active('acme', 'support')).toBeUndefined()
     expect(await deployments.gateRuns('acme', 'support', 'draft-1')).toEqual([])

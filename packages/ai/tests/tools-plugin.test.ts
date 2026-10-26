@@ -25,7 +25,7 @@ function scripted(tool: string, args: unknown, trigger = 'borra') {
 
 async function botWithTools(tools: AIToolSet, mock: MockAIProvider, cfg: Partial<AIPluginConfig> = {}) {
   // A channel without native buttons: the typed yes/no question (buttons: tools-confirm-buttons.test.ts).
-  const { bot, chat } = await createTestBot({}, { provider: { buttons: false } })
+  const { bot, chat } = await createTestBot({ lang: 'es' }, { provider: { buttons: false } })
   bot.plug(aiPlugin({ __provider: mock, tools, ...cfg }))
   return { bot, chat }
 }
@@ -35,7 +35,7 @@ describe('aiPlugin tools (autoreply)', () => {
     const warnings: unknown[][] = []
     const noop = () => {}
     const logger: LoggerLike = { debug: noop, info: noop, error: noop, warn: (...a: unknown[]) => { warnings.push(a) }, child: () => logger }
-    const { bot, chat } = await createTestBot({ logger }, { provider: { buttons: false } })
+    const { bot, chat } = await createTestBot({ lang: 'es', logger }, { provider: { buttons: false } })
     let runs = 0
     const mock = new MockAIProvider({
       reply: (input: GenerateInput) => input.messages.at(-1)?.role === 'tool'
@@ -268,7 +268,7 @@ describe('aiPlugin tools (autoreply)', () => {
 
 describe('confirmWith (inside your own conversation)', () => {
   it('asks through the conversation controls', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     let ran = false
     bot.plug(aiPlugin({
       __provider: scripted('borrar', {}),

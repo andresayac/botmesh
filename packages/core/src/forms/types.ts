@@ -169,9 +169,11 @@ export interface FormStepOptions {
   nativeId?: string
   /** Wait timeout per answer (degraded) / for the whole submission (native). Default: the flow's. */
   timeout?: number | string
-  /** Invalid answers tolerated per field (degraded) or per submission (native). Default 3. */
+  /** Total answers accepted per field (degraded) or submissions (native), the first included. Default 3. */
+  maxAttempts?: number
+  /** Retries after the first answer (`retries: N` = `maxAttempts: N + 1`). Breaking in 2.0: it meant total attempts (without `maxAttempts`, the bot warns once). */
   retries?: number
-  /** Degraded mode: word that skips an optional field. Default `'omitir'`. */
+  /** Degraded mode: word that skips an optional field. Default: the locale's `core.form.skipWord` (`'skip'` in English, `'omitir'` in Spanish). */
   skipWord?: string
   /** Native mode: reply sent when the user writes instead of submitting the form. */
   pendingMessage?: string

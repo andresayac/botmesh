@@ -76,7 +76,10 @@ siga en la ventana de dedupe.
   archivos ocultos al recorrer directorios y limitan cada archivo (20 MiB).
 - **Logs.** Revisadas todas las llamadas `logger.*` de los paquetes auditados:
   sin tokens, payloads de QR, cuerpos de mensaje ni direcciones; los errores se
-  registran por clase o por el motivo que reporta el provider.
+  registran por clase o por el motivo que reporta el provider. Las líneas del
+  propio core llevan los ids de chat y de remitente según `BotConfig.logIds`:
+  hasheados por defecto (HMAC de 16 caracteres, el mismo hash que los spans de
+  las trazas), `'raw'` para depurar en local y `'omit'` para quitarlos.
 
 ### Corregido en la auditoría
 

@@ -113,9 +113,13 @@ export function defaultLifecycleSteps(k: BotKernel): LifecycleStep[] {
     {
       name: 'transport',
       // With coordination, the transport is started only on the elected replica (or shared).
-      start: () => (k.coordination ? k.coordination.startProvider() : k.provider.start()),
-      rollback: guardedRollback(k, 'provider start rollback failed', () => (k.coordination ? k.coordination.stopProvider() : k.provider.stop())),
-      stop: () => (k.coordination ? k.coordination.stopProvider() : k.provider.stop()),
+      // Sends are accepted from here on (a 'ready' listener may send while it connects).
+      start: () => { k.state.sendsOpen = true; return k.coordination ? k.coordination.startProvider() : k.provider.start() },
+      rollback: guardedRollback(k, 'provider start rollback failed', () => {
+        k.state.sendsOpen = false
+        return k.coordination ? k.coordination.stopProvider() : k.provider.stop()
+      }),
+      stop: () => { k.state.sendsOpen = false; return k.coordination ? k.coordination.stopProvider() : k.provider.stop() },
     },
     {
       name: 'jobs',

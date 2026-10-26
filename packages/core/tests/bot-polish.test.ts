@@ -101,7 +101,7 @@ describe('core polish: access-list and handoff drops', () => {
   it('counts each blocked message, interaction, call and trigger once and logs the inbound/call drops', async () => {
     const { logger, lines } = captureLogger()
     const provider = new MockProvider()
-    const bot = new Bot({ provider, logger })
+    const bot = new Bot({ provider, logger, logIds: 'raw' })
     bot.conversation('c', async (c) => { await c.say('hi') })
     const seen: string[] = []
     bot.onMessage((ctx) => { seen.push(ctx.body) })
@@ -135,7 +135,7 @@ describe('core polish: access-list and handoff drops', () => {
   it('counts handoff drops of the dispatcher gate, calls and triggers once each', async () => {
     const { logger, lines } = captureLogger()
     const provider = new MockProvider()
-    const bot = new Bot({ provider, logger })
+    const bot = new Bot({ provider, logger, logIds: 'raw' })
     bot.conversation('c', async (c) => { await c.say('hi') })
     await bot.start()
     await bot.handoff('h1')

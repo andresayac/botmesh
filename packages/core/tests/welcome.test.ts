@@ -42,7 +42,7 @@ afterEach(() => {
 
 describe('WELCOME trigger', () => {
   it('fires on the first message of a DM only', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const welcome = vi.fn(async (ctx) => { await ctx.reply('¡Bienvenido!') })
     const fallback = vi.fn()
     bot.when(WELCOME, welcome)
@@ -56,7 +56,7 @@ describe('WELCOME trigger', () => {
   })
 
   it('takes precedence over text matchers on the first contact; ctx.pass() lets the same message continue', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const order: string[] = []
     bot.when('menu', () => { order.push('menu') })
     bot.when(WELCOME, () => { order.push('welcome') })
@@ -64,7 +64,7 @@ describe('WELCOME trigger', () => {
     await chat.send('menu')                 // afterwards → the text matcher
     expect(order).toEqual(['welcome', 'menu'])
 
-    const second = await createTestBot()
+    const second = await createTestBot({ lang: 'es' })
     const order2: string[] = []
     second.bot.when('menu', () => { order2.push('menu') })
     second.bot.when(WELCOME, (ctx) => { order2.push('welcome'); ctx.pass() })
@@ -73,7 +73,7 @@ describe('WELCOME trigger', () => {
   })
 
   it('takes precedence over type triggers too (first message being an image)', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const order: string[] = []
     bot.when(IMAGE, () => { order.push('image') })
     bot.when(WELCOME, () => { order.push('welcome') })
@@ -83,7 +83,7 @@ describe('WELCOME trigger', () => {
   })
 
   it('every WELCOME handler sees the same first-contact decision (pass() cascades between them)', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const order: string[] = []
     bot.when(WELCOME, (ctx) => { order.push('a'); ctx.pass() })
     bot.when(WELCOME, () => { order.push('b') })
@@ -93,7 +93,7 @@ describe('WELCOME trigger', () => {
   })
 
   it('works as a flow()/addKeyword() trigger and the onboarding conversation keeps its answers', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.use(addKeyword(WELCOME).ask('¡Hola! ¿Cómo te llamas?', 'name').say((_ctx, c) => `Encantado, ${String(c.state.name)}`))
     const fallback = vi.fn()
     bot.onMessage(fallback)
@@ -107,7 +107,7 @@ describe('WELCOME trigger', () => {
   })
 
   it('is scoped per participant in groups, and a DM is a separate first contact', async () => {
-    const { bot, provider } = await createTestBot()
+    const { bot, provider } = await createTestBot({ lang: 'es' })
     const seen: string[] = []
     bot.when(WELCOME, (ctx) => { seen.push(`${ctx.from}/${ctx.sender}`) })
     const group = (sender: string) => {
@@ -124,7 +124,7 @@ describe('WELCOME trigger', () => {
   })
 
   it('honours scope: flow(WELCOME).scope("dm") never greets nor marks group participants', async () => {
-    const { bot, provider } = await createTestBot()
+    const { bot, provider } = await createTestBot({ lang: 'es' })
     const store = bot.getStore()
     const reads = vi.spyOn(store, 'getCursor')
     bot.use(flow(WELCOME).scope('dm').say('hola DM'))
@@ -187,7 +187,7 @@ describe('WELCOME trigger', () => {
   })
 
   it('costs zero store reads when no WELCOME handler is registered', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const reads = vi.spyOn(bot.getStore(), 'getCursor')
     bot.when('hola', (ctx) => ctx.reply('hola'))
     bot.when(IMAGE, () => {})
@@ -199,7 +199,7 @@ describe('WELCOME trigger', () => {
   })
 
   it('reads the store at most once per user while the process lives', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const reads = vi.spyOn(bot.getStore(), 'getCursor')
     bot.when(WELCOME, () => {})
     bot.onMessage(() => {})
@@ -208,7 +208,7 @@ describe('WELCOME trigger', () => {
   })
 
   it('is not evaluated (nor consumed) by commands; the next normal message is the first contact', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(slashCommandsPlugin, { greeting: 'ayuda' })
     bot.when(WELCOME, (ctx) => ctx.reply('bienvenido'))
     await chat.send('/help')
@@ -218,7 +218,7 @@ describe('WELCOME trigger', () => {
   })
 
   it('the unsubscriber removes the WELCOME handler', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const welcome = vi.fn()
     const off = bot.when(WELCOME, welcome)
     off()
@@ -227,7 +227,7 @@ describe('WELCOME trigger', () => {
   })
 
   it('a failing store read skips WELCOME (fail closed), reports the error and lets the message continue', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     vi.spyOn(bot.getStore(), 'getCursor').mockRejectedValue(new Error('store down'))
     const errors: unknown[] = []
     bot.on('error', (e) => { errors.push(e.error) })
@@ -243,7 +243,7 @@ describe('WELCOME trigger', () => {
 
 describe('bot.resetWelcome', () => {
   it('re-arms WELCOME for a DM chat', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     const welcome = vi.fn()
     bot.when(WELCOME, welcome)
     await chat.send('hola')
@@ -255,7 +255,7 @@ describe('bot.resetWelcome', () => {
   })
 
   it('re-arms one participant of a group with (chatId, userId), everybody with (chatId)', async () => {
-    const { bot, provider } = await createTestBot()
+    const { bot, provider } = await createTestBot({ lang: 'es' })
     const seen: string[] = []
     bot.when(WELCOME, (ctx) => { seen.push(ctx.sender) })
     const group = (sender: string) => {
@@ -292,7 +292,7 @@ describe('bot.resetWelcome', () => {
   })
 
   it('handles opaque ids containing separators without collisions', async () => {
-    const { bot, provider } = await createTestBot()
+    const { bot, provider } = await createTestBot({ lang: 'es' })
     const seen: string[] = []
     bot.when(WELCOME, (ctx) => { seen.push(`${ctx.from}|${ctx.sender}`) })
     provider.incoming('x', { from: 'a:b', sender: 'c', isGroup: true }); await tick(10)
@@ -346,7 +346,7 @@ describe('WELCOME and subject erasure', () => {
 
 describe('slashCommandsPlugin and WELCOME', () => {
   it('/reset re-arms WELCOME for the user (DM)', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(slashCommandsPlugin)
     const welcome = vi.fn((ctx) => ctx.reply('bienvenido'))
     bot.when(WELCOME, welcome)
@@ -358,7 +358,7 @@ describe('slashCommandsPlugin and WELCOME', () => {
   })
 
   it('/reset in a group re-arms only the participant who sent it', async () => {
-    const { bot, provider } = await createTestBot()
+    const { bot, provider } = await createTestBot({ lang: 'es' })
     bot.plug(slashCommandsPlugin)
     const seen: string[] = []
     bot.when(WELCOME, (ctx) => { seen.push(ctx.sender) })
@@ -373,7 +373,7 @@ describe('slashCommandsPlugin and WELCOME', () => {
   })
 
   it('/cancel only cancels the conversation; it does not re-arm WELCOME', async () => {
-    const { bot, chat } = await createTestBot()
+    const { bot, chat } = await createTestBot({ lang: 'es' })
     bot.plug(slashCommandsPlugin)
     const welcome = vi.fn()
     bot.when(WELCOME, welcome)

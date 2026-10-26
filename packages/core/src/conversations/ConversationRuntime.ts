@@ -133,6 +133,8 @@ export interface RuntimeConfig {
   errorMessage?: string
   scope?: 'participant' | 'chat'
   logger?: { debug?: (...a: unknown[]) => void; warn?: (...a: unknown[]) => void; error?: (...a: unknown[]) => void }
+  /** How a conversation key (it embeds chat/sender ids) appears in log lines. Default: as is. */
+  logId?: (id: string) => string | undefined
   onError?: (error: unknown, ctx: RuntimeMessage) => void
   /** Factory of the full controls (`controls.ts`); defaults to the base controls. */
   controlsFactory?: (rt: ConversationRuntime, handle: ConversationHandle, ctx: RuntimeMessage) => ConversationControlsBase
@@ -353,6 +355,11 @@ export class ConversationRuntime {
 
   constructor(private cfg: RuntimeConfig = {}) {}
 
+  /** A conversation key as it may appear in a log line (`RuntimeConfig.logId`). */
+  private logKey(key: string): string | undefined {
+    return this.cfg.logId ? this.cfg.logId(key) : key
+  }
+
   register(name: string, fn: ConversationFn): void { this.define({ name, fn }, fn) }
   has(name: string): boolean { return this.registry.has(name) }
 
@@ -536,7 +543,7 @@ export class ConversationRuntime {
     const store = this.store!
     if (!this.cas || revision === undefined) { await store.clearCheckpoint(key); return }
     if (!(await store.clearCheckpointIf!(key, revision))) {
-      this.cfg.logger?.debug?.({ key }, 'checkpoint clear refused: a newer owner wrote the key')
+      this.cfg.logger?.debug?.({ key: this.logKey(key) }, 'checkpoint clear refused: a newer owner wrote the key')
     }
   }
 
@@ -563,7 +570,7 @@ export class ConversationRuntime {
    * hand-over fallback, keep a stub for it instead (written at its next wait).
    */
   private degradeForward(key: string, entry: ActiveConversation | undefined, why?: string): void {
-    if (why) this.cfg.logger?.debug?.({ key }, `flow not forwarded for hand-over: ${why}`)
+    if (why) this.cfg.logger?.debug?.({ key: this.logKey(key) }, `flow not forwarded for hand-over: ${why}`)
     if (entry) {
       entry.cp = undefined
       entry.wantsStub = this.cfg.handover !== undefined && this.cfg.handover.fallback !== 'drop'
@@ -795,6 +802,21 @@ export class ConversationRuntime {
     }
   }
 
+  /**
+   * Soft path for the 2.0 meaning of `retries` (attempts AFTER the first; during the alphas it
+   * meant total attempts): warn once per runtime when a wait, form or flow step sets `retries`
+   * without `maxAttempts`, so alpha users notice their validation budget grew by one.
+   */
+  warnLegacyRetries(): void {
+    if (this.legacyRetriesWarned) return
+    this.legacyRetriesWarned = true
+    this.cfg.logger?.warn?.(
+      '`retries: N` on a wait/form now means N retries after the first answer (N + 1 answers in total; during the 2.0 alphas it meant N in total). Use `maxAttempts` (total answers) to state the budget explicitly and silence this warning.',
+    )
+  }
+
+  private legacyRetriesWarned = false
+
   /** Consume the handover flag of `handle`'s conversation: its first wait then skips its prompt (once). */
   takeHandover(handle: ConversationHandle): boolean {
     const entry = handle as ActiveConversation
@@ -970,7 +992,7 @@ export class ConversationRuntime {
         // Coordination fence: this replica lost the chat (a checkpoint write was refused);
         // another replica owns the conversation now — end silently, nothing can be sent anyway.
         outcome = 'cancelled'
-        this.cfg.logger?.debug?.({ key }, 'conversation stopped: chat turn lost')
+        this.cfg.logger?.debug?.({ key: this.logKey(key) }, 'conversation stopped: chat turn lost')
       } else {
         outcome = 'error'
         // Traced: reported from the conversation's own box, so the error lands on the turn that failed.
@@ -1330,7 +1352,7 @@ export class ConversationRuntime {
         (error: unknown) => {
           entry.cpDirty = true
           onFail?.()
-          if (error instanceof LeaseLostError) this.cfg.logger?.debug?.({ key }, `${failure}: chat turn lost`)
+          if (error instanceof LeaseLostError) this.cfg.logger?.debug?.({ key: this.logKey(key) }, `${failure}: chat turn lost`)
           else this.cfg.logger?.warn?.({ err: error }, failure)
         },
       )

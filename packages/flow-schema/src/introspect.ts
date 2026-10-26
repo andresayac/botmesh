@@ -10,6 +10,7 @@
 
 import type { CompiledFlow, CompiledStep, FormDefinition, FormField, Trigger } from '@botmesh/core'
 import { flowDocumentSource, flowStepSource } from './compile.js'
+import { FLOW_DOCUMENT_VERSION } from './schema.js'
 import type { FlowDocument, FlowDocumentIssue, FlowFormDocument, FlowFormFieldDocument, FlowMediaDocumentSource, FlowStepDocument } from './schema.js'
 
 /** Thrown when a compiled flow cannot be represented as a JSON document. */
@@ -43,7 +44,7 @@ export function exportFlowDocument(flow: CompiledFlow): FlowDocument {
   // exported as it is.
   const source = flowDocumentSource(flow)
   return {
-    version: 1,
+    version: FLOW_DOCUMENT_VERSION,
     id: flow.id,
     trigger: source?.trigger ?? exportTrigger(flow.trigger),
     ...(source?.name !== undefined ? { name: source.name } : {}),
@@ -90,6 +91,7 @@ function exportStep(step: CompiledStep, path: string, issues: FlowDocumentIssue[
       return {
         kind: 'ask', text: step.text, stateKey: step.stateKey,
         ...(step.opts?.timeout !== undefined ? { timeout: step.opts.timeout as string | number } : {}),
+        ...(step.opts?.maxAttempts !== undefined ? { maxAttempts: step.opts.maxAttempts } : {}),
         ...(step.opts?.retries !== undefined ? { retries: step.opts.retries } : {}),
       }
     case 'choose': {
@@ -115,7 +117,7 @@ function exportStep(step: CompiledStep, path: string, issues: FlowDocumentIssue[
       }
     }
     case 'form':
-      return { kind: 'form', form: exportForm(step.form), ...(step.opts?.stateKey !== undefined ? { stateKey: step.opts.stateKey } : {}), ...(step.opts?.flatten !== undefined ? { flatten: step.opts.flatten } : {}), ...(step.opts?.mode !== undefined ? { mode: step.opts.mode } : {}), ...(step.opts?.nativeId !== undefined ? { nativeId: step.opts.nativeId } : {}), ...(step.opts?.timeout !== undefined ? { timeout: step.opts.timeout as string | number } : {}), ...(step.opts?.retries !== undefined ? { retries: step.opts.retries } : {}) }
+      return { kind: 'form', form: exportForm(step.form), ...(step.opts?.stateKey !== undefined ? { stateKey: step.opts.stateKey } : {}), ...(step.opts?.flatten !== undefined ? { flatten: step.opts.flatten } : {}), ...(step.opts?.mode !== undefined ? { mode: step.opts.mode } : {}), ...(step.opts?.nativeId !== undefined ? { nativeId: step.opts.nativeId } : {}), ...(step.opts?.timeout !== undefined ? { timeout: step.opts.timeout as string | number } : {}), ...(step.opts?.maxAttempts !== undefined ? { maxAttempts: step.opts.maxAttempts } : {}), ...(step.opts?.retries !== undefined ? { retries: step.opts.retries } : {}) }
     case 'use':
       return { kind: 'subflow', flowId: step.flow.id }
     case 'guard':

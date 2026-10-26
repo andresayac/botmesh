@@ -8,7 +8,12 @@
 export interface AutoReconnectOptions {
   /** Default `true` when the object is given. */
   enabled?: boolean
-  /** Restart attempts before giving up (`'reconnectFailed'`). Default `5`; `Infinity` = never give up. */
+  /**
+   * Restart attempts after the failure before giving up (`'reconnectFailed'`). Default `5`;
+   * `Infinity` = never give up. Same meaning as every other `retries` option.
+   */
+  retries?: number
+  /** @deprecated Use {@link retries} (same meaning). */
   maxRetries?: number
   /** First backoff delay in ms. Default `1000`. */
   initialDelay?: number
@@ -30,15 +35,18 @@ export interface AutoReconnectOptions {
 }
 
 /** Fully resolved {@link AutoReconnectOptions}. */
-export type ResolvedAutoReconnect = Required<Omit<AutoReconnectOptions, 'enabled'>> & { enabled: boolean }
+export type ResolvedAutoReconnect = Required<Omit<AutoReconnectOptions, 'enabled' | 'retries'>> & { enabled: boolean }
 
 /** Normalize `autoReconnect` (`true` = defaults, `false`/`undefined` = disabled). */
 export function resolveAutoReconnect(input: AutoReconnectOptions | boolean | undefined): ResolvedAutoReconnect {
   const o = typeof input === 'object' && input !== null ? input : {}
+  if (o.retries !== undefined && o.maxRetries !== undefined && o.retries !== o.maxRetries) {
+    throw new RangeError('autoReconnect: pass retries (maxRetries is its deprecated alias), not both with different values')
+  }
   const enabled = input === true || (typeof input === 'object' && input !== null && input.enabled !== false)
   const resolved: ResolvedAutoReconnect = {
     enabled,
-    maxRetries: o.maxRetries ?? 5,
+    maxRetries: o.retries ?? o.maxRetries ?? 5,
     initialDelay: o.initialDelay ?? 1000,
     maxDelay: o.maxDelay ?? 30_000,
     backoff: o.backoff ?? 'exponential',
@@ -47,7 +55,7 @@ export function resolveAutoReconnect(input: AutoReconnectOptions | boolean | und
     graceMs: o.graceMs ?? 10_000,
     random: o.random ?? Math.random,
   }
-  if (!(resolved.maxRetries >= 0)) throw new RangeError('autoReconnect.maxRetries must be >= 0')
+  if (!(resolved.maxRetries >= 0)) throw new RangeError('autoReconnect.retries must be >= 0')
   if (!(resolved.initialDelay >= 0) || !(resolved.maxDelay >= resolved.initialDelay)) throw new RangeError('autoReconnect delays must satisfy 0 <= initialDelay <= maxDelay')
   if (!(resolved.jitter >= 0 && resolved.jitter <= 1)) throw new RangeError('autoReconnect.jitter must be within [0, 1]')
   if (!(resolved.factor >= 1)) throw new RangeError('autoReconnect.factor must be >= 1')

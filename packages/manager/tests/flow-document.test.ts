@@ -55,13 +55,13 @@ describe('safe expressions', () => {
 
 describe('flow document validation', () => {
   it('accepts a valid document', () => {
-    const doc: FlowDocument = { version: 1, id: 'f', trigger: 'hola', steps: [{ kind: 'say', text: 'hi' }] }
+    const doc: FlowDocument = { version: 2, id: 'f', trigger: 'hola', steps: [{ kind: 'say', text: 'hi' }] }
     expect(validateFlowDocument(doc)).toEqual([])
   })
 
   it('reports issues with paths', () => {
     const issues = validateFlowDocument({
-      version: 2,
+      version: 3,
       id: 'bad id!',
       trigger: [],
       steps: [
@@ -91,8 +91,8 @@ describe('flow document validation', () => {
 
   it('exposes a versioned JSON Schema', () => {
     expect(FLOW_DOCUMENT_SCHEMA.$schema).toContain('2020-12')
-    expect(FLOW_DOCUMENT_SCHEMA.$id).toMatch(/v1\.json$/)
-    expect(FLOW_DOCUMENT_SCHEMA.properties.version).toEqual({ const: 1 })
+    expect(FLOW_DOCUMENT_SCHEMA.$id).toMatch(/v2\.json$/)
+    expect(FLOW_DOCUMENT_SCHEMA.properties.version).toMatchObject({ enum: [1, 2] })
   })
 })
 

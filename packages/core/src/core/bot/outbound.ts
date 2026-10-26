@@ -3,10 +3,11 @@
  * `after('send')` hooks, the outbound ledger, paced (delay + typing) replies, typing
  * indicators and the `ctx.stream()` primitives.
  */
-import { abortableSleep, randomId } from '../../utils/timers.js'
+import { abortableSleep, parseTimerDuration, randomId } from '../../utils/timers.js'
 import { isEditableSend, messagingSupport, type ReplyOptions } from '../messaging.js'
 import { RateLimitedError, type BuildContextDeps, type DraftOptions } from '../provider.js'
 import { toStoredError } from '../ledger.js'
+import { BotNotRunningError } from '../errors.js'
 import { assertOutboundContent } from '../outboundCheck.js'
 import { isSendDeferred } from '../../durability/bind.js'
 import type { ChatId, MessageRef, OutboundContent, SendOptions, SendResult, SentMessage } from '../types.js'
@@ -20,20 +21,37 @@ export type ContextMessagingDeps = Pick<BuildContextDeps, 'pace' | 'editMessage'
 /**
  * A `ctx` reply that hits a `RateLimitedError` is retried in place (same payload, no hooks
  * re-run) when the transport asks for a short wait, so a conversation step does not end
- * on a transient 429. Longer waits, other errors and `bot.send()` (broadcasts have their
- * own back-off) surface as before; durable sends retry through their outbox instead.
+ * on a transient 429 (`BotConfig.rateLimitRetry`, default one retry within 5 s). Longer
+ * waits, other errors and `bot.send()` (broadcasts have their own back-off) surface as
+ * before; durable sends retry through their outbox instead.
  */
-const CTX_RATE_LIMIT_RETRIES = 2
+const CTX_RATE_LIMIT_RETRIES = 1
 const CTX_RATE_LIMIT_MAX_WAIT_MS = 5_000
 
-function shortRateLimit(error: unknown): number | undefined {
+/** Resolved `BotConfig.rateLimitRetry` (`null` = off). */
+interface RateLimitRetryPolicy { readonly retries: number; readonly maxWaitMs: number }
+
+function rateLimitPolicy(config: BotKernel['config']): RateLimitRetryPolicy | null {
+  const option = config.rateLimitRetry
+  if (option === false) return null
+  return {
+    retries: option?.retries ?? CTX_RATE_LIMIT_RETRIES,
+    maxWaitMs: option?.maxWaitMs !== undefined ? parseTimerDuration(option.maxWaitMs, 'rateLimitRetry.maxWaitMs') : CTX_RATE_LIMIT_MAX_WAIT_MS,
+  }
+}
+
+function shortRateLimit(error: unknown, maxWaitMs: number): number | undefined {
   if (!(error instanceof RateLimitedError)) return undefined
   const wait = Number(error.retryAfterMs)
-  return Number.isFinite(wait) && wait >= 0 && wait <= CTX_RATE_LIMIT_MAX_WAIT_MS ? wait : undefined
+  return Number.isFinite(wait) && wait >= 0 && wait <= maxWaitMs ? wait : undefined
 }
 
 export class OutboundPipeline {
-  constructor(private readonly k: BotKernel) {}
+  private readonly rateLimitRetry: RateLimitRetryPolicy | null
+
+  constructor(private readonly k: BotKernel) {
+    this.rateLimitRetry = rateLimitPolicy(k.config)
+  }
 
   /**
    * Central outbound path: `before('send')` (mutable/abortable) → provider.send → `after('send')`.
@@ -54,6 +72,7 @@ export class OutboundPipeline {
     chatId: ChatId, content: OutboundContent, options: SendOptions | undefined, origin: 'ctx' | 'api', stream: 'message' | undefined, span?: BotSpan,
   ): Promise<SendResult> {
     const { hooks, provider, counters, inflightSends, messageLog, config } = this.k
+    this.assertRunning('send')
     // Durability: an idempotency key already sent is answered from the outbox (no hooks, no provider call).
     const durable = this.k.durable?.prepareSend(options)
     if (durable) {
@@ -69,8 +88,8 @@ export class OutboundPipeline {
     const localRef = { id: randomId('out'), chatId: payload.chatId }
     const op = durable
       ? durable.run(payload, () => provider.send(payload.chatId, payload.content, payload.options))
-      : origin === 'ctx' && !stream
-        ? this.sendRetryingRateLimit(payload)
+      : origin === 'ctx' && !stream && this.rateLimitRetry
+        ? this.sendRetryingRateLimit(payload, this.rateLimitRetry)
         : provider.send(payload.chatId, payload.content, payload.options)
     inflightSends.add(op)
     // Pending from the provider call on, so a stop() that starts while it is in flight
@@ -113,13 +132,13 @@ export class OutboundPipeline {
     }
   }
 
-  /** `provider.send` with the short rate-limit retry of `ctx` replies (see {@link CTX_RATE_LIMIT_RETRIES}). */
-  private async sendRetryingRateLimit(payload: { chatId: ChatId; content: OutboundContent; options?: SendOptions }): Promise<SendResult> {
+  /** `provider.send` with the short rate-limit retry of `ctx` replies (`BotConfig.rateLimitRetry`). */
+  private async sendRetryingRateLimit(payload: { chatId: ChatId; content: OutboundContent; options?: SendOptions }, policy: RateLimitRetryPolicy): Promise<SendResult> {
     for (let attempt = 0; ; attempt++) {
       try {
         return await this.k.provider.send(payload.chatId, payload.content, payload.options)
       } catch (error) {
-        const wait = attempt < CTX_RATE_LIMIT_RETRIES ? shortRateLimit(error) : undefined
+        const wait = attempt < policy.retries ? shortRateLimit(error, policy.maxWaitMs) : undefined
         const stop = this.k.state.sendsAbort.signal
         if (wait === undefined || stop.aborted) throw error
         await abortableSleep(wait, stop)
@@ -156,6 +175,11 @@ export class OutboundPipeline {
     }, expected)
   }
 
+  /** Reject a send while the bot is not running (before `start()`, after `stop()`). */
+  private assertRunning(operation: 'send' | 'edit' | 'stream' | 'delete'): void {
+    if (!this.k.state.sendsOpen) throw new BotNotRunningError(operation)
+  }
+
   /** `before('send')` with the abortable payload; resolves `false` when a hook aborted. */
   private runBeforeSend<P extends { chatId: ChatId; content: OutboundContent; options?: SendOptions }>(payload: P): Promise<boolean> {
     return this.k.hooks.runBefore('send', payload as P & { abort(): void })
@@ -182,6 +206,7 @@ export class OutboundPipeline {
 
   private async editNow(ref: MessageRef, content: OutboundContent, span?: BotSpan): Promise<SendResult> {
     const { hooks, provider, inflightSends, messageLog, config } = this.k
+    this.assertRunning('edit')
     const payload: { chatId: ChatId; content: OutboundContent; options?: SendOptions; edit: MessageRef } = {
       chatId: ref.chatId, content, options: undefined, edit: ref,
     }
@@ -250,7 +275,7 @@ export class OutboundPipeline {
       assertCoordinated(this.k)
       await this.k.provider.typing?.(chatId, state)
     } catch (error) {
-      this.k.logger.debug({ chatId, state, err: error instanceof Error ? error.message : String(error) }, 'typing indicator failed (ignored)')
+      this.k.logger.debug({ chatId: this.k.logId(chatId), state, err: error instanceof Error ? error.message : String(error) }, 'typing indicator failed (ignored)')
     }
   }
 
@@ -288,6 +313,7 @@ export class OutboundPipeline {
 
   /** A discarded `ctx.stream()` message: gone from the chat and from the message log. */
   private async deleteStreamMessage(ref: MessageRef): Promise<void> {
+    this.assertRunning('delete')
     assertCoordinated(this.k)
     await this.k.provider.deleteMessage!(ref)
     try {
@@ -324,6 +350,7 @@ export class OutboundPipeline {
   }
 
   private async streamEditNow(ref: MessageRef, content: OutboundContent): Promise<unknown> {
+    this.assertRunning('stream')
     const final = await this.runStreamSendHooks(ref.chatId, content, 'edit')
     if (!final) return undefined
     assertCoordinated(this.k)
@@ -338,6 +365,7 @@ export class OutboundPipeline {
   }
 
   private async streamDraftNow(chatId: ChatId, draftId: number, text: string, opts?: DraftOptions): Promise<void> {
+    this.assertRunning('stream')
     const final = await this.runStreamSendHooks(chatId, { kind: 'text', text }, 'draft')
     if (!final || final.kind !== 'text') return
     assertCoordinated(this.k)

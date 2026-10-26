@@ -222,7 +222,7 @@ Pasos:
 | `kind` | Campos |
 | --- | --- |
 | `say` | `text` |
-| `ask` | `text`, `stateKey`, `timeout?`, `retries?` (0–20), `validate?: { expr, message? }` (`$answer` contiene la respuesta tal cual) |
+| `ask` | `text`, `stateKey`, `timeout?`, `maxAttempts?` (1–21, respuestas en total) o `retries?` (0–20, después de la primera), `validate?: { expr, message? }` (`$answer` contiene la respuesta tal cual) |
 | `choose` | `text`, `options: [{ key, label, steps? }]` (hasta 20; los `steps` de una opción se ejecutan al elegirla), `stateKey?`, `timeout?` |
 | `delay` | `duration` (como máximo 5 minutos) |
 | `goto` | `target` (el id de otro flujo) |

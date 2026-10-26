@@ -59,8 +59,8 @@ salen de las entradas `core.form.cta` / `core.form.submit` del catálogo en el
 form'` / `'Submit'` en inglés); una definición sin `intro` ni `title` usa
 `core.form.body` como cuerpo del mensaje. La etiqueta de envío forma parte del
 Flow de WhatsApp publicado, así que se fija al publicarlo:
-`toFlowJson(def, { lang: 'en' })` / `publishForm(def, { flowJson: { lang: 'en' } })`
-(por defecto `'es'`), o define `submitLabel`.
+`toFlowJson(def, { lang: 'es' })` / `publishForm(def, { flowJson: { lang: 'es' } })`
+(por defecto `'en'`, el locale por defecto del core), o define `submitLabel`.
 
 Campo por campo, `select`/`multiselect` aceptan el número del menú, la clave o la
 etiqueta (varias elecciones separadas por comas, `;`, `y`/`and` o espacios entre
@@ -81,7 +81,7 @@ flow('pedido').form(pedido, {
   mode: 'auto',        // 'auto' | 'native' | 'degraded'
   nativeId: '123456',  // id del formulario en el provider (en la Cloud API, id o nombre del Flow)
   timeout: '10m',      // por respuesta (campo por campo) / para el envío (nativo)
-  retries: 3,          // respuestas inválidas toleradas por campo / por envío
+  maxAttempts: 3,      // respuestas aceptadas por campo / envíos, la primera incluida (por defecto 3)
   skipWord: 'omitir',  // campo por campo: palabra que salta un campo opcional
   pendingMessage: '👆 Completa el formulario de arriba para continuar.',
 })

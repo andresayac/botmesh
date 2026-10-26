@@ -11,6 +11,8 @@ import type { DispatchContext } from '../Dispatcher.js'
 import { callToInbound, RecentIds } from '../calls.js'
 import { guardDownload } from '../mediaRefs.js'
 import { receiveTimestamp } from '../ledger.js'
+import { InvalidProviderEventError } from '../errors.js'
+import { invalidEventReason } from '../eventShape.js'
 import type { CallEvent, ChatId, HookEvent, InboundEvent, InboundInteraction, InboundMessage, MessageContext, UserId } from '../types.js'
 import type { ContextFactory } from './contextFactory.js'
 import { admitAccess, admitHandoff } from './gates.js'
@@ -59,6 +61,12 @@ export class InboundPipeline {
   /** Subscribe to the provider's normalized event stream and route each kind. */
   attach(): () => void {
     return this.k.provider.onEvent((event: InboundEvent) => {
+      // A broken event is reported once, clearly, and dropped (never a TypeError mid-pipeline).
+      const invalid = invalidEventReason(event)
+      if (invalid !== undefined) {
+        this.k.events.error({ error: new InvalidProviderEventError(this.k.provider.id, invalid) })
+        return
+      }
       const tracing = this.k.tracing
       const task = (tracing && isTracedEvent(event) ? this.traceProviderEvent(tracing, event) : this.handleProviderEvent(event))
         .catch((error) => this.k.events.error({ error }))
@@ -107,7 +115,7 @@ export class InboundPipeline {
         // access lists, dedupe and the journal, so it is never recorded nor counted as inbound.
         if (this.k.echoes?.has(message.ref)) {
           this.k.counters.echoDropped()
-          this.k.logger.debug({ chatId: message.chatId }, 'inbound dropped: echo of a bot message')
+          this.k.logger.debug({ chatId: this.k.logId(message.chatId) }, 'inbound dropped: echo of a bot message')
           this.k.tracing?.annotate(TRACE_ATTR.inboundOutcome, 'echo')
           return
         }
@@ -266,7 +274,7 @@ export class InboundPipeline {
       }
     }
 
-    this.k.logger.debug({ from: ctx.from, type: ctx.type }, 'dispatching message')
+    this.k.logger.debug({ from: this.k.logId(ctx.from), type: ctx.type }, 'dispatching message')
     const ran = this.k.dispatcher.dispatch(ctx as unknown as DispatchContext)
     const span = this.k.tracing?.activeSpan()
     // Dropped unprocessed because the bot stopped meanwhile (a side branch: `ran` is returned as is).

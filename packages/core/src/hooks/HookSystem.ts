@@ -27,10 +27,19 @@ export interface HookLogger {
   error?: (...args: unknown[]) => void
 }
 
+/** Options of the {@link HookSystem} constructor. */
+export interface HookSystemOptions {
+  /**
+   * Where a misuse is reported (a before-hook calling `next()` more than once). Default:
+   * logged at error level. The bot reports it on its `'error'` event.
+   */
+  report?: (error: Error) => void
+}
+
 export class HookSystem {
   private hooks = new Map<`${HookEvent}:${HookPhase}`, RegisteredHook[]>()
 
-  constructor(private logger?: HookLogger) {}
+  constructor(private logger?: HookLogger, private readonly options: HookSystemOptions = {}) {}
 
   /** Register a hook. Returns an unsubscribe function. */
   register(
@@ -78,6 +87,10 @@ export class HookSystem {
    * A handler that returns without calling `next()` stops the chain AND the
    * event, exactly like `ctx.abort()`: the message is not routed, the send is
    * skipped, the provider event is not emitted. Resolves `false` in both cases.
+   *
+   * A handler that calls `next()` more than once keeps the FIRST dispatch: every later
+   * call returns the first call's promise (the rest of the chain runs once) and the misuse
+   * is reported (`HookSystemOptions.report`).
    */
   async runBefore<T>(event: HookEvent, ctx: T & { abort(): void }): Promise<boolean> {
     const hooks = this.list(event, 'before')
@@ -89,14 +102,17 @@ export class HookSystem {
     const userAbort = ctxAny.abort?.bind(ctxAny)
     ctxAny.abort = () => { aborted = true; userAbort?.() }
 
-    let index = -1
     const dispatch = async (i: number): Promise<void> => {
       if (aborted) return
-      if (i <= index) throw new Error('next() called multiple times')
-      index = i
       if (i >= hooks.length) { completed = true; return }
-      const handler = hooks[i].handler as any
-      await handler(ctxAny, () => dispatch(i + 1))
+      const hook = hooks[i]
+      let first: Promise<void> | undefined
+      const next = (): Promise<void> => {
+        if (first) { this.reportMisuse(event, hook); return first }
+        first = dispatch(i + 1)
+        return first
+      }
+      await (hook.handler as any)(ctxAny, next)
     }
 
     try {
@@ -107,6 +123,15 @@ export class HookSystem {
       else delete ctxAny.abort
     }
     return completed && !aborted
+  }
+
+  private reportMisuse(event: HookEvent, hook: RegisteredHook): void {
+    const error = new Error(`before('${event}') hook called next() more than once; the extra call was ignored (the event was dispatched once)`)
+    if (this.options.report) {
+      try { this.options.report(error) } catch { /* a reporter must not break the chain */ }
+    } else {
+      this.logger?.error?.({ err: error, event, hook: hook.id }, error.message)
+    }
   }
 
   /** Run the `after` pipeline. Errors are reported but don't propagate. */

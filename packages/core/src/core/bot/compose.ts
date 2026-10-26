@@ -34,7 +34,7 @@ import { createEchoFilter } from '../echo.js'
 import { DynamicFlowRegistry } from '../flowRegistry.js'
 import type { ChatIdleWatchers } from '../idle.js'
 import { MessageLog } from '../ledger.js'
-import { toBotLogger } from './logger.js'
+import { logIdPolicy, toBotLogger } from './logger.js'
 import { ExternalSendClock, createPacer, normalizeTypingConfig } from '../messaging.js'
 import type { BotConfig, ChatId, MessageContext, Trigger } from '../types.js'
 import { WelcomeTracker } from '../welcome.js'
@@ -127,13 +127,15 @@ export function composeBot(host: ComposeHost, inputConfig: BotConfig, fields: Co
   // Tracing (opt-in): `null` without `config.telemetry`, and every site then runs its original code.
   k.tracing = createTracing(inputConfig.telemetry, logger.child({ module: 'telemetry' }))
   k.events = createEventSink(host, fields.counters, () => logger, k.tracing ? () => k.tracing : undefined)
+  k.logId = logIdPolicy(inputConfig, k.tracing)
   k.isHandedOff = (chatId) => host.isChatHandedOff(chatId)
 
-  k.hooks = new HookSystem(logger.child({ module: 'hooks' }))
+  k.hooks = new HookSystem(logger.child({ module: 'hooks' }), { report: (error) => k.events.error({ error }) })
   k.pacer = createPacer({
     provider,
     typing: normalizeTypingConfig(inputConfig.typing),
     logger,
+    logId: k.logId,
     signal: () => k.state.sendsAbort.signal,
   })
 
@@ -191,6 +193,7 @@ export function composeBot(host: ComposeHost, inputConfig: BotConfig, fields: Co
   })
   k.users = new UserDataService(store, { logger: logger.child({ module: 'user-data' }) })
   k.i18n = new I18n({ logger: logger.child({ module: 'i18n' }) })
+  if (config.lang !== undefined) k.i18n.setDefaultLocale(config.lang)
   if (config.i18n !== undefined) k.i18n.configure(config.i18n)
 
   const conv = config.conversation ?? {}
@@ -214,6 +217,7 @@ export function composeBot(host: ComposeHost, inputConfig: BotConfig, fields: Co
     cancelledMessage: conv.cancelledMessage,
     scope: config.conversationScope === 'chat' ? 'chat' : 'participant',
     logger: logger.child({ module: 'conversations' }),
+    logId: k.logId,
     onError: (error, ctx) => k.events.error({ error, ctx: ctx as unknown as MessageContext }),
     onConversationStart: ({ id, name, key, ctx }) => {
       k.counters.conversationStarted(name)
@@ -264,6 +268,7 @@ export function composeBot(host: ComposeHost, inputConfig: BotConfig, fields: Co
       provider,
       runtime: k.runtime,
       logger: logger.child({ module: 'coordination' }),
+      logId: k.logId,
       emit: (event, payload) => { k.events.emit(event, payload) },
       reportError: (error, ctx) => k.events.error({ error, ctx: ctx as unknown as MessageContext | undefined }),
       casCheckpoints,
@@ -309,6 +314,7 @@ export function composeBot(host: ComposeHost, inputConfig: BotConfig, fields: Co
     emit: (event: 'handoff' | 'resume', payload: HandoffEvent | ResumeEvent) => { k.events.emit(event, payload) },
     reportError: (error) => k.events.error({ error }),
     logger: logger.child({ module: 'handoff' }),
+    logId: k.logId,
   })
 
   // Durable inbox/outbox (opt-in). Replays go through the inbound pipeline (built below:
@@ -316,6 +322,7 @@ export function composeBot(host: ComposeHost, inputConfig: BotConfig, fields: Co
   // fenced like any send when coordination is on.
   k.durable = createDurability(config.durability, {
     logger: logger.child({ module: 'durability' }),
+    logId: k.logId,
     namespace,
     hooks: k.hooks,
     messageLog: k.messageLog,

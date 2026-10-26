@@ -294,7 +294,7 @@ describe('Bot blacklist', () => {
       debug, info: vi.fn(), warn: vi.fn(), error: vi.fn(), trace: vi.fn(), fatal: vi.fn(),
       child() { return logger },
     }
-    const { bot, provider } = setup({ logger })
+    const { bot, provider } = setup({ logger, logIds: 'raw' })
     await bot.start()
     bot.blacklist.add('u1')
     provider.incoming('secreto 1234', { from: 'u1' })
@@ -547,7 +547,7 @@ describe('calls × access lists and handoff (fully blocked, like a message)', ()
       debug, info: vi.fn(), warn: vi.fn(), error: vi.fn(), trace: vi.fn(), fatal: vi.fn(),
       child() { return logger },
     }
-    const { bot, provider } = setup({ logger })
+    const { bot, provider } = setup({ logger, logIds: 'raw' })
     await bot.start()
     bot.blacklist.add('u1')
     provider.call({ id: 'c1', from: 'u1', status: 'offer' })

@@ -125,7 +125,7 @@ export function stepKindsOf(schema: unknown = FLOW_DOCUMENT_SCHEMA): string[] {
  * Kept in sync with the schema by the tests (it must always validate).
  */
 export const EXAMPLE_FLOW_DOCUMENT = Object.freeze({
-  version: 1,
+  version: FLOW_DOCUMENT_VERSION,
   id: 'pedido',
   name: 'Tomar un pedido',
   description: 'Ejemplo canónico: pregunta, menú, condición, media y cierre.',

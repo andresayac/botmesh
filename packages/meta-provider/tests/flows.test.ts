@@ -64,11 +64,12 @@ describe('toFlowJson', () => {
     expect(form.children[1]).toEqual({ type: 'TextArea', name: 'notes', label: 'Notas', required: false, 'max-length': 300 })
   })
 
-  it('localizes the default submit label with the lang option (Spanish by default)', () => {
+  it('localizes the default submit label with the lang option (English by default, like the core)', () => {
     const def: FormDefinition = { id: 'mini', fields: [{ type: 'text', name: 'x', label: 'X' }] }
     const footer = (json: ReturnType<typeof toFlowJson>) =>
       (json.screens[0].layout.children.at(-1) as { children: Array<{ type: string; label?: string }> }).children.find((c) => c.type === 'Footer')!.label
-    expect(footer(toFlowJson(def))).toBe('Enviar')
+    expect(footer(toFlowJson(def))).toBe('Submit')
+    expect(footer(toFlowJson(def, { lang: 'es' }))).toBe('Enviar')
     expect(footer(toFlowJson(def, { lang: 'en' }))).toBe('Submit')
     expect(footer(toFlowJson(def, { lang: 'en-GB' }))).toBe('Submit')
     expect(footer(toFlowJson({ ...def, submitLabel: 'Go' }, { lang: 'en' }))).toBe('Go')
@@ -121,11 +122,11 @@ describe('toFlowMessage / toOutbound', () => {
     expect(msg.interactive.action.parameters.flow_id).toBeUndefined()
   })
 
-  it('falls back to the Spanish core.form.* labels for a bare definition', () => {
+  it('falls back to the English core.form.* labels for a bare definition (the core default locale)', () => {
     const bare: FormContent = { kind: 'form', form: { id: 'mini', fields: [{ type: 'text', name: 'x', label: 'X' }] }, token: 't', nativeId: '1' }
     const msg = toFlowMessage(bare) as { interactive: { body: { text: string }; action: { parameters: Record<string, unknown> } } }
-    expect(msg.interactive.body.text).toBe('Completa el formulario.')
-    expect(msg.interactive.action.parameters.flow_cta).toBe('Abrir formulario')
+    expect(msg.interactive.body.text).toBe('Fill in the form.')
+    expect(msg.interactive.action.parameters.flow_cta).toBe('Open form')
   })
 
   it('throws UnsupportedContentError when no Flow is mapped', () => {

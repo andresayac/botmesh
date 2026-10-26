@@ -9,13 +9,14 @@
  *   {@link PluralForms} leaves are picked with `params.count`.
  * - **Fallback:** requested locale → its base language (`es-ar` → `es`) →
  *   default locale (and its base) → the key itself. Every fallback is logged at
- *   debug level. `core.*` keys finally fall back to the built-in Spanish text.
+ *   debug level. `core.*` keys finally fall back to the built-in English text.
  * - **Resolution** ({@link I18n.resolve}): `ctx.user` preference → provider-
  *   reported language (an update without one reuses the sender's last report) →
  *   custom detector → default, each limited to the `locales` allow-list when one
  *   is configured. Only active once the bot
  *   opted in (a `bot.locale()` call or `BotConfig.i18n`), so bots that never
- *   touch i18n keep their historical Spanish defaults without extra store reads.
+ *   touch i18n answer in their default locale (English, or `BotConfig.lang`)
+ *   without extra store reads.
  *
  * Transport-agnostic: the provider language is read from `SenderInfo`, never
  * inferred from ids.
@@ -44,7 +45,8 @@ export interface I18nOptions extends I18nConfig {
   logger?: I18nLogger
 }
 
-const DEFAULT_LOCALE = 'es'
+/** Built-in default locale (English since 2.0; `BotConfig.lang: 'es'` restores the Spanish texts). */
+const DEFAULT_LOCALE = 'en'
 const DEFAULT_USER_KEY = 'lang'
 /** Senders whose last provider-reported language is remembered. */
 const MAX_REPORTED = 10_000
@@ -217,6 +219,18 @@ export class I18n {
     return this
   }
 
+  /**
+   * Set the default locale WITHOUT turning on language resolution (`BotConfig.lang`):
+   * the built-in texts and `ctx.lang` use `code`, and no `ctx.user` read, provider
+   * language or detector is consulted. Throws `TypeError` on an empty code.
+   */
+  setDefaultLocale(code: string): this {
+    const n = normalizeLocale(code)
+    if (!n) throw new TypeError('i18n: the default locale must be a non-empty string')
+    this.defaultCode = n
+    return this
+  }
+
   /** The default locale (normalized). */
   get defaultLocale(): string { return this.defaultCode }
 
@@ -373,7 +387,7 @@ export class I18n {
   }
 }
 
-/** Registry used by contexts and conversations built without a Bot (built-ins only, `es`). */
+/** Registry used by contexts and conversations built without a Bot (built-ins only, `en`). */
 export const defaultI18n = new I18n()
 
 /** Something that may carry a bound translator (a `MessageContext`, a `RuntimeMessage`). */

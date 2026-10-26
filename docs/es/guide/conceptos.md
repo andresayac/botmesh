@@ -152,6 +152,13 @@ y los transportes experimentales de Messenger, Instagram y Discord se
 enchufan al mismo motor. Todos los transportes
 alimentan al bot con los mismos eventos normalizados.
 
+Los envíos necesitan el bot en marcha: antes de `bot.start()` y después de
+`bot.stop()`, `bot.send()` y `ctx.reply()` rechazan con `BotNotRunningError` y
+no llega nada al provider (un listener de `'ready'` ya puede enviar). Las
+llamadas concurrentes a `start()` / `stop()` se ejecutan de una en una, en
+orden. Un evento que rompe el contrato del provider se descarta y se informa
+en `'error'` como `InvalidProviderEventError`.
+
 ### 2. when — respuestas simples
 
 ```ts

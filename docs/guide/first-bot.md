@@ -18,8 +18,6 @@ const bot = new Bot({
     ignoreNewsletters: true,
     ignoreBroadcasts: true,
   }),
-  // Built-in texts (slash commands, timeouts, validation) in English. The default is Spanish.
-  i18n: { defaultLocale: 'en', locales: ['en'] },
 })
 
 // 2. Connection events
@@ -87,10 +85,10 @@ transport. `session` is a **provider** option: the WhatsApp login is saved
 in `./sessions/demo-bot/`. If you close and reopen, **you don't need to
 scan the QR again**.
 
-`i18n` sets the language of the texts the framework writes for you (slash
-command replies, "please answer with text", timeouts...). They are Spanish by
-default; `locales: ['en']` pins this bot to English. See
-[Internationalization](./i18n) to serve several languages.
+The texts the framework writes for you (slash command replies, "please answer
+with text", timeouts...) are in English by default. `lang: 'es'` switches them
+to the bundled Spanish texts. See [Internationalization](./i18n) to serve
+several languages.
 
 ### 2. Connection events
 

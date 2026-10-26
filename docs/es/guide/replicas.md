@@ -349,3 +349,9 @@ const store = new MemoryStore()
 const a = new Bot({ provider: pa, store, coordination: { coordinator: new MemoryCoordinator({ hub, replicaId: 'a' }) } })
 const b = new Bot({ provider: pb, store, coordination: { coordinator: new MemoryCoordinator({ hub, replicaId: 'b' }) } })
 ```
+
+El hub guarda el estado de cada chat solo mientras sirve: los chats inactivos (sin
+ticket ni titular) por encima de `new MemoryCoordinationHub({ maxIdleKeys })` (por defecto
+10.000) se expulsan, primero los menos usados. Los fences siguen siendo monótonos tras una
+expulsión, y un chat recreado informa `previousHolder: null`, así que su siguiente titular
+refresca su estado.
