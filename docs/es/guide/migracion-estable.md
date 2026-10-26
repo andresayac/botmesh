@@ -1,7 +1,9 @@
 # Actualizar a estable: checklist y cambios de API
 
 La línea estable (`@botmesh/core` 2.0.0, los demás paquetes públicos 1.0.0)
-congela la API pública. Si vienes de una alpha de 2.0, casi todo tu código
+congela la API pública. La beta (`@botmesh/core` 2.0.0-beta, los demás paquetes
+públicos 1.0.0-beta) ya la incluye, así que estas páginas también sirven para
+pasar de una alpha a la beta. Si vienes de una alpha de 2.0, casi todo tu código
 sigue funcionando: las APIs renombradas conservan un alias `@deprecated` (tu
 editor las tacha), y las pocas rupturas reales están marcadas como **Ruptura**
 en estas páginas.
@@ -167,8 +169,9 @@ concepto, con el antiguo como alias `@deprecated` hasta v3.
 | `create-botmesh` | `TEMPLATES`, `agentsMd`, `findBotMeshMonorepo`, `AgentsMdInfo` desde la entrada principal | `getTemplate()` / `TEMPLATE_NAMES`, o `create-botmesh/internal` (sin semver) |
 
 El mapeador de errores de bajo nivel de cada provider se llama ahora
-`to<Canal>Error`; los canales privados tienen los mismos cambios de nombre
-(`toDiscordError`, `toTikTokError`, `toEmailError`), y `@botmesh/messenger` y
+`to<Canal>Error`; los canales que eran privados durante las alphas tienen los mismos
+cambios de nombre (`toDiscordError`, `toEmailError` y `toTikTokError` en el canal de
+TikTok, que sigue siendo privado), y `@botmesh/messenger` y
 `@botmesh/instagram`, públicos desde la beta, solo traen `toMessengerError` y
 `toInstagramError`. Los cambios de comportamiento de estos paquetes (votos de encuestas
 en Telegram, ediciones en Discord, versionado del esquema de SQLite) están en
@@ -233,7 +236,7 @@ const token = (await store.acquireLockFenced(`job:${id}`, 30_000))?.token
 
 ## Entradas de `@botmesh/ai`
 
-`@botmesh/ai` se divide igual que el core: 135 nombres en la entrada principal antes, 97 después.
+`@botmesh/ai` se divide igual que el core: 135 nombres en la entrada principal antes, 98 después.
 
 | Importar de | Qué contiene |
 | --- | --- |
@@ -298,7 +301,7 @@ el cliente respeta (`method`, `headers`, `body`, `signal`) y su política
 (`allowHttp`, `allowPrivateHosts`, `timeoutMs`, `maxBytes`, `maxRedirects`,
 `resolver`, `fetch`).
 
-- **Breaking (solo tipos):** desaparece `redirect`. Siempre se sobrescribía con
+- **Ruptura (solo tipos):** desaparece `redirect`. Siempre se sobrescribía con
   `'manual'`, porque el cliente sigue las redirecciones por su cuenta y valida
   cada salto; usa `maxRedirects` (`0` rechaza cualquier redirección).
 - Los demás campos de `RequestInit` (`cache`, `keepalive`, `integrity`...) siguen

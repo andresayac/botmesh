@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for wanting to contribute to `botmesh`. This repo is a transport-agnostic **pnpm monorepo**: the engine is `@botmesh/core` (`packages/core`), surrounded by transports (baileys/meta/messenger/instagram/telegram/discord), stores (sqlite/redis/mongo/postgres/mysql), shared helpers (`@botmesh/graph-core`, `@botmesh/http`) and tooling (`@botmesh/ai`, `@botmesh/nlu`, `@botmesh/manager`, `create-botmesh`). See the full table in the [README](README.md#packages). If you are a coding agent, read [`AGENTS.md`](AGENTS.md) too.
+Thanks for wanting to contribute to `botmesh`. This repo is a transport-agnostic **pnpm monorepo**: the engine is `@botmesh/core` (`packages/core`), surrounded by channels (Baileys, WhatsApp Cloud API, Evolution API, WPPConnect, Twilio, Gupshup, Messenger, Instagram, Telegram, Discord, GoHighLevel, email and TikTok), stores (sqlite/redis/mongo/postgres/mysql), shared infrastructure (`@botmesh/http`, `@botmesh/graph-core`, `@botmesh/wa-gateway-kit`, `@botmesh/server`, `@botmesh/events`, `@botmesh/otel`), plugins (`@botmesh/ai`, `@botmesh/rag`, `@botmesh/voice`, `@botmesh/nlu`, `@botmesh/chatwoot`…), product packages and tooling (`@botmesh/manager`, `create-botmesh`, `@botmesh/mcp`, `@botmesh/sandbox`, `eslint-plugin-botmesh`). See the full table in the [README](README.md#packages). If you are a coding agent, read [`AGENTS.md`](AGENTS.md) too.
 
 ## Requirements
 
@@ -88,14 +88,14 @@ Host and ports: `BOTWA_TEST_EMAIL_HOST`, `BOTWA_TEST_EMAIL_SMTP_PORT` and `BOTWA
 
 ### AI (`@botmesh/ai`) against a real Ollama
 
-`pnpm test` drives the real `@anthropic-ai/sdk`, `openai` and `@google/generative-ai` SDKs against local fakes of their HTTP APIs, and the Ollama provider against a fake `/api/chat` server: no network. `packages/ai/tests/ollama-live.test.ts` is an opt-in smoke test against a **real** Ollama with a pulled model (it checks the wiring, not the model's answers):
+`pnpm test` drives the real `@anthropic-ai/sdk`, `openai`, `@google/genai` and `@google/generative-ai` SDKs against local fakes of their HTTP APIs, and the Ollama provider against a fake `/api/chat` server: no network. `packages/ai/tests/ollama-live.test.ts` is an opt-in smoke test against a **real** Ollama with a pulled model (it checks the wiring, not the model's answers):
 
 ```bash
 BOTWA_TEST_OLLAMA_URL=http://127.0.0.1:11434 BOTWA_TEST_OLLAMA_MODEL=qwen2.5:0.5b \
   pnpm --filter @botmesh/ai exec vitest run tests/ollama-live.test.ts
 ```
 
-The repo installs the **oldest** SDK version each peer range accepts. `packages/ai/tests/sdk-wire-upper.test.ts` runs the same wire round trip (text, tool call and result, streaming) against the **newest** ones, installed in a scratch folder. Run it when you widen a peer range:
+`packages/ai/tests/sdk-wire.test.ts` runs a wire round trip (text, tool call and result, streaming) against the version of each SDK in the lockfile and against the **oldest** version each peer range accepts (installed under aliases: `anthropic-sdk-v0`, `openai-v6`, `google-genai-v2-0`). `packages/ai/tests/sdk-wire-upper.test.ts` runs the same round trip against the **newest** Anthropic, OpenAI and legacy Gemini SDKs, installed in a scratch folder. Run it when you widen a peer range:
 
 ```bash
 mkdir sdk-upper && cd sdk-upper && npm init -y
@@ -122,7 +122,7 @@ Options: `--chats`, `--groups`, `--participants`, `--ai-chats`, `--fresh` (new c
 ## Code rules
 
 - **ESM-only**: `"type": "module"`, relative imports with the `.js` extension (NodeNext). Node >= 22.
-- **No `console.*`** in `src/` — use the injected `logger`. QR output to the terminal is the only exception.
+- **No `console.*`** in `src/` — use the injected `logger`. The only exceptions are the terminal QR output (it writes to `process.stdout`), the `create-botmesh` CLI (`src/cli.js`) and the unauthenticated-API warning of `@botmesh/manager`.
 - **No `any`** in exported public types.
 - **TDD**: write the failing test first, then the minimal implementation. Every behaviour change needs its test.
 - The AI package loads provider SDKs lazily; never import them at the top level.
@@ -206,24 +206,24 @@ Run the whole thing before `changeset publish` (it is the checklist the [`ROADMA
 - [ ] `pnpm run docs:site && pnpm docs:check` with no errors or warnings, and `docs/public/llms.txt` up to date.
 - [ ] No secret, session credential or `.env` in the tree or in the tarballs (`git status`, `scripts/pack-smoke.mjs`).
 - [ ] Threat model and this checklist reviewed when the release changes surfaces (new channel, new capability, new public package).
-- [ ] After publishing: `npm dist-tag ls` for every package, a clean install from the registry with the right tag, and a smoke `npm create botmesh@alpha` in an empty directory.
+- [ ] After publishing: `npm dist-tag ls` for every package, a clean install from the registry with the right tag, and a smoke `npm create botmesh@beta` in an empty directory.
 
 ### Packaging smoke test
 
 `pnpm pack:smoke` (`scripts/pack-smoke.mjs`) simulates installing from npm **without publishing**: it builds, runs `pnpm pack` on every public package into a temporary directory outside the repo, checks each tarball (`main`/`types`/`exports`/`bin` files, README and LICENSE; no `src`, tests, source maps, configs or credentials; `lib/` output without source; `engines`; private or `workspace:` dependencies; sizes) and then, in a clean npm project, installs the tarballs and verifies that every `exports` subpath imports, that a TypeScript consumer compiles with `moduleResolution` `nodenext` and `bundler`, that the optional AI SDKs only fail when used, that the `botmesh` and `create-botmesh` bins work, that no published README has relative links (they break on npmjs.com) and that every `create-botmesh` template resolves its versions against the tarballs and installs **without touching its `@botmesh/*` ranges** (a local, temporary npm registry, `scripts/smoke/registry.mjs`, serves the tarballs to the `@botmesh` scope, so npm itself resolves the ranges, prereleases included) and boots in `botmesh dev`. It needs network access for third-party dependencies and takes a few minutes. Options: `--no-build`, `--no-scaffold-install` (faster), `--keep` (keeps the temporary directory). It is a local script: there is no CI workflow for it.
 
-### Prerelease mode `alpha`
+### Prerelease mode `beta`
 
-The repo is in Changesets' **`alpha` prerelease mode** (`.changeset/pre.json`, created with `pnpm changeset pre enter alpha`). While it stays that way:
+The repo is in Changesets' **`beta` prerelease mode** (`.changeset/pre.json`; the alphas were published in `alpha` mode before it). While it stays that way:
 
-- `pnpm version-packages` produces prerelease versions: `@botmesh/core` comes out as `2.0.0-alpha.N` and the rest as `x.y.z-alpha.N` (e.g. `0.2.0-alpha.0`). `pnpm changeset status --verbose` shows the versions that would be generated.
-- `pnpm release` publishes under the `alpha` dist-tag. A package that **has never been published** also gets `latest`, because npm assigns it to the first version of a name; for an existing package it is not moved, so `npm i @botmesh/core` only resolves while that package is brand new.
+- `pnpm version-packages` produces prerelease versions: `@botmesh/core` comes out as `2.0.0-beta.N` and the rest as `x.y.z-beta.N` (e.g. `1.0.0-beta.0`). `pnpm changeset status --verbose` shows the versions that would be generated.
+- `pnpm release` publishes under the `beta` dist-tag. A package that **has never been published** also gets `latest`, because npm assigns it to the first version of a name; for an existing package it is not moved, so `npm i @botmesh/core` without a tag keeps resolving to the first alpha: install with `@beta`.
 - `.changeset/pre.json` records the pre-mode state; do not delete or hand-edit it.
 
-To leave prerelease mode once the API settles:
+To leave prerelease mode once the API settles (a maintainer decision):
 
 ```bash
-pnpm changeset pre exit    # the next version-packages produces stable versions (no -alpha.N) and publishes under latest
+pnpm changeset pre exit    # the next version-packages produces stable versions (no -beta.N) and publishes under latest
 ```
 
 The scope **`@botmesh`** already exists on npm, and `create-botmesh` is taken by this project; both are prerequisites of the first publish and are done.

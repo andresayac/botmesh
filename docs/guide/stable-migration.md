@@ -1,7 +1,9 @@
 # Upgrade to stable: checklist and API changes
 
 The stable line (`@botmesh/core` 2.0.0, the other public packages 1.0.0)
-freezes the public API. Coming from a 2.0 alpha, most code keeps running:
+freezes the public API. The beta (`@botmesh/core` 2.0.0-beta, the other public
+packages 1.0.0-beta) already ships it, so these pages also cover upgrading from
+an alpha to the beta. Coming from a 2.0 alpha, most code keeps running:
 renamed APIs keep a `@deprecated` alias (your editor strikes them through),
 and the few hard breaks are marked **Breaking** on these pages.
 
@@ -160,8 +162,9 @@ the old one kept as a `@deprecated` alias until v3.
 | `@botmesh/http` | `RequestInit` fields other than `method`, `headers`, `body`, `signal` | nothing: drop them (see below) |
 | `create-botmesh` | `TEMPLATES`, `agentsMd`, `findBotMeshMonorepo`, `AgentsMdInfo` from the main entry | `getTemplate()` / `TEMPLATE_NAMES`, or `create-botmesh/internal` (no semver) |
 
-Every provider's low-level error mapper is now named `to<Channel>Error`; the private
-channels got the same renames (`toDiscordError`, `toTikTokError`, `toEmailError`), and
+Every provider's low-level error mapper is now named `to<Channel>Error`; the channels
+that were private during the alphas got the same renames (`toDiscordError`,
+`toEmailError`, and `toTikTokError` on the still-private TikTok channel), and
 `@botmesh/messenger` and `@botmesh/instagram`, public from the beta, ship only
 `toMessengerError` and `toInstagramError`. The behaviour changes of these
 packages (Telegram poll votes, Discord edits, SQLite schema versioning) are in
@@ -225,7 +228,7 @@ const token = (await store.acquireLockFenced(`job:${id}`, 30_000))?.token
 
 ## `@botmesh/ai` entries
 
-`@botmesh/ai` got the same split as core: 135 names on the main entry before, 97 after.
+`@botmesh/ai` got the same split as core: 135 names on the main entry before, 98 after.
 
 | Import from | What it holds |
 | --- | --- |

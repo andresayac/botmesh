@@ -16,12 +16,13 @@
 > wins. Constructing a Bot REQUIRES a provider:
 > new Bot({ provider: new BaileysProvider({ session }) }).
 > ESM-only, Node >= 22 (scaffolded projects require Node >= 22.12). Start a project
-> with `npm create botmesh` or `pnpm add @botmesh/core @botmesh/baileys`. Release line:
-> @botmesh/core 2.x, the other public packages 1.x. While the project is in prerelease
-> npm's `latest` tag may lag behind (it can stay on an older alpha, core 2.0.0-alpha.2 /
-> others 0.2.0-alpha.0, that predates these docs); the newest build is under the
-> prerelease dist-tag (`@alpha`, then `@beta`), so append it to install commands
-> (`pnpm add @botmesh/core@beta`, `npm create botmesh@beta`) until the stable release.
+> with `npm create botmesh@beta` or `pnpm add @botmesh/core@beta @botmesh/baileys@beta`.
+> Release line: @botmesh/core 2.x, the other public packages 1.x (currently the beta:
+> core 2.0.0-beta, the rest 1.0.0-beta). While the project is in prerelease npm's
+> `latest` tag lags behind (for the packages first published as alphas it stays on an
+> old alpha, core 2.0.0-alpha.2 / others 0.2.0-alpha.0, that predates these docs); the
+> newest build is under the `beta` dist-tag, so append `@beta` to install commands
+> until the stable release.
 > A bot module default-exports defineBot((provider) => new Bot({ provider })) so
 > `npx botmesh dev bot.js` (terminal simulator) and `node bot.js` (real provider inside
 > if (isMainModule(import.meta))) share it.
@@ -83,7 +84,7 @@
 - [Redis Cluster](https://andresayac.github.io/botmesh/guide/redis-cluster)
 - [Migrating to stable: API surface (canonical names, entry points)](https://andresayac.github.io/botmesh/guide/stable-migration)
 - [Upgrade notes: channels & plugins](https://andresayac.github.io/botmesh/guide/upgrade-channels-plugins)
-- [Migrating to stable: behaviour (English defaults, retries/maxAttempts, epoch-ms timestamps)](https://andresayac.github.io/botmesh/guide/migration-2)
+- [Migrating to stable: behaviour (English defaults, retries/maxAttempts, sends need a running bot)](https://andresayac.github.io/botmesh/guide/migration-2)
 - [Migrating to stable: dependencies](https://andresayac.github.io/botmesh/guide/migration)
 - [Troubleshooting: install errors, 428 handshake, LID identity, webhook signatures, rate limits](https://andresayac.github.io/botmesh/guide/troubleshooting)
 - [FAQ](https://andresayac.github.io/botmesh/guide/faq)
@@ -118,7 +119,7 @@ Public (36 packages):
 - @botmesh/mongo-store — MongoStore ({ url | client, dbName, collectionPrefix, ... }; mongodb ^6.10 || ^7 peer dependency, the own client is built on start(); store.schedules() → MongoScheduleStore (single-document atomic commands, standalone mongod works); deleteChat is one transaction on a replica set, two deletes on a standalone; ids entering filters must be strings). No durability backend
 - Store semantics: messageKey(ref) = `{chatId}:{id}` with ':' and '%' percent-escaped (ids with ':' such as Twilio's whatsapp:+1… never collide; rows from older versions under legacyMessageKey(ref) are still read/deleted and moved on re-save); MemoryStore keeps 1000 messages per chat by default (RAM only; maxMessagesPerChat: Infinity disables), persistent stores are unbounded unless maxMessagesPerChat is set; SQL/Mongo stores purge expired ctx.user data in batches (purgeBatchSize, default 1000)
 - @botmesh/ai — aiPlugin + AIClient (multi-provider LLM autoresponder, tool calling, long-term user memory, RAG hook; aiPlugin({ instance }) injects a ready-built AIProvider such as MockAIProvider)
-- every provider config takes logger?: LoggerLike (pino, console or any { debug, info, warn, error }; packages call it pino-style: logger.warn('msg') or logger.warn({ err, ...context }, 'msg')); @botmesh/baileys adapts it for Baileys with toBaileysLogger()
+- every provider config takes logger?: LoggerLike (pino, console or any { debug, info, warn, error }; packages call it pino-style: logger.warn('msg') or logger.warn({ err, ...context }, 'msg')); @botmesh/baileys adapts it for Baileys itself (toBaileysLogger() lives in @botmesh/baileys/internal; the main-entry name is deprecated)
 - create-botmesh — project scaffolder CLI (templates: baileys, meta, telegram, ai, games, support, store, restaurant, clinic, ai-full; every project ships an AGENTS.md; baileys/meta/telegram/ai install slashCommandsPlugin (before aiPlugin) so /reset and /cancel escape the sample menu flow; `npm start` of meta/telegram/ai/ai-full stops with one line naming missing .env variables before building a provider; refuses a target inside the botmesh monorepo itself unless --force, so from a checkout run `node packages/create-botmesh/lib/cli.js ../my-bot`; programmatic API: scaffold, sanitizeName, getTemplate, TEMPLATE_NAMES; TEMPLATES/agentsMd/findBotMeshMonorepo live in create-botmesh/internal, no semver, deprecated on the main entry)
 - @botmesh/http (secureFetch/fetchBuffer: anti-SSRF downloads; SecureFetchOptions = method/headers/body/signal + allowHttp/allowPrivateHosts/timeoutMs/maxBytes/maxRedirects/resolver/fetch, no longer extends RequestInit and has no `redirect`; a ReadableStream/async-iterable body is streamed (duplex: half set automatically); resolveHost, deprecated alias resolvePublicHost) and @botmesh/graph-core (shared Meta Graph webhook/error helpers; checkGraphSignature({ body, headers, appSecret, logger }), the positional form is deprecated) and @botmesh/wa-gateway-kit (REST client over secureFetch that never follows redirects, outbound media where only http(s) URLs reach the gateway, { url } accepts only http(s) or base64 data: (a path/file: there rejects with UnsupportedContentError) and { path }/plain path strings are read and sent inline, WaIdentityStore LID/PN reconciliation shared by evolution/wppconnect; gatewayBaseUrl rejects credentials/query/fragment with a TypeError) — public dependencies of the channel packages, covered by semver
 - @botmesh/server — webhook ingress, the recommended way to host webhook channels (raw body bytes for signature checks, body-size limit 413, body/ingest timeouts 408/503, concurrency cap 503 + Retry-After, GET verifyChallenge / POST ingest(raw, headers, path?query) routing (WPPConnect query tokens work as is), ingest() statuses 200-599 (1xx and anything else → 200), absolute-form request targets routed by path, config mistakes throw TypeError "@botmesh/server: …" naming the option, /healthz and /readyz gated by bot.getConnectionState()) for node:http (createNodeHandler), fetch runtimes (createFetchHandler), and the subpaths @botmesh/server/express, /fastify, /hono; no dependencies; normalizePath/splitUrl in @botmesh/server/internal (no semver). Guide: https://andresayac.github.io/botmesh/guide/server
