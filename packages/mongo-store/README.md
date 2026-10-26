@@ -96,7 +96,8 @@ const store = new MongoStore({ client: fake })
 - `undefined` is never stored as `null`: nested `undefined` values are dropped (JSON semantics), so a `StoredMessage` saved with `body: undefined` reads back without `body`.
 - Binary data inside `raw` / checkpoint state (`Buffer`, `Uint8Array`) reads back as a Node `Buffer`, not the driver's `Binary` class.
 - **Ids must be strings.** Every id that enters a filter (chat, message, contact, cursor/checkpoint/conversation key, `ctx.user` user/namespace/key, schedule id and owner) is checked, and anything else rejects with a `TypeError`. An object such as `{ $ne: '' }`, e.g. untrusted JSON an app forwards as `req.body.chatId`, would otherwise be a MongoDB query operator and read or delete other chats' and users' data.
-- Every document is limited to MongoDB's **16 MB** BSON cap — a single message, checkpoint or AI conversation history larger than that is rejected by the write (the previous value is kept). Field names may contain `.` and `$` but not NUL (`\0`).
+- Every document is limited to MongoDB's **16 MB** BSON cap — a single message, checkpoint or AI conversation history larger than that is rejected by the write (the previous value is kept).
+- Object keys may contain `.` and `$`. BSON cannot encode a key holding NUL (U+0000), so such a key, at any depth of a message, chat, contact, checkpoint (`setCheckpoint` and `setCheckpointIf`) or AI conversation, is stored with U+FFFD instead, as `PostgresStore` does. Values with U+0000 round-trip unchanged.
 
 ## Durable scheduler
 

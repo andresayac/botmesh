@@ -252,3 +252,46 @@ describe('MongoStore — options validation', () => {
     expect(() => new MongoStore({ client: new FakeMongoClient(), collectionPrefix: 'bot.v2_' })).not.toThrow()
   })
 })
+
+describe('MongoStore — object keys holding U+0000', () => {
+  // BSON cannot encode a key with a NUL byte: the driver throws "key ... must not contain null
+  // bytes". A flow whose c.state is keyed by user text could then never checkpoint. The key is
+  // stored with U+FFFD instead, as PostgresStore does; values and other keys are untouched.
+  const NUL = 'k\u0000'
+  const SAFE = 'k\ufffd'
+  let store: MongoStore
+  beforeEach(async () => {
+    store = new MongoStore({ client: new FakeMongoClient() })
+    await store.start()
+  })
+
+  const cp = (state: Record<string, unknown>, revision?: number): FlowCheckpoint =>
+    ({ flowId: 'f', stepIndex: 0, state, updatedAt: 1, ...(revision === undefined ? {} : { revision }) }) as unknown as FlowCheckpoint
+
+  it('setCheckpoint and setCheckpointIf store a NUL key as U+FFFD (nested too)', async () => {
+    await store.setCheckpoint('a', cp({ [NUL]: 1, nested: { [NUL]: [{ [NUL]: 'v\u0000' }] }, '$x': 2, 'a.b': 3 }))
+    expect((await store.getCheckpoint('a'))?.state).toEqual({ [SAFE]: 1, nested: { [SAFE]: [{ [SAFE]: 'v\u0000' }] }, '$x': 2, 'a.b': 3 })
+    expect(await store.setCheckpointIf('b', cp({ [NUL]: 1 }, 1), 0)).toBe(true)
+    expect(await store.setCheckpointIf('b', cp({ [NUL]: 2 }, 2), 1)).toBe(true)
+    expect((await store.getCheckpoint('b'))?.state).toEqual({ [SAFE]: 2 })
+  })
+
+  it('saveMessage, setConversation, upsertChat and upsertContact accept NUL keys', async () => {
+    const m = { ...msg('c', 'm1', 'hi', 1), raw: { [NUL]: Buffer.from([1, 2]) } } as StoredMessage
+    await store.saveMessage(m)
+    const got = await store.getMessage(m.ref)
+    expect(got?.raw).toEqual({ [SAFE]: Buffer.from([1, 2]) })
+    await store.setConversation('k', [{ role: 'user', content: 'x', meta: { [NUL]: 1 } } as never])
+    expect(await store.getConversation('k')).toEqual([{ role: 'user', content: 'x', meta: { [SAFE]: 1 } }])
+    await store.upsertChat({ id: 'c', raw: { [NUL]: 1 } })
+    expect((await store.getChat('c'))?.raw).toEqual({ [SAFE]: 1 })
+    await store.upsertContact({ id: 'u', raw: { [NUL]: 1 } })
+    expect((await store.getContact('u'))?.raw).toEqual({ [SAFE]: 1 })
+  })
+
+  it('leaves documents without NUL keys as they are (same object, Dates and Buffers kept)', async () => {
+    const when = new Date(5)
+    await store.setCheckpoint('d', cp({ when, buf: Buffer.from([7]), list: [1, 'x'] }))
+    expect((await store.getCheckpoint('d'))?.state).toEqual({ when, buf: Buffer.from([7]), list: [1, 'x'] })
+  })
+})

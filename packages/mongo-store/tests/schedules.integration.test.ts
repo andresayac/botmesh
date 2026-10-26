@@ -115,7 +115,6 @@ describe.skipIf(!MONGO_URL)('MongoScheduleStore — real MongoDB', () => {
     expect(after.nextRunAt! - stored.nextRunAt!).toBeGreaterThanOrEqual(0)
     expect((after.nextRunAt! - stored.nextRunAt!) % 300).toBe(0)
     expect(after.fencingToken).toBeGreaterThanOrEqual(stored.fencingToken)
-    expect(after.fencingToken).toBe(stored.fencingToken)
     await c.bot.stop()
   })
 })

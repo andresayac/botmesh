@@ -18,7 +18,9 @@
  * `undefined` values instead of persisting BSON `null` (top-level `undefined`
  * in `upsertChat`/`upsertContact` clears the field, like an object spread),
  * and reads promote BSON `Binary` back to Node `Buffer`s, so no driver type
- * leaks out of the store. Documents are capped at MongoDB's 16 MB BSON limit.
+ * leaks out of the store. An object key holding U+0000 (which BSON cannot
+ * encode) is written with U+FFFD instead, as PostgresStore does. Documents are
+ * capped at MongoDB's 16 MB BSON limit.
  *
  * @example
  * ```ts
@@ -49,6 +51,7 @@ import type {
 } from '@botmesh/core'
 import { legacyMessageKey, messageKey } from '@botmesh/core'
 import { idString } from './ids.js'
+import { bsonSafeKeys } from './keys.js'
 import { MongoScheduleStore } from './schedules.js'
 import { MongoUserData, type UserDataDoc } from './userData.js'
 
@@ -302,7 +305,7 @@ export class MongoStore implements IStore {
     const key = messageKey(msg.ref)
     await this.messages.updateOne(
       { _id: key },
-      { $set: { chatId: msg.chatId, timestamp: msg.timestamp, msg } },
+      { $set: { chatId: msg.chatId, timestamp: msg.timestamp, msg: bsonSafeKeys(msg) } },
       UPSERT,
     )
     // Drop the copy an older version wrote under the legacy key (else the
@@ -379,7 +382,7 @@ export class MongoStore implements IStore {
   /* Chats ----------------------------------------------------------------- */
 
   async upsertChat(chat: StoredChat): Promise<void> {
-    await this.chats.updateOne({ _id: idString(chat.id, 'chat.id') }, shallowMerge(chat), UPSERT)
+    await this.chats.updateOne({ _id: idString(chat.id, 'chat.id') }, shallowMerge(bsonSafeKeys(chat)), UPSERT)
   }
   async getChat(chatId: string): Promise<StoredChat | undefined> {
     const doc = await this.chats.findOne({ _id: idString(chatId, 'chatId') }, READ)
@@ -401,7 +404,7 @@ export class MongoStore implements IStore {
   /* Contacts -------------------------------------------------------------- */
 
   async upsertContact(contact: StoredContact): Promise<void> {
-    await this.contacts.updateOne({ _id: idString(contact.id, 'contact.id') }, shallowMerge(contact), UPSERT)
+    await this.contacts.updateOne({ _id: idString(contact.id, 'contact.id') }, shallowMerge(bsonSafeKeys(contact)), UPSERT)
   }
   async getContact(userId: string): Promise<StoredContact | undefined> {
     const doc = await this.contacts.findOne({ _id: idString(userId, 'userId') }, READ)
@@ -433,7 +436,7 @@ export class MongoStore implements IStore {
     return (await this.checkpoints.findOne({ _id: idString(key, 'key') }, READ))?.cp
   }
   async setCheckpoint(key: string, cp: FlowCheckpoint): Promise<void> {
-    await this.checkpoints.updateOne({ _id: idString(key, 'key') }, { $set: { cp } }, UPSERT)
+    await this.checkpoints.updateOne({ _id: idString(key, 'key') }, { $set: { cp: bsonSafeKeys(cp) } }, UPSERT)
   }
   async clearCheckpoint(key: string): Promise<void> {
     await this.checkpoints.deleteOne({ _id: idString(key, 'key') })
@@ -451,14 +454,14 @@ export class MongoStore implements IStore {
     idString(key, 'key')
     if (expectedRevision === 0) {
       try {
-        await this.checkpoints.updateOne({ _id: key, ...UNREVISIONED }, { $set: { cp } }, UPSERT)
+        await this.checkpoints.updateOne({ _id: key, ...UNREVISIONED }, { $set: { cp: bsonSafeKeys(cp) } }, UPSERT)
         return true
       } catch (error) {
         if (isDuplicateKey(error)) return false
         throw error
       }
     }
-    const result = await this.checkpoints.updateOne({ _id: key, 'cp.revision': expectedRevision }, { $set: { cp } }, { ignoreUndefined: true })
+    const result = await this.checkpoints.updateOne({ _id: key, 'cp.revision': expectedRevision }, { $set: { cp: bsonSafeKeys(cp) } }, { ignoreUndefined: true })
     return result.matchedCount === 1
   }
   async clearCheckpointIf(key: string, expectedRevision: number): Promise<boolean> {
@@ -481,7 +484,7 @@ export class MongoStore implements IStore {
     return (await this.conversations.findOne({ _id: idString(key, 'key') }, READ))?.messages
   }
   async setConversation(key: string, messages: AIMessage[]): Promise<void> {
-    await this.conversations.updateOne({ _id: idString(key, 'key') }, { $set: { messages } }, UPSERT)
+    await this.conversations.updateOne({ _id: idString(key, 'key') }, { $set: { messages: bsonSafeKeys(messages) } }, UPSERT)
   }
   async clearConversation(key: string): Promise<void> {
     await this.conversations.deleteOne({ _id: idString(key, 'key') })
