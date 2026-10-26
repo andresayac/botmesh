@@ -212,4 +212,4 @@ En Telegram los ids son números (`AGENTS=123456789`); instala
 
 - [Handoff humano y listas de acceso](/es/guide/handoff): persistencia, eventos y blacklists
 - [Bot de grupo](./bot-de-grupo): comandos que solo algunos usuarios pueden usar
-- [Integraciones](/es/guide/integraciones): handoff a una bandeja real como Chatwoot (aún no en npm)
+- [Integraciones](/es/guide/integraciones): handoff a una bandeja real como Chatwoot

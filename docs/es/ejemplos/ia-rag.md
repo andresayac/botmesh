@@ -148,11 +148,11 @@ if (isMainModule(import.meta)) {
   llamada a tu base de datos vectorial o a tu API de búsqueda: sirve cualquier
   objeto con `retrieve(query)` que resuelva pasajes `{ text, citation?, score? }`.
 
-::: info Retriever listo para usar: `@botmesh/rag` (aún no está en npm)
-El monorepo tiene un paquete experimental, `@botmesh/rag`, con loaders
+::: info Retriever listo para usar: `@botmesh/rag`
+El paquete `@botmesh/rag` tiene loaders
 (Markdown, texto, JSON, PDF), troceado, embeddings (local, OpenAI u Ollama) y un
 índice persistente: `rag: { retriever: createRag({ documents: ['./faq.md'] }), appendSources: true }`.
-Por ahora es **privado** (no se publica en npm); ver
+Está en npm desde la beta (`npm install @botmesh/rag@beta`); ver
 [`@botmesh/rag`](/es/guide/ai-memoria-rag#botmesh-rag).
 :::
 

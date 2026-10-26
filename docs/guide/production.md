@@ -86,21 +86,23 @@ All of these are opt-in: without the option, the bot runs exactly as before.
 
 ## Which packages are published
 
-The npm packages are `@botmesh/core`, `@botmesh/baileys`, `@botmesh/meta`,
-`@botmesh/telegram`, `@botmesh/messenger`, `@botmesh/instagram`,
-`@botmesh/evolution`, `@botmesh/wppconnect`, `@botmesh/sqlite-store`,
-`@botmesh/redis-store`, `@botmesh/postgres-store`, `@botmesh/mysql-store`,
-`@botmesh/mongo-store`, `@botmesh/ai`, `@botmesh/http`, `@botmesh/graph-core`,
-`@botmesh/wa-gateway-kit`, `@botmesh/server`, `@botmesh/events`, `@botmesh/otel`,
-`@botmesh/rag`, `@botmesh/voice`, `@botmesh/nlu`, `@botmesh/dialogflow`,
-`@botmesh/chatwoot`, `@botmesh/tickets`, `@botmesh/moderation`,
-`@botmesh/flow-schema`, `@botmesh/mcp`, `eslint-plugin-botmesh`
-and `create-botmesh` (all but `@botmesh/telegram`, `@botmesh/sqlite-store`,
-`@botmesh/redis-store`, `@botmesh/ai`, `@botmesh/http` and `@botmesh/graph-core`
-ship for the first time with the beta).
+The npm packages (36) are `@botmesh/core`; the channels `@botmesh/baileys`,
+`@botmesh/meta`, `@botmesh/telegram`, `@botmesh/messenger`, `@botmesh/instagram`,
+`@botmesh/discord`, `@botmesh/evolution`, `@botmesh/wppconnect`, `@botmesh/twilio`,
+`@botmesh/gupshup`, `@botmesh/gohighlevel` and `@botmesh/email`; the stores
+`@botmesh/sqlite-store`, `@botmesh/redis-store`, `@botmesh/postgres-store`,
+`@botmesh/mysql-store` and `@botmesh/mongo-store`; the infrastructure `@botmesh/http`,
+`@botmesh/graph-core`, `@botmesh/wa-gateway-kit`, `@botmesh/server`, `@botmesh/events`
+and `@botmesh/otel`; the plugins `@botmesh/ai`, `@botmesh/rag`, `@botmesh/voice`,
+`@botmesh/nlu`, `@botmesh/dialogflow`, `@botmesh/chatwoot`, `@botmesh/tickets` and
+`@botmesh/moderation`; and the tooling `@botmesh/flow-schema`, `@botmesh/mcp`,
+`eslint-plugin-botmesh` and `create-botmesh`. Only ten of them were published during the
+alpha (`core`, `baileys`, `meta`, `telegram`, `sqlite-store`, `redis-store`, `ai`,
+`http`, `graph-core` and `create-botmesh`); the other 26 ship for the first time with
+the beta.
 Some pages also describe packages that live only in the
 [repository](https://github.com/andresayac/botmesh/tree/main/packages) for now
-(the TikTok channel, the sandbox…). Each of those pages says so. Plan a
+(the TikTok channel, `@botmesh/manager`, the sandbox…). Each of those pages says so. Plan a
 production deployment on the published ones.
 
 ## Before each release of your bot

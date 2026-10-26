@@ -199,9 +199,11 @@ that used them from the monorepo (`workspace:*`) needs these changes:
 - **`@botmesh/tickets`:** `TicketKeyValue` has an optional `setIf`. A custom storage that
   implements it switches the desk to shared mode (safe for replicas).
 
-## Private packages
+## Packages that were private
 
-These are not on npm; the notes matter only inside the monorepo or a fork.
+These notes matter for code that used the packages from the monorepo or a fork before the
+beta. `@botmesh/discord`, `@botmesh/email` and `@botmesh/flow-schema` are on npm from the
+beta; `@botmesh/tiktok` and the product packages are still private.
 
 - **`@botmesh/discord`:** `ctx.interaction.id` (`interactionId`) is the bare interaction id;
   the token stays in the provider. `acknowledgeInteraction()` still accepts the old

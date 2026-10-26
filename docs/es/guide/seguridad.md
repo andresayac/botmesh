@@ -47,8 +47,8 @@ Lo que queda en tus manos. El resto de la página explica cada punto.
 
 El resto de la página es el resultado de la auditoría de octubre de 2026 de las
 superficies nuevas (ingress de webhooks, API REST del manager, canales y
-plugins nuevos). Varios de los paquetes auditados aún no están publicados en
-npm; los publicados se listan en
+plugins nuevos). La mayoría de los paquetes auditados son públicos desde la beta; `manager` y
+`tiktok` siguen siendo privados. Los publicados se listan en
 [Pasar a producción](./produccion#que-paquetes-estan-publicados).
 
 **Alcance:** `@botmesh/server`, `twilio`, `gohighlevel`, `gupshup`, `evolution`,

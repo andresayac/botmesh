@@ -44,8 +44,8 @@ What is left to you. The rest of this page explains each point.
 
 The rest of this page is the result of the October 2026 audit of the newer
 surfaces (webhook ingress, the manager REST API, the newer channels and
-plugins). Several audited packages are not published on npm yet; the published
-ones are listed in [Going to production](./production#which-packages-are-published).
+plugins). Most audited packages are public from the beta; `manager` and `tiktok`
+are still private. The published ones are listed in [Going to production](./production#which-packages-are-published).
 
 **Scope:** `@botmesh/server`, `twilio`, `gohighlevel`, `gupshup`, `evolution`,
 `wppconnect`, `email`, `tiktok`, `chatwoot`, `voice`, `rag`, `manager` (`/v1`

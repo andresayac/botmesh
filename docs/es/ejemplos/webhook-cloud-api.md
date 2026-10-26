@@ -203,7 +203,7 @@ comprobación de firma: nunca despliegues sin él (ni pongas
 (Meta reintenta lo que no pudo entregar) y el bot drena las respuestas en
 curso.
 
-`@botmesh/server` (en el repositorio, aún no está en npm) empaqueta el mismo
+`@botmesh/server` (en npm desde la beta) empaqueta el mismo
 ingress con límites de concurrencia, timeouts y adaptadores para Express,
 Fastify y Hono: mira [Servidor de webhooks](/es/guide/servidor).
 

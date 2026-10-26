@@ -4,6 +4,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### Integración de los 26 paquetes promovidos en `main` (2026-10)
+- Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
+- Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).
+
 ### Tooling público: `@botmesh/flow-schema`, `@botmesh/mcp` y `eslint-plugin-botmesh` (2026-10)
 - Los tres paquetes dejan de ser privados y salen en la beta (changesets `major` → `1.0.0-beta.x`), con README en inglés según la plantilla de los públicos, `package.json` completo (`repository.directory`, `homepage` de su guía, `publishConfig`) y cobertura en `pnpm api-check` y `pnpm pack:smoke` (importación de cada subpath, consumidor TypeScript, escenario de runtime y el bin `botmesh-mcp`).
 - `@botmesh/core/spi` exporta `pauseControls` y `runFormStep` con garantía semver (changeset `minor`): `@botmesh/flow-schema` los usa para los pasos `delay` y `form` anidados en lugar de `@botmesh/core/internal`, así que un minor del core no puede romper los flujos compilados. Siguen también en `/internal`.

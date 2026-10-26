@@ -210,4 +210,4 @@ On Telegram the ids are numbers (`AGENTS=123456789`); install
 
 - [Human handoff & access lists](/guide/handoff): persistence, events and blacklists
 - [Group bot](./group-bot): commands only some users may run
-- [Integrations](/guide/integrations): hand off to a real inbox such as Chatwoot (not on npm yet)
+- [Integrations](/guide/integrations): hand off to a real inbox such as Chatwoot
