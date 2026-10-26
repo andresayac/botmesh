@@ -798,7 +798,12 @@ export class Bot extends EventEmitter {
    * through `ctx.bot.registerFlow()` (or created by `ctx.bot.replaceFlow()`) are
    * unregistered on unplug.
    *
-   * @throws {Error} when a plugin named in `spec.requires` is not plugged.
+   * One instance per plugin name: plugging a name that is already plugged throws (unplug
+   * the first instance before plugging it again), unless every instance sets
+   * `spec.multiple: true`.
+   *
+   * @throws {Error} when a plugin named in `spec.requires` is not plugged, or when a plugin
+   * with the same `spec.name` is already plugged and `spec.multiple` is not set.
    */
   plug(plugin: Plugin, config?: Record<string, unknown>): () => void {
     return this.plugins.plug(this, plugin, config)

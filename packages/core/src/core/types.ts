@@ -196,6 +196,13 @@ export interface PluginSpec<TConfig = Record<string, unknown>> {
    */
   requires?: string[]
   /**
+   * Allow several instances of this plugin (same {@link name}) on one bot at a time, each
+   * with its own config and unplugged on its own. Default `false`: plugging a name that is
+   * already plugged throws, so a plugin registered twice by mistake never runs its handlers
+   * twice. Every instance must set it.
+   */
+  multiple?: boolean
+  /**
    * Register the plugin's handlers, hooks and tools. It must be **synchronous and return
    * nothing**: `bot.plug()` does not await it. An `async install` (or one that returns a
    * promise) does not compile ({@link SyncInstallError} names the reason); at runtime a
