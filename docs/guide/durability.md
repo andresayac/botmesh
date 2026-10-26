@@ -58,7 +58,14 @@ every 1000 entries or 4 MiB; `close()` folds the log into the snapshot. A leftov
 always replayed on open, even without the option. A journal file that cannot be read
 back (a truncated snapshot, a damaged log entry) is refused on open with an error that
 names the file, instead of being applied half-way: restore it from a backup or move it
-aside.
+aside. A torn **last** line of the log (a crash mid-append) is cut and the rest replayed;
+a bad line in the **middle**, followed by more entries, is corruption: `open()` refuses it
+with `code: 'APPEND_LOG_CORRUPT'` (file, line and byte offset) and leaves the file as it is,
+because cutting there would silently drop every later entry. `fsync: true` flushes each
+snapshot to disk before it replaces the previous one (and is the default of
+`appendLog.fsync`); without it the rename is atomic but may still sit in the OS cache when
+the machine loses power. `@botmesh/events`' `FileEventJournal` and
+`SharedFileEventJournal` take the same `fsync` option and refuse a corrupt log the same way.
 
 **Several bots can share one backend.** Each bot works in its own view of the
 backend, scoped by its namespace (`tenantId`, `environmentId`, `botId`,

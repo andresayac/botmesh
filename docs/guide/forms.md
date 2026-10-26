@@ -81,7 +81,7 @@ flow('order').form(orderForm, {
   mode: 'auto',        // 'auto' | 'native' | 'degraded'
   nativeId: '123456',  // provider-side form id (on the Cloud API: a Flow id or name)
   timeout: '10m',      // per answer (field by field) / for the submission (native)
-  retries: 3,          // invalid answers tolerated per field / per submission
+  maxAttempts: 3,      // answers accepted per field / submissions, the first included (default 3)
   skipWord: 'skip',    // field by field: word that skips an optional field
   pendingMessage: '👆 Fill in the form above to continue.',
 })

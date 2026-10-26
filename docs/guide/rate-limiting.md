@@ -102,6 +102,22 @@ console.log(limiter.pending) // messages waiting in queue
 limiter.reset() // clear buckets + reject queued sends
 ```
 
+## Short rate limits on `ctx` sends
+
+Whatever the transport, a `ctx` send (`reply`, `say`, media, in handlers, flows
+and conversations) that the provider rejects with a `RateLimitedError` asking
+for a short wait is retried in place, so a conversation step does not end on a
+transient 429: by default once, when `retryAfterMs` is at most 5 s.
+`BotConfig.rateLimitRetry` tunes it (`retries` counts attempts after the first):
+
+```ts
+new Bot({ provider, rateLimitRetry: { retries: 2, maxWaitMs: '10s' } })
+new Bot({ provider, rateLimitRetry: false })   // never retry in place
+```
+
+A longer wait, other errors and `bot.send()` fail as before; `bot.broadcast()`
+(its `retries` option) and the durable outbox have their own back-off.
+
 ## How it interacts with `before('send')` hooks
 
 The rate limiter runs **after** `before('send')` hooks but **before** the actual provider send. If a hook aborts the send, the rate limiter is never consulted — aborted sends don't consume tokens.

@@ -102,6 +102,24 @@ console.log(limiter.pending) // mensajes esperando en cola
 limiter.reset() // limpia buckets + rechaza envíos en cola
 ```
 
+## Límites cortos en los envíos de `ctx`
+
+Sea cual sea el transporte, un envío de `ctx` (`reply`, `say`, media, en
+handlers, flujos y conversaciones) que el provider rechaza con un
+`RateLimitedError` que pide una espera corta se reintenta en el sitio, para que
+un paso de conversación no termine por un 429 pasajero: por defecto una vez,
+cuando `retryAfterMs` es de 5 s como mucho. `BotConfig.rateLimitRetry` lo ajusta
+(`retries` cuenta los intentos después del primero):
+
+```ts
+new Bot({ provider, rateLimitRetry: { retries: 2, maxWaitMs: '10s' } })
+new Bot({ provider, rateLimitRetry: false })   // nunca reintentar en el sitio
+```
+
+Una espera más larga, otros errores y `bot.send()` fallan como antes;
+`bot.broadcast()` (su opción `retries`) y el outbox durable tienen su propio
+back-off.
+
 ## Interacción con hooks `before('send')`
 
 El rate limiter corre **después** de los hooks `before('send')` pero **antes** del envío real al provider. Si un hook aborta el envío, el rate limiter nunca se consulta — los envíos abortados no consumen tokens.

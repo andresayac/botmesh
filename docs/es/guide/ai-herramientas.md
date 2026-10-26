@@ -234,8 +234,9 @@ Voy a: Crear pedido
 ¿Confirmas? (sí/no)
 ```
 
-Está en español por defecto y en inglés (`About to: Create order … Do you
-confirm? (yes/no)`) cuando `ctx.lang` es `en` (ver
+Es el texto en español, el que se usa cuando `ctx.lang` es `es` (por ejemplo
+con `lang: 'es'` en el bot). Por defecto sale en inglés (`About to: Create
+order … Do you confirm? (yes/no)`), como todos los textos internos (ver
 [i18n](/es/guide/i18n#mensajes-internos)). Un chat en un idioma sin textos
 internos (por ejemplo `fr`) recibe el idioma por defecto del bot si es `es` o
 `en`, y si no, inglés. Cámbialo por idioma con

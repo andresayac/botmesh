@@ -38,7 +38,7 @@ if (validateFlowDocument(document).length === 0) bot.registerFlow(compileFlowDoc
 | Tipo | Qué hace |
 | --- | --- |
 | `say` | Envía texto (admite plantillas). |
-| `ask` | Envía texto, espera una respuesta y la guarda en `c.state[stateKey]`; admite `timeout`, `retries` y `validate: { expr, message }` (`$answer` es la respuesta cruda). |
+| `ask` | Envía texto, espera una respuesta y la guarda en `c.state[stateKey]`; admite `timeout`, `maxAttempts` (respuestas en total) o `retries` (después de la primera) y `validate: { expr, message }` (`$answer` es la respuesta cruda). |
 | `choose` | Menú numerado (`options: [{ key, label, steps? }]`), guarda la clave elegida. |
 | `condition` | Expresión `if` con pasos anidados en `then`/`else`. |
 | `delay` | Pausa (`'500ms'`… como máximo 5 minutos). |

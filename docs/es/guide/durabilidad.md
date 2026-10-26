@@ -59,6 +59,14 @@ cada 1000 entradas o 4 MiB; `close()` pliega el log en el snapshot. Un log sobra
 reproduce siempre al abrir, incluso sin la opción. Un journal que no se puede volver a
 leer (un snapshot truncado, una entrada del log dañada) se rechaza al abrir con un error
 que nombra el archivo, en vez de aplicarse a medias: restáuralo de una copia o apártalo.
+Una **última** línea del log a medias (una caída a mitad de escritura) se recorta y el resto
+se reproduce; una línea mala en **medio**, seguida de más entradas, es corrupción: `open()`
+la rechaza con `code: 'APPEND_LOG_CORRUPT'` (archivo, línea y byte) y deja el archivo como
+está, porque cortar ahí perdería en silencio todas las entradas posteriores. `fsync: true`
+fuerza cada snapshot a disco antes de reemplazar al anterior (y es el valor por defecto de
+`appendLog.fsync`); sin él el rename es atómico, pero puede seguir en la caché del sistema
+si la máquina se queda sin corriente. `FileEventJournal` y `SharedFileEventJournal` de
+`@botmesh/events` aceptan la misma opción `fsync` y rechazan igual un log dañado.
 
 **Varios bots pueden compartir un backend.** Cada bot trabaja en su propia vista del
 backend, acotada por su namespace (`tenantId`, `environmentId`, `botId`,

@@ -330,3 +330,8 @@ const store = new MemoryStore()
 const a = new Bot({ provider: pa, store, coordination: { coordinator: new MemoryCoordinator({ hub, replicaId: 'a' }) } })
 const b = new Bot({ provider: pb, store, coordination: { coordinator: new MemoryCoordinator({ hub, replicaId: 'b' }) } })
 ```
+
+The hub keeps per-chat state only while it is useful: idle chats (no ticket, no
+holder) beyond `new MemoryCoordinationHub({ maxIdleKeys })` (default 10,000) are evicted,
+least recently used first. Fences stay monotonic across an eviction, and a re-created
+chat reports `previousHolder: null`, so its next holder refreshes its state.

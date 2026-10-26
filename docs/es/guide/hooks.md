@@ -30,6 +30,10 @@ omite, un evento del provider no se emite). Un hook que solo observa o
 reescribe debe terminar siempre con `await next()`. Para bloquear a
 propósito (rate limiting, filtros), vuelve sin `next()` o llama a
 `ctx.abort()` (ver `abort()` más abajo); `abort()` se lee más explícito.
+
+Llama a `next()` **una sola vez**. Un hook que vuelve a llamarlo conserva el
+primer despacho (el resto de la cadena corre una vez y cada `next()` posterior
+devuelve la misma promesa) y el mal uso se informa en el evento `'error'`.
 :::
 
 ### after — después de procesar

@@ -18,6 +18,7 @@ const bot = new Bot({
     ignoreNewsletters: true,
     ignoreBroadcasts: true,
   }),
+  lang: 'es',
 })
 
 // 2. Eventos de conexión
@@ -85,6 +86,11 @@ transporte concreto. `session` es una opción **del provider**: el login de
 WhatsApp se guarda en `./sessions/demo-bot/`. Si cierras y vuelves a abrir,
 **no necesitas escanear el QR de nuevo**.
 
+`lang: 'es'` pone en español los textos que el framework escribe por ti
+(respuestas de los comandos slash, "escribe tu respuesta como texto", los
+timeouts...). Sin esta opción salen en inglés. Consulta
+[Internacionalización](./i18n) para atender varios idiomas.
+
 ### 2. Eventos de conexión
 
 Eventos que se disparan cuando el bot se conecta o muestra el QR.
@@ -95,7 +101,8 @@ Instala `/start`, `/help`, `/reset`, `/cancel`, `/id`, `/ping` — 6 comandos
 gratis. `greeting` sustituye el texto de `/start` y `/help`, así que lista los
 comandos en él (sin `greeting` responden con una lista de comandos integrada).
 Los textos que escribe el framework (respuestas de los comandos, timeouts,
-validaciones) salen en español por defecto; para otro idioma mira
+validaciones) salen en español gracias a `lang: 'es'` (sin esa opción, en
+inglés); para otro idioma mira
 [Internacionalización](./i18n). Los comandos siempre ganan sobre una conversación activa, así que
 `/reset` (o `/cancel`) siempre puede escapar de un flujo atascado.
 

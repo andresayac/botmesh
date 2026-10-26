@@ -223,7 +223,7 @@ Steps:
 | `kind` | Fields |
 | --- | --- |
 | `say` | `text` |
-| `ask` | `text`, `stateKey`, `timeout?`, `retries?` (0–20), `validate?: { expr, message? }` (`$answer` holds the raw answer) |
+| `ask` | `text`, `stateKey`, `timeout?`, `maxAttempts?` (1–21, answers in total) or `retries?` (0–20, after the first), `validate?: { expr, message? }` (`$answer` holds the raw answer) |
 | `choose` | `text`, `options: [{ key, label, steps? }]` (up to 20; an option's `steps` run when it is picked), `stateKey?`, `timeout?` |
 | `delay` | `duration` (at most 5 minutes) |
 | `goto` | `target` (another flow id) |

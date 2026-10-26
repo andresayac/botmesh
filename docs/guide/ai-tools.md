@@ -223,8 +223,9 @@ Voy a: Crear pedido
 ¿Confirmas? (sí/no)
 ```
 
-It is Spanish by default and English (`About to: Create order … Do you
-confirm? (yes/no)`) when `ctx.lang` is `en` (see
+That is the Spanish text, used when `ctx.lang` is `es` (e.g. a bot with
+`lang: 'es'`). The default is English (`About to: Create order … Do you
+confirm? (yes/no)`), as for every built-in text (see
 [i18n](/guide/i18n#built-in-messages)). A chat in a language without built-in
 texts (say `fr`) gets the bot's default locale when that is `es` or `en`, else
 English. Override it per language with

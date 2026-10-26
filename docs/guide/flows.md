@@ -44,13 +44,18 @@ flow('x').ask('What is your name?', 'name')  // stores the reply in c.state.name
 flow('x').ask('Email?', 'email', {
   validate: (body) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body) ? true : '❌ Invalid email, try again',
-  retries: 2,
+  maxAttempts: 3,
   timeout: '2m',
 })
 ```
 
-If `validate` returns an error string, the bot sends it back and re-asks
-(up to `retries`, default 3, before throwing `RetriesExceeded`).
+If `validate` returns an error string, the bot sends it back and re-asks.
+`maxAttempts` is the total number of answers the wait accepts, the first one
+included (default 3); the last invalid one throws `RetriesExceeded` and the
+conversation ends with `retriesMessage`. `retries: N` is the same budget
+counted after the first answer (`retries: 2` = `maxAttempts: 3`); pass one of
+the two. During the 2.0 alphas `retries: N` meant N answers in total, see the
+[migration guide](./migration-2#retries-and-maxattempts).
 
 #### Schema validation (zod-compatible)
 
@@ -69,7 +74,7 @@ flow('registro')
   .say((_ctx, c) => `Next year you will be ${c.state.age + 1}`)   // c.state.age: number
 ```
 
-`schema` runs after `validate` and shares its `retries` budget. It also
+`schema` runs after `validate` and shares its `maxAttempts` budget. It also
 works in conversations: `await c.ask(q, { schema })` and
 `await c.waitText({ schema })` resolve with the parsed value.
 
@@ -326,7 +331,7 @@ use `userOf(ctx)` and `bot.handoff(ctx.from)` there.
 
 `c.retry(message?)` repeats the most recent wait (`ask`, `waitText`,
 `waitMedia`, `choose`, `waitAny`) with the same options (`validate`,
-`filter`, `timeout`, `otherwise`, `retries`). Before waiting it re-sends the
+`filter`, `timeout`, `otherwise`, `maxAttempts`). Before waiting it re-sends the
 `ask` question or the `choose` menu, or `message` instead. For `choose`,
 `message` only replaces the header; the numbered options stay.
 `waitText`/`waitMedia`/`waitAny` have no prompt, so they only send
@@ -364,9 +369,9 @@ flow('game')
   resumed after a restart. If the wait was made in the same `.do()`
   (`await c.waitText()`), it retries in place.
 - **Budget:** each `c.retry()` counts as one invalid attempt of that wait,
-  shared with `validate` rejections. Reaching `retries` (default 3) throws
+  shared with `validate` rejections. Reaching `maxAttempts` (default 3) throws
   `RetriesExceeded` and the conversation ends with `retriesMessage`. Each
-  new wait starts at zero. For unlimited retries use `retries: Infinity`.
+  new wait starts at zero. For unlimited retries use `maxAttempts: Infinity`.
 - With no previous wait it fails with `RetryUnavailableError` (sent to the
   `'error'` event, and `errorMessage` is sent).
 - Always `await` (or `return`) it. A conversation has one pending-wait
@@ -400,7 +405,7 @@ bot.conversation('game', async (c, ctx) => {
 - Inside the callback: `c.end(farewell?)` or `c.goto('menu')` finish or
   redirect the conversation at the pending wait. `c.retry(msg?)` re-sends
   the pending question as a reminder and keeps waiting for the same answer
-  (it counts towards `retries`; for a reminder that does not count, use
+  (it counts towards `maxAttempts`; for a reminder that does not count, use
   `ctx.reply`). If no wait is pending it does nothing. The callback cannot
   start new waits. Other errors go to the `'error'` event and the
   conversation goes on.

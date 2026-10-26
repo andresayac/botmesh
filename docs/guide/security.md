@@ -74,7 +74,9 @@ is in the dedupe window.
   while walking directories and cap each file (20 MiB).
 - **Logging.** Grepped every `logger.*` call in the audited packages: no tokens,
   QR payloads, message bodies or addresses; errors are logged by class or by
-  provider-reported reason.
+  provider-reported reason. The core's own lines carry chat and sender ids
+  through `BotConfig.logIds`: hashed by default (HMAC, 16 characters, the same
+  hash as the trace spans), `'raw'` for local debugging, `'omit'` to drop them.
 
 ### Fixed during the audit
 

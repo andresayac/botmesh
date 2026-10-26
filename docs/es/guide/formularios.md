@@ -81,7 +81,7 @@ flow('pedido').form(pedido, {
   mode: 'auto',        // 'auto' | 'native' | 'degraded'
   nativeId: '123456',  // id del formulario en el provider (en la Cloud API, id o nombre del Flow)
   timeout: '10m',      // por respuesta (campo por campo) / para el envío (nativo)
-  retries: 3,          // respuestas inválidas toleradas por campo / por envío
+  maxAttempts: 3,      // respuestas aceptadas por campo / envíos, la primera incluida (por defecto 3)
   skipWord: 'omitir',  // campo por campo: palabra que salta un campo opcional
   pendingMessage: '👆 Completa el formulario de arriba para continuar.',
 })

@@ -29,6 +29,10 @@ and the event, exactly like `ctx.abort()`: the message is not routed (a
 observes or rewrites must always end with `await next()`. To block on
 purpose (rate limiting, filters) either return without `next()` or call
 `ctx.abort()` (see `abort()` below) — `abort()` reads more explicitly.
+
+Call `next()` **once**. A hook that calls it again keeps the first dispatch
+(the rest of the chain runs once; every later `next()` returns the same
+promise) and the misuse is reported on the `'error'` event.
 :::
 
 ### after — after processing
