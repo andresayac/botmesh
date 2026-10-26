@@ -21,50 +21,55 @@ const bot = new Bot({
 })
 
 // 2. Eventos de conexión
-bot.on('ready', () => console.log('✅ Bot ready!'))
-bot.on('qr', () => console.log('📱 Scan the QR with your WhatsApp'))
+bot.on('ready', () => console.log('✅ ¡Bot listo!'))
+bot.on('qr', () => console.log('📱 Escanea el QR con tu WhatsApp'))
 
 // 3. Comandos slash integrados (/start, /help, /reset, /cancel, /id, /ping)
 bot.plug(slashCommandsPlugin, {
-  greeting: '🤖 Hi! I am a bot. Send /help to see my commands.',
+  // Se muestra en /start y /help (sin él: la lista de comandos integrada)
+  greeting: [
+    '🤖 ¡Hola! Soy un bot.',
+    'Comandos: /help /reset /cancel /id /ping',
+    'O envía: hola, foto, sticker, registrar',
+  ].join('\n'),
 })
 
 // 4. Respuestas simples
 bot.when('hola', async (ctx) => {
-  await ctx.reply('👋 Hello! Send "registrar" to try the registration flow.')
+  await ctx.reply('👋 ¡Hola! Envía "registrar" para probar el flujo de registro.')
 })
 
 bot.when('info', async (ctx) => {
-  await ctx.reply('ℹ️ I am a bot built with @botmesh/core v2')
+  await ctx.reply('ℹ️ Soy un bot hecho con @botmesh/core v2')
 })
 
 // 5. Media
-bot.when('photo', async (ctx) => {
-  await ctx.photo('https://picsum.photos/400/300', '📸 Here is a photo')
+bot.when('foto', async (ctx) => {
+  await ctx.photo('https://picsum.photos/400/300', '📸 Aquí tienes una foto')
 })
 
 bot.when('sticker', async (ctx) => {
   await ctx.sticker('https://picsum.photos/512/512', {
-    pack: 'My Bot',
-    author: 'me',
+    pack: 'Mi Bot',
+    author: 'yo',
   })
 })
 
 // 6. Flujo de registro
 const register = flow('registrar')
-  .say('📝 *Let us register you*')
-  .ask('What is your name?', 'name')
-  .ask('What is your email?', 'email', {
+  .say('📝 *Vamos a registrarte*')
+  .ask('¿Cuál es tu nombre?', 'name')
+  .ask('¿Cuál es tu email?', 'email', {
     validate: (body) =>
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body) ? true : '❌ Invalid email, try again',
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body) ? true : '❌ Email inválido, intenta de nuevo',
   })
-  .say((_ctx, c) => `✅ Registration complete!\n👤 ${c.state.name}\n📧 ${c.state.email}`)
+  .say((_ctx, c) => `✅ ¡Registro completo!\n👤 ${c.state.name}\n📧 ${c.state.email}`)
 
 bot.use(register)
 
 // 7. Catch-all
 bot.onMessage(async (ctx) => {
-  await ctx.reply('🤔 I did not recognize that. Send /help for commands.')
+  await ctx.reply('🤔 No te entendí. Envía /help para ver los comandos.')
 })
 
 // 8. Iniciar
@@ -87,7 +92,11 @@ Eventos que se disparan cuando el bot se conecta o muestra el QR.
 ### 3. Comandos slash
 
 Instala `/start`, `/help`, `/reset`, `/cancel`, `/id`, `/ping` — 6 comandos
-gratis. Los comandos siempre ganan sobre una conversación activa, así que
+gratis. `greeting` sustituye el texto de `/start` y `/help`, así que lista los
+comandos en él (sin `greeting` responden con una lista de comandos integrada).
+Los textos que escribe el framework (respuestas de los comandos, timeouts,
+validaciones) salen en español por defecto; para otro idioma mira
+[Internacionalización](./i18n). Los comandos siempre ganan sobre una conversación activa, así que
 `/reset` (o `/cancel`) siempre puede escapar de un flujo atascado.
 
 ### 4. Respuestas simples
@@ -127,7 +136,7 @@ conversación activa, o un matcher `when`/flow) ya consumió el mensaje.
 node bot.js
 ```
 
-Escanea el QR y prueba enviando: `hola`, `photo`, `sticker`, `registrar`.
+Escanea el QR y prueba enviando: `hola`, `foto`, `sticker`, `registrar`.
 
 ## Siguientes pasos
 

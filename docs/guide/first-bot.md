@@ -18,6 +18,8 @@ const bot = new Bot({
     ignoreNewsletters: true,
     ignoreBroadcasts: true,
   }),
+  // Built-in texts (slash commands, timeouts, validation) in English. The default is Spanish.
+  i18n: { defaultLocale: 'en', locales: ['en'] },
 })
 
 // 2. Connection events
@@ -26,7 +28,12 @@ bot.on('qr', () => console.log('📱 Scan the QR with your WhatsApp'))
 
 // 3. Built-in slash commands (/start, /help, /reset, /cancel, /id, /ping)
 bot.plug(slashCommandsPlugin, {
-  greeting: '🤖 Hi! I am a bot. Send /help to see my commands.',
+  // Shown on /start and /help (without it: the built-in command list)
+  greeting: [
+    '🤖 Hi! I am a bot.',
+    'Commands: /help /reset /cancel /id /ping',
+    'Or send: hola, photo, sticker, registrar',
+  ].join('\n'),
 })
 
 // 4. Simple responses
@@ -80,6 +87,11 @@ transport. `session` is a **provider** option: the WhatsApp login is saved
 in `./sessions/demo-bot/`. If you close and reopen, **you don't need to
 scan the QR again**.
 
+`i18n` sets the language of the texts the framework writes for you (slash
+command replies, "please answer with text", timeouts...). They are Spanish by
+default; `locales: ['en']` pins this bot to English. See
+[Internationalization](./i18n) to serve several languages.
+
 ### 2. Connection events
 
 Events that fire when the bot connects or shows the QR. `bot.on('qr', ...)`
@@ -89,7 +101,8 @@ transports may surface a pairing code or OAuth URL through the same event).
 ### 3. Slash commands
 
 Installs `/start`, `/help`, `/reset`, `/cancel`, `/id`, `/ping` — 6 commands
-for free. Commands always win over an active conversation, so `/reset` (or
+for free. `greeting` replaces the text of `/start` and `/help`, so list the
+commands in it (without `greeting` they answer with a built-in command list). Commands always win over an active conversation, so `/reset` (or
 `/cancel`) can always escape a stuck flow.
 
 ### 4. Simple responses

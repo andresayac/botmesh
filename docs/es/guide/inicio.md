@@ -72,6 +72,12 @@ Cada proyecto incluye `package.json` (con `npm start` y `npm run dev`, el
 instrucciones para agentes de código con IA: la API v2 actual, lo que no
 existe (`addAnswer`, `capture`...) y los comandos que hay que ejecutar.
 
+`npm run dev` no necesita credenciales. `npm start` en los proyectos `meta`,
+`telegram`, `ai` y `ai-full` comprueba las variables sin las que no puede
+arrancar y, si falta el `.env` o está incompleto, se detiene con una línea que
+las nombra (`Missing TELEGRAM_TOKEN: copy .env.example to .env ...`) antes de
+conectar nada.
+
 El `package.json` generado depende de los paquetes `@botmesh/*` publicados
 bajo el dist-tag `alpha` (`^2.0.0-alpha.2` para el core, `^0.2.0-alpha.0` para
 el resto; los rangos exactos salen de `create-botmesh/src/versions.ts`,
@@ -176,9 +182,9 @@ import { CloudAPIProvider } from '@botmesh/meta'
 
 const bot = new Bot({
   provider: new CloudAPIProvider({
-    accessToken: process.env.META_ACCESS_TOKEN,
-    phoneNumberId: process.env.META_PHONE_NUMBER_ID,
-    verifyToken: process.env.META_VERIFY_TOKEN,
+    accessToken: process.env.META_TOKEN ?? '',
+    phoneNumberId: process.env.META_PHONE_ID ?? '',
+    verifyToken: process.env.META_VERIFY_TOKEN ?? '',
     appSecret: process.env.META_APP_SECRET, // obligatorio: verifica X-Hub-Signature-256
   }),
 })

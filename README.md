@@ -75,7 +75,7 @@ Start with the [core README](packages/core/README.md) for the quickstart.
 ```bash
 pnpm add @botmesh/core@alpha @botmesh/baileys@alpha   # WhatsApp bot (Baileys)
 # or @botmesh/core@alpha @botmesh/meta@alpha          # official WhatsApp bot (Cloud API)
-pnpm add @botmesh/ai@alpha @anthropic-ai/sdk         # + AI (optional; install the SDK of the provider you use)
+pnpm add @botmesh/ai@alpha @anthropic-ai/sdk@^0.68  # + AI (optional; install the SDK of the provider you use)
 ```
 
 The **`@alpha` tag is mandatory** while the alpha is the only published series: `changeset publish` in
@@ -83,6 +83,10 @@ prerelease mode creates the `alpha` dist-tag, not `latest`, so `pnpm add @botmes
 resolve. Once a stable version ships the tag can be dropped (see [prerelease mode](CONTRIBUTING.md#modo-prerelease-alpha)).
 
 Requires **Node >= 22**. Every package is **ESM-only**.
+
+Pin the AI SDK to the range `@botmesh/ai` declares as a peer (`@anthropic-ai/sdk@^0.68`, `openai@^6.48`, `@google/generative-ai@^0.21`): unlike `npm`, `pnpm add <sdk>` installs the newest major and only warns about the peer range.
+
+The quickest start is the scaffolder: `npm create botmesh@alpha my-bot` (see [`create-botmesh`](packages/create-botmesh)).
 
 > **AI on WhatsApp:** since 2026-01-15 the WhatsApp Business Platform terms forbid general-purpose AI assistants (open ChatGPT-style chatbots). AI in the service of the business (support, sales, bookings) is allowed. Details in the [AI plugin guide](docs/guide/ai.md#whatsapp-ai-policy-since-2026-01-15).
 
