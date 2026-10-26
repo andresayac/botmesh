@@ -29,7 +29,7 @@ npm install @botmesh/core @botmesh/baileys
 
 ```js
 // bot.js
-import { Bot, defineBot, flow, isMainModule } from '@botmesh/core'
+import { Bot, defineBot, flow, isMainModule, slashCommandsPlugin } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
 
 // Administradores del bot: sus ids de usuario, tal como los muestra /id (WhatsApp: 573001234567@s.whatsapp.net)
@@ -43,6 +43,7 @@ const createBot = defineBot((provider) => {
   const scores = new Map() // id del grupo → Map(nombre → puntos)
   const isAdmin = (ctx) => ADMINS.includes(ctx.sender)
   const nameOf = (ctx) => ctx.pushName ?? ctx.sender
+  bot.plug(slashCommandsPlugin) // /id, /help, /cancel...
 
   // 2. Un quiz por participante: dos personas pueden jugar a la vez
   bot.use(
@@ -114,7 +115,9 @@ if (isMainModule(import.meta)) {
 4. **Comandos solo para administradores.** El bot compara `ctx.sender` con
    `ADMINS`. Son los administradores del bot, no los del grupo: botmesh no lee
    la lista de administradores de un grupo, así que guarda la tuya en la
-   configuración (envía `/id` para ver un id).
+   configuración. `/id` (de `slashCommandsPlugin`) muestra el id del chat en
+   el que se envía: en privado con el bot es tu id de usuario; en un grupo, el
+   id del grupo.
 5. **Menciones.** `ctx.mentions` lista los usuarios que menciona un mensaje, y
    `provider.selfId` es el id del propio bot una vez conectado. El catch-all
    las comprueba y solo ve lo que ningún otro handler tomó, así que `@bot quiz`
@@ -199,7 +202,7 @@ con un catch-all que solo responde en privado.
 
 ## Ejecútalo en WhatsApp o Telegram
 
-Pon tu id en `ADMINS` (envía `/id` al bot para verlo), arranca el bot con
+Pon tu id en `ADMINS` (envía `/id` al bot en privado para verlo), arranca el bot con
 `node bot.js`, escanea el QR desde **WhatsApp → Dispositivos vinculados** y
 añade el número del bot a un grupo. En Telegram, instala `@botmesh/telegram`,
 cambia el provider como en [O conectar Telegram](/es/guide/inicio#o-conectar-telegram)

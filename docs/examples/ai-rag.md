@@ -148,7 +148,7 @@ if (isMainModule(import.meta)) {
 The `@botmesh/rag` package has loaders
 (Markdown, text, JSON, PDF), chunking, embeddings (local, OpenAI or Ollama) and
 a persisted index: `rag: { retriever: createRag({ documents: ['./faq.md'] }), appendSources: true }`.
-It is on npm from the beta (`npm install @botmesh/rag@beta`); see
+Install it with `npm install @botmesh/rag`; see
 [`@botmesh/rag`](/guide/ai-memory-rag#botmesh-rag).
 :::
 
