@@ -7,7 +7,7 @@
  */
 
 export { DiscordProvider, DISCORD_MEDIA_HOSTS } from './DiscordProvider.js'
-export { toDiscordError, toProviderError } from './restClient.js'
+export { toDiscordError } from './restClient.js'
 export { isEditedMessage } from './parseInbound.js'
-export type { DiscordProviderConfig, SocketLike, SocketFactory, DiscordApiErrorBody } from './types.js'
+export type { DiscordProviderConfig, SocketLike, SocketFactory, DiscordApiErrorBody, DiscordAllowedMentions } from './types.js'
 export { GatewayIntents, DEFAULT_INTENTS } from './types.js'

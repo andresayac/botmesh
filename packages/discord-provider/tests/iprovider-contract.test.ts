@@ -70,7 +70,8 @@ describe('DiscordProvider — IProvider signature parity', () => {
 
     await p.deleteMessage(ref)
     await p.editMessage(ref, { kind: 'text', text: 'edited' })
-    await p.acknowledgeInteraction('IID:TT', { text: 'ok', defer: true })
+    ;(p as unknown as { rememberInteraction(d: unknown): void }).rememberInteraction({ id: 'IID', token: 'TT', type: 3 })
+    await p.acknowledgeInteraction('IID', { text: 'ok', defer: true })
     expect(JSON.parse(calls.at(-1)!.init!.body as string)).toEqual({ type: 6 })
   })
 

@@ -599,7 +599,18 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
 - Each REST call times out after `requestTimeoutMs` (60 s by default); file
   uploads after `uploadTimeoutMs` (5 min).
 - System messages (member joins, pins, boosts...) and messages from bots are
-  not routed.
+  not routed. A message with no text and no file arrives as `sticker` (with the
+  sticker image as media) or `unknown` (embeds only, or the Message Content
+  intent is off), never as an empty text.
+- Every message the provider sends carries `allowed_mentions` (default
+  `{ parse: ['users'] }`, option `allowedMentions`), so echoed text cannot ping
+  `@everyone`, `@here` or a role; `SendOptions.mentions`,
+  `platformData.allowed_mentions` and `native` payloads override it. A quoted
+  reply still pings the replied author (`replied_user: true`; set
+  `allowedMentions.replied_user: false` to reply silently).
+- Ids go into REST URLs percent-encoded, and an empty, `.` or `..` id rejects
+  with `ProviderError`: a crafted id never reaches another route. Native poll
+  votes are not delivered as events.
 - A forwarded message carries the forwarded text and media (from its
   snapshot), not a quoted reply; one with nothing readable arrives as
   `unknown`. A native poll arrives as `type: 'poll'` with its question as body.

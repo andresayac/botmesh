@@ -147,7 +147,7 @@ describe('DiscordProvider — REST outbound', () => {
     const headers = calls[0].init!.headers as Record<string, string>
     expect(headers.Authorization).toBe('Bot TOK')
     expect(headers['Content-Type']).toBe('application/json')
-    expect(JSON.parse(calls[0].init!.body as string)).toEqual({ content: 'hola' })
+    expect(JSON.parse(calls[0].init!.body as string)).toEqual({ content: 'hola', allowed_mentions: { parse: ['users'] } })
   })
 
   it('applies message_reference and allowed_mentions from SendOptions', async () => {
@@ -156,7 +156,7 @@ describe('DiscordProvider — REST outbound', () => {
     await p.send('C1', { kind: 'text', text: 're' }, { quoted: { id: 'M1', chatId: 'C1' }, mentions: ['U1'] })
     const body = JSON.parse(calls[0].init!.body as string)
     expect(body.message_reference).toMatchObject({ message_id: 'M1', channel_id: 'C1' })
-    expect(body.allowed_mentions).toEqual({ users: ['U1'] })
+    expect(body.allowed_mentions).toEqual({ users: ['U1'], replied_user: true })
   })
 
   it('send image uploads multipart (files[0] + payload_json)', async () => {
@@ -215,13 +215,16 @@ describe('DiscordProvider — REST outbound', () => {
 
   it('acknowledgeInteraction POSTs the callback: defer (type 6) or immediate (type 4)', async () => {
     const calls = mockFetch(() => ({ body: {} }))
-    const p = provider()
-    await p.acknowledgeInteraction!('IID:TT')
+    const p = provider({ autoAcknowledgeMs: false })
+    // As if INTERACTION_CREATE arrived: the provider keeps the token by interaction id.
+    ;(p as unknown as { rememberInteraction(d: unknown): void }).rememberInteraction({ id: 'IID', token: 'TT', type: 3 })
+    await p.acknowledgeInteraction!('IID')
     expect(calls[0].url).toBe('https://discord.com/api/v10/interactions/IID/TT/callback')
     expect(JSON.parse(calls[0].init!.body as string)).toEqual({ type: 6 })
 
-    await p.acknowledgeInteraction!('IID:TT', { text: 'ya' })
-    expect(JSON.parse(calls[1].init!.body as string)).toEqual({ type: 4, data: { content: 'ya' } })
+    ;(p as unknown as { rememberInteraction(d: unknown): void }).rememberInteraction({ id: 'IID2', token: 'TT', type: 3 })
+    await p.acknowledgeInteraction!('IID2', { text: 'ya' })
+    expect(JSON.parse(calls[1].init!.body as string)).toEqual({ type: 4, data: { content: 'ya', allowed_mentions: { parse: ['users'] } } })
   })
 
   it('maps HTTP 429 to RateLimitedError (retry_after seconds → ms)', async () => {

@@ -224,13 +224,18 @@ la beta. `@botmesh/discord`, `@botmesh/email` y `@botmesh/flow-schema` están en
 beta; `@botmesh/tiktok` y los paquetes de producto siguen siendo privados.
 
 - **`@botmesh/discord`:** `ctx.interaction.id` (`interactionId`) es el id de la interacción a
-  secas; el token se queda en el provider. `acknowledgeInteraction()` sigue aceptando la
-  forma antigua `"<id>:<token>"`. Las interacciones que el bot no confirma en `autoAcknowledgeMs`
-  (2 s; `autoAckMs` es su alias obsoleto) se difieren por él; pon `autoAcknowledgeMs: false` para seguir haciéndolo tú.
+  secas; el token se queda en el provider, y la forma alfa `"<id>:<token>"` de
+  `acknowledgeInteraction()` se quitó antes de la primera publicación (solo se conocen los ids
+  que recibió el provider). Las interacciones que el bot no confirma en `autoAcknowledgeMs`
+  (2 s; el alias alfa `autoAckMs` se quitó) se difieren por él; pon `autoAcknowledgeMs: false`
+  para seguir haciéndolo tú. Los mensajes enviados llevan `allowed_mentions: { parse: ['users'] }`
+  si no indican otro (`allowedMentions` lo cambia), así que `@everyone`, `@here` y las
+  menciones de rol ya no notifican por defecto.
   Las ediciones de mensajes (`MESSAGE_UPDATE`) llegan ahora como mensajes con el `ref.id`
   original (`isEditedMessage(ctx)`; `editedMessages: 'ignore'` las descarta).
 - **Mapeadores de errores renombrados** (los nombres antiguos son alias deprecados):
-  `toDiscordError`, `toTikTokError`, `toEmailError`.
+  `toTikTokError`, `toEmailError`. `toDiscordError` no tiene alias: `toProviderError` se
+  quitó de `@botmesh/discord` antes de su primera publicación.
 - **Stores de producto:** `InboxStore.erase`, `ContactStore.erase` y
   `DeploymentStore.prune` son métodos nuevos obligatorios, y `DeploymentStore.list` /
   `InboxStore.listNotes` aceptan un cursor `after`. Un store propio debe añadirlos (las

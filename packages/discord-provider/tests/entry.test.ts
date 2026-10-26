@@ -12,15 +12,13 @@ import * as internal from '../src/internal.js'
 /** Runtime exports of the main entry covered by semver. */
 const MAIN_VALUES = ['DiscordProvider', 'DISCORD_MEDIA_HOSTS', 'toDiscordError', 'isEditedMessage', 'GatewayIntents', 'DEFAULT_INTENTS'] as const
 
-/** Deprecated aliases kept on the main entry until v3. */
-const MAIN_DEPRECATED_VALUES = ['toProviderError'] as const
 
 /** Runtime exports of `/internal` (no semver). */
 const INTERNAL_VALUES = ['GatewaySocket', 'defaultSocketFactory', 'gatewayConnectUrl', 'DiscordRestClient', 'DEFAULT_REST_TIMEOUT_MS', 'DEFAULT_UPLOAD_TIMEOUT_MS', 'toOutbound', 'parseDispatch', 'snowflakeTimestamp', 'GatewayOpcode', 'InteractionType', 'ComponentType', 'FATAL_CLOSE_CODES', 'FRESH_SESSION_CODES'] as const
 
 describe('@botmesh/discord entries', () => {
   it('pins the runtime names of the main entry', () => {
-    expect(Object.keys(main).sort()).toEqual([...MAIN_VALUES, ...MAIN_DEPRECATED_VALUES].sort())
+    expect(Object.keys(main).sort()).toEqual([...MAIN_VALUES].sort())
   })
 
   it('pins the runtime names of /internal', () => {
@@ -37,7 +35,7 @@ describe('@botmesh/discord entries', () => {
     expect(main.DEFAULT_INTENTS).toBe(main.GatewayIntents.Guilds | main.GatewayIntents.GuildMessages | main.GatewayIntents.MessageContent)
   })
 
-  it('keeps the deprecated error mapper as an alias', () => {
-    expect(main.toProviderError).toBe(main.toDiscordError)
+  it('ships no deprecated alias (removed before the first publish)', () => {
+    expect('toProviderError' in main).toBe(false)
   })
 })
