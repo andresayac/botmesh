@@ -138,7 +138,7 @@ bot.plug(aiPlugin({
   model: 'gpt-5-mini',
   rag: {
     retriever: createRag({ documents: ['./docs/faq.md', './docs/productos.pdf'], embeddings: 'openai' }),
-    appendSources: true, // adds "Fuentes: [1] docs/faq.md › Envíos" to the reply
+    appendSources: true, // añade "Fuentes: [1] docs/faq.md › Envíos" (con lang: 'es')
   },
 }))
 // Usuario: "¿cuánto tarda el envío?"
@@ -162,8 +162,8 @@ contexto como datos, no como instrucciones.
 
 `rag: retriever` (el retriever a secas) equivale a `rag: { retriever }`. La
 línea por defecto de `appendSources` es el mensaje localizado `ai.rag.sources`
-(`Fuentes: {sources}` en español, `Sources: {sources}` cuando `ctx.lang` es
-`en`); cámbiala con `bot.locale()` o pasa una función. Al instalarse, el plugin llama al `warmup()` opcional
+(`Sources: {sources}` por defecto, `Fuentes: {sources}` cuando `ctx.lang` es
+`es`); cámbiala con `bot.locale()` o pasa una función. Al instalarse, el plugin llama al `warmup()` opcional
 del retriever (no fatal: un fallo se registra en el log), así que el índice se
 construye al arrancar y no en la primera pregunta.
 
@@ -179,7 +179,7 @@ bot.when('ayuda', async (ctx) => {
     userId: ctx.sender,
     isGroup: ctx.isGroup,
   })
-  r.text      // reply (with the sources appended when appendSources is on)
+  r.text      // respuesta (con las fuentes añadidas si appendSources está activo)
   r.answer    // the model's raw answer, as stored in the history
   r.citations // passages retrieved for this turn
   r.facts     // user facts injected into this turn
@@ -198,9 +198,8 @@ fragmento.
 ### `@botmesh/rag`
 
 ::: warning Experimental — no está en npm
-`@botmesh/rag` es un paquete real y probado, pero es **privado**: no forma
-parte de la primera alpha y su API puede cambiar. Úsalo desde el monorepo
-(`workspace:*`).
+`@botmesh/rag` es un paquete real y probado, pero **privado**: no se publica en
+npm y su API puede cambiar. Úsalo desde el monorepo (`workspace:*`).
 :::
 
 `createRag(options)` construye un retriever sin base de datos vectorial: un
@@ -280,7 +279,7 @@ const ai = new AIClient(mock, new ContextManager(bot.getStore()), {
 
 await ai.remember('user-1', 'Prefiere español')
 const r = await ai.replyInChatDetailed('chat-1', '¿envío?', { userId: 'user-1' })
-r.text  // 'Tarda 3 días [1].\n\nFuentes: [1] faq'
+r.text  // 'Tarda 3 días [1].\n\nSources: [1] faq' (sin chat, los textos integrados salen en inglés)
 r.facts // ['Prefiere español']
 mock.calls[0]?.system // contains the facts and the numbered context
 ```

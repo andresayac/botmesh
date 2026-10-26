@@ -88,7 +88,7 @@ function errorMessage(err: unknown): string {
 
 /**
  * Default confirmation prompt for a `confirm: true` tool: its `confirmMessage`, else
- * the localized `ai.tools.confirm` message in `ctx`'s language (Spanish without a context)
+ * the localized `ai.tools.confirm` message in `ctx`'s language (English without a context)
  * with the tool's `title` (or humanized name) and its `confirmLines(args)`, else the
  * arguments as short `• ` lines (values shown with the tool's `labels`) — never the model-facing description nor raw JSON. With `previous` (the tool already
  * ran in this chat with the same arguments) a localized `ai.tools.confirmRepeat` line goes first.

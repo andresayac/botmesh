@@ -124,7 +124,7 @@ export function aiPlugin(config: AIPluginConfig = {}): PluginSpec<AIPluginConfig
       // (Reflect: the DefaultTools augmentation types `ai` as required, so `delete` won't type-check.)
       ctx.onDispose(() => { Reflect.deleteProperty(ctx.tools, 'ai') })
 
-      // `errorMessage`, else the localized `ai.error` text of the chat (Spanish by default).
+      // `errorMessage`, else the localized `ai.error` text of the chat (English by default).
       const errorText = (mctx: MessageContext): string => cfg.errorMessage ?? aiText(mctx, AI_MESSAGES.error)
       const streamCfg = resolveStreamConfig(cfg.stream)
 

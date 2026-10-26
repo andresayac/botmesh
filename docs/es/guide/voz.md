@@ -6,8 +6,8 @@ no un canal: funciona igual en WhatsApp (Baileys o Cloud API), Telegram o
 cualquier provider que entregue mensajes `voice` / `audio`.
 
 ::: warning Experimental — no está en npm
-`@botmesh/voice` es un paquete real y probado, pero es **privado**: no forma
-parte de la primera alpha y su API puede cambiar. Úsalo desde el monorepo
+`@botmesh/voice` es un paquete real y probado, pero es **privado**: no se
+publica en npm y su API puede cambiar. Úsalo desde el monorepo
 (`workspace:*`).
 :::
 

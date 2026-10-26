@@ -7,7 +7,7 @@ provider that delivers `voice` / `audio` messages.
 
 ::: warning Experimental — not on npm
 `@botmesh/voice` is a working, tested package, but it is **private**: it is not
-part of the first alpha and its API may change. Use it from the monorepo
+published to npm and its API may change. Use it from the monorepo
 (`workspace:*`).
 :::
 

@@ -216,8 +216,13 @@ Además de `slashCommandsPlugin`, estos paquetes traen plugins listos:
 - [Voz](/es/guide/voz) — el experimental `@botmesh/voice` (`voicePlugin`):
   voz a texto para las notas de voz entrantes y respuestas con texto a voz.
 - [Integraciones](/es/guide/integraciones) — los experimentales
-  `@botmesh/chatwoot`, `@botmesh/tickets`, `@botmesh/moderation` y
-  `@botmesh/dialogflow`.
+  `@botmesh/chatwoot`, `@botmesh/tickets`, `@botmesh/moderation`,
+  `@botmesh/dialogflow` y `@botmesh/nlu` (intenciones locales).
+- [Trazas](/es/guide/trazas) — el experimental `@botmesh/otel`
+  (`otelMetricsPlugin`): `bot.metrics()` y los spans del bot en OpenTelemetry.
+
+Solo `@botmesh/ai` se publica en npm; los paquetes experimentales son privados
+por ahora y se usan desde el monorepo (`workspace:*`).
 
 ## Siguientes pasos
 

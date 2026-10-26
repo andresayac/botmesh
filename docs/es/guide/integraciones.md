@@ -1,10 +1,9 @@
 # Integraciones
 
-::: warning Experimental — aún no publicado en npm
-Los cuatro paquetes de esta página son **experimentales**: implementaciones
-reales y con tests, pero todavía privadas (no están en npm ni forman parte
-de la primera alpha) y su API puede cambiar. Úsalos desde el monorepo
-(`workspace:*`).
+::: warning Experimental — no están en npm
+Los paquetes de esta página son **experimentales**: implementaciones reales y
+con tests, pero todavía privadas (no se publican en npm) y su API puede
+cambiar. Úsalos desde el monorepo (`workspace:*`).
 :::
 
 | Paquete | Qué hace | Herramienta |
@@ -13,9 +12,10 @@ de la primera alpha) y su API puede cambiar. Úsalos desde el monorepo
 | [`@botmesh/tickets`](#tickets) | Tickets de soporte con cola por prioridad, horario de atención y persistencia en el store | `ctx.tools.tickets` |
 | [`@botmesh/moderation`](#moderacion) | Moderación de grupos: anti-spam, filtros de palabras y enlaces, warn/mute/kick/delete | `ctx.tools.moderation` |
 | [`@botmesh/dialogflow`](#dialogflow) | Detección de intenciones con Dialogflow ES/CX y ruteo de intención a flow | `ctx.tools.dialogflow` |
+| [`@botmesh/nlu`](#intenciones-locales-nlu) | Intenciones locales a partir de frases de ejemplo, sin red | `ctx.tools.nlu` |
 
-Los cuatro son plugins normales (`bot.plug(factory({...}))`) con un
-`install` síncrono. Importar un paquete tipa su entrada de `ctx.tools.*`;
+Todos son plugins normales con un `install` síncrono
+(`bot.plug(factory({...}))`; `nluPlugin` es un spec, `bot.plug(nluPlugin, config)`). Importar un paquete tipa su entrada de `ctx.tools.*`;
 fuera de un handler, usa `bot.injectTools.<nombre>`.
 
 ```json
@@ -24,7 +24,8 @@ fuera de un handler, usa `bot.injectTools.<nombre>`.
     "@botmesh/chatwoot": "workspace:*",
     "@botmesh/tickets": "workspace:*",
     "@botmesh/moderation": "workspace:*",
-    "@botmesh/dialogflow": "workspace:*"
+    "@botmesh/dialogflow": "workspace:*",
+    "@botmesh/nlu": "workspace:*"
   }
 }
 ```
@@ -483,6 +484,51 @@ un LLM debe responder lo que Dialogflow no entiende.
 - Solo se envía texto (ni audio ni eventos). En CX el rellenado de
   formularios vive en las páginas: `allRequiredParamsPresent` siempre es
   `true`.
+
+## Intenciones locales (NLU)
+
+`@botmesh/nlu` compara los mensajes con intenciones que defines con frases de
+ejemplo, todo dentro del proceso: sin red, sin modelo y sin dependencias
+extra. Sirve para intenciones tipo comando ("dónde está mi pedido", "hablar con
+una persona") en un bot que no debe pagar un LLM ni un agente de Dialogflow por
+cada mensaje. Para lenguaje abierto, usa el [plugin de IA](/es/guide/ai), solo
+o detrás de este.
+
+```ts
+import { nluPlugin, whenIntent } from '@botmesh/nlu'
+
+bot.plug(nluPlugin, {
+  threshold: 0.5, // confianza mínima, 0..1
+  intents: {
+    saludo: ['hola', 'buenas', 'buenos días'],
+    'pedido.estado': ['mi pedido {id}', 'estado de mi pedido', 'dónde está mi pedido'],
+  },
+})
+const nlu = bot.injectTools.nlu!
+
+whenIntent(bot, nlu, 'saludo', (ctx) => ctx.reply('¡Hola! ¿En qué te ayudo?'))
+whenIntent(bot, nlu, 'pedido.estado', async (ctx, match) => {
+  const id = match.entities?.id
+  await ctx.reply(id ? `Buscando el pedido ${id}…` : '¿Cuál es tu número de pedido?')
+})
+// Lo que ninguna intención reclama sigue a otros handlers (o al autoresponder de IA).
+```
+
+- `nluPlugin` es un plugin spec: se enchufa con `bot.plug(nluPlugin, config)`.
+  Deja un `IntentEngine` en `ctx.tools.nlu` (y en `bot.injectTools.nlu`).
+- `whenIntent(bot, engine, intent, handler)` es un predicado de `bot.when()`:
+  el handler solo corre cuando la **mejor** intención del mensaje es esa, por
+  encima del umbral, y recibe el resultado. Devuelve la función para quitarlo.
+- `engine.match(text)` devuelve `{ intent, confidence, entities? }` o `null`;
+  `engine.rank(text)` puntúa todas las intenciones (útil para depurar una
+  frase); `engine.define(intent, utterances)` añade frases en caliente.
+- La comparación normaliza mayúsculas, tildes y puntuación (`¡HOLA!` equivale
+  a `hola`) y puntúa por palabras en común. Una frase exacta, o una con
+  marcadores `{slot}` que encaja con todo el mensaje, puntúa `1`; cada slot
+  captura una palabra.
+- Alcance: sin lematización, sinónimos ni embeddings. Dale a cada intención
+  varias frases cortas con las palabras que de verdad escriben tus usuarios y
+  evita intenciones que compartan casi todo el vocabulario.
 
 ## Combinarlos
 

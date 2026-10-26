@@ -6,11 +6,6 @@ provider's native tool / function calling. You declare every tool once; the
 plugin maps it to Anthropic, OpenAI, Gemini or Ollama, runs a multi-step loop
 and feeds the results back to the model until it writes the final answer.
 
-::: warning Alpha — install with the `alpha` tag
-`@botmesh/ai` is published as `0.2.0-alpha.0`; write `pnpm add @botmesh/ai@alpha`,
-because `changeset publish` does not create a `latest` tag.
-:::
-
 ## Declaring tools
 
 ```ts
@@ -116,7 +111,7 @@ handler under its timeout and send the results back.
 | `tools` | — | The tool set. |
 | `maxSteps` | `5` | Max model calls per turn. |
 | `toolTimeoutMs` | `15000` | Default per-tool timeout (`0` disables). |
-| `maxStepsMessage` | localized `ai.tools.maxSteps` (es: `'No pude completar la solicitud. Intenta de nuevo con más detalle.'`) | Reply when the loop hits `maxSteps`. |
+| `maxStepsMessage` | `ai.tools.maxSteps`: `"I couldn't complete the request. Please try again with more detail."` | Reply when the loop hits `maxSteps`. |
 | `toolConfirm` | `{ timeout: '2m', buttons: true }` | `{ yes?, no?, timeout?, buttons?, answeredNotice?, expiredNotice?, systemNote? }` for `confirm: true` tools in the autoreply (`expiredNotice` also covers `confirmWith(c)`). |
 | `onToolEvent` | — | Audit callback for every loop event. |
 
@@ -138,17 +133,18 @@ deadlocks the chat.
 
 The answer is classified with `classifyConfirmation()`:
 
-- **A clear yes** (`sí`, `ok`, `dale`, `sí, por favor`…) runs the tool.
-- **A clear no** (`no`, `no, gracias`, `cancelar`…) declines it and the model
-  is told not to retry it.
-- **Anything else**, including a yes that adds changes (`sí pero cambia a 5
-  unidades`), does **not** run the tool and is not discarded: the model gets
+- **A clear yes** (`yes`, `ok`, `sure`, `yes please`, `sí`…) runs the tool.
+- **A clear no** (`no`, `no thanks`, `cancel`, `cancelar`…) declines it and the
+  model is told not to retry it.
+- **Anything else**, including a yes that adds changes (`yes but make it 5`),
+  does **not** run the tool and is not discarded: the model gets
   `{ "executed": false, "reason": "user_replied", "userReply": "…" }`, so it
   can call the tool again with the corrected arguments (the user confirms
   again) or answer the question.
 
 Answers are compared ignoring case, accents and punctuation, and courtesy
-words around a yes/no are ignored. The default "yes" words (`DEFAULT_YES`) are
+words around a yes/no are ignored. The default words cover English and
+Spanish. The "yes" words (`DEFAULT_YES`) are
 `si`, `s`, `yes`, `y`, `ok`, `okay`, `confirmo`, `confirmar`, `dale`, `claro`,
 `de acuerdo`, `acepto`, `1`, `vale`, `listo`, `perfecto`, `adelante`, `hazlo`,
 `correcto`, `está bien`, `sure`, `yeah` and `yep`; the "no" words
@@ -176,16 +172,16 @@ both lists are frozen, so extend a copy (`yes: [...DEFAULT_YES, 'arre']`).
 On channels that render native buttons (`capabilities.buttons`: Telegram
 inline keyboards, WhatsApp Cloud API reply buttons, Discord, Messenger and
 Instagram quick replies…) the question goes out as a **buttons message** with
-localized labels (`Sí` / `No`, `Yes` / `No` in English; keys
+localized labels (`Yes` / `No`, `Sí` / `No` in Spanish; keys
 `ai.tools.button.yes` / `ai.tools.button.no`) and the same summary, without the
-typed-answer hint (`ai.tools.confirmButtons`: `Voy a: {tool}{args}\n¿Confirmas?`).
+typed-answer hint (`ai.tools.confirmButtons`: `About to: {tool}{args}\nDo you confirm?`).
 
 - A press resolves the confirmation exactly like typing yes or no, and the
   interaction is acknowledged (Telegram `answerCallbackQuery`, Discord's
   3-second ack). Typed answers keep working alongside the buttons, including a
   reply with changes that goes back to the model.
 - Once answered (or timed out / cancelled), the buttons are removed by editing
-  the message into text with the choice (`→ Sí`) where the provider can edit
+  the message into text with the choice (`→ Yes`) where the provider can edit
   and renders native buttons (Telegram, Discord).
 - A press on a confirmation that is no longer pending (answered, superseded by
   a newer one, timed out, `/reset`) is acknowledged and ignored, before any
@@ -195,17 +191,17 @@ typed-answer hint (`ai.tools.confirmButtons`: `Voy a: {tool}{args}\n¿Confirmas?
   Cloud API, Messenger, Instagram, Gupshup, TikTok) leave the buttons on screen.
   There, a press on a confirmation that
   is no longer pending gets a short localized reply (`ai.tools.confirmExpired`:
-  "Esa confirmación ya no está activa." / "That confirmation is no longer
-  active."); `toolConfirm.expiredNotice: false` drops it silently. A chat handed off to a
+  "That confirmation is no longer active."); `toolConfirm.expiredNotice: false`
+  drops it silently. A chat handed off to a
   human never gets this notice (the press is only acknowledged). Optionally,
   `toolConfirm.answeredNotice: true` also replies `ai.tools.confirmAnswered`
-  ("Respuesta recibida: Sí." / "Answer received: Yes.") when a press answers;
+  ("Answer received: Yes.") when a press answers;
   it is off by default because those channels already show the user's pick as
   their own message. Neither notice is sent where the buttons are edited away
   or where the confirmation is a numbered text menu (Baileys, Evolution,
   WPPConnect, Twilio, email, GoHighLevel): there a later answer is just text.
 - Channels without native buttons (WhatsApp via Baileys, Evolution, WPPConnect,
-  Twilio, SMS, email, GoHighLevel…) keep the typed question with the `(sí/no)`
+  Twilio, SMS, email, GoHighLevel…) keep the typed question with the `(yes/no)`
   hint; a later answer there is plain text, with no expired-confirmation notice.
 - `toolConfirm.buttons: false` always asks for a typed answer. A tool's
   `confirmMessage` is used as is in both modes. A `bot.locale()` override of
@@ -218,16 +214,16 @@ nor raw JSON. It is the localized `ai.tools.confirm` message with the tool
 per item, and items with a quantity read as `quantity × product`:
 
 ```text
-Voy a: Crear pedido
-• 5 × torta_chocolate
-• 2 × cafe
-¿Confirmas? (sí/no)
+About to: Place order
+• 5 × chocolate_cake
+• 2 × coffee
+Do you confirm? (yes/no)
 ```
 
-That is the Spanish text, used when `ctx.lang` is `es` (e.g. a bot with
-`lang: 'es'`). The default is English (`About to: Create order … Do you
-confirm? (yes/no)`), as for every built-in text (see
-[i18n](/guide/i18n#built-in-messages)). A chat in a language without built-in
+That is the English text, the default for every built-in text (see
+[i18n](/guide/i18n#built-in-messages)). A chat whose `ctx.lang` is `es` (for
+example in a bot with `lang: 'es'`) gets the Spanish one (`Voy a: …
+¿Confirmas? (sí/no)`). A chat in a language without built-in
 texts (say `fr`) gets the bot's default locale when that is `es` or `en`, else
 English. Override it per language with
 `bot.locale('en', { ai: { tools: { confirm: 'Run {tool}?{args}' } } })`
@@ -236,7 +232,7 @@ set `confirmMessage` on the tool.
 
 ### Readable values and totals
 
-Catalog keys like `pan_de_bono` are good for the model and bad for the user.
+Catalog keys like `cheese_bread` are good for the model and bad for the user.
 Two tool options improve the default prompt without writing it yourself:
 
 - **`labels`** maps argument values to human labels, per argument key (also
@@ -248,26 +244,26 @@ Two tool options improve the default prompt without writing it yourself:
   made up. `confirmMessage` still wins over both.
 
 ```ts
-const MENU = { pan_de_bono: { name: 'Pan de bono', price: 2500 }, cafe: { name: 'Café', price: 4000 } }
+const MENU = { cheese_bread: { name: 'Cheese bread', price: 2500 }, coffee: { name: 'Coffee', price: 4000 } }
 
-crear_pedido: {
-  title: 'Crear pedido',
-  labels: { producto: { pan_de_bono: 'Pan de bono', cafe: 'Café' } },
+place_order: {
+  title: 'Place order',
+  labels: { product: { cheese_bread: 'Cheese bread', coffee: 'Coffee' } },
   // or, with prices and the total:
   confirmLines: ({ items }) => [
-    ...items.map((i) => `• ${i.cantidad} × ${MENU[i.producto].name}: $${MENU[i.producto].price * i.cantidad}`),
-    `Total: $${items.reduce((sum, i) => sum + MENU[i.producto].price * i.cantidad, 0)}`,
+    ...items.map((i) => `• ${i.quantity} × ${MENU[i.product].name}: $${MENU[i.product].price * i.quantity}`),
+    `Total: $${items.reduce((sum, i) => sum + MENU[i.product].price * i.quantity, 0)}`,
   ],
   // ...
 }
 ```
 
 ```text
-Voy a: Crear pedido
-• 2 × Pan de bono: $5000
-• 1 × Café: $4000
+About to: Place order
+• 2 × Cheese bread: $5000
+• 1 × Coffee: $4000
 Total: $9000
-¿Confirmas? (sí/no)
+Do you confirm? (yes/no)
 ```
 
 `argLines(args, ctx, labels)` and `summarizeValue(value, ctx, depth, labels)`
@@ -356,7 +352,7 @@ customer, or claim it "replaced" an order when it had no tool to do so.
    arguments are validated **before** the confirmation, so an invented product
    goes back to the model as an error and the user never confirms an
    impossible order. Pair the keys with `labels` (or names in `confirmLines`)
-   so the user sees "Pan de bono", not `pan_de_bono`.
+   so the user sees "Cheese bread", not `cheese_bread`.
 3. **Give every create its update, cancel and list tools.** If the model can
    only create, it will "fix" an order by creating another one, or say it
    changed something it could not. A list tool (`my_orders`) gives it the ids
@@ -382,13 +378,13 @@ import { Bot } from '@botmesh/core'
 import { aiPlugin } from '@botmesh/ai'
 
 const MENU = {
-  pan_de_bono: { name: 'Pan de bono', price: 2500 },
+  cheese_bread: { name: 'Cheese bread', price: 2500 },
   croissant: { name: 'Croissant', price: 5000 },
-  cafe: { name: 'Café', price: 4000 },
+  coffee: { name: 'Coffee', price: 4000 },
 } as const
 type Product = keyof typeof MENU
-type Item = { producto: Product; cantidad: number }
-type Order = { id: string; items: Item[]; total: number; estado: 'confirmado' | 'cancelado' }
+type Item = { product: Product; quantity: number }
+type Order = { id: string; items: Item[]; total: number; status: 'confirmed' | 'cancelled' }
 
 const PRODUCTS = Object.keys(MENU)
 const ITEMS = {
@@ -397,24 +393,24 @@ const ITEMS = {
   items: {
     type: 'object',
     properties: {
-      producto: { type: 'string', enum: PRODUCTS }, // only real products
-      cantidad: { type: 'integer', minimum: 1, maximum: 50 },
+      product: { type: 'string', enum: PRODUCTS }, // only real products
+      quantity: { type: 'integer', minimum: 1, maximum: 50 },
     },
-    required: ['producto', 'cantidad'],
+    required: ['product', 'quantity'],
     additionalProperties: false,
   },
 }
-const ORDER_ID = { type: 'string', description: 'Order id (mis_pedidos)' }
+const ORDER_ID = { type: 'string', description: 'Order id (from my_orders)' }
 
 // Money is computed here, never by the model.
-const money = (n: number) => '$' + n.toLocaleString('es-CO')
+const money = (n: number) => '$' + n.toLocaleString('en-US')
 const quote = (items: Item[]) => {
-  const lines = items.map((i) => ({ ...i, nombre: MENU[i.producto].name, subtotal: MENU[i.producto].price * i.cantidad }))
+  const lines = items.map((i) => ({ ...i, name: MENU[i.product].name, subtotal: MENU[i.product].price * i.quantity }))
   return { items: lines, total: lines.reduce((sum, l) => sum + l.subtotal, 0) }
 }
 const quoteLines = (items: Item[]) => {
   const q = quote(items)
-  return [...q.items.map((l) => `• ${l.cantidad} × ${l.nombre}: ${money(l.subtotal)}`), `Total: ${money(q.total)}`]
+  return [...q.items.map((l) => `• ${l.quantity} × ${l.name}: ${money(l.subtotal)}`), `Total: ${money(q.total)}`]
 }
 
 const orders = new Map<string, Order[]>() // per chat; use ctx.user or your DB in production
@@ -422,62 +418,62 @@ const ordersOf = (chat = '') => {
   if (!orders.has(chat)) orders.set(chat, [])
   return orders.get(chat)!
 }
-const active = (chat: string | undefined, id: string) => ordersOf(chat).find((o) => o.id === id && o.estado !== 'cancelado')
-const noOrder = (id: string) => ({ error: `No active order ${id}. Check mis_pedidos.` })
+const active = (chat: string | undefined, id: string) => ordersOf(chat).find((o) => o.id === id && o.status !== 'cancelled')
+const noOrder = (id: string) => ({ error: `No active order ${id}. Check my_orders.` })
 
 const bot = new Bot({ provider })
 bot.plug(aiPlugin({
   provider: 'anthropic',
-  persona: 'You are the assistant of Panadería La Espiga. Use ver_menu for products and cotizar_pedido for any price or total; never calculate amounts yourself.',
+  persona: 'You are the assistant of La Espiga Bakery. Use show_menu for products and quote_order for any price or total; never calculate amounts yourself.',
   tools: {
-    ver_menu: {
+    show_menu: {
       description: 'List the menu: key, name and price.',
-      handler: () => Object.entries(MENU).map(([clave, p]) => ({ clave, nombre: p.name, precio: p.price })),
+      handler: () => Object.entries(MENU).map(([key, p]) => ({ key, name: p.name, price: p.price })),
     },
-    cotizar_pedido: {
+    quote_order: {
       description: 'Compute prices, subtotals and the total of a list of products without placing anything.',
       schema: { type: 'object', properties: { items: ITEMS }, required: ['items'] },
       handler: ({ items }: { items: Item[] }) => quote(items),
     },
-    mis_pedidos: {
+    my_orders: {
       description: "List the customer's orders with id, items, total and status.",
       handler: (_args: unknown, { ctx }) => ordersOf(ctx?.from),
     },
-    crear_pedido: {
-      title: 'Crear pedido',
+    place_order: {
+      title: 'Place order',
       description: 'Place a new order. items: menu keys and quantities.',
       schema: { type: 'object', properties: { items: ITEMS }, required: ['items'] },
       confirm: true,
       dedupe: 'args',
       confirmLines: ({ items }: { items: Item[] }) => quoteLines(items),
       handler: ({ items }: { items: Item[] }, { ctx }) => {
-        const order: Order = { id: 'P-' + Date.now().toString(36).toUpperCase(), ...quote(items), estado: 'confirmado' }
+        const order: Order = { id: 'P-' + Date.now().toString(36).toUpperCase(), ...quote(items), status: 'confirmed' }
         ordersOf(ctx?.from).push(order)
         return order // the model repeats this total, it does not compute it
       },
     },
-    actualizar_pedido: {
-      title: 'Cambiar pedido',
+    update_order: {
+      title: 'Change order',
       description: 'Replace the items of an existing order (by id) with the complete new list.',
       schema: { type: 'object', properties: { id: ORDER_ID, items: ITEMS }, required: ['id', 'items'] },
       confirm: true,
-      confirmLines: ({ id, items }: { id: string; items: Item[] }) => [`• Pedido: ${id}`, ...quoteLines(items)],
+      confirmLines: ({ id, items }: { id: string; items: Item[] }) => [`• Order: ${id}`, ...quoteLines(items)],
       handler: ({ id, items }: { id: string; items: Item[] }, { ctx }) => {
         const order = active(ctx?.from, id)
         if (!order) return noOrder(id)
         return Object.assign(order, quote(items))
       },
     },
-    cancelar_pedido: {
-      title: 'Cancelar pedido',
+    cancel_order: {
+      title: 'Cancel order',
       description: 'Cancel an existing order by id.',
       schema: { type: 'object', properties: { id: ORDER_ID }, required: ['id'] },
       confirm: true,
       handler: ({ id }: { id: string }, { ctx }) => {
         const order = active(ctx?.from, id)
         if (!order) return noOrder(id)
-        order.estado = 'cancelado'
-        return { id, estado: 'cancelado' }
+        order.status = 'cancelled'
+        return { id, status: 'cancelled' }
       },
     },
   },

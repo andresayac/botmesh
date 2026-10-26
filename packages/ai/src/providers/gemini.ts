@@ -259,13 +259,13 @@ export function toGeminiSchema(schema: JSONSchema): JSONSchema {
  */
 export interface GoogleGenAILike {
   models: {
-    generateContent(params: { model: string; contents: unknown; config?: Record<string, unknown> }): Promise<{
+    generateContent(params: { model: string; contents: unknown; config?: object }): Promise<{
       candidates?: Array<{
         content?: {
           parts?: Array<{
             text?: string
-            functionCall?: { name: string; args?: unknown }
-            functionResponse?: { name: string; response: Record<string, unknown> }
+            functionCall?: { name?: string; args?: unknown }
+            functionResponse?: { name?: string; response?: Record<string, unknown> }
             thoughtSignature?: string
             thought?: boolean
           }>
@@ -276,12 +276,13 @@ export interface GoogleGenAILike {
       promptFeedback?: { blockReason?: string }
     }>
     /** Streams chunks shaped like a `generateContent` response. */
-    generateContentStream(params: { model: string; contents: unknown; config?: Record<string, unknown> }): Promise<AsyncIterable<Awaited<ReturnType<GoogleGenAILike['models']['generateContent']>>>>
+    generateContentStream(params: { model: string; contents: unknown; config?: object }): Promise<AsyncIterable<Awaited<ReturnType<GoogleGenAILike['models']['generateContent']>>>>
   }
 }
 
 /** A `GenerateContentResponse` of `@google/genai`, as the provider reads it (no semver: `@botmesh/ai/internal`). */
 export type GoogleGenAIResponse = Awaited<ReturnType<GoogleGenAILike['models']['generateContent']>>
+type GoogleGenAIPart = NonNullable<NonNullable<NonNullable<GoogleGenAIResponse['candidates']>[number]['content']>['parts']>[number]
 
 /** Visible text of a response: the text parts, without thought summaries. */
 function genaiText(r: GoogleGenAIResponse): string {
@@ -291,14 +292,32 @@ function genaiText(r: GoogleGenAIResponse): string {
     .join('')
 }
 
+/**
+ * One `@google/genai` part in the provider's shape. That SDK types every `FunctionCall` /
+ * `FunctionResponse` field as optional: a call without a name cannot be run, so it is dropped.
+ */
+function genaiPart(p: GoogleGenAIPart): GeminiPart {
+  const { functionCall, functionResponse, ...rest } = p
+  return {
+    ...rest,
+    ...(functionCall?.name ? { functionCall: { ...functionCall, name: functionCall.name } } : {}),
+    ...(functionResponse?.name ? { functionResponse: { name: functionResponse.name, response: functionResponse.response ?? {} } } : {}),
+  }
+}
+
 function genaiResponse(r: GoogleGenAIResponse): GeminiResponse {
+  const candidates: GeminiResponse['candidates'] = r.candidates?.map(({ content, ...c }) => {
+    if (!content) return c
+    const { parts, ...rest } = content
+    return { ...c, content: parts ? { ...rest, parts: parts.map(genaiPart) } : rest }
+  })
   return {
     text: () => genaiText(r),
     functionCalls: () => {
-      const calls = (r.candidates?.[0]?.content?.parts ?? []).flatMap((p) => (p.functionCall ? [p.functionCall] : []))
+      const calls = (candidates?.[0]?.content?.parts ?? []).flatMap((p) => (p.functionCall ? [p.functionCall] : []))
       return calls.length ? calls : undefined
     },
-    ...(r.candidates ? { candidates: r.candidates } : {}),
+    ...(candidates ? { candidates } : {}),
     ...(r.usageMetadata ? { usageMetadata: r.usageMetadata } : {}),
     ...(r.promptFeedback ? { promptFeedback: r.promptFeedback } : {}),
   }

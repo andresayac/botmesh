@@ -4,7 +4,7 @@
  * them with `bot.locale()` (that would switch language resolution on for every
  * bot); instead a key the bot's catalog does not translate falls back to the
  * built-in {@link AI_LOCALES} in the context's language; a language without
- * built-ins uses the bot's default locale, then English (Spanish without a context).
+ * built-ins uses the bot's default locale, then English (also without a context).
  * Override them like any other message:
  *
  * @example
