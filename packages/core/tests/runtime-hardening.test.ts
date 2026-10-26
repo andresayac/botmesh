@@ -11,6 +11,8 @@ import { Scheduler } from '../src/scheduler/Scheduler.js'
 import { assertCron } from '../src/scheduler/cron.js'
 import { parseDuration } from '../src/utils/duration.js'
 import { MockProvider } from '../src/testing/MockProvider.js'
+import { RateLimitedError } from '../src/core/provider.js'
+import { Readable } from 'node:stream'
 import { createTestBot } from '../src/testing/createTestBot.js'
 
 const tick = (ms = 20) => new Promise((r) => setTimeout(r, ms))
@@ -201,6 +203,80 @@ describe('outbound content is checked before it reaches the provider', () => {
       await next()
     })
     await expect(bot.send('a@s', { kind: 'text', text: undefined } as any)).resolves.toBeDefined()
+    await bot.stop()
+  })
+})
+
+describe('every MediaSource shape still goes out through the Bot', () => {
+  const sources: Array<[string, () => unknown]> = [
+    ['URL string', () => 'https://example.com/a.jpg'],
+    ['Buffer', () => Buffer.from('x')],
+    ['{ url }', () => ({ url: 'https://example.com/a.jpg' })],
+    ['{ buffer }', () => ({ buffer: Buffer.from('x') })],
+    ['{ path }', () => ({ path: './a.jpg' })],
+    ['{ stream }', () => ({ stream: Readable.from(['x']) })],
+    ['{ native: string } (Telegram file_id)', () => ({ native: 'AgACAg' })],
+    ['{ native: object } (Cloud API media id)', () => ({ native: { id: 'MEDIA1' } })],
+  ]
+
+  it.each(sources)('%s through every ctx media helper', async (_name, make) => {
+    const { bot, chat, provider } = await createTestBot()
+    let error: unknown
+    bot.when('go', async (ctx) => {
+      try {
+        await ctx.photo(make() as any, 'hi')
+        await ctx.video(make() as any)
+        await ctx.audio(make() as any)
+        await ctx.voice(make() as any)
+        await ctx.file(make() as any, 'a.pdf')
+        await ctx.sticker(make() as any)
+      } catch (e) { error = e }
+      await ctx.reply('end')
+    })
+    await chat.send('go')
+    await chat.expectReply('end')
+    expect(error).toBeUndefined()
+    expect(provider.outbox.map((o) => o.content.kind)).toEqual(['image', 'video', 'audio', 'voice', 'document', 'sticker', 'text'])
+    await bot.stop()
+  })
+
+  it.each(sources)('%s through bot.send()', async (_name, make) => {
+    const { bot, provider } = await createTestBot()
+    await expect(bot.send('a@s', { kind: 'document', media: make() } as any)).resolves.toBeDefined()
+    expect(provider.outbox).toHaveLength(1)
+    await bot.stop()
+  })
+})
+
+describe('a short RateLimitedError on a ctx send is retried', () => {
+  async function limitedOnce(retryAfterMs: number) {
+    const { bot, chat, provider } = await createTestBot()
+    bot.on('error', () => {})
+    const base = provider.send.bind(provider)
+    let limited = false
+    provider.send = async (chatId, content, options) => {
+      if (!limited) { limited = true; throw new RateLimitedError(retryAfterMs) }
+      return base(chatId, content, options)
+    }
+    bot.use(flow('start').say('hello').ask('name?', 'name').say((_ctx: any, c: any) => `bye ${c.state.name}`))
+    return { bot, chat, provider }
+  }
+
+  it('a flow step that hits a short rate limit waits and goes on', async () => {
+    const { bot, chat, provider } = await limitedOnce(10)
+    await chat.send('start')
+    await chat.expectReply('name?')
+    await chat.send('Ana')
+    await chat.expectReply('bye Ana')
+    expect(provider.outbox.map((o) => (o.content as { text?: string }).text)).toEqual(['hello', 'name?', 'bye Ana'])
+    await bot.stop()
+  })
+
+  it('a long retryAfterMs is not waited on: the error surfaces as before', async () => {
+    const { bot, chat, provider } = await limitedOnce(60_000)
+    await chat.send('start')
+    await tick(80)
+    expect(provider.outbox.map((o) => (o.content as { text?: string }).text)).not.toContain('name?')
     await bot.stop()
   })
 })

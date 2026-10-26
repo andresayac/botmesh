@@ -23,6 +23,8 @@ function isMediaSource(media: unknown): boolean {
   if (media instanceof Uint8Array) return true
   if (media === null || typeof media !== 'object') return false
   const m = media as Record<string, unknown>
+  // `{ native }` is the provider escape hatch (Telegram file_id, Cloud API media id, …): opaque to core.
+  if ('native' in m) return true
   return typeof m.url === 'string' || m.buffer instanceof Uint8Array || typeof m.path === 'string' || (m.stream !== null && typeof m.stream === 'object')
 }
 
@@ -42,7 +44,7 @@ export function assertOutboundContent(content: OutboundContent): void {
     fail(`"text" must be a string, got ${describeValue(c.text)} (did you pass an undefined variable or an object to reply()?)`)
   }
   if (MEDIA_KINDS.has(kind) && !isMediaSource(c.media)) {
-    fail(`"media" must be a URL or path string, a Buffer, or { url | buffer | path | stream }, got ${describeValue(c.media)}`)
+    fail(`"media" must be a URL or path string, a Buffer, or { url | buffer | path | stream | native }, got ${describeValue(c.media)}`)
   }
   if (c.caption !== undefined && typeof c.caption !== 'string') fail(`"caption" must be a string, got ${describeValue(c.caption)}`)
   if (kind === 'location') {

@@ -139,16 +139,17 @@ describe('core under reordering + latency + duplicates (several chats at once)',
   })
 })
 
+// A ctx reply rate-limited for up to 5 s is retried in place; these use a longer wait so the failure surfaces.
 describe('core under transient send failures', () => {
   it('a typed send failure in a handler reaches bot "error" without an onError hook (regression)', async () => {
-    const { bot, provider, chaos } = await createTestBot({}, { chaos: { sendFailures: { attempts: [1], retryAfterMs: 750 } } })
+    const { bot, provider, chaos } = await createTestBot({}, { chaos: { sendFailures: { attempts: [1], retryAfterMs: 60_000 } } })
     const errors: Array<{ error: unknown; from?: string }> = []
     bot.on('error', ({ error, ctx }) => errors.push({ error, from: ctx?.from }))
     bot.when('hola', async (ctx) => { await ctx.reply('👋') })
     provider.incoming('hola', { from: 'u1' })
     await vi.waitFor(() => expect(errors).toHaveLength(1))
     expect(errors[0].error).toBeInstanceOf(RateLimitedError)
-    expect((errors[0].error as RateLimitedError).retryAfterMs).toBe(750)
+    expect((errors[0].error as RateLimitedError).retryAfterMs).toBe(60_000)
     expect(errors[0].from).toBe('u1')
 
     // The failed attempt is in the ledger, and the chat queue is not stuck.
@@ -161,7 +162,7 @@ describe('core under transient send failures', () => {
   })
 
   it('an onError("message") hook still sees the error and the bot error event fires once', async () => {
-    const { bot, provider } = await createTestBot({}, { chaos: { sendFailures: { attempts: [1] } } })
+    const { bot, provider } = await createTestBot({}, { chaos: { sendFailures: { attempts: [1], retryAfterMs: 60_000 } } })
     const hooked: unknown[] = []
     const emitted: unknown[] = []
     bot.onError('message', async (_ctx, err) => { hooked.push(err) })
@@ -175,7 +176,7 @@ describe('core under transient send failures', () => {
   })
 
   it('a failed send inside a flow ends the conversation cleanly (no zombie)', async () => {
-    const { bot, provider, chaos } = await createTestBot({}, { chaos: { sendFailures: { attempts: [2] } } })
+    const { bot, provider, chaos } = await createTestBot({}, { chaos: { sendFailures: { attempts: [2], retryAfterMs: 60_000 } } })
     const errors: unknown[] = []
     bot.on('error', ({ error }) => errors.push(error))
     bot.use(registrar())

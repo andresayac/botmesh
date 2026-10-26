@@ -3,9 +3,9 @@
  * `after('send')` hooks, the outbound ledger, paced (delay + typing) replies, typing
  * indicators and the `ctx.stream()` primitives.
  */
-import { randomId } from '../../utils/timers.js'
+import { abortableSleep, randomId } from '../../utils/timers.js'
 import { isEditableSend, messagingSupport, type ReplyOptions } from '../messaging.js'
-import type { BuildContextDeps, DraftOptions } from '../provider.js'
+import { RateLimitedError, type BuildContextDeps, type DraftOptions } from '../provider.js'
 import { toStoredError } from '../ledger.js'
 import { assertOutboundContent } from '../outboundCheck.js'
 import { isSendDeferred } from '../../durability/bind.js'
@@ -16,6 +16,21 @@ import type { BotSpan } from '../../telemetry/types.js'
 
 export type ContextStreamDeps = Pick<BuildContextDeps, 'capabilities' | 'textFormatFor' | 'streamSend' | 'streamEdit' | 'sendDraft' | 'deleteStreamMessage' | 'stopSignal'>
 export type ContextMessagingDeps = Pick<BuildContextDeps, 'pace' | 'editMessage' | 'sendClock' | 'supports'>
+
+/**
+ * A `ctx` reply that hits a `RateLimitedError` is retried in place (same payload, no hooks
+ * re-run) when the transport asks for a short wait, so a conversation step does not end
+ * on a transient 429. Longer waits, other errors and `bot.send()` (broadcasts have their
+ * own back-off) surface as before; durable sends retry through their outbox instead.
+ */
+const CTX_RATE_LIMIT_RETRIES = 2
+const CTX_RATE_LIMIT_MAX_WAIT_MS = 5_000
+
+function shortRateLimit(error: unknown): number | undefined {
+  if (!(error instanceof RateLimitedError)) return undefined
+  const wait = Number(error.retryAfterMs)
+  return Number.isFinite(wait) && wait >= 0 && wait <= CTX_RATE_LIMIT_MAX_WAIT_MS ? wait : undefined
+}
 
 export class OutboundPipeline {
   constructor(private readonly k: BotKernel) {}
@@ -54,7 +69,9 @@ export class OutboundPipeline {
     const localRef = { id: randomId('out'), chatId: payload.chatId }
     const op = durable
       ? durable.run(payload, () => provider.send(payload.chatId, payload.content, payload.options))
-      : provider.send(payload.chatId, payload.content, payload.options)
+      : origin === 'ctx' && !stream
+        ? this.sendRetryingRateLimit(payload)
+        : provider.send(payload.chatId, payload.content, payload.options)
     inflightSends.add(op)
     try {
       let res: SendResult
@@ -89,6 +106,22 @@ export class OutboundPipeline {
       throw error
     } finally {
       inflightSends.delete(op)
+    }
+  }
+
+  /** `provider.send` with the short rate-limit retry of `ctx` replies (see {@link CTX_RATE_LIMIT_RETRIES}). */
+  private async sendRetryingRateLimit(payload: { chatId: ChatId; content: OutboundContent; options?: SendOptions }): Promise<SendResult> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.k.provider.send(payload.chatId, payload.content, payload.options)
+      } catch (error) {
+        const wait = attempt < CTX_RATE_LIMIT_RETRIES ? shortRateLimit(error) : undefined
+        const stop = this.k.state.sendsAbort.signal
+        if (wait === undefined || stop.aborted) throw error
+        await abortableSleep(wait, stop)
+        if (stop.aborted) throw error
+        assertCoordinated(this.k)
+      }
     }
   }
 
