@@ -56,7 +56,7 @@ Options (`OtelTracingOptions`):
 
 ## Metrics
 
-`otelMetricsPlugin(options?)` (or `registerOtelMetrics(bot, options?)`, which resolves to an unregister function; `bridgeMetrics(api, bot, options?)` is the synchronous form) publishes `bot.metrics()` as counters and observable gauges: `botmesh.messages.inbound`, `botmesh.messages.outbound{result}`, `botmesh.dropped{reason}`, `botmesh.presence.skipped{kind}`, `botmesh.conversations.started|ended{outcome}|active`, `botmesh.flow.conversations.*{flow}`, `botmesh.triggered`, `botmesh.errors`, `botmesh.uptime`, and the `botmesh.conversation.duration{flow,outcome}` histogram.
+`otelMetricsPlugin(options?)` (or `registerOtelMetrics(bot, options?)`, which resolves to an unregister function; `bridgeMetrics(api, bot, options?)` is the synchronous form) publishes `bot.metrics()` as counters and observable gauges: `botmesh.messages.inbound`, `botmesh.messages.outbound{result}`, `botmesh.dropped{reason}` (`duplicate`, `blocked`, `handoff`, plus `echo` with `echoFilter`), `botmesh.presence.skipped{kind}`, `botmesh.conversations.started|ended{outcome}|active`, `botmesh.flow.conversations.*{flow}`, `botmesh.triggered`, `botmesh.errors`, `botmesh.uptime`, and the `botmesh.conversation.duration{flow,outcome}` histogram.
 
 | Option | Default | What it does |
 | --- | --- | --- |

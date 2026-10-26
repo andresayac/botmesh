@@ -51,7 +51,7 @@ export function bridgeMetrics(api: OtelApi, bot: MetricsSource, opts: OtelMetric
 
   const inbound = meter.createObservableCounter(`${p}.messages.inbound`, { unit: '{message}', description: 'Inbound messages/interactions accepted (after dedupe and access lists).' })
   const outbound = meter.createObservableCounter(`${p}.messages.outbound`, { unit: '{message}', description: 'Outbound sends, by result (ok | failed).' })
-  const dropped = meter.createObservableCounter(`${p}.dropped`, { unit: '{message}', description: 'Inbound dropped, by reason (duplicate | blocked | handoff).' })
+  const dropped = meter.createObservableCounter(`${p}.dropped`, { unit: '{message}', description: 'Inbound dropped, by reason (duplicate | blocked | handoff, plus echo with echoFilter).' })
   const started = meter.createObservableCounter(`${p}.conversations.started`, { unit: '{conversation}', description: 'Conversations started.' })
   const ended = meter.createObservableCounter(`${p}.conversations.ended`, { unit: '{conversation}', description: 'Conversations ended, by outcome.' })
   const flowStarted = meter.createObservableCounter(`${p}.flow.conversations.started`, { unit: '{conversation}', description: 'Conversations started, by flow.' })
@@ -69,6 +69,8 @@ export function bridgeMetrics(api: OtelApi, bot: MetricsSource, opts: OtelMetric
     result.observe(outbound, m.messages.out, { ...base, result: 'ok' })
     result.observe(outbound, m.messages.outFailed, { ...base, result: 'failed' })
     for (const reason of ['duplicate', 'blocked', 'handoff'] as const) result.observe(dropped, m.dropped[reason], { ...base, reason })
+    // Only present with BotConfig.echoFilter on.
+    if (m.dropped.echo !== undefined) result.observe(dropped, m.dropped.echo, { ...base, reason: 'echo' })
     // A core without presenceSkipped (older snapshot) reports nothing for it.
     if (m.presenceSkipped) {
       result.observe(presence, m.presenceSkipped.typing, { ...base, kind: 'typing' })

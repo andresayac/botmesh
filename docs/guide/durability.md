@@ -397,8 +397,7 @@ replica that runs them. So:
   there. A replica that is alive keeps its leases through the heartbeat, however long
   its handler takes.
 - Give every replica its own explicit `instanceId`.
-- Use a shared backend: `RedisDurability` (or `PostgresDurability` from the
-  repository). `SQLiteDurability` and `SharedFileEventJournal` are shared only
+- Use a shared backend: `RedisDurability` or `PostgresDurability`. `SQLiteDurability` and `SharedFileEventJournal` are shared only
   by processes on one host.
 
 **With `coordination`** (see [Running N replicas](./replicas.md)), sticky routing is

@@ -24,7 +24,7 @@ const m = bot.metrics()
 //   conversations: { started, completed, ended, guarded, cancelled, timedOut, retriesExceeded, errored, avgDurationMs, active },
 //   flows: { signup: { started, completed, ended, guarded, cancelled, timedOut, retriesExceeded, errored, avgDurationMs } },
 //   messages: { in, out, outFailed },
-//   dropped: { duplicate, blocked, handoff },
+//   dropped: { duplicate, blocked, handoff, echo? },
 //   presenceSkipped: { typing, markRead },
 //   triggered,   // bot.trigger() calls that started a conversation
 //   errors,      // errors reported on bot.on('error')
@@ -38,7 +38,9 @@ const m = bot.metrics()
   [inbound dedupe](./concepts#inbound-dedupe), `blocked` the messages,
   interactions and calls dropped by the blacklist / whitelist (every
   delivery, since blocked input is never recorded by dedupe), and `handoff` the messages not routed because the chat is
-  [handed off to a human](./handoff).
+  [handed off to a human](./handoff). `echo` (present only with
+  [`echoFilter`](./concepts#echo-filter) on) counts the echoes of the bot's
+  own sends that the filter dropped.
 - `presenceSkipped.typing` / `markRead` count the presence hints
   (`ctx.typing()`, `ctx.recording()`, the automatic typing indicator,
   `ctx.markRead()`) skipped because the transport was disconnected or stopped
@@ -73,7 +75,7 @@ The default prefix is `botmesh_` (`prefix: 'botwa_'` keeps the names of the alph
 `flow_started_total{flow}`, `flow_ended_total{flow,outcome}`,
 `flow_duration_avg_seconds{flow}`, `messages_in_total`,
 `messages_out_total{result}` (`sent` / `failed`),
-`inbound_dropped_total{reason}` (`duplicate` / `blocked` / `handoff`),
+`inbound_dropped_total{reason}` (`duplicate` / `blocked` / `handoff`, plus `echo` with `echoFilter`),
 `presence_skipped_total{kind}` (`typing` / `mark_read`),
 `triggers_total` and `errors_total`. An invalid prefix or label name throws
 `TypeError`.
@@ -102,7 +104,7 @@ bot.on('conversation:ended', ({ id, name, chatId, outcome, completed, durationMs
 
 `@botmesh/events` is published on npm (`pnpm add @botmesh/events`; while the
 packages are in prerelease, add the dist-tag shown in
-[Getting started](/guide/getting-started)).
+[Getting started](./getting-started)).
 
 ::: warning Product packages — not published
 The product packages (`@botmesh/inbox`,
@@ -110,7 +112,7 @@ The product packages (`@botmesh/inbox`,
 are real and **persistent**: each has a storage contract, an in-RAM reference
 store and a `Kv*` adapter over any `DurableKv` of the core (SQLite, PostgreSQL,
 Redis, Redis Cluster or a file), with a shared conformance suite and opt-in
-real-server suites. Their APIs may still change while the alpha is unpublished.
+real-server suites. They live only in the repository, and their APIs may still change.
 :::
 
 The operational packages are transport-neutral and scoped by tenant.

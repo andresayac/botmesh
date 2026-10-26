@@ -2,7 +2,7 @@
 
 ::: warning Experimental — not published yet
 `@botmesh/manager` is **experimental**: a real, tested implementation that is
-still private (not on npm, not part of the first alpha) and whose API may
+still private (not on npm, not part of the beta) and whose API may
 change. Use it from the monorepo (`workspace:*`).
 :::
 
@@ -133,14 +133,14 @@ With `autoReconnect`, the manager supervises every bot you asked to run:
   provider does not recover on its own within `graceMs`, or
 - when a start fails,
 
-it restarts the bot with backoff and jitter until `maxRetries` is exhausted.
+it restarts the bot with backoff and jitter until `retries` is exhausted.
 Config-backed bots are recreated through the factory (fresh provider). A
 manual `stop()` cancels the supervision.
 
 | Option | Default |
 | --- | --- |
 | `enabled` | `true` when an object is given (`autoReconnect: true` uses all defaults) |
-| `maxRetries` | `5` (`Infinity` never gives up) |
+| `retries` | `5` (`Infinity` never gives up; `maxRetries` is a deprecated alias) |
 | `initialDelay` / `maxDelay` | `1000` / `30000` ms |
 | `backoff` / `factor` | `'exponential'` (or `'linear'`) / `2` |
 | `jitter` | `0.2` (each delay lands in 80–100 % of its value) |
@@ -170,8 +170,9 @@ the chat's FIFO slot, language resolution and metrics, and replaces a
 conversation already running (or dormant) on the same key. `data` is
 shallow-merged into `c.state` (the same option as `bot.trigger()`; `state` is
 a deprecated alias, and passing both throws a `TypeError`); `body` becomes
-`ctx.body` of the synthetic message (default `''`). `started` is `false` when the flow is unknown, the
-subject is blocked by the access lists or the chat is handed off (`reason` says which).
+`ctx.body` of the synthetic message (default `''`). It rejects when the flow is not registered;
+`started` is `false` when the bot is stopped, the subject is blocked by the access lists or the
+chat is handed off (`reason` says which).
 
 ```ts
 import { flow } from '@botmesh/core'
@@ -191,7 +192,7 @@ for `bot.registerFlow()` / `bot.replaceFlow()`; it throws `FlowDocumentError`
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "id": "survey",
   "trigger": { "keywords": ["survey", "poll"], "match": "equals", "scope": "dm" },
   "timeout": "10m",
@@ -209,7 +210,7 @@ for `bot.registerFlow()` / `bot.replaceFlow()`; it throws `FlowDocumentError`
 
 | Field | Notes |
 | --- | --- |
-| `version` | Always `1`. |
+| `version` | `2`. A version 1 document is still accepted and migrated on load (see [JSON flow schema](./flow-schema)). |
 | `id` | `^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$` (same pattern for `stateKey`, option `key` and `goto` targets). |
 | `trigger` | A keyword, an array of keywords, or `{ keywords, match?: 'equals' \| 'contains' \| 'startsWith' \| 'endsWith', scope?: 'dm' \| 'group' \| 'all' }`. |
 | `timeout` | Milliseconds or `'500ms'`, `'30s'`, `'5m'`, `'1h'` (at most 7 days). |
@@ -228,7 +229,10 @@ Steps:
 | `end` | `text?` |
 | `condition` | `if` (expression), `then` (steps), `else?` (steps) |
 
-Texts accept `{{ path }}` placeholders over `c.state` and `$body`, `$from`,
+Documents also take `media`, `form`, `guard`, `subflow`, `http`, `handoff` and `ai`
+steps: every step kind is described in [JSON flow schema](./flow-schema).
+
+Texts accept <code v-pre>{{ path }}</code> placeholders over `c.state` and `$body`, `$from`,
 `$sender`, `$isGroup`. Expressions (`condition.if`, `ask.validate.expr`) use a
 small safe language parsed at compile time (no `eval`, no regexes): literals,
 state paths, `== != < <= > >= && || ! + -`, parentheses and the functions
@@ -321,7 +325,8 @@ Request bodies:
   `voice`, `document`, `sticker` (media only as `{ url: "https://..." }`, no
   paths or buffers), `location`, `contact` and `poll` (2–12 options).
 - `trigger`: `{ flowId, chatId, userId?, isGroup?, state? }` (`state` up to
-  16 KiB of JSON). It calls `bot.triggerFlow()`: `404` when the flow is
+  16 KiB of JSON). It starts the flow like `bot.trigger()` with
+  `ifActive: 'replace'`: `404` when the flow is
   unknown, the subject is blocked or the chat is handed off; `409
   BOT_NOT_RUNNING` when the bot is stopped.
 - `POST /bots`: `{ id?, tenantId?, name?, provider?, flows?, meta?, autoStart? }`.
@@ -457,5 +462,5 @@ Prefer `createRestApi` for new deployments.
 ## See also
 
 - [`@botmesh/manager` README](https://github.com/andresayac/botmesh/tree/main/packages/manager)
-- [Operations](/guide/operations)
+- [Operations](./operations)
 - [Golden transcripts](/guide/golden-transcripts): gate deployments on recorded conversations

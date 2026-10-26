@@ -66,7 +66,7 @@ node-redis **re-throws an `'error'` event that has no listener**, so an injected
 | `allowLegacyData` | `boolean` | `false` | Cluster layout on a single node: start even when legacy-layout keys exist under the prefix. |
 | `sessionTtl` | `string \| number` | none | TTL of AI conversations and flow checkpoints: a duration (`'24h'`, `'7d'`) or milliseconds. Messages, chats, contacts and cursors never expire. |
 | `maxMessagesPerChat` | `number` | unbounded | Keep only the newest N messages per chat. Safe with several replicas writing the same chat. |
-| `logger` | `{ error? }` | none | Receives the errors of a store-created client (connection drops, reconnects) and lifecycle errors. |
+| `logger` | `{ error?, warn? }` | none | Receives the errors of a store-created client (connection drops, reconnects) and lifecycle errors. `warn` (else `error`) gets the warning of a legacy-layout `start()` on a prefix migrated to the cluster layout. |
 
 Invalid values throw from the constructor.
 
@@ -164,6 +164,7 @@ Guide, with the full key table and migration steps: [Redis Cluster](https://andr
 | `{prefix}:conv:{key}` | string (JSON) | AI history (`AIMessage[]`) | `sessionTtl` |
 | `{prefix}:cursor:{key}` | string | delivery cursor (e.g. Telegram `update_id`) | none |
 | `{prefix}:lock:{key}` | string | lock token | lock `ttlMs` |
+| `{prefix}:lockfence:{key}` | string (counter) | last fence handed out by `acquireLockFenced` | none |
 | `{prefix}:sched:{id}` | string (JSON) | durable scheduled task | none |
 | `{prefix}:lease:{key}` | string (JSON) | fenced lease (owner, deadline, token) | none |
 | `{prefix}:ud:{user}:{ns}:{key}` | string (JSON) | `ctx.user` entry | the entry's own expiry |
@@ -175,7 +176,7 @@ The legacy layout targets a single Redis node (or Sentinel); use the cluster lay
 ## Behaviour notes
 
 - `getMessagesByChat(chatId, limit)` returns the newest `limit` messages, oldest first, with one `ZRANGE` (no scans).
-- `deleteChat(chatId)` removes the chat and its whole message log in one Lua script, so a message saved at the same moment never becomes an orphan.
+- `deleteChat(chatId)` removes the chat and its whole message log in one Lua script (the cluster layout deletes in atomic chunks of 1000 instead), so a message saved at the same moment never becomes an orphan.
 - `upsertChat` / `upsertContact` shallow-merge over the existing record with a server-side compare-and-set, so concurrent upserts from any number of replicas never lose each other's fields. Values are stored byte-exact.
 - Listings in the legacy layout use incremental `SCAN`, never one blocking `KEYS`; glob characters in the prefix are escaped.
 - A store-created client reconnects with backoff after a dropped connection instead of crashing; `start()` rejects promptly (e.g. `ECONNREFUSED`) when the server is unreachable and can be called again; `stop()` never hangs (it gives up on `QUIT` after 2 s).

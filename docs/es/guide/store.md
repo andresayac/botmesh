@@ -157,7 +157,7 @@ Un archivo escrito por una release **más nueva** se rechaza, sin tocarlo, con
 - Si varios procesos comparten un archivo, para los de la versión antigua antes
   de que uno nuevo lo abra.
 
-El [README del paquete](https://www.npmjs.com/package/@botmesh/sqlite-store#schema-versioning)
+El [README del paquete](https://www.npmjs.com/package/@botmesh/sqlite-store#schema-versions-and-upgrades)
 detalla qué cambió en cada versión y cómo deshacer el último paso sin copia de
 seguridad.
 
