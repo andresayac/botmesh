@@ -53,7 +53,11 @@ describe('presence hints while the transport is disconnected', () => {
     expect(skipped.map((l) => [l.level, l.kind, l.connection])).toEqual([
       [20, 'typing', 'closed'], [20, 'typing', 'closed'], [20, 'markRead', 'closed'],
     ])
-    expect(JSON.stringify(skipped)).not.toContain('u1')   // chat ids follow the logIds policy (hashed)
+    // Chat ids follow the logIds policy (hashed). Compare whole values: a random hash can
+    // contain the two characters "u1" as a substring.
+    expect(ctx.chat.id).toBe('u1')
+    for (const l of skipped) expect(l.chatId).not.toBe(ctx.chat.id)
+    expect(JSON.stringify(skipped)).not.toContain(JSON.stringify(ctx.chat.id))
 
     connection('connecting')
     await ctx.typing()
