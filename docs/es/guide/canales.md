@@ -766,6 +766,11 @@ const provider = new GupshupProvider({
   10) y después como texto numerado; las listas son nativas hasta 10 filas. El
   botón de la lista de los botones degradados usa `listButtonText` (por defecto
   `'Options'`, máximo 20 caracteres; `'Opciones'` para un bot en español).
+  Las etiquetas más largas se recortan a los límites de WhatsApp (títulos de
+  20/24 caracteres) en vez de ser rechazadas.
+- Con `@botmesh/server`, monta el provider como una ruta: el ingress pasa la
+  URL de la petición a `ingest()`, así que el callback con `?token=` funciona
+  tal cual.
 - `chatId` = los dígitos del teléfono del remitente (sin `+`), justo lo que
   espera la API de envío.
 - Media solo desde URLs públicas. Gupshup también documenta restringir por

@@ -137,25 +137,33 @@ export class GupshupProvider implements IProvider<GupshupCallback> {
   /* Webhook --------------------------------------------------------------- */
 
   /**
-   * Feed a callback POST authenticated by the token HEADER
-   * (`webhookTokenHeader`). Returns 200 accepted, 400 unreadable, 401 bad token.
+   * Feed a callback POST. The token is read from the query string of
+   * `requestUrl` (`webhookTokenParam`) when it carries one, otherwise from the
+   * header (`webhookTokenHeader`). `requestUrl` (path + query, or absolute) is
+   * what the `@botmesh/server` ingress passes as the third argument, so the
+   * documented `?token=` callback URL works there too.
+   * Returns 200 accepted, 400 unreadable, 401 bad token.
    */
-  ingest(rawEvent: unknown, headers?: HeaderBag): number {
-    return this.handle(rawEvent, header(headers, this.config.webhookTokenHeader))
+  ingest(rawEvent: unknown, headers?: HeaderBag, requestUrl?: string): number {
+    const fromUrl = requestUrl !== undefined ? this.queryToken(requestUrl) : undefined
+    return this.handle(rawEvent, fromUrl ?? header(headers, this.config.webhookTokenHeader))
   }
 
   /**
    * Feed a callback POST authenticated by the token in the URL query
-   * (`webhookTokenParam`) or, failing that, the token header.
+   * (`webhookTokenParam`) or, failing that, the token header. Same as
+   * `ingest(req.body, req.headers, req.url)`.
    */
   ingestRequest(req: GupshupIngestRequest): number {
-    let token: string | undefined
+    return this.ingest(req.body, req.headers, req.url)
+  }
+
+  private queryToken(url: string): string | undefined {
     try {
-      token = new URL(req.url, 'http://callback.local').searchParams.get(this.config.webhookTokenParam) ?? undefined
+      return new URL(url, 'http://callback.local').searchParams.get(this.config.webhookTokenParam) ?? undefined
     } catch {
-      token = undefined
+      return undefined
     }
-    return this.handle(req.body, token ?? header(req.headers, this.config.webhookTokenHeader))
   }
 
   private handle(rawEvent: unknown, token: string | undefined): number {
@@ -211,7 +219,6 @@ export class GupshupProvider implements IProvider<GupshupCallback> {
 
   /* Capability-gated actions ---------------------------------------------- */
 
-  /** Download inbound media from its (expiring) Gupshup file-manager URL through secureFetch. */
   /**
    * Durable media: Gupshup hands a hosted attachment URL, journaled only while it is an
    * http(s) URL of a sane length (the download revalidates the host through the HTTP
@@ -232,6 +239,7 @@ export class GupshupProvider implements IProvider<GupshupCallback> {
     return { ...ref, token: { url } }
   }
 
+  /** Download inbound media from its (expiring) Gupshup file-manager URL through secureFetch. */
   async downloadMedia(ref: MediaRef): Promise<Buffer> {
     const token = ref.token as { url?: unknown } | string | undefined
     const url = typeof token === 'string' ? token : typeof token?.url === 'string' ? token.url : undefined

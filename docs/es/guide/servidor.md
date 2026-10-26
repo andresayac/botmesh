@@ -236,8 +236,9 @@ curso.
 
 ## Notas por provider
 
-El ingress llama a `provider.ingest(rawBody, headers)`: no le pasa la URL de
-la petición. Para la mayoría de providers no importa, con estos detalles:
+El ingress llama a `provider.ingest(rawBody, headers, requestUrl)`, donde
+`requestUrl` es la ruta de la petición con su query string (`/hook?token=…`).
+Los providers que autentican un token en la URL lo leen de ahí:
 
 | Provider | Configuración de la ruta |
 | --- | --- |
@@ -245,13 +246,13 @@ la petición. Para la mayoría de providers no importa, con estos detalles:
 | `TelegramProvider` (`polling: false`) | Por defecto (`buffer`) o `body: 'text'` |
 | `EvolutionProvider`, `GoHighLevelProvider`, `TikTokProvider` | Por defecto (`buffer`) |
 | `TwilioProvider` | Por defecto. Configura `webhookUrl` (la URL pública exacta que firma Twilio), o `webhookPath` detrás de un proxy propio |
-| `WPPConnectProvider` | El token del webhook tiene que llegar en una cabecera (`x-webhook-token` o `Authorization: Bearer`): el token en la query string necesita `ingest(body, headers, url)`, que el ingress no llama |
-| `GupshupProvider` | Igual: `ingest()` solo lee la cabecera (`x-webhook-token`); el token en la query string necesita `ingestRequest()` |
+| `WPPConnectProvider` | Por defecto. El token del webhook llega en la query string (`?token=…`) o en una cabecera (`x-webhook-token` o `Authorization: Bearer`) |
+| `GupshupProvider` | Por defecto. El token llega en la query string de la URL del callback (`?token=…`, `webhookTokenParam`) o en la cabecera `x-webhook-token` |
 | `EmailProvider` | Por defecto, con un `maxBodyBytes` mayor |
 
-Para WPPConnect y Gupshup con el token en la query string, monta una ruta en
-tu framework y llama tú a `provider.ingest(body, headers, req.originalUrl)` /
-`provider.ingestRequest({ url, body, headers })` (ver
+Sin el ingress, monta una ruta en tu framework y pasa tú la URL:
+`provider.ingest(body, headers, req.originalUrl)` (WPPConnect y Gupshup) o
+`provider.ingestRequest({ url, body, headers })` (Gupshup) (ver
 [Canales](/es/guide/canales)).
 
 ## Exports de más bajo nivel

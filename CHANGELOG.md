@@ -4,6 +4,12 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### `@botmesh/gupshup`: callbacks por `@botmesh/server`, etiquetas y errores (2026-10)
+- **`ingest(body, headers, url)`:** el ingress de `@botmesh/server` pasa la ruta con su query string como tercer argumento, pero Gupshup solo leía el token de la cabecera, así que la URL de callback documentada (`?token=<secreto>`) recibía `401` en todos los callbacks. Ahora `ingest()` lee el token de la query de `url` (si no la trae, de la cabecera) e `ingestRequest()` delega en él. La guía del servidor (EN/ES) y el README de `@botmesh/server` decían que el ingress no pasa la URL; ya no.
+- **Límites de WhatsApp:** los títulos de quick replies y el botón de lista se recortan a 20 caracteres, los títulos de sección y fila a 24, las descripciones a 72 y los pies a 60, sin partir grafemas (emoji ZWJ, banderas); antes Gupshup respondía un `Invalid request` opaco. Dos quick replies con el mismo título tras el recorte rechazan `UnsupportedContentError` con un mensaje claro.
+- **Texto numerado:** un botón con URL que se degrada a texto numerado conserva el enlace (`1. Pagar: https://…`); antes se perdía.
+- **Errores:** un `401`/`403` de la API dice que revises `apiKey`, `appName` y `source`; un fallo de red nombra el código (`fetch failed (ECONNREFUSED)`). El `code` y el `reason` de un estado `failed` solo se copian si son número y texto.
+
 ### Integración de los 26 paquetes promovidos en `main` (2026-10)
 - Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
 - Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).
