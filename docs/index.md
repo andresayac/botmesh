@@ -20,8 +20,8 @@ features:
   - title: Transport-agnostic
     details: |
       One engine, many providers: @botmesh/baileys (WhatsApp Web),
-      @botmesh/meta (official WhatsApp Cloud API) and @botmesh/telegram,
-      plus experimental Messenger, Instagram, Discord and more.
+      @botmesh/meta (official WhatsApp Cloud API), @botmesh/telegram,
+      @botmesh/messenger and @botmesh/instagram, plus experimental Discord and more.
       Switching channels changes one line.
     icon: 🔌
     link: /guide/channels

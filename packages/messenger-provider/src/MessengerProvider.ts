@@ -63,12 +63,6 @@ export function toMessengerError(err: GraphError, retryAfterMs?: number, chatId:
   return toGraphError(err, { retryAfterMs, chatId })
 }
 
-/**
- * @deprecated Use {@link toMessengerError} (channel-prefixed like every provider's error
- * mapper). Removal planned for v3.
- */
-export const toProviderError: typeof toMessengerError = toMessengerError
-
 export class MessengerProvider implements IProvider<unknown> {
   readonly id = 'messenger'
   readonly capabilities: ProviderCapabilities = {

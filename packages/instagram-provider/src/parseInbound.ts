@@ -21,20 +21,20 @@ import type {
 } from '@botmesh/core'
 
 /* Loose webhook shapes (only the fields we read). */
-interface IgAttachmentPayload {
+export interface IgAttachmentPayload {
   url?: string
   title?: string
   sticker_id?: string
   /** Set on a `location` attachment (shared with Messenger's webhook shape, when Meta sends one). */
   coordinates?: { lat?: number; long?: number }
 }
-interface IgAttachment {
+export interface IgAttachment {
   /** image | video | audio | file | share | fallback | story_mention | ... */
   type?: string
   title?: string
   payload?: IgAttachmentPayload
 }
-interface IgMessage {
+export interface IgMessage {
   mid?: string
   text?: string
   /** True when this message was sent by the connected IG account (our own). */
@@ -49,7 +49,7 @@ interface IgMessage {
   /** Present when the user replied to one of our stories. */
   story?: { id?: string; url?: string }
 }
-interface IgReaction {
+export interface IgReaction {
   /** id of the reacted-to message. */
   mid?: string
   /** 'react' | 'unreact' */
@@ -59,7 +59,7 @@ interface IgReaction {
   /** The unicode emoji ('❤️'). */
   emoji?: string
 }
-interface IgPostback {
+export interface IgPostback {
   payload?: string
   title?: string
   mid?: string
@@ -75,7 +75,7 @@ export interface IgMessagingEvent {
   /** Present when the user replied to a story. */
   story?: { id?: string; url?: string }
 }
-interface IgEntry {
+export interface IgEntry {
   id?: string
   time?: number
   messaging?: IgMessagingEvent[]

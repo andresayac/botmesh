@@ -137,6 +137,24 @@ New options: `busyTimeoutMs` (default 5000, `PRAGMA busy_timeout`)
 and a `logger` that takes any `LoggerLike`. The exported `SCHEDULES_SCHEMA` and
 `DURABLE_SCHEMA` DDL strings are deprecated.
 
+### `@botmesh/messenger` and `@botmesh/instagram`
+
+Both channels are public from the beta (`1.0.0-beta`), so their first npm release
+already has the frozen entry. Inside the monorepo or a fork, an import of a removed name
+fails to compile:
+
+| Removed from the main entry | Use instead |
+| --- | --- |
+| `toProviderError` | `toMessengerError` / `toInstagramError` |
+| `verifyChallenge`, `verifySignature` re-exports | `provider.verifyChallenge(query)` / `provider.ingest()`, or `@botmesh/graph-core` |
+| `parseInbound`, `toOutbound`, `toOutboundMessages` (Messenger) | `@botmesh/messenger/internal` (no semver) |
+| `GraphClient`, `parseInbound`, `toOutbound` (Instagram) | `@botmesh/instagram/internal` (no semver) |
+| `GraphSendResponse` (Instagram) | `InstagramSendResponse` (same shape) |
+
+The `debug` option is deprecated in both: pass a `logger` instead. More than 3 buttons
+(or 10 list rows) on Messenger, or more than 13 quick replies on Instagram, reject with
+`UnsupportedContentError` instead of being cut.
+
 ## Private packages
 
 These are not on npm; the notes matter only inside the monorepo or a fork.
@@ -151,10 +169,7 @@ These are not on npm; the notes matter only inside the monorepo or a fork.
   Message edits (`MESSAGE_UPDATE`) now arrive as messages with the original `ref.id`
   (`isEditedMessage(ctx)`; `editedMessages: 'ignore'` drops them).
 - **Error mappers renamed** (old names are deprecated aliases): `toDiscordError`,
-  `toMessengerError`, `toInstagramError`, `toTikTokError`, `toEmailError`.
-- **`@botmesh/messenger` / `@botmesh/instagram`:** more than 3 buttons (or 10 list rows) on
-  Messenger, or more than 13 quick replies on Instagram, reject with
-  `UnsupportedContentError` instead of being cut.
+  `toTikTokError`, `toEmailError`.
 - **`@botmesh/tickets`:** `TicketKeyValue` has an optional `setIf`. A custom storage that
   implements it switches the desk to shared mode (safe for replicas).
 - **Product stores:** `InboxStore.erase`, `ContactStore.erase` and `DeploymentStore.prune`

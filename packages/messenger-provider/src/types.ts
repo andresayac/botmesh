@@ -12,9 +12,9 @@ export interface MessengerProviderConfig {
   /** Shared secret the host configured in the webhook subscription (GET verify). */
   verifyToken: string
   /**
-   * App secret — when set, inbound POSTs are verified against the
-   * `X-Hub-Signature-256` header (HMAC-SHA256). Strongly recommended.
-  */
+   * App secret: inbound POSTs are verified against the `X-Hub-Signature-256` header
+   * (HMAC-SHA256 over the raw body). Required unless `allowUnsignedWebhooks` is set.
+   */
   appSecret?: string
   /** Explicit local-development escape hatch for unsigned webhook POSTs. */
   allowUnsignedWebhooks?: boolean
@@ -41,7 +41,12 @@ export interface MessengerProviderConfig {
   selfId?: string
   /** Page id (or 'me') that owns the Send API endpoint. Default 'me'. */
   pageId?: string
+  /**
+   * @deprecated Pass a `logger` (any `LoggerLike`, e.g. `pino({ level: 'debug' })`)
+   * instead. Removal planned for v3.
+   */
   debug?: boolean
+  /** Logger for provider diagnostics (any `LoggerLike`: pino, console…). Default: pino at `error`. */
   logger?: LoggerLike
 }
 

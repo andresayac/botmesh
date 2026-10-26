@@ -8,6 +8,8 @@ export const BOTMESH_VERSIONS = {
   '@botmesh/core': '^2.0.0-beta.3',
   '@botmesh/graph-core': '^1.0.0-beta.1',
   '@botmesh/http': '^1.0.0-beta.1',
+  '@botmesh/instagram': '^0.1.0',
+  '@botmesh/messenger': '^0.1.0',
   '@botmesh/meta': '^1.0.0-beta.1',
   '@botmesh/redis-store': '^1.0.0-beta.1',
   '@botmesh/sqlite-store': '^1.0.0-beta.1',

@@ -38,8 +38,8 @@ teléfono ni una URL pública.
 | `@botmesh/baileys` | `baileys-provider` | En npm | WhatsApp Web (socket de Baileys) |
 | `@botmesh/meta` | `meta-provider` | En npm | WhatsApp Cloud API (oficial) |
 | `@botmesh/telegram` | `telegram-provider` | En npm | Telegram Bot API |
-| `@botmesh/messenger` | `messenger-provider` | Aún no en npm | Facebook Messenger (Send API) |
-| `@botmesh/instagram` | `instagram-provider` | Aún no en npm | DMs de Instagram (Messenger API for Instagram) |
+| `@botmesh/messenger` | `messenger-provider` | En npm (desde la beta) | Facebook Messenger (Send API) |
+| `@botmesh/instagram` | `instagram-provider` | En npm (desde la beta) | DMs de Instagram (Messenger API for Instagram) |
 | `@botmesh/discord` | `discord-provider` | Aún no en npm | Discord (gateway + REST) |
 | `@botmesh/evolution` | `evolution-provider` | Aún no en npm | Evolution API v2 (gateway de WhatsApp self-hosted) |
 | `@botmesh/wppconnect` | `wppconnect-provider` | Aún no en npm | WPPConnect Server (gateway de WhatsApp self-hosted) |
@@ -49,7 +49,8 @@ teléfono ni una URL pública.
 | `@botmesh/email` | `email-provider` | Aún no en npm | Email (IMAP IDLE + SMTP) |
 | `@botmesh/tiktok` | `tiktok-provider` | Aún no en npm | TikTok API for Business (comentarios + Business Messaging) |
 
-Los tres canales **En npm** se instalan con `pnpm add` y siguen semver. Los
+Los cinco canales **En npm** se instalan con `pnpm add` y siguen semver
+(Messenger e Instagram se publican desde la beta). Los
 demás llevan `"private": true` en su `package.json`: están implementados y con
 tests, pero **no se publican en npm** y su API todavía puede cambiar. Úsalos
 desde un clon del monorepo (`"workspace:*"`). Lo mismo vale para
@@ -487,7 +488,7 @@ bot.before('message', async (ctx, next) => { if (!isEditedMessage(ctx)) await ne
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/telegram-provider)
 
-### `@botmesh/messenger` (aún no en npm)
+### `@botmesh/messenger`
 
 Facebook Messenger a través del Send API de Graph, con la misma verificación
 de webhook que la Cloud API.
@@ -512,9 +513,13 @@ const provider = new MessengerProvider({
   genérica) rechazan con `UnsupportedContentError` en vez de descartar opciones.
 - Cada llamada a la Send API vence tras `requestTimeoutMs` (60 s por defecto).
 
+```bash
+pnpm add @botmesh/core @botmesh/messenger
+```
+
 [README](https://github.com/andresayac/botmesh/tree/main/packages/messenger-provider)
 
-### `@botmesh/instagram` (aún no en npm)
+### `@botmesh/instagram`
 
 DMs de una cuenta profesional de Instagram conectada a una Página de
 Facebook (Messenger API for Instagram).
@@ -540,6 +545,10 @@ const provider = new InstagramProvider({
 - Más de 13 quick replies rechazan con `UnsupportedContentError` en vez de
   descartar opciones.
 - Cada llamada a la Send API vence tras `requestTimeoutMs` (60 s por defecto).
+
+```bash
+pnpm add @botmesh/core @botmesh/instagram
+```
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/instagram-provider)
 

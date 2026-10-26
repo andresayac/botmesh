@@ -1,8 +1,6 @@
 # @botmesh/messenger
 
-> **Experimental — not yet published on npm.** Real, tested implementation, but the package is `private`: it is not part of the first alpha and its API may change. Use it from this monorepo (`workspace:*`); the `pnpm add` below will work once it is published.
-
-**Facebook Messenger (Meta's official Send API)** transport for [`@botmesh/core`](../core). Sibling of `@botmesh/meta` (WhatsApp Cloud API): same Graph family — **webhook with the `hub.challenge` handshake + `X-Hub-Signature-256` signature** and an **HTTP Send API** (`POST /{page-id}/messages`). It opens no socket.
+The **Facebook Messenger** transport for [`@botmesh/core`](https://github.com/andresayac/botmesh/tree/main/packages/core), on Meta's official Send API. It is a sibling of [`@botmesh/meta`](https://www.npmjs.com/package/@botmesh/meta) (WhatsApp Cloud API) and shares its Graph plumbing through [`@botmesh/graph-core`](https://www.npmjs.com/package/@botmesh/graph-core): a webhook with the `hub.challenge` handshake and the `X-Hub-Signature-256` signature for inbound messages, and `POST /{page-id}/messages` for everything outbound. It opens no socket.
 
 ## Install
 
@@ -10,95 +8,123 @@
 pnpm add @botmesh/core @botmesh/messenger
 ```
 
-**No extra dependencies** — it uses Node ≥ 22 native `fetch` and `crypto`.
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older version. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/messenger@beta` during the beta (`npm view @botmesh/messenger dist-tags` lists the tags). Once stable, the plain command above works.
+
+Nothing else to install: Graph calls use Node.js 22's native `fetch` and `crypto`, and inbound attachments are downloaded through the SSRF-safe [`@botmesh/http`](https://www.npmjs.com/package/@botmesh/http) (a dependency).
 
 ## Requirements (Meta)
 
-1. An app at [developers.facebook.com](https://developers.facebook.com) with the **Messenger** product and a connected Facebook Page.
-2. A **Page Access Token** with `pages_messaging` (generated in the app's Messenger section).
-3. Configure the Page **webhook** pointing at your server: subscribe the `messages`, `messaging_postbacks` and (for inbound reactions) `message_reactions` fields with a `verify_token` you choose and the app's `app_secret`.
+1. An app on [developers.facebook.com](https://developers.facebook.com) with the **Messenger** product and a connected Facebook Page.
+2. A **Page access token** with `pages_messaging` (generated in the app's Messenger settings).
+3. The app's **app secret** (App settings → Basic): it verifies every webhook.
+4. A public **HTTPS webhook** for the Page: set its URL and a `verify_token` you choose, and subscribe the `messages` and `messaging_postbacks` fields (add `message_reactions` to receive reactions).
 
 ## Usage
 
 ```ts
 import { Bot } from '@botmesh/core'
-import { MessengerProvider } from '@botmesh/messenger'
+import { MessengerProvider, type ChallengeQuery } from '@botmesh/messenger'
 import express from 'express'
 
 const provider = new MessengerProvider({
-  accessToken: process.env.MESSENGER_TOKEN!,
-  verifyToken: 'my-verify-secret',               // the one you set in Meta
+  accessToken: process.env.MESSENGER_TOKEN!,     // Page access token (pages_messaging)
+  verifyToken: process.env.META_VERIFY_TOKEN!,   // the one you set in Meta
   appSecret: process.env.META_APP_SECRET!,       // required: verifies X-Hub-Signature-256
-  pageId: 'me',                                  // or the Page's numeric id
 })
 
 const bot = new Bot({ provider })
-bot.when('hello', (ctx) => ctx.reply('👋 Hello from Messenger!'))
+bot.when('hi', (ctx) => ctx.reply('👋 Hello from Messenger!'))
 await bot.start()
 
-// ——— YOUR server serves the webhook ———
+// Your server serves the webhook
 const app = express()
 app.get('/webhook', (req, res) => {
-  const challenge = provider.verifyChallenge(req.query as never)
-  challenge ? res.send(challenge) : res.sendStatus(403)
+  const challenge = provider.verifyChallenge(req.query as ChallengeQuery)
+  if (challenge === null) res.sendStatus(403)
+  else res.send(challenge)
 })
-app.post('/webhook', express.json({ verify: (req, _res, buf) => { (req as any).rawBody = buf } }), (req, res) => {
-  res.sendStatus(provider.ingest((req as any).rawBody ?? req.body, req.headers))
+// express.raw keeps the exact bytes Meta signed: never parse the body before ingest()
+app.post('/webhook', express.raw({ type: 'application/json', limit: '1mb' }), (req, res) => {
+  res.sendStatus(provider.ingest(req.body, req.headers))
 })
 app.listen(3000)
 ```
 
-> **Webhook signature:** `appSecret` is mandatory in production; `ingest` validates `X-Hub-Signature-256`
-> (constant-time HMAC-SHA256) and rejects forged bodies with `403`.
-> Pass it the **raw body** (not the already parsed one) so the signature computes the same.
-> For local development only, `allowUnsignedWebhooks: true` can be used explicitly.
+The same two routes work in any framework (or with the [webhook server](https://andresayac.github.io/botmesh/guide/server)): answer the `GET` with `verifyChallenge(query)` and hand the raw `POST` body and headers to `ingest()`, which does not wait for your handlers.
 
-## Configuration
+`ingest(body, headers)` returns the HTTP status to answer with and never throws: `200` accepted, `400` for a body that is not a JSON object (or one already parsed while `appSecret` is set), `403` for a bad signature. Fields of the wrong type inside a valid body are ignored, never trusted.
 
-| Field | Default | Description |
-|---|---|---|
-| `accessToken` | — | Page Access Token (`pages_messaging`). |
-| `verifyToken` | — | Webhook GET handshake secret. |
-| `appSecret` | Yes | Verifies `X-Hub-Signature-256` on every POST. |
-| `apiVersion` | `v26.0` (`DEFAULT_GRAPH_API_VERSION`) | Graph API version. |
-| `graphUrl` | `https://graph.facebook.com` | Graph base URL. |
-| `pageId` | `me` | Page id (or `me`). |
-| `selfId` | — | The bot's PSID (for `fromMe`). |
-| `allowUnsignedWebhooks` | `false` | Isolated local development only: accept webhooks without `appSecret`. |
-| `mediaDownload` | — | `secureFetch` policy for inbound attachment downloads (`maxBytes`, `timeoutMs`, ...). |
-| `mediaRefHosts` | Meta CDN hosts | Hosts whose attachment URLs may be journaled for durable replays. |
+## Options
 
-An empty `accessToken` or `verifyToken` (an unset env var) fails in the constructor.
+| Option | Default | Description |
+| --- | --- | --- |
+| `accessToken` | required | Page access token with `pages_messaging`. An empty value fails in the constructor. |
+| `verifyToken` | required | Secret of the webhook `GET` handshake. An empty value fails in the constructor. |
+| `appSecret` | required | Verifies `X-Hub-Signature-256` (constant-time HMAC-SHA256 over the raw bytes) on every `POST`. |
+| `allowUnsignedWebhooks` | `false` | Isolated local development only: accept webhooks without `appSecret` (logs a warning). |
+| `pageId` | `'me'` | Page that owns the Send API endpoint (`me` or its numeric id). |
+| `selfId` | none | The Page id. A message whose sender is this id (an echo, if you subscribe `message_echoes`) is marked `fromMe` and skipped. |
+| `requestTimeoutMs` | `60000` | Time allowed for each Send API call (send, typing, mark seen); a slower call rejects with a `ProviderError`. |
+| `apiVersion` | `'v26.0'` | Graph API version (`DEFAULT_GRAPH_API_VERSION` of `@botmesh/graph-core`). It follows the current version and moves in a minor release; pin it to stay on one. |
+| `graphUrl` | `'https://graph.facebook.com'` | Graph base URL (a proxy or a local simulator). |
+| `mediaDownload` | HTTPS, public hosts | `secureFetch` policy for inbound attachments (`maxBytes`, `timeoutMs`, `allowHttp`…). |
+| `mediaRefHosts` | Meta CDN hosts | Hosts whose attachment URLs may be journaled for durable replays (`BotConfig.durability`). |
+| `logger` | pino at `error` | Any `LoggerLike` (pino, `console`…). |
+| `debug` | `false` | **Deprecated**: pass a `logger` instead. |
 
 ## What it supports
 
 | Feature | Messenger |
-|---|---|
+| --- | --- |
 | Text, image, video, audio, document (by public URL) | ✅ |
-| **Postback buttons** (`ctx.buttons`, `button` template, max 3; a button with `url` is `web_url`) | ✅ native |
-| **Cards** (`card` with image or buttons → `generic` template; without them, text) | ✅ native |
-| **Lists** (`generic` template, one element per row) | ✅ native |
-| Inbound quick replies / postbacks → interactions (`kind: 'button'`) | ✅ |
-| Inbound location (`type: 'location'`) and quoted replies (`quoted`) | ✅ |
-| Inbound reactions (`message_reactions` webhook → `reaction` event; `emoji` is the character, `removed` on `unreact`) | ✅ |
-| Typing (`typing_on`/`typing_off`) and read receipt (`mark_seen`) | ✅ |
+| Postback buttons (`ctx.buttons`, button template, max 3; a button with `url` is a `web_url` button) | ✅ native |
+| Cards (`card` with an image or buttons → generic template; without them, text) | ✅ native |
+| Lists (generic template, one element per row, max 10) | ✅ native |
+| Quick replies and postbacks → interactions (`kind: 'button'`) | ✅ |
+| Inbound location (`type: 'location'`) and replies (`ctx.quoted`) | ✅ |
+| Inbound reactions (`message_reactions` → `reaction` event; `emoji` is the character, `removed` on `unreact`) | ✅ |
+| Typing (`typing_on`/`typing_off`) and read receipts (`mark_seen`) | ✅ |
 | Inbound media download (`MediaRef.token` is the attachment URL) | ✅ |
-| Polls, stickers, location, contact, templates, sending reactions | ❌ (`UnsupportedContentError` — no Send API endpoint) |
-| Groups, presence, editing/deleting messages | ❌ (does not exist in the API) |
+| Text over 2000 characters (`maxTextLength`) | ✅ split into several messages by `@botmesh/core` |
+| `ctx.sendNative('messenger', message)` | ✅ posts a Send API `message` object as is |
+| Polls, stickers, location, contact, templates, sending reactions | ❌ `UnsupportedContentError` (no Send API for them) |
+| Groups, presence, editing or deleting messages | ❌ (not in the API) |
 
-## Documented limitations
+- **Media by public URL only.** The Send API refers to attachments by URL; this provider does not implement the chunked upload. A `Buffer`, a path or a stream rejects with `UnsupportedContentError`: host the file and pass `'https://…'` or `{ url }`.
+- **Replies are not threaded on send:** the Send API has no reply context, so `options.quoted` is ignored.
+- **Identity:** `chatId` and `senderId` are the user's Page-scoped id (`sender.id`), stable for each Page and user.
+- `acknowledgeInteraction()` is a no-op: postbacks need no ack.
 
-- **Media by public URL only.** The Send API refers to attachments by URL (`is_reusable: true`); this provider does **not** implement chunked upload. Pass `MediaSource` as a URL (`'https://…'` or `{ url }`) — a `Buffer`/path/stream throws `UnsupportedContentError` with the note.
-- **Quotes/replies (`quoted`) are ignored:** the Send API has no first-class reply context.
-- **Outbound reactions:** there is no public endpoint — `kind: 'reaction'` throws `UnsupportedContentError`. Inbound ones are normalized.
-- `acknowledgeInteraction` is a no-op: Messenger postbacks need no ack.
-- **Text length:** the Send API caps `text` at 2000 characters; `capabilities.maxTextLength` says so, so `@botmesh/core` splits longer text into several messages and sizes the `ctx.stream()` chunks.
-- **Option limits:** more than 3 buttons (button template) or 10 list rows (generic template) reject with `UnsupportedContentError` instead of dropping options.
-- **Timeouts:** each Send API call times out after `requestTimeoutMs` (default `60000`) with a `ProviderError`.
-- **Native payloads:** `ctx.sendNative('messenger', message)` posts a Send API `message` object as-is; native content addressed to another provider id is rejected with `UnsupportedContentError`.
-- **Malformed webhooks** never throw: fields of the wrong type are ignored, so `ingest()` always answers a status.
-- **Identity:** `chatId`/`senderId` are the PSID (`sender.id`) — stable per page↔user pair.
+## Errors you may see
 
-## Errors
+Sends reject with the typed errors of `@botmesh/core` (mapping in [`@botmesh/graph-core`](https://www.npmjs.com/package/@botmesh/graph-core); `toMessengerError()` exposes it):
 
-Graph errors (`res.error`) map to `@botmesh/core` types: rate-limit codes **4/613** → `RateLimitedError` (honouring `Retry-After`); outside the 24 h window (code 10, subcode 2018278) → `OutsideSessionWindowError`; recipient unavailable or nonexistent (code 551, subcodes 1545041/2018001) → `RecipientUnreachableError`, both with the `chatId`; the rest → `ProviderError`.
+| Error | Typical cause | What to do |
+| --- | --- | --- |
+| `OutsideSessionWindowError` (code `10`, subcode `2018278`) | More than 24 h since the user's last message | Wait for the user to write again, or send a message tag your app is approved for through `ctx.sendNative()`. |
+| `RecipientUnreachableError` (code `551`, subcodes `1545041`/`2018001`) | The user is unavailable, blocked the Page or does not exist | Stop sending to that id. |
+| `RateLimitedError` (codes `4`/`613`) | Page or app rate limit | Wait `retryAfterMs`; `ctx` sends and `bot.broadcast()` already retry short waits. |
+| `UnsupportedContentError` | Poll, sticker, location, contact, template, a non-URL media source, more than 3 buttons or 10 list rows | Use buttons, a list or text; host media and pass its URL. |
+| `ProviderError` (code `190`) | Wrong or expired Page token | Generate a Page access token with `pages_messaging`. |
+| `ProviderError` ("timed out") | A Send API call took longer than `requestTimeoutMs` | Check connectivity to Graph, or raise the timeout. |
+| Constructor error naming a field | `accessToken` or `verifyToken` empty, or `appSecret` missing | Check the environment variables. |
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| Meta says the callback URL could not be verified | The `GET` route answered `403`: the `verify_token` set in Meta differs from `verifyToken`, or the route does not return `verifyChallenge(query)` as plain text. |
+| Every webhook `POST` gets `403` | The signature check failed: `appSecret` is not the app's secret, or the body reached `ingest()` re-serialized (parse nothing before it; pass the raw bytes). See [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting#webhook-signature-mismatch-403). |
+| Webhook `POST`s get `400` | The body is not a JSON object, or a parsed object was passed while `appSecret` is set. |
+| The webhook verifies but no message arrives | The Page is not subscribed to the app's `messages` field, or the app is in development mode and the sender has no role in it. |
+| Button presses never arrive | `messaging_postbacks` is not subscribed. |
+| Reactions never arrive | `message_reactions` is not subscribed. |
+
+## Internal entry
+
+`@botmesh/messenger/internal` exports the wire helpers (`parseInbound`, `toOutbound`, `toOutboundMessages`) for tooling and tests. It has **no semver guarantee**: any of them may change in a minor release. Applications only need `ingest()` and the bot.
+
+## Links
+
+- [Channels guide](https://andresayac.github.io/botmesh/guide/channels#botmesh-messenger) · [Webhook server](https://andresayac.github.io/botmesh/guide/server) · [Local sandbox](https://andresayac.github.io/botmesh/guide/sandbox) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/messenger-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/messenger-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

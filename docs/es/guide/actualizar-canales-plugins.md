@@ -147,6 +147,24 @@ Opciones nuevas:
 cualquier `LoggerLike`. Las cadenas DDL exportadas `SCHEDULES_SCHEMA` y `DURABLE_SCHEMA`
 quedan deprecadas.
 
+### `@botmesh/messenger` y `@botmesh/instagram`
+
+Los dos canales son públicos desde la beta (`1.0.0-beta`), así que su primera versión en npm
+ya trae la entrada congelada. Dentro del monorepo o de un fork, importar un nombre quitado
+deja de compilar:
+
+| Quitado de la entrada principal | Usa en su lugar |
+| --- | --- |
+| `toProviderError` | `toMessengerError` / `toInstagramError` |
+| reexportaciones de `verifyChallenge`, `verifySignature` | `provider.verifyChallenge(query)` / `provider.ingest()`, o `@botmesh/graph-core` |
+| `parseInbound`, `toOutbound`, `toOutboundMessages` (Messenger) | `@botmesh/messenger/internal` (sin semver) |
+| `GraphClient`, `parseInbound`, `toOutbound` (Instagram) | `@botmesh/instagram/internal` (sin semver) |
+| `GraphSendResponse` (Instagram) | `InstagramSendResponse` (misma forma) |
+
+La opción `debug` queda deprecada en los dos: pasa un `logger`. Más de 3 botones (o 10
+filas de lista) en Messenger, o más de 13 quick replies en Instagram, rechazan con
+`UnsupportedContentError` en vez de cortarse.
+
 ## Paquetes privados
 
 No están en npm; estas notas solo importan dentro del monorepo o de un fork.
@@ -161,10 +179,7 @@ No están en npm; estas notas solo importan dentro del monorepo o de un fork.
   Las ediciones de mensajes (`MESSAGE_UPDATE`) llegan ahora como mensajes con el `ref.id`
   original (`isEditedMessage(ctx)`; `editedMessages: 'ignore'` las descarta).
 - **Mapeadores de errores renombrados** (los nombres antiguos son alias deprecados):
-  `toDiscordError`, `toMessengerError`, `toInstagramError`, `toTikTokError`, `toEmailError`.
-- **`@botmesh/messenger` / `@botmesh/instagram`:** más de 3 botones (o 10 filas de lista) en
-  Messenger, o más de 13 quick replies en Instagram, rechazan con `UnsupportedContentError`
-  en vez de cortarse.
+  `toDiscordError`, `toTikTokError`, `toEmailError`.
 - **`@botmesh/tickets`:** `TicketKeyValue` tiene un `setIf` opcional. Un almacenamiento
   propio que lo implemente pasa el desk a modo compartido (seguro con réplicas).
 - **Stores de producto:** `InboxStore.erase`, `ContactStore.erase` y

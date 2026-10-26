@@ -153,9 +153,9 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs `build`, `typec
 
 Versions are managed with [Changesets](https://changesets.dev) (CLI v3) and published **by hand** from the maintainer's machine. There is no release workflow.
 
-**Public packages** (published to npm): `@botmesh/core`, `@botmesh/baileys`, `@botmesh/meta`, `@botmesh/telegram`, `@botmesh/sqlite-store`, `@botmesh/redis-store`, `@botmesh/ai`, `@botmesh/http`, `@botmesh/graph-core` and `create-botmesh`.
+**Public packages** (published to npm): `@botmesh/core`, `@botmesh/baileys`, `@botmesh/meta`, `@botmesh/telegram`, `@botmesh/messenger`, `@botmesh/instagram`, `@botmesh/sqlite-store`, `@botmesh/redis-store`, `@botmesh/ai`, `@botmesh/http`, `@botmesh/graph-core` and `create-botmesh`.
 
-**Private packages** (`"private": true`, never published): everything else — the experimental channels (`discord`, `messenger`, `instagram`, `evolution`, `wppconnect`, `twilio`, `gohighlevel`, `gupshup`, `email`, `tiktok`), the `mongo`/`postgres`/`mysql` stores, the infrastructure (`server`, `wa-gateway-kit`), the plugins and integrations (`nlu`, `rag`, `voice`, `dialogflow`, `chatwoot`, `tickets`, `moderation`, `manager`, `events`, `otel`), the product packages (`inbox`, `crm`, `hub`, `campaigns`, `deployments`, `tenant-kv`, `flow-schema`) and the tooling (`eslint-plugin-botmesh`, `@botmesh/mcp`). The [README](README.md#packages) table is the canonical list.
+**Private packages** (`"private": true`, never published): everything else — the experimental channels (`discord`, `evolution`, `wppconnect`, `twilio`, `gohighlevel`, `gupshup`, `email`, `tiktok`), the `mongo`/`postgres`/`mysql` stores, the infrastructure (`server`, `wa-gateway-kit`), the plugins and integrations (`nlu`, `rag`, `voice`, `dialogflow`, `chatwoot`, `tickets`, `moderation`, `manager`, `events`, `otel`), the product packages (`inbox`, `crm`, `hub`, `campaigns`, `deployments`, `tenant-kv`, `flow-schema`) and the tooling (`eslint-plugin-botmesh`, `@botmesh/mcp`). The [README](README.md#packages) table is the canonical list.
 
 ### The `@bot-wa/*` packages are deprecated
 
