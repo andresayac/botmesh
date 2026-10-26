@@ -11,7 +11,7 @@ import { BaileysProvider } from '@botmesh/baileys'
 const bot = new Bot({
   provider: new BaileysProvider({ session: 'my-bot' }), // the only required option
   store: new MemoryStore({ file: './store.json' }),
-  lang: 'es',
+  lang: 'en', // built-in texts: 'en' (default) or 'es'
   groupMode: 'mentions',
   conversation: { timeout: '10m' },
   typing: true,

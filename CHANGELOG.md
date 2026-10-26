@@ -4,6 +4,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### Revisión de las páginas de inicio de la documentación (2026-10)
+- `create-botmesh --help` sugiere el dist-tag de la versión en curso (`npm create botmesh@beta` durante la beta; sin tag cuando `@botmesh/core` sea estable) en lugar del `@alpha` antiguo.
+- Guías de inicio (EN/ES): el simulador en inglés usa textos en inglés y el español fija `lang: 'es'`; el mensaje real de `TelegramProvider` cuando falta el token; la portada lista los cinco stores persistentes; el README deja de marcar solo Messenger e Instagram como publicados desde la beta.
+
 ### `@botmesh/messenger`: prueba de release de la beta (2026-10)
 - **Texto saliente sin recortes:** una lista envía su texto antes de la plantilla genérica (que no tiene encabezado y lo perdía); el texto de `buttons` que pasa de los 640 caracteres de la plantilla de botones sale antes como texto plano (Graph rechazaba el envío); `buttons` sin botones es texto; el texto de una tarjeta o lista de más de 2000 caracteres se divide en varios mensajes.
 - Las etiquetas de botones y plantillas se cortan en límites de grafema (una secuencia de emoji con ZWJ se partía en otro símbolo).
