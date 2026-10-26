@@ -88,6 +88,10 @@ npm run dev            # chat in the terminal: simulated provider, hot reload
 npm start              # connect the real channel
 ```
 
+`npm start` in the `meta`, `telegram`, `ai` and `ai-full` projects first checks the variables it cannot run without
+and, if `.env` is missing or incomplete, stops with one line naming them (`Missing TELEGRAM_TOKEN: copy .env.example
+to .env and fill it in ...`) before connecting anything. `npm run dev` needs none of them.
+
 ## CLI options
 
 ```

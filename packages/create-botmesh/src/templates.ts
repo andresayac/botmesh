@@ -13,6 +13,7 @@ import {
   AI_POLICY_URL,
   ANTHROPIC_SDK_VERSION,
   CORE_VERSION,
+  AI_KEY_WARNING,
   GITIGNORE,
   aiBotConfig,
   baileysMain,
@@ -20,6 +21,7 @@ import {
   botMeshRange,
   packageJson,
   readme,
+  requireEnv,
 } from './shared.js'
 
 export type TemplateName =
@@ -108,6 +110,7 @@ const meta: ProjectTemplate = {
       contents: botModule({
         imports: ["import { createServer } from 'node:http'", "import { CloudAPIProvider } from '@botmesh/meta'"],
         main: [
+          ...requireEnv(['META_TOKEN', 'META_PHONE_ID', 'META_VERIFY_TOKEN', 'META_APP_SECRET']),
           '// Secrets come from .env when present (loaded via `node --env-file-if-exists=.env`).',
           '// META_TOKEN / META_PHONE_ID: Meta developer portal → WhatsApp → API setup.',
           'const provider = new CloudAPIProvider({',
@@ -214,6 +217,7 @@ const telegram: ProjectTemplate = {
       contents: botModule({
         imports: ["import { TelegramProvider } from '@botmesh/telegram'"],
         main: [
+          ...requireEnv(['TELEGRAM_TOKEN']),
           '// TELEGRAM_TOKEN: create a bot with @BotFather and paste the token in .env.',
           'const bot = await createBot(new TelegramProvider({ token: process.env.TELEGRAM_TOKEN }))',
           "bot.on('ready', () => bot.logger.info('✅ Telegram bot polling — send it \"hola\"'))",
@@ -278,6 +282,7 @@ const ai: ProjectTemplate = {
         ],
         config: aiBotConfig('provider'),
         setup: [
+          AI_KEY_WARNING,
           '// AI autoresponder: answers text messages that no command/handler/flow consumed.',
           "// Also adds ctx.tools.ai and a /reset command to clear a chat's context.",
           'bot.plug(',
@@ -289,7 +294,7 @@ const ai: ProjectTemplate = {
           ')',
           '',
         ],
-        main: baileysMain('my-ai-bot', '✅ Bot connected — unhandled text messages get a business-scoped AI reply'),
+        main: [...requireEnv(['ANTHROPIC_API_KEY']), ...baileysMain('my-ai-bot', '✅ Bot connected — unhandled text messages get a business-scoped AI reply')],
       }),
     },
     {

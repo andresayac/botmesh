@@ -45,6 +45,9 @@ const MAX_NAME_LENGTH = 214
 /** One name segment: lowercase, illegal characters → dashes, no leading `.`/`_`. */
 function cleanSegment(raw: string, max = MAX_NAME_LENGTH): string {
   return raw
+    // Accented letters keep their base letter (`Peñas Bót` → `penas-bot`), not a dash.
+    .normalize('NFD')
+    .replace(/\p{M}+/gu, '')
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9._~-]+/g, '-')
