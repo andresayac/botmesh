@@ -59,6 +59,21 @@ export function isSystemMessage(message: WAMessage): boolean {
 /** `proto.Message.ProtocolMessage.Type.MESSAGE_EDIT`. */
 const MESSAGE_EDIT = 14
 
+/** The MESSAGE_EDIT protocol message of `message` (bare or in an `editedMessage` wrapper). */
+function editProtocolOf(message: WAMessage | null | undefined): proto.Message.IProtocolMessage | undefined {
+  let content = normalizeMessageContent(message?.message)
+  // `editedMessage: { message: { protocolMessage } }` (FutureProof wrapper), if not unwrapped above.
+  const wrapped = (content as { editedMessage?: { message?: proto.IMessage | null } | null } | undefined)?.editedMessage?.message
+  if (wrapped) content = normalizeMessageContent(wrapped)
+  const pm = content?.protocolMessage
+  return pm && pm.type === MESSAGE_EDIT ? pm : undefined
+}
+
+/** The key an edit names (the sender's claim about the original message), if `message` is an edit. */
+export function editProtocolKey(message: WAMessage | null | undefined): proto.IMessageKey | undefined {
+  return editProtocolOf(message)?.key ?? undefined
+}
+
 /**
  * The edited version of `message` when it is an edit (a `protocolMessage` of type
  * MESSAGE_EDIT, bare or inside an `editedMessage` wrapper) that names the message it
@@ -66,12 +81,8 @@ const MESSAGE_EDIT = 14
  * for anything else.
  */
 export function editedMessageOf(message: WAMessage | null | undefined): WAMessage | undefined {
-  let content = normalizeMessageContent(message?.message)
-  // `editedMessage: { message: { protocolMessage } }` (FutureProof wrapper), if not unwrapped above.
-  const wrapped = (content as { editedMessage?: { message?: proto.IMessage | null } | null } | undefined)?.editedMessage?.message
-  if (wrapped) content = normalizeMessageContent(wrapped)
-  const pm = content?.protocolMessage
-  if (!pm || pm.type !== MESSAGE_EDIT || !pm.editedMessage) return undefined
+  const pm = editProtocolOf(message)
+  if (!pm?.editedMessage) return undefined
   const originalId = pm.key?.id
   if (typeof originalId !== 'string' || originalId === '' || !message?.key) return undefined
   return { ...message, key: { ...message.key, id: originalId }, message: pm.editedMessage } as WAMessage

@@ -55,7 +55,7 @@ import {
   PollTracker, POLL_CACHE_MAX, decryptVote, fromStoredPoll, pollCreationOf, pollUpdateOf, recordVote, tally, toStoredPoll,
   type PollStore, type TrackedPoll,
 } from './polls.js'
-import { contextInfoOf, editedMessageOf, isSystemMessage, toInbound } from './toInbound.js'
+import { contextInfoOf, editedMessageOf, editProtocolKey, isSystemMessage, toInbound } from './toInbound.js'
 import { parseBaileysMediaRef, serializeBaileysMediaRef } from './mediaRef.js'
 import { toCallEvent } from './toCallEvent.js'
 import { toOutbound } from './toOutbound.js'
@@ -111,7 +111,9 @@ export interface BaileysProviderConfig {
   /**
    * Message edits (a user editing a message they sent): `'deliver'` (default) emits them
    * as messages that keep the ORIGINAL `ref.id` with the new text (`isEditedMessage()`
-   * tells them apart); `'ignore'` drops them. Only text edits are delivered.
+   * tells them apart); `'ignore'` drops them. Only text edits are delivered, and only of a
+   * message this process has seen (its message cache), sent in the same chat by the user who
+   * sends the edit; any other edit is dropped.
    */
   editedMessages?: 'deliver' | 'ignore'
   qr?: QrConfig
@@ -603,6 +605,10 @@ export class BaileysProvider implements IProvider<WAMessage> {
     if (edited) {
       if (this.config.editedMessages === 'ignore') return
       await this.seedIdentity(message.key)
+      if (!this.isAuthenticEdit(message, edited.key.id!)) {
+        this.logger.debug({ editedId: edited.key.id }, 'edit of a message this sender did not send in this chat (or one this process has not seen); dropped')
+        return
+      }
       const inbound = toInbound(edited, this.identity)
       if (inbound.type !== 'text' || !inbound.ref.id) return
       this.fan({ kind: 'message', message: { ...inbound, raw: message, ref: { ...inbound.ref, native: edited } } })
@@ -903,6 +909,35 @@ export class BaileysProvider implements IProvider<WAMessage> {
     return (key.remoteJid ?? '').endsWith('@g.us')
       ? this.jidCandidates(key.participant, key.participantAlt)
       : this.jidCandidates(key.remoteJid, key.remoteJidAlt)
+  }
+
+  /**
+   * Whether an edit stanza may rewrite the message it names. The protocol key is
+   * chosen by the sending client, so it is only a claim: the edit must name this
+   * chat and the original must be a message this process has seen in this chat,
+   * sent by the same user who sends the edit (never one of the bot's own). An edit
+   * of another participant's message, of a message from another chat or of an
+   * original that is no longer cached is dropped, as WhatsApp clients do.
+   */
+  private isAuthenticEdit(message: WAMessage, originalId: string): boolean {
+    const key = message.key as IdentityKey
+    const pm = editProtocolKey(message)
+    const chat = this.jidCandidates(key.remoteJid, key.remoteJidAlt)
+    const isGroup = (key.remoteJid ?? '').endsWith('@g.us')
+    const named = this.jidCandidates(pm?.remoteJid, (pm as IdentityKey | undefined)?.remoteJidAlt)
+    // A 1:1 edit names the chat from the sender's side (the bot) or from ours (the sender).
+    if (!this.overlaps(named, isGroup ? chat : [...chat, ...this.self().jids])) return false
+    const sender = isGroup ? this.jidCandidates(key.participant, key.participantAlt, message.participant) : chat
+    for (const jid of chat) {
+      const cached = this.msgCache.get(`${jid}:${originalId}`)
+      if (!cached?.key) continue
+      if (cached.key.fromMe) return false
+      const author = isGroup
+        ? this.jidCandidates(cached.key.participant, (cached.key as IdentityKey).participantAlt, cached.participant)
+        : this.jidCandidates(cached.key.remoteJid, (cached.key as IdentityKey).remoteJidAlt)
+      return this.overlaps(author, sender)
+    }
+    return false
   }
 
   /** Whether two JID-form lists name the same user or chat. */

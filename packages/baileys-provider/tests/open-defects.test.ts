@@ -83,14 +83,17 @@ describe('message edits', () => {
     } as unknown as WAMessage
   }
 
+  const original = (id: string, text = 'typo'): WAMessage => ({ key: { remoteJid: PN, fromMe: false, id }, message: { conversation: text }, messageTimestamp: 1_700_000_000 }) as unknown as WAMessage
+
   it('delivers an edit as a message with the ORIGINAL id and the new text', async () => {
     const h = await connect(BaileysProvider)
+    await h.emit({ 'messages.upsert': { type: 'notify', messages: [original('ORIG-1'), original('ORIG-2')] } })
     await h.emit({ 'messages.upsert': { type: 'notify', messages: [edit('ORIG-1', { conversation: 'fixed text' })] } })
     await h.emit({ 'messages.upsert': { type: 'notify', messages: [edit('ORIG-2', { extendedTextMessage: { text: 'also fixed' } }, true)] } })
     const messages = h.ofKind('message').map((e) => e.message)
-    expect(messages.map((m) => [m.ref.id, m.type, m.body])).toEqual([['ORIG-1', 'text', 'fixed text'], ['ORIG-2', 'text', 'also fixed']])
-    expect(messages.every((m) => isEditedMessage(m))).toBe(true)
-    expect(messages[0]!.senderId).toBe(PN)
+    const edits = messages.filter((m) => isEditedMessage(m))
+    expect(edits.map((m) => [m.ref.id, m.type, m.body])).toEqual([['ORIG-1', 'text', 'fixed text'], ['ORIG-2', 'text', 'also fixed']])
+    expect(edits[0]!.senderId).toBe(PN)
   })
 
   it('a regular message is not an edit', async () => {
@@ -101,10 +104,59 @@ describe('message edits', () => {
 
   it("editedMessages: 'ignore' drops them, and an edit without its original id is dropped", async () => {
     const h = await connect(BaileysProvider, { editedMessages: 'ignore' })
+    await h.emit({ 'messages.upsert': { type: 'notify', messages: [original('ORIG-1')] } })
     await h.emit({ 'messages.upsert': { type: 'notify', messages: [edit('ORIG-1', { conversation: 'fixed' })] } })
-    expect(h.ofKind('message')).toEqual([])
+    expect(h.ofKind('message').filter((e) => isEditedMessage(e.message))).toEqual([])
     const h2 = await connect(BaileysProvider)
     await h2.emit({ 'messages.upsert': { type: 'notify', messages: [{ key: { remoteJid: PN, fromMe: false, id: 'E' }, message: { protocolMessage: { type: 14, editedMessage: { conversation: 'x' } } }, messageTimestamp: 1 } as unknown as WAMessage] } })
     expect(h2.ofKind('message')).toEqual([])
+  })
+})
+
+describe('message edits are checked against the original', () => {
+  const G = '120363000000000001@g.us'
+  const A = '573001110001@s.whatsapp.net'
+  const B = '573001110002@s.whatsapp.net'
+  const groupMsg = (id: string, participant: string, text: string): WAMessage =>
+    ({ key: { remoteJid: G, participant, fromMe: false, id }, message: { conversation: text }, messageTimestamp: 1_700_000_000 }) as unknown as WAMessage
+  const groupEdit = (by: string, key: Record<string, unknown>, text: string): WAMessage =>
+    ({ key: { remoteJid: G, participant: by, fromMe: false, id: `EDIT-${String(key.id)}-${by}` }, message: { protocolMessage: { type: 14, key, editedMessage: { conversation: text } } }, messageTimestamp: 1_700_000_100 }) as unknown as WAMessage
+  const edits = (h: Awaited<ReturnType<typeof connect>>) =>
+    h.ofKind('message').map((e) => e.message).filter((m) => isEditedMessage(m)).map((m) => [m.ref.id, m.senderId, m.body])
+
+  it('delivers a group edit by the author of the original (sender view: fromMe)', async () => {
+    const h = await connect(BaileysProvider)
+    await h.emit({ 'messages.upsert': { type: 'notify', messages: [groupMsg('A-MSG', A, 'pido 2')] } })
+    await h.emit({ 'messages.upsert': { type: 'notify', messages: [groupEdit(A, { remoteJid: G, fromMe: true, id: 'A-MSG' }, 'pido 3')] } })
+    expect(edits(h)).toEqual([['A-MSG', A, 'pido 3']])
+  })
+
+  it("drops an edit of another participant's message, whatever the key claims", async () => {
+    const h = await connect(BaileysProvider)
+    await h.emit({ 'messages.upsert': { type: 'notify', messages: [groupMsg('A-MSG', A, 'pido 2')] } })
+    await h.emit({ 'messages.upsert': { type: 'notify', messages: [
+      groupEdit(B, { remoteJid: G, participant: A, fromMe: false, id: 'A-MSG' }, 'cancela todo'),
+      groupEdit(B, { remoteJid: G, fromMe: true, id: 'A-MSG' }, 'cancela todo'),
+    ] } })
+    expect(edits(h)).toEqual([])
+  })
+
+  it("drops an edit naming one of the bot's own messages or a message from another chat", async () => {
+    const h = await connect(BaileysProvider)
+    // The bot's own send (Baileys emits it as `append`) and a message in a 1:1 chat.
+    await h.emit({ 'messages.upsert': { type: 'append', messages: [{ key: { remoteJid: G, fromMe: true, id: 'BOT-OUT-1' }, message: { conversation: 'total: 10' }, messageTimestamp: 1 } as unknown as WAMessage] } })
+    await h.emit({ 'messages.upsert': { type: 'notify', messages: [{ key: { remoteJid: B, fromMe: false, id: 'B-DM' }, message: { conversation: 'hola' }, messageTimestamp: 1 } as unknown as WAMessage] } })
+    await h.emit({ 'messages.upsert': { type: 'notify', messages: [
+      groupEdit(B, { remoteJid: G, fromMe: true, id: 'BOT-OUT-1' }, 'x'),
+      groupEdit(B, { remoteJid: 'other@s.whatsapp.net', fromMe: true, id: 'BOT-OUT-1' }, 'x'),
+      groupEdit(B, { remoteJid: B, fromMe: true, id: 'B-DM' }, 'x'),
+    ] } })
+    expect(edits(h)).toEqual([])
+  })
+
+  it('drops an edit whose original this process has not seen', async () => {
+    const h = await connect(BaileysProvider)
+    await h.emit({ 'messages.upsert': { type: 'notify', messages: [groupEdit(A, { remoteJid: G, fromMe: true, id: 'UNKNOWN' }, 'x')] } })
+    expect(edits(h)).toEqual([])
   })
 })

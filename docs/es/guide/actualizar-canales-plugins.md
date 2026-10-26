@@ -25,7 +25,11 @@ Un participante de un grupo no tiene JID propio: usa el JID del grupo para el ch
 **Las ediciones de texto llegan al bot.** Un mensaje editado se descartaba. Ahora llega como
 mensaje con el texto nuevo y el `ref.id` **original**, como en Telegram.
 `isEditedMessage(ctx)` lo distingue. El dedupe del core deja pasar la edición y sigue
-descartando un reintento idéntico. Para volver al comportamiento anterior:
+descartando un reintento idéntico. Solo se entrega la edición de un mensaje que el proceso
+ha visto, enviado en el mismo chat por quien manda la edición: la que nombra el mensaje de
+otra persona, uno del propio bot o uno de otro chat se descarta, igual que la de un original
+que ya no está en la caché de mensajes del provider (p. ej. tras un reinicio). Para volver al
+comportamiento anterior:
 
 ```ts
 new BaileysProvider({ session: 'mi-bot', editedMessages: 'ignore' })

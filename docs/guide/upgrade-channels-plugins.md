@@ -24,7 +24,11 @@ A group participant has no JID of its own: use the group JID for the chat and
 **Text edits reach the bot.** An edited message used to be dropped. It now arrives as a
 message with the new text and the **original** `ref.id`, like on Telegram.
 `isEditedMessage(ctx)` tells it apart. The core dedupe lets an edit through and still drops
-an identical retry. To keep the old behaviour:
+an identical retry. Only an edit of a message this process has seen, sent in the same chat
+by the user who sends the edit, is delivered: an edit naming someone else's message, one of
+the bot's own or one from another chat is dropped, and so is an edit whose original is no
+longer in the provider's message cache (for example after a restart). To keep the old
+behaviour:
 
 ```ts
 new BaileysProvider({ session: 'my-bot', editedMessages: 'ignore' })

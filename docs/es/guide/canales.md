@@ -174,7 +174,9 @@ const provider = new BaileysProvider({ session: 'my-bot' })
   Una **edición de texto** llega como mensaje con el texto nuevo y el
   `ref.id` original, como en Telegram: `isEditedMessage(ctx)` (de
   `@botmesh/baileys`) la distingue y `editedMessages: 'ignore'` descarta las
-  ediciones.
+  ediciones. Solo el autor de un mensaje que el proceso ha visto puede
+  editarlo: la edición de un mensaje ajeno, de uno del bot o de un original
+  que ya no está en caché se descarta.
 - `ctx.voice()` y `ctx.sticker()` aceptan URLs y streams (descargados con los
   mismos controles anti-SSRF que el resto de la media); `ctx.poll()` necesita
   de 2 a 12 opciones distintas.

@@ -167,7 +167,9 @@ const provider = new BaileysProvider({ session: 'my-bot' })
   catch-all handler or an open `ask` does not take them as text. A **text
   edit** arrives as a message with the new text and the original `ref.id`,
   like on Telegram: `isEditedMessage(ctx)` (from `@botmesh/baileys`) tells it
-  apart, and `editedMessages: 'ignore'` drops edits.
+  apart, and `editedMessages: 'ignore'` drops edits. Only the author of a
+  message this process has seen can edit it: an edit of someone else's
+  message, of the bot's own or of an original no longer cached is dropped.
 - `ctx.voice()` and `ctx.sticker()` accept URLs and streams (downloaded with
   the same SSRF checks as other media); `ctx.poll()` needs 2 to 12 unique
   options.
