@@ -91,7 +91,7 @@ Pass the request URL (`req.originalUrl` is enough) as the third argument of
 | `lidRetryMs` | `300000` | Wait before retrying a LID whose lookup failed. |
 | `selfId` | — | Own number (`573…@c.us`); when missing it is learned from the `to` of an inbound DM. |
 | `http` | — | `allowHttp`, `allowPrivateHosts` (default `true`), `timeoutMs` (30 s), `maxBytes` (64 MiB), `resolver`, `fetch`. |
-| `identityCacheSize` | `10000` | Maximum size of the LID↔PN map (LRU). |
+| `identityCacheSize` | `10000` | Maximum size of the LID↔PN map (LRU): a positive integer, or `Infinity` for no bound. |
 | `identityPersistence` | — | Durable LID↔PN map (synchronous `get`/`set`). Without it, the canonical id of a contact first seen with the LID only may change after a restart. |
 | `logger` | pino at `error` | Any `LoggerLike` (pino, `console`, ...). |
 

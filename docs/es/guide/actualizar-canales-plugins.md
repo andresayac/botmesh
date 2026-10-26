@@ -178,6 +178,14 @@ Nuevos en npm en la beta (antes eran privados). Si los usabas desde el monorepo:
   principal de los providers.
 - Se quitó la opción `debug`: pasa un `logger` (`pino({ level: 'debug' })`).
 - Las opciones inválidas lanzan `TypeError` (antes un `Error` genérico; los mensajes no cambian).
+  Además, `baseUrl` ya no admite credenciales (`user:pass@`), query string ni fragmento,
+  `identityCacheSize` debe ser un entero positivo (o `Infinity`) y `http.timeoutMs` /
+  `http.maxBytes` se validan al construir el provider, no en la primera petición.
+- Solo una URL `http(s)` se entrega al gateway para que la descargue. `{ url }` es siempre un
+  enlace, como en Meta y Telegram: admite `http(s)` o un `data:` URI en base64 (que va inline),
+  y una ruta local o una URL `file:` ahí rechaza con `UnsupportedContentError` en vez de leerse
+  (antes se pasaba tal cual y el gateway intentaba abrir esa ruta en su propio host). Envía un
+  archivo local como `{ path }` o como string con la ruta; el bot lo lee y lo manda en base64.
 
 ## Plugins que pasan a npm
 
