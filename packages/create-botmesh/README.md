@@ -86,10 +86,14 @@ Then:
 ```bash
 cd my-bot
 npm install
-cp .env.example .env   # optional: fill in your credentials (`dev` runs without it)
+cp .env.example .env   # optional: fill in your credentials (`dev` runs without it); Windows cmd: copy .env.example .env
 npm run dev            # chat in the terminal: simulated provider, hot reload
 npm start              # connect the real channel
 ```
+
+The generated project needs Node.js 22.12 or newer (its scripts use `--env-file-if-exists`); the CLI warns when it
+runs on an older Node, and prints the `copy` form of the command on Windows. The generated `src/*.js` type-check
+cleanly with `checkJs`, so an editor shows no false errors in a fresh project.
 
 `npm start` in the `meta`, `telegram`, `ai` and `ai-full` projects first checks the variables it cannot run without
 and, if `.env` is missing or incomplete, stops with one line naming them (`Missing TELEGRAM_TOKEN: copy .env.example

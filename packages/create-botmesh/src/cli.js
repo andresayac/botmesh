@@ -113,11 +113,40 @@ async function completeInteractively(args) {
   }
 }
 
+/** Oldest Node.js the generated project runs on (its scripts use `--env-file-if-exists`). */
+const MIN_NODE = [22, 12]
+
+/**
+ * A warning when `version` is older than the generated project needs, else undefined
+ * (exported for tests). Older versions fail later with Node's own
+ * `bad option: --env-file-if-exists`.
+ * @param {string} version e.g. `process.versions.node`
+ * @returns {string | undefined}
+ */
+export function nodeVersionWarning(version) {
+  const [major = 0, minor = 0] = String(version).split('.').map(Number)
+  if (major > MIN_NODE[0] || (major === MIN_NODE[0] && minor >= MIN_NODE[1])) return undefined
+  return 'Warning: Node.js ' + version + ' is too old for the generated project, which needs Node >= ' + MIN_NODE.join('.') +
+    ' (`npm start` and `npm run dev` use --env-file-if-exists). Upgrade Node before running it.'
+}
+
+/**
+ * The command that copies `.env.example` to `.env` in the user's shell (exported for tests):
+ * `cmd.exe` has no `cp`.
+ * @param {string} platform e.g. `process.platform`
+ * @returns {string}
+ */
+export function copyEnvCommand(platform) {
+  return platform === 'win32' ? 'copy .env.example .env' : 'cp .env.example .env'
+}
+
 /**
  * CLI entry point (exported for tests).
  * @param {string[]} argv defaults to process.argv.slice(2)
  */
 export async function main(argv = process.argv.slice(2)) {
+  const tooOld = nodeVersionWarning(process.versions.node)
+  if (tooOld) console.warn(tooOld)
   let args
   try {
     args = parseArgs(argv)
@@ -154,7 +183,7 @@ export async function main(argv = process.argv.slice(2)) {
     console.log('Next steps:')
     console.log('  cd ' + cd)
     console.log('  npm install            # or: pnpm install')
-    console.log('  cp .env.example .env   # optional: fill in your credentials (dev runs without it)')
+    console.log('  ' + copyEnvCommand(process.platform).padEnd(22) + ' # optional: fill in your credentials (dev runs without it)')
     console.log('  npm run dev            # chat with it in the terminal (no phone needed)')
     console.log('  npm start              # connect the real channel')
   } catch (err) {
