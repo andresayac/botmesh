@@ -30,6 +30,9 @@ export function exportedNames(source: string): string[] {
 /** Every name `internal.ts` exports, re-exported (deprecated) by the main entry. */
 const DEPRECATED = exportedNames(readFileSync(join(coreSrc, 'internal.ts'), 'utf8'))
 
+/** Internals added after the move: never on the main entry (see internal-entry.test.ts). */
+const INTERNAL_ONLY = new Set(['pauseControls'])
+
 /**
  * Not scanned (AGENTS.md lists the same): `packages/core/tests` (its compatibility tests
  * import the deprecated aliases on purpose, see internal-entry.test.ts), every
@@ -266,6 +269,10 @@ describe('deprecated main-entry re-exports', () => {
   it('stay re-exported (marked @deprecated) by the main entry for users', () => {
     const index = readFileSync(join(coreSrc, 'index.ts'), 'utf8')
     for (const name of DEPRECATED) {
+      if (INTERNAL_ONLY.has(name)) {
+        expect(index, name).not.toContain(name)
+        continue
+      }
       expect(index, name).toMatch(new RegExp(`@deprecated[^\\n]*\\n\\s*${name},`))
     }
     const internal = readFileSync(join(coreSrc, 'internal.ts'), 'utf8')
