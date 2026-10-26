@@ -39,7 +39,7 @@ import type {
 } from '@botmesh/core'
 import { ProviderError } from '@botmesh/core'
 import type { InstagramProviderConfig } from './types.js'
-import { GraphClient } from './graphClient.js'
+import { GraphClient, assertTimeout } from './graphClient.js'
 import { toOutbound } from './toOutbound.js'
 import { parseInbound, type IgWebhookBody } from './parseInbound.js'
 import {
@@ -82,6 +82,7 @@ export class InstagramProvider implements IProvider<unknown> {
     if (typeof config.verifyToken !== 'string' || config.verifyToken === '') {
       throw new Error('InstagramProvider requires `verifyToken` (the webhook verify token you set in Meta); without it the GET handshake always fails.')
     }
+    assertTimeout('InstagramProvider', config.requestTimeoutMs)
     this.config = { apiVersion: 'v21.0', graphUrl: 'https://graph.facebook.com', ...config }
     this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
     if (config.mediaRefHosts !== undefined &&
@@ -93,6 +94,7 @@ export class InstagramProvider implements IProvider<unknown> {
       apiVersion: this.config.apiVersion,
       graphUrl: this.config.graphUrl,
       mediaDownload: this.config.mediaDownload,
+      ...(this.config.requestTimeoutMs !== undefined ? { timeoutMs: this.config.requestTimeoutMs } : {}),
     })
     if (!this.config.appSecret && !this.config.allowUnsignedWebhooks) {
       throw new Error(

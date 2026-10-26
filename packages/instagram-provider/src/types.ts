@@ -34,6 +34,8 @@ export interface InstagramProviderConfig {
   mediaRefHosts?: string[]
   /** The bot's own IG user id (IGSID). Optional. */
   selfId?: string
+  /** Timeout of each Send API request, in ms. Default 60000. A slower request rejects with a `ProviderError`. */
+  requestTimeoutMs?: number
   debug?: boolean
   logger?: LoggerLike
 }

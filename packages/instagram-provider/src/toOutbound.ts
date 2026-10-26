@@ -40,7 +40,10 @@ function mediaUrl(source: MediaSource, kind: OutboundContent['kind']): string {
 
 /** IG quick replies: at most 13, titles up to 20 chars; an empty payload falls back to the title. */
 function quickReplies(buttons: ReadonlyArray<{ id: string; title: string }>): Array<Record<string, unknown>> {
-  return buttons.slice(0, 13).map((b) => ({
+  if (buttons.length > 13) {
+    throw new UnsupportedContentError('buttons', `Instagram allows at most 13 quick replies; got ${buttons.length}. Send a numbered list instead.`)
+  }
+  return buttons.map((b) => ({
     content_type: 'text',
     title: b.title.slice(0, 20),
     payload: b.id || b.title,

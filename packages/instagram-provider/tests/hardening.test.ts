@@ -36,8 +36,8 @@ describe('Instagram error mapping', () => {
 })
 
 describe('Instagram outbound hardening', () => {
-  it('quick replies cap at 13 and fall back to the title when a button id is empty', () => {
-    const buttons = Array.from({ length: 15 }, (_, i) => ({ id: i === 0 ? '' : `b${i}`, title: `T${i}` }))
+  it('13 quick replies fit (more reject, see open-defects); an empty id falls back to the title', () => {
+    const buttons = Array.from({ length: 13 }, (_, i) => ({ id: i === 0 ? '' : `b${i}`, title: `T${i}` }))
     const msg = toOutbound({ kind: 'buttons', text: 'x', buttons }) as { quick_replies: Array<{ payload: string }> }
     expect(msg.quick_replies).toHaveLength(13)
     expect(msg.quick_replies[0].payload).toBe('T0')

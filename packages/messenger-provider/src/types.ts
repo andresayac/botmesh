@@ -35,6 +35,8 @@ export interface MessengerProviderConfig {
   selfId?: string
   /** Page id (or 'me') that owns the Send API endpoint. Default 'me'. */
   pageId?: string
+  /** Timeout of each Send API request, in ms. Default 60000. A slower request rejects with a `ProviderError`. */
+  requestTimeoutMs?: number
   debug?: boolean
   logger?: LoggerLike
 }

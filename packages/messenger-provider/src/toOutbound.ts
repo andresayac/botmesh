@@ -34,6 +34,13 @@ function genericTemplate(elements: Array<Record<string, unknown>>): Record<strin
   return { attachment: { type: 'template', payload: { template_type: 'generic', elements } } }
 }
 
+/** Reject more buttons than a Send API template holds (they would be dropped). */
+function assertButtons(kind: 'buttons' | 'card', buttons: readonly unknown[]): void {
+  if (buttons.length > MAX_BUTTONS) {
+    throw new UnsupportedContentError(kind, `Messenger templates hold at most ${MAX_BUTTONS} buttons; got ${buttons.length}. Send a list (up to 10 rows) or split the message.`)
+  }
+}
+
 function buttonTemplate(text: string, buttons: Button[]): Record<string, unknown> {
   return {
     attachment: {
@@ -58,6 +65,7 @@ type CardContent = Extract<OutboundContent, { kind: 'card' }>
 function cardMessages(content: CardContent): Array<Record<string, unknown>> {
   const text = [content.title, content.body].filter(Boolean).join('\n')
   const buttons = content.buttons ?? []
+  assertButtons('card', buttons)
   if (!content.imageUrl && !buttons.length) return [{ text }]
   const fits = content.title.length <= ELEMENT_TEXT && (content.body ?? '').length <= ELEMENT_TEXT
   if (fits) {
@@ -116,12 +124,16 @@ export function toOutbound(content: OutboundContent, mediaUrl?: string): Record<
       return attachmentMessage('file', mediaUrl)
 
     case 'buttons':
+      assertButtons('buttons', content.buttons)
       return buttonTemplate(content.text, content.buttons)
 
     case 'list': {
       // Generic template: one element per row (max 10), each with a postback
       // button carrying the row id.
-      const rows = content.sections.flatMap((s) => s.rows).slice(0, 10)
+      const rows = content.sections.flatMap((s) => s.rows)
+      if (rows.length > 10) {
+        throw new UnsupportedContentError('list', `Messenger lists (generic template) hold at most 10 rows; got ${rows.length}. Split the menu.`)
+      }
       const elements = rows.length
         ? rows.map((r) => ({
             title: r.title.slice(0, ELEMENT_TEXT),

@@ -294,6 +294,9 @@ const provider = new MessengerProvider({
   `removed` is set on `unreact`).
 - Text is capped at 2000 characters (`maxTextLength`), so `ctx.stream()`
   chunks fit the Send API.
+- More than 3 buttons (or more than 10 list rows) reject with
+  `UnsupportedContentError` instead of being cut. Every Send API request
+  times out after `requestTimeoutMs` (60 s).
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/messenger-provider)
 
@@ -312,7 +315,9 @@ const provider = new InstagramProvider({
 })
 ```
 
-- Buttons go out as quick replies; lists degrade to numbered text.
+- Buttons go out as quick replies (at most 13; more reject with
+  `UnsupportedContentError`); lists degrade to numbered text. Every Send API
+  request times out after `requestTimeoutMs` (60 s).
 - DMs only (no groups); reactions arrive but cannot be sent.
 - Text is capped at 1000 (`maxTextLength`; Meta counts UTF-8 bytes, so
   non-ASCII text fits less), which sizes the `ctx.stream()` chunks.

@@ -87,6 +87,7 @@ export class MessengerProvider implements IProvider<unknown> {
     if (typeof config.verifyToken !== 'string' || config.verifyToken === '') {
       throw new Error('MessengerProvider requires `verifyToken` (the webhook verify token you set in Meta); without it the GET handshake always fails.')
     }
+    assertTimeout('MessengerProvider', config.requestTimeoutMs)
     this.config = { apiVersion: 'v21.0', graphUrl: 'https://graph.facebook.com', pageId: 'me', ...config }
     this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
     if (config.mediaRefHosts !== undefined &&
@@ -173,12 +174,12 @@ export class MessengerProvider implements IProvider<unknown> {
     chatId: ChatId = '',
     contentKind?: OutboundContent['kind'],
   ): Promise<MessengerSendResponse> {
-    const res = await fetch(this.url('messages'), {
+    return timedCall(this.url('messages'), {
       method: 'POST',
       headers: { Authorization: `Bearer ${this.config.accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-    })
-    return readGraphResponse<MessengerSendResponse>(res, { chatId, contentKind })
+    }, this.config.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
+    (res) => readGraphResponse<MessengerSendResponse>(res, { chatId, contentKind }))
   }
 
   /**
@@ -267,3 +268,35 @@ export class MessengerProvider implements IProvider<unknown> {
   /** Messenger postbacks/quick replies need no acknowledgement — no-op. */
   async acknowledgeInteraction(_interactionId: string, _opts?: { text?: string; defer?: boolean }): Promise<void> {}
 }
+
+/**
+ * `fetch` + `read(response)` under one `timeoutMs` deadline (the body is read before the
+ * timer is cleared, so a body that never ends times out too). A timeout or transport
+ * failure rejects with a typed `ProviderError` that never carries the URL or the access
+ * token; a typed error from `read` (a Graph error) passes through.
+ */
+async function timedCall<T>(url: string, init: RequestInit, timeoutMs: number, read: (res: Response) => Promise<T>): Promise<T> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal })
+    return await read(res)
+  } catch (err) {
+    if (err instanceof ProviderError && !controller.signal.aborted) throw err
+    const wrapped = new ProviderError(controller.signal.aborted
+      ? `Messenger Send API request timed out after ${timeoutMs}ms`
+      : `Messenger Send API request failed: ${err instanceof Error ? err.name : 'network error'}`)
+    ;(wrapped as { cause?: unknown }).cause = err
+    throw wrapped
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function assertTimeout(provider: string, value: unknown): void {
+  if (value !== undefined && !(typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 2 ** 31 - 1)) {
+    throw new TypeError(`${provider}: requestTimeoutMs must be a positive number of milliseconds`)
+  }
+}
+
+const DEFAULT_REQUEST_TIMEOUT_MS = 60_000
