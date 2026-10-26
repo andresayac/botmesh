@@ -11,7 +11,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { Trigger } from './types.js'
 import type { MessageType } from './provider.js'
-import { matchTrigger, triggerSpecificity, normalizeText } from './matching.js'
+import { assertTrigger, matchTrigger, triggerSpecificity, normalizeText } from './matching.js'
 import { isTypeTrigger, isWelcomeTrigger, typeTrigger } from './triggers.js'
 import { WelcomeTracker } from './welcome.js'
 import type { ConversationRuntime, RuntimeMessage } from '../conversations/ConversationRuntime.js'
@@ -167,6 +167,7 @@ export class Dispatcher {
    * twice; a fresh array leaves the in-flight dispatch on its own snapshot.
    */
   private addMatcher(entry: MatcherEntry): () => void {
+    assertTrigger(entry.trigger, entry.flow !== undefined ? `flow "${entry.flow}"` : 'a handler')
     this.matchers = [...this.matchers, entry].sort((a, b) => b.specificity - a.specificity || a.seq - b.seq)
     return () => { this.matchers = this.matchers.filter((m) => m !== entry) }
   }
@@ -387,7 +388,7 @@ export class Dispatcher {
       }
       return this.finish(ctx)
     } catch (error) {
-      this.deps.logger?.error?.('dispatch error', error)
+      this.deps.logger?.error?.({ err: error }, 'dispatch error')
       // runError() rethrows when no onError('message') hook is registered; that must not
       // swallow the error before it reaches the bot's 'error' event (it used to vanish
       // into the per-chat queue's catch — e.g. a RateLimitedError from ctx.reply()).
@@ -459,7 +460,7 @@ export class Dispatcher {
         if (ctx._aborted || !ctx._passed) return
       }
     } catch (error) {
-      this.deps.logger?.error?.('event dispatch error', error)
+      this.deps.logger?.error?.({ err: error }, 'event dispatch error')
       try { await this.deps.hooks.runError(ctx.type, ctx, error) } catch { /* no error hook registered */ }
       this.deps.emit('error', { error, ctx })
     }

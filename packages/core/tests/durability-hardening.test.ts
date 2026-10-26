@@ -143,8 +143,9 @@ describe('poison messages', () => {
 
 describe('outbox lease heartbeat', () => {
   it('a send slower than outbox.leaseMs keeps its lease (no ambiguous reclaim, recorded as sent)', async () => {
-    const provider = new SlowProvider(150)
-    const b = bot({ provider, durability: { pollMs: 10, outbox: { leaseMs: 40 } } })
+    // A send several leases long; the lease leaves room for a loaded machine's event-loop stalls.
+    const provider = new SlowProvider(500)
+    const b = bot({ provider, durability: { pollMs: 10, outbox: { leaseMs: 120 } } })
     const ambiguous = vi.fn()
     b.on('durability:ambiguous', ambiguous)
     await b.start()
@@ -249,14 +250,16 @@ describe('two live replicas', () => {
   it('a live replica keeps its lease; when it freezes, the other takes over once the lease expires', async () => {
     const shared = new MemoryDurability()
     const store = new MemoryStore()
-    const cfg = { pollMs: 10, inbox: { leaseMs: 60 } }
+    // Lease short enough to expire many times during the slow handler, long enough that a
+    // loaded machine's event-loop stall does not break a live heartbeat (60 ms was flaky).
+    const cfg = { pollMs: 10, inbox: { leaseMs: 150 } }
     const a = crashable(shared)
     const pa = new CrashableProvider(a)
     const botA = bot({ provider: pa, store, durability: { journal: a, instanceId: 'replica-a', ...cfg } }, false)
     const pb = new MockProvider()
     const botB = bot({ provider: pb, store, durability: { journal: shared, instanceId: 'replica-b', ...cfg } })
     const runs: string[] = []
-    botA.when('slow', async (ctx) => { runs.push('A:slow'); await sleep(200); await ctx.reply('slow done') })
+    botA.when('slow', async (ctx) => { runs.push('A:slow'); await sleep(600); await ctx.reply('slow done') })
     botA.when('freeze', async () => { runs.push('A:freeze'); a.crash(); await never() })
     botB.when('slow', async (ctx) => { runs.push('B:slow'); await ctx.reply('slow done') })
     botB.when('freeze', async (ctx) => { runs.push('B:freeze'); await ctx.reply('taken over') })
@@ -264,11 +267,14 @@ describe('two live replicas', () => {
     await botB.start()
 
     pa.incoming('slow', { from: 'u1', id: 'm1' })
-    await vi.waitFor(() => expect(texts(pa)).toEqual(['slow done']), { timeout: 2_000 })
-    expect(runs).toEqual(['A:slow']) // 200 ms > leaseMs, but A's heartbeat kept the lease
+    await vi.waitFor(() => expect(texts(pa)).toEqual(['slow done']), { timeout: 5_000 })
+    expect(runs).toEqual(['A:slow']) // 600 ms > leaseMs, but A's heartbeat kept the lease
+    // The reply goes out before the inbox record is confirmed: freezing A in between
+    // (a loaded machine) would hand m1 over to B too.
+    await vi.waitFor(async () => expect((await botA.durability!.inbox.list()).map((r) => r.state)).toEqual(['done']), { timeout: 5_000 })
 
     pa.incoming('freeze', { from: 'u1', id: 'm2' })
-    await vi.waitFor(() => expect(texts(pb)).toEqual(['taken over']), { timeout: 2_000 })
+    await vi.waitFor(() => expect(texts(pb)).toEqual(['taken over']), { timeout: 5_000 })
     expect(runs).toEqual(['A:slow', 'A:freeze', 'B:freeze'])
     await vi.waitFor(async () => expect((await botB.durability!.inbox.list()).map((r) => r.state)).toEqual(['done', 'done']))
   })

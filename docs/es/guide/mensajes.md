@@ -16,6 +16,22 @@ await ctx.quote('replying to your message')     // cita el mensaje entrante
 await ctx.reply('typing this out...', { typing: true }) // muestra "escribiendo…" antes de enviar
 ```
 
+Cada envío (estos helpers, `bot.send`, las difusiones, `ctx.edit`) se revisa
+después de los hooks `before('send')` y antes del transporte: un contenido que
+ningún transporte puede entregar (un `text` que no es string, como
+`ctx.reply(undefined)`; media sin origen; coordenadas fuera de ±90/±180; una
+encuesta o un mensaje de botones sin opciones) rechaza con un `TypeError` que
+nombra el campo, y no se envía nada. Los límites de cada transporte (longitud
+del texto, número de botones) los sigue comprobando cada provider. Se aceptan
+todas las formas de `MediaSource`, incluida `{ native }` (una referencia propia
+del provider, como un `file_id` de Telegram).
+
+Una respuesta de `ctx` que recibe un `RateLimitedError` con una espera de hasta
+5 s se reintenta en el sitio (máximo dos veces), para que un paso de flujo no
+termine por un límite de envío pasajero. Las esperas más largas y el resto de
+errores rechazan como antes; `bot.send()` no se reintenta (las difusiones tienen
+su propio back-off).
+
 ## Enviar foto
 
 ```ts

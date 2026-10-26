@@ -61,8 +61,12 @@ Day rule of standard cron: when **both** day of month and day of week are
 restricted, a day matches if **either** does — `0 9 13 * 5` runs every 13th
 **and** every Friday. When one of them starts with `*` (including a step such as
 `*/2`), both must match, so `0 9 * * 1` is just "Mondays". Names (`mon`, `jan`)
-and macros (`@daily`) are not supported: `bot.schedule()` throws a `TypeError`
-naming the offending field instead of creating a task that never runs.
+and macros (`@daily`) are not supported, and neither are values outside a
+field's range (minute 0-59, hour 0-23, day 1-31, month 1-12, weekday 0-7), a
+reversed range (`5-1`) or a zero step (`*/0`): `bot.schedule()` throws a
+`TypeError` naming the offending field instead of creating a task that never
+runs. Likewise `bot.every()` needs a positive duration and `bot.delay()` a
+non-negative one (`RangeError` otherwise).
 
 ### Time zones
 

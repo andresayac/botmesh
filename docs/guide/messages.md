@@ -16,6 +16,20 @@ await ctx.quote('replying to your message')     // quotes the inbound message
 await ctx.reply('typing this out...', { typing: true }) // shows "typing…" before sending
 ```
 
+Every send (these helpers, `bot.send`, broadcasts, `ctx.edit`) is checked after the
+`before('send')` hooks and before the transport: content that no transport can
+deliver (a `text` that is not a string, such as `ctx.reply(undefined)`; media
+without a source; coordinates outside ±90/±180; a poll or button message with no
+options) rejects with a `TypeError` that names the field, and nothing is sent.
+Transport limits (text length, number of buttons) are still checked by each provider.
+Every `MediaSource` form is accepted, including `{ native }` (a provider-specific
+reference such as a Telegram `file_id`).
+
+A `ctx` reply that hits a `RateLimitedError` asking for a wait of up to 5 s is
+retried in place (at most twice), so a flow step does not end on a transient
+rate limit. Longer waits and other errors reject as before; `bot.send()` is not
+retried (broadcasts have their own back-off).
+
 ## Send photo
 
 ```ts

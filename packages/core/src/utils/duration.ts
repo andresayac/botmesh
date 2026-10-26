@@ -21,6 +21,9 @@ const DURATION_RE = /^(\d+(?:\.\d+)?)\s*(ms|milli|millis|millisecond|millisecond
  */
 export function parseDuration(input: string | number): number {
   if (typeof input === 'number') return input
+  if (typeof input !== 'string') {
+    throw new Error(`Invalid duration: ${String(input)} — use e.g. '30s', '2m', '1h', '1d' or milliseconds`)
+  }
   const match = DURATION_RE.exec(input.trim())
   if (!match) throw new Error(`Invalid duration: "${input}" — use e.g. '30s', '2m', '1h', '1d' or milliseconds`)
   const value = parseFloat(match[1])

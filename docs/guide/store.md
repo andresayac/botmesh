@@ -114,7 +114,7 @@ bot.use(
 )
 ```
 
-If the process crashes mid-flow, the next message from that user **resumes at the exact step** where it left off.
+If the process crashes mid-flow, the next message from that user **resumes at the exact step** where it left off. That message only wakes the flow: a pending `ask`/`choose` is sent again and the user's next reply is its answer (with [durability](./durability) the waking message is the answer instead).
 
 ## RedisStore (distributed)
 

@@ -171,6 +171,10 @@ export class Scheduler {
     taskZone?: string,
   ): ScheduledTask {
     if (cronExpr !== undefined) assertCron(cronExpr)
+    // A zero/negative/NaN interval used to re-arm on a ~1 ms timer forever (a typo such as
+    // every('0s') pinned a CPU); a one-shot delay may be 0 but never negative or infinite.
+    if (interval !== undefined) assertTaskDuration('every', interval, false)
+    if (once !== undefined) assertTaskDuration('delay', once, true)
     // The task's zone, else the scheduler's default; 'local' is the process zone.
     const zone = cronExpr !== undefined ? (taskZone ?? this.timeZone) : undefined
     const timeZone = zone !== undefined && zone !== 'local' ? zone : undefined
@@ -273,5 +277,15 @@ function runInfo(task: InternalTask): TaskRunInfo {
     ...(task.cron !== undefined ? { cron: task.cron } : {}),
     ...(task.intervalMs !== undefined ? { intervalMs: task.intervalMs } : {}),
     ...(task.timeZone !== undefined ? { timeZone: task.timeZone } : {}),
+  }
+}
+
+/** Throw a `RangeError` for a plain `every`/`delay` duration a timer cannot honour. */
+function assertTaskDuration(kind: 'every' | 'delay', spec: string | number, allowZero: boolean): void {
+  const ms = parseDuration(spec)
+  if (!Number.isFinite(ms) || ms < 0 || (!allowZero && ms === 0)) {
+    throw new RangeError(
+      `bot.${kind}() needs a ${allowZero ? 'non-negative' : 'positive'}, finite duration ('30s', '5m', '1h' or ms), got ${JSON.stringify(spec) ?? String(spec)}`,
+    )
   }
 }

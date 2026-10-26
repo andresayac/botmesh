@@ -30,6 +30,42 @@ function inScope(scope: TriggerScope | undefined, isGroup: boolean): boolean {
   return true
 }
 
+/** A text pattern the matcher can compare (numbers are kept for JavaScript menus: `when(1)`). */
+function isPattern(p: unknown): boolean {
+  return typeof p === 'string' || p instanceof RegExp || (typeof p === 'number' && Number.isFinite(p))
+}
+
+/**
+ * Throw a `TypeError` for a trigger no one can mean. `undefined`/`null` (an unset env var,
+ * a missing import) used to be stringified and matched the literal text "undefined" or
+ * "null". Empty triggers (`''`, `[]`) stay valid: `bot.lint()` and the ESLint rule
+ * report them, and `[]` is the usual trigger of a flow entered only by `goto`.
+ */
+export function assertTrigger(trigger: unknown, where = 'trigger'): void {
+  if (typeof trigger === 'function' || isTypeTrigger(trigger as Trigger) || isWelcomeTrigger(trigger as Trigger)) return
+  const bad = (what: unknown): never => {
+    throw new TypeError(
+      `Invalid trigger for ${where}: ${describeValue(what)}. Use a string, a RegExp, an array of them, ` +
+        '{ pattern, match?, scope? }, a predicate function or a trigger constant (WELCOME, IMAGE, ...)',
+    )
+  }
+  if (isPattern(trigger)) return
+  if (Array.isArray(trigger)) { for (const p of trigger) if (!isPattern(p)) bad(p); return }
+  if (typeof trigger === 'object' && trigger !== null && 'pattern' in trigger) {
+    const { pattern } = trigger as { pattern: unknown }
+    const patterns = Array.isArray(pattern) ? pattern : [pattern]
+    for (const p of patterns) if (!isPattern(p)) bad(p)
+    return
+  }
+  bad(trigger)
+}
+
+function describeValue(v: unknown): string {
+  if (v === undefined || v === null) return String(v)
+  if (typeof v === 'object') return 'an object without a pattern'
+  return `${typeof v} ${String(v)}`
+}
+
 /**
  * Synchronous match. For `WELCOME` this only checks the scope — the first-contact
  * decision is asynchronous and made by the Dispatcher (see `core/welcome.ts`).

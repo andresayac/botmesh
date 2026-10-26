@@ -146,8 +146,10 @@ export interface TestChatIdentity {
 /** Extract the human-readable text/caption from an outbound content descriptor (the body of buttons, lists and cards too). */
 export function textOf(m: { content: OutboundContent }): string {
   const c = m.content
-  if (c.kind === 'text' || c.kind === 'buttons' || c.kind === 'list') return c.text
-  if (c.kind === 'card') return c.title
+  // Never trust the shape: a subclass or a raw bot.send() may put anything in the outbox.
+  const str = (v: unknown): string => (typeof v === 'string' ? v : '')
+  if (c.kind === 'text' || c.kind === 'buttons' || c.kind === 'list') return str(c.text)
+  if (c.kind === 'card') return str(c.title)
   if ('caption' in c && typeof c.caption === 'string') return c.caption
   return ''
 }

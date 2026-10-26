@@ -74,6 +74,15 @@ export interface AskStepOptions<T = string> extends WaitOptions {
   delay?: FlowDelay
 }
 
+/**
+ * `c.state` is a plain object: assigning `state.__proto__` swaps its prototype instead of
+ * storing the answer, which was silently lost. Reject it (and non-strings) when building.
+ */
+function assertStateKey(key: unknown, step: 'ask' | 'choose'): void {
+  if (typeof key !== 'string') throw new TypeError(`flow .${step}(): the state key must be a string, got ${typeof key}`)
+  if (key === '__proto__') throw new TypeError(`flow .${step}(): "__proto__" cannot be a state key; pick another name`)
+}
+
 /** Options of `.choose(prompt, options, stateKey, opts)`. */
 export interface ChooseStepOptions extends WaitOptions { delay?: FlowDelay }
 
@@ -196,6 +205,7 @@ export class FlowBuilder<S extends object = EmptyFlowState> {
    * `c.state.edad: number`.
    */
   ask<K extends string, T = string>(text: string | DynamicText<S>, stateKey: K, opts?: AskStepOptions<T>): FlowBuilder<FlowStateWith<S, K, T>> {
+    assertStateKey(stateKey, 'ask')
     const delayMs = delayOf(opts?.delay)
     const rest = withoutDelay(opts)
     this.push({
@@ -251,6 +261,7 @@ export class FlowBuilder<S extends object = EmptyFlowState> {
     stateKey?: K,
     opts?: ChooseStepOptions,
   ): FlowBuilder<FlowStateWith<S, K, Extract<keyof O, string>>> {
+    if (stateKey !== undefined) assertStateKey(stateKey, 'choose')
     const compiled: Record<string, CompiledChooseOption> = {}
     for (const [key, value] of Object.entries(options as Record<string, ChooseOption<S>>)) {
       if (typeof value === 'string') { compiled[key] = { label: value }; continue }

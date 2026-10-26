@@ -108,6 +108,12 @@ Un trigger de texto nunca queda tapado por uno de tipo: una imagen con el
 caption "hola" la atiende `bot.when('hola')`. `bot.onImage()` y
 `bot.when(IMAGE)` están en el mismo nivel.
 
+Un trigger `undefined` o `null` (una variable de entorno sin definir, un
+import que falta), solo, dentro de un array o como `{ pattern }`, lanza un
+`TypeError` al registrarse: antes coincidía con el texto literal
+"undefined". Los triggers vacíos (`''`, `[]`) se siguen aceptando;
+`bot.lint()` y la regla de ESLint los reportan.
+
 ## CALL
 
 `CALL` reacciona a una llamada entrante de voz o video:
