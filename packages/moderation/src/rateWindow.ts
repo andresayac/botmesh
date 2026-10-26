@@ -1,20 +1,34 @@
 /**
  * Sliding-window message counter per key (chat + sender). Memory-bounded:
  * timestamps older than the window are dropped on every hit, and idle keys
- * are swept once the map grows past `sweepAt` entries.
+ * are swept once the map grows past a threshold. Each key remembers its own
+ * window, so a sweep triggered by a group with a short window never forgets
+ * the hits of a group with a longer one. The threshold doubles with the live
+ * size after each sweep, so many active senders do not make every hit O(n).
  */
-export class RateWindow {
-  private readonly hits = new Map<string, number[]>()
+interface Entry {
+  windowMs: number
+  hits: number[]
+}
 
-  constructor(private readonly sweepAt = 10_000) {}
+export class RateWindow {
+  private readonly hits = new Map<string, Entry>()
+  private sweepAt: number
+
+  constructor(private readonly sweepFloor = 10_000) {
+    this.sweepAt = sweepFloor
+  }
 
   /** Record a hit at `now` and return how many hits fall inside `windowMs`. */
   hit(key: string, now: number, windowMs: number): number {
     const from = now - windowMs
-    const list = (this.hits.get(key) ?? []).filter((t) => t > from)
+    const list = (this.hits.get(key)?.hits ?? []).filter((t) => t > from)
     list.push(now)
-    this.hits.set(key, list)
-    if (this.hits.size > this.sweepAt) this.sweep(now, windowMs)
+    this.hits.set(key, { windowMs, hits: list })
+    if (this.hits.size > this.sweepAt) {
+      this.sweep(now)
+      this.sweepAt = Math.max(this.sweepFloor, this.hits.size * 2)
+    }
     return list.length
   }
 
@@ -32,9 +46,9 @@ export class RateWindow {
     return this.hits.size
   }
 
-  private sweep(now: number, windowMs: number): void {
-    for (const [key, list] of this.hits) {
-      if (list.length === 0 || list[list.length - 1] <= now - windowMs) this.hits.delete(key)
+  private sweep(now: number): void {
+    for (const [key, { windowMs, hits }] of this.hits) {
+      if (hits.length === 0 || hits[hits.length - 1]! <= now - windowMs) this.hits.delete(key)
     }
   }
 }

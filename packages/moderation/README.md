@@ -66,6 +66,8 @@ By default it only moderates **groups** (`applyTo: 'all'` includes private chats
 | `priority` | `100` | `before('message')` priority. |
 | `onViolation` | — | Called with every `ModerationReport`, after the actions ran. |
 
+The config is validated when you call `moderationPlugin()` (and again by `setGroupRules`): an unknown action, a non-positive `maxMessages`/`windowMs`/`warnings.max`/`muteMs` or a field of the wrong type throws a `TypeError` or `RangeError` that names the field, e.g. `moderation: groups["sales@g.us"].wordFilter.action must be 'warn', 'mute', 'kick' or 'delete' (or an array of them), got 'ban'`. To turn a rule off, set it to `false`.
+
 ## Rules
 
 | Rule | Fields | Default action |
@@ -75,6 +77,8 @@ By default it only moderates **groups** (`applyTo: 'all'` includes private chats
 | `linkFilter` | `groupInvites` (default `true`), `allLinks`, `allowInvites`, `allowDomains`, `invitePatterns` | `['delete', 'warn']` |
 
 - Words are compared without case or accents (`'scam'` detects `'SCÁM'`), except `ñ`, which is a different letter from `n` (`'ano'` does not detect `'año'`), and as a whole word (`'spam'` does not detect `'spammer'` unless `wholeWord: false`). RegExps are tested against the raw text.
+- Evasion tricks are folded away before words and links are matched: invisible characters (zero-width spaces and joiners, soft hyphens, bidi controls) are dropped and compatibility forms are read as plain letters, so `sp\u200Bam`, `ｓｐａｍ` and `𝐬𝐩𝐚𝐦` match `'spam'`, and `chat.whats\u200Bapp.com/…` or a fullwidth invite is still an invite.
+- An invite host must start the link: `chat.me/+abcd` or `mydiscord.gg/x` are not invites (`www.t.me/+abcd` is).
 - `allowInvites` accepts codes or full invite links (with or without `https://`) and compares the **exact code**: a URL that merely contains the code (e.g. in the query) is not allowed.
 - Recognized invites: WhatsApp (`chat.whatsapp.com/…`), Telegram (`t.me/+…`, `t.me/joinchat/…`) and Discord (`discord.gg/…`, `discord.com/invite/…`). Add others with `invitePatterns` (the first capture group is the code).
 - `action` accepts one or several actions in order: `['delete', 'warn']`.
@@ -112,6 +116,8 @@ With `adminBypass` administrators are not moderated. Considered admins:
 2. Whoever returns `true` from `isAdmin(chatId, userId)`.
 3. Those reported by `provider.groups.getAdmins(chatId)`, cached for `adminCacheMs` and invalidated by the `promote`/`demote` group events.
 
+Admins are looked up only for a message that breaks a rule or comes from a muted user, so `isAdmin` and `getAdmins` are not called for ordinary traffic. If `isAdmin` throws, the sender is treated as a non-admin and a warning is logged (the message is still moderated, never dropped by the error). If `getAdmins` fails, the last known list is kept (or none) and the provider is asked again after `adminCacheMs` or 30 seconds, whichever is shorter.
+
 When someone leaves the group (`remove` event), their warnings, mute and spam window are forgotten. Memory stays bounded: expired mutes and stale admin lists are swept, and at most `maxTrackedUsers` warning counters are kept.
 
 ## `ctx.tools.moderation`
@@ -143,6 +149,8 @@ moderationPlugin({
 
 Without `messages`, the built-in texts follow the chat language: English by default, Spanish with `lang: 'es'`.
 
+`{name}` is the sender's display name as a plain line: control and bidi characters are removed, whitespace is collapsed and it is cut at 64 characters (an empty result falls back to `user` / `usuario`).
+
 ## Limitations
 
 - State (spam windows, warnings, mutes) lives in memory: it is lost on restart and is not shared between replicas.
@@ -157,6 +165,7 @@ Without `messages`, the built-in texts follow the chat language: English by defa
 | `delete` reports `'unsupported'` | The provider has no `deleteMessage`, or it cannot delete other people's messages (the bot usually needs to be a group admin). |
 | `kick` turns into a mute | No bundled provider exposes `groups.removeParticipants`; see [Actions and degradation](#actions-and-degradation). |
 | An admin gets warned | Add the id to `admins` or answer it from `isAdmin`; provider admin lists exist only when the provider exposes `groups.getAdmins`. |
+| `moderationPlugin()` throws a `TypeError`/`RangeError` | An option is invalid; the message names the field and what it must be. Use `false` to disable a rule instead of `0`. |
 | A word is not caught | Strings match whole words: use `wholeWord: false` or a RegExp for partial matches. |
 
 ## Links

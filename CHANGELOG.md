@@ -4,6 +4,16 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### `@botmesh/moderation`: prueba de beta y endurecimiento (2026-10)
+- **Configuración validada al crear el plugin.** `moderationPlugin()`, `new Moderator()` y `setGroupRules` lanzan un `TypeError`/`RangeError` que nombra el campo ante una acción desconocida, un `maxMessages`/`windowMs`/`warnings.max`/`muteMs` no positivo o un campo de tipo incorrecto. Antes una acción mal escrita (`'ban'`) fallaba en la primera infracción con un error de dispatch que descartaba el mensaje, y un `maxMessages: 0` desactivaba el anti-spam en silencio. `mute(chatId, userId, ms)` rechaza una duración no positiva (`Infinity` silencia hasta `unmute`).
+- **Un `isAdmin` que lanza ya no bloquea el grupo.** El error se registra y el remitente cuenta como no administrador; antes cada mensaje del grupo terminaba en un error de dispatch y no llegaba a ningún handler.
+- **Consultas de administradores solo cuando hacen falta.** `isAdmin` y `provider.groups.getAdmins` se consultan solo para un mensaje que rompe una regla o viene de un usuario silenciado. Si `getAdmins` falla, se conserva la última lista conocida y se reintenta tras `min(adminCacheMs, 30 s)`, en lugar de llamar al provider (y registrar un aviso) con cada mensaje.
+- **Evasión de filtros.** Las palabras y los enlaces se buscan tras quitar los caracteres invisibles (`\p{Cf}`: espacios de ancho cero, guion suave, controles bidi) y plegar las formas de compatibilidad (NFKD/NFKC: `ｓｐａｍ`, `𝐬𝐩𝐚𝐦`, invitaciones en ancho completo). Las invitaciones exigen que el host empiece el enlace: `chat.me/+abcd` o `mydiscord.gg/x` ya no cuentan como invitaciones.
+- **Nombre visible saneado en la advertencia.** `{name}` pierde los caracteres de control y bidi, se queda en una línea y se corta a 64 caracteres.
+- **Ventanas de anti-spam por clave.** Cada remitente recuerda su propia ventana: el barrido que lanzaba un grupo con ventana corta borraba los contadores de un grupo con ventana larga (con más de 10 000 remitentes activos). El barrido se amortiza: antes, a partir de ese tamaño, cada mensaje recorría todo el mapa.
+- **Desenchufar el plugin quita `ctx.tools.moderation`.**
+- Pruebas: `tests/hardening.test.ts` y `tests/e2e.test.ts` (ráfagas en 100 chats, ciclos de parada y arranque, handoff, fuzzing con semilla) y un consumidor limpio instalado desde los tarballs (`nodenext` y `bundler`).
+
 ### Integración de los 26 paquetes promovidos en `main` (2026-10)
 - Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
 - Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).

@@ -23,9 +23,17 @@
 import { definePlugin, type GroupEvent, type MessageContext, type PluginSpec } from '@botmesh/core'
 import { Moderator } from './Moderator.js'
 import type { ModerationConfig } from './types.js'
+import { validateConfig } from './validate.js'
 
-/** Build the moderation plugin for `bot.plug(...)`. `install` is synchronous. */
+/**
+ * Build the moderation plugin for `bot.plug(...)`. `install` is synchronous.
+ *
+ * @throws TypeError | RangeError when the config is invalid (an unknown action, a
+ *   non-positive window or count…); the message names the field.
+ */
 export function moderationPlugin(config: ModerationConfig = {}): PluginSpec<ModerationConfig> {
+  // Fail at the call site, not at the first violation.
+  validateConfig(config)
   return definePlugin<ModerationConfig>({
     name: 'moderation',
     version: '0.1.0',
@@ -36,6 +44,7 @@ export function moderationPlugin(config: ModerationConfig = {}): PluginSpec<Mode
         bot.send(mctx.from, { kind: 'text', text }, { mentions: [mctx.sender], quoted: mctx.ref }),
       )
       ctx.tools.moderation = moderator
+      ctx.onDispose(() => { if (ctx.tools.moderation === moderator) delete ctx.tools.moderation })
 
       // The Bot's groupMode filter runs BEFORE before('message') hooks, so with
       // 'mentions' or 'commands' most group messages never reach moderation.

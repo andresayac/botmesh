@@ -314,6 +314,10 @@ own messages are never moderated.
 
 - Words are compared ignoring case and accents (`ñ` stays distinct from
   `n`) and as whole words; RegExps run on the raw text.
+- Invisible characters (zero-width, soft hyphen, bidi controls) are dropped
+  and compatibility forms such as fullwidth `ｓｐａｍ` are read as plain
+  letters before words and links are matched, so they cannot hide a banned
+  word or an invite.
 - Recognized invites: WhatsApp (`chat.whatsapp.com/…`), Telegram
   (`t.me/+…`, `t.me/joinchat/…`) and Discord (`discord.gg/…`,
   `discord.com/invite/…`). `allowInvites` matches the exact code.
@@ -338,7 +342,11 @@ default, Spanish with `lang: 'es'`).
 Admins skip every rule (`adminBypass`, default `true`): ids in `admins`,
 anyone `isAdmin(chatId, userId)` approves, and the list from
 `provider.groups.getAdmins(chatId)`, cached for `adminCacheMs` (default 5
-min) and invalidated on `promote`/`demote` group events. When someone
+min) and invalidated on `promote`/`demote` group events. Admins are only
+looked up for a message that breaks a rule or comes from a muted user. If
+`isAdmin` throws, the sender counts as a non-admin (and a warning is
+logged); if `getAdmins` fails, the last known list is kept and the provider
+is asked again after at most 30 seconds. When someone
 leaves (`remove`), their warnings, mute and spam window are forgotten.
 The state stays bounded on a long-running bot: expired mutes and stale
 admin lists are swept, and at most `maxTrackedUsers` (default 10,000)
@@ -348,6 +356,12 @@ warning counters are kept, dropping the least recently warned user's.
 `resetWarnings`, `kick` (resolves an `ActionResult`), `setGroupRules`
 (`false` disables, `undefined` removes the override) and
 `invalidateAdmins`.
+
+The config is validated when you call `moderationPlugin()` and by
+`setGroupRules`: an unknown action, a non-positive count or window, or a
+field of the wrong type throws a `TypeError`/`RangeError` naming the field.
+`{name}` in the warning text is the sender's display name with control and
+bidi characters removed, on one line and at most 64 characters.
 
 ::: warning `groupMode` runs first
 The bot's `groupMode` filter runs **before** `before('message')` hooks.

@@ -17,10 +17,14 @@ export interface InviteLink {
   url: string
 }
 
+/**
+ * Each host must start the token (`(?<![\w-])`): `chat.me/+x` or `mydiscord.gg/x` are
+ * not invites. A leading `.` is allowed, so `www.t.me/+x` still is.
+ */
 const INVITE_PATTERNS: Array<{ platform: string; re: RegExp }> = [
-  { platform: 'whatsapp', re: /(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([A-Za-z0-9]{6,})/gi },
-  { platform: 'telegram', re: /(?:https?:\/\/)?(?:t|telegram)\.me\/(?:joinchat\/|\+)([\w-]{4,})/gi },
-  { platform: 'discord', re: /(?:https?:\/\/)?(?:discord\.gg|discord(?:app)?\.com\/invite)\/([\w-]{2,})/gi },
+  { platform: 'whatsapp', re: /(?<![\w-])(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([A-Za-z0-9]{6,})/gi },
+  { platform: 'telegram', re: /(?<![\w-])(?:https?:\/\/)?(?:t|telegram)\.me\/(?:joinchat\/|\+)([\w-]{4,})/gi },
+  { platform: 'discord', re: /(?<![\w-])(?:https?:\/\/)?(?:discord\.gg|discord(?:app)?\.com\/invite)\/([\w-]{2,})/gi },
 ]
 
 /** Find every group invite link in `text` (built-in platforms plus `extra` patterns). */
@@ -36,6 +40,15 @@ function collect(text: string, re: RegExp, platform: string, out: InviteLink[]):
   for (const m of text.matchAll(global)) {
     out.push({ platform, code: m[1] ?? m[0], url: m[0] })
   }
+}
+
+/**
+ * The text the link scanners run on: NFKC folds fullwidth and other compatibility forms
+ * (`ｃｈａｔ.ｗｈａｔｓａｐｐ.ｃｏｍ`) to ASCII, and invisible format characters
+ * (`chat.whats\u200Bapp.com`) are dropped, so neither hides a link from the filter.
+ */
+export function linkScanText(text: string): string {
+  return text.normalize('NFKC').replace(/\p{Cf}/gu, '')
 }
 
 /**
