@@ -57,7 +57,7 @@ export type {
 export { EXPRESSION_LIMITS, ExpressionError } from './expression.js'
 
 export { compileFlowDocument } from './compile.js'
-export type { CompileFlowOptions } from './compile.js'
+export type { CompileFlowOptions, FlowMediaPolicy } from './compile.js'
 
 export { FlowExportError, exportFlowDocument } from './introspect.js'
 
