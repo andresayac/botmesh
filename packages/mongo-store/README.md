@@ -5,8 +5,8 @@
 
 MongoDB [`IStore`](https://github.com/andresayac/botmesh/tree/main/packages/core) implementation for **@botmesh/core** — persistent, shared bot state backed by MongoDB (official driver v6). Point any number of bot replicas at the same MongoDB deployment and they share message logs, chats, contacts, flow checkpoints, AI conversation history and delivery cursors.
 
-- Six collections (`messages`, `chats`, `contacts`, `checkpoints`, `conversations`, `cursors`), each optionally **prefixed**, inside one configurable **database** — apps/bots can share a cluster.
-- `getMessagesByChat(limit)` is served by a compound `{chatId: 1, timestamp: 1}` index (created on `start()`) and returns the most-recent `limit` messages **ascending** by timestamp — same windowing semantics as `@botmesh/redis-store` / `@botmesh/sqlite-store`.
+- Seven collections (`messages`, `chats`, `contacts`, `checkpoints`, `conversations`, `cursors`, `user_data`), plus `schedules` for the durable scheduler, each optionally **prefixed**, inside one configurable **database** — apps/bots can share a cluster.
+- `getMessagesByChat(limit)` is served by a compound `{chatId: 1, timestamp: 1, _id: 1}` index (created on `start()`) and returns the most-recent `limit` messages **ascending** by timestamp — same windowing semantics as `@botmesh/redis-store` / `@botmesh/sqlite-store`.
 - Every write is an **upsert** keyed by `_id` (`messageKey(ref)` for messages, the entity id for chats/contacts, the logical key for the rest) — safe under concurrent replicas.
 - Injectable client → fully hermetic unit tests (an in-memory fake ships with the test-suite), plus an opt-in [integration suite](#integration-tests) against a real MongoDB.
 
@@ -65,8 +65,8 @@ const store = new MongoStore({ client: fake })
 | Option             | Type                       | Default                     | Description |
 | ------------------ | -------------------------- | --------------------------- | ----------- |
 | `url`              | `string`                   | `mongodb://localhost:27017` | MongoDB connection URL. Ignored when `client` is provided. |
-| `dbName`           | `string`                   | `'botwa'`                   | Database holding the store's collections. |
-| `collectionPrefix` | `string`                   | `''`                        | Prefix applied to every collection name. |
+| `dbName`           | `string`                   | `'botwa'`                   | Database holding the store's collections. Must be a valid, non-empty MongoDB database name (else the constructor throws). |
+| `collectionPrefix` | `string`                   | `''`                        | Prefix applied to every collection name. No `$` or NUL, and not starting with `system.` (else the constructor throws). |
 | `client`           | `MongoClient \| MongoLikeClient` | —                     | Inject an existing client (required for tests). The store never connects/closes it. |
 | `maxMessagesPerChat` | `number`                 | — (unbounded)               | When set, `saveMessage` prunes each chat's oldest messages (by timestamp) beyond the cap. Must be a non-negative integer (else `RangeError`). |
 | `purgeBatchSize` | `number` | `1000` | Documents deleted per statement by `purgeExpiredUserData`; the purge loops until nothing expired is left, so a large backlog never runs as one long delete. Must be a positive integer (else `RangeError`). |
@@ -95,6 +95,7 @@ const store = new MongoStore({ client: fake })
 
 - `undefined` is never stored as `null`: nested `undefined` values are dropped (JSON semantics), so a `StoredMessage` saved with `body: undefined` reads back without `body`.
 - Binary data inside `raw` / checkpoint state (`Buffer`, `Uint8Array`) reads back as a Node `Buffer`, not the driver's `Binary` class.
+- **Ids must be strings.** Every id that enters a filter (chat, message, contact, cursor/checkpoint/conversation key, `ctx.user` user/namespace/key, schedule id and owner) is checked, and anything else rejects with a `TypeError`. An object such as `{ $ne: '' }`, e.g. untrusted JSON an app forwards as `req.body.chatId`, would otherwise be a MongoDB query operator and read or delete other chats' and users' data.
 - Every document is limited to MongoDB's **16 MB** BSON cap — a single message, checkpoint or AI conversation history larger than that is rejected by the write (the previous value is kept). Field names may contain `.` and `$` but not NUL (`\0`).
 
 ## Durable scheduler
@@ -124,4 +125,4 @@ BOTWA_TEST_MONGO_URL=mongodb://127.0.0.1:57017 pnpm --filter @botmesh/mongo-stor
 docker rm -f botwa-it-mongo
 ```
 
-Each run works in its own database (`botwa_it_<random>`, dropped at the end) with a unique collection prefix per store, so reruns never collide. Use `127.0.0.1` rather than `localhost`: with Docker Desktop on Windows, `localhost` may resolve to `::1` first and the driver then times out on server selection. CI provides the same variable pointing at a MongoDB service container.
+Each run works in its own database (`botwa_it_<random>`, dropped at the end) with a unique collection prefix per store, so reruns never collide. Use `127.0.0.1` rather than `localhost`: with Docker Desktop on Windows, `localhost` may resolve to `::1` first and the driver then times out on server selection. CI does not run this suite; run it locally with Docker before changing the store.

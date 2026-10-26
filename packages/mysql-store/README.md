@@ -5,7 +5,7 @@
 
 MySQL/MariaDB [`IStore`](https://github.com/andresayac/botmesh/tree/main/packages/core) implementation for **@botmesh/core** — persistent, shared bot state backed by [mysql2](https://www.npmjs.com/package/mysql2). Point any number of bot replicas at the same database and they share message logs, chats, contacts, flow checkpoints, AI conversation history and delivery cursors.
 
-- Six small tables, `CREATE TABLE IF NOT EXISTS` on `start()` — no migrations to run by hand. Ids/keys are compared **byte-for-byte** (`VARBINARY`), never through a case- or accent-insensitive collation.
+- Seven small tables (the six below plus `user_data` for `ctx.user`), `CREATE TABLE IF NOT EXISTS` on `start()` — no migrations to run by hand. Ids/keys are compared **byte-for-byte** (`VARBINARY`), never through a case- or accent-insensitive collation.
 - Message bodies, chats, contacts, checkpoints and conversations stored as **JSON** documents; `getMessagesByChat(limit)` is an `ORDER BY timestamp DESC LIMIT ?` window, returned oldest→newest (same windowing semantics as `@botmesh/sqlite-store` / `@botmesh/redis-store`).
 - Configurable **table prefix**, so apps/bots can share one database.
 - Injectable pool → fully hermetic tests (an in-memory fake pool ships with the test-suite; no real MySQL needed). The fake mirrors the server where it matters: it rejects escaped unpaired surrogates in JSON (`ER_INVALID_JSON_TEXT`), returns `VARBINARY` columns as `Buffer`s and models connections, transactions and row locks.
@@ -118,7 +118,8 @@ ALTER TABLE `{p}cursors` MODIFY `key` VARBINARY(1024) NOT NULL;
 
 - `getMessagesByChat(chatId, limit)` reads the newest `limit` rows (`ORDER BY timestamp DESC LIMIT ?`) and returns them oldest→newest — same windowing semantics as `@botmesh/sqlite-store`.
 - `start()` creates a pool only when none was injected (and is safe to call again); `stop()` closes only a self-created pool. An injected pool is caller-managed and keeps serving after `stop()`.
-- MySQL's `JSON` type rejects unpaired UTF-16 surrogates (e.g. a string cut in the middle of an emoji). The store writes them as U+FFFD (`�`) instead of failing the write — the same value the UTF-8 based stores end up with. Well-formed text (emoji, CJK, RTL, combining marks) round-trips unchanged.
+- `timestamp` may be any number: the `BIGINT` sort column gets `Math.floor(timestamp)` clamped to ±`Number.MAX_SAFE_INTEGER` (`NaN` sorts as 0), while the exact value is kept in the `msg` document.
+- MySQL's `JSON` type rejects unpaired UTF-16 surrogates (e.g. a string cut in the middle of an emoji). The store writes them as U+FFFD (`�`) instead of failing the write (checkpoints too, through `setCheckpoint` and the compare-and-set `setCheckpointIf` alike) — the same value the UTF-8 based stores end up with. Well-formed text (emoji, CJK, RTL, combining marks) round-trips unchanged.
 - `upsertChat`/`upsertContact` merge shallowly — exactly `{ ...existing, ...patch }` like `MemoryStore` (nested values are replaced, `null` is kept, an explicit `undefined` drops the key) — and **atomically across processes**: each upsert runs a short transaction on a dedicated pool connection (`SELECT data ... FOR UPDATE`, merge, `UPDATE`, `COMMIT`), so concurrent partial upserts of the same record from several replicas never lose fields. A missing row is created first with `INSERT ... ON DUPLICATE KEY UPDATE id = id` (no lock held, so creators never deadlock), and a deadlock victim is retried. `JSON_MERGE_PATCH` is not used on purpose: it merges recursively and treats `null` as delete.
 - An injected pool must therefore also provide `getConnection()` (every mysql2/promise pool does); see `PoolLike`/`ConnectionLike`.
 - Works against MySQL 5.7+/8.x and MariaDB 10.x (`VALUES(col)` upsert syntax). The integration suite has been run against MySQL 8.4 and 8.0.
@@ -141,6 +142,7 @@ bot.schedule('0 9 * * 1-5', { id: 'daily-report', timeZone: 'Europe/Madrid' }, a
 - The scheduler calls its `start()`, which creates the table (`CREATE TABLE IF NOT EXISTS`, InnoDB, utf8mb4). The bot starts the store first; if you use the store only for schedules, `await store.start()` yourself. A standalone `new MysqlScheduleStore({ pool, tablePrefix })` borrows any pool and never closes it.
 - `delete()` (`task.cancel()`, `bot.forgetTask(id)`) is a soft delete: the row stays with `deleted = 1` so the id's fencing token never goes backwards. Purge old tombstones by hand only when no runner can still hold their token, e.g. `DELETE FROM schedules WHERE deleted = 1 AND updated_at < <epoch ms a day ago>`.
 - Leases use the caller's clock (`now`): keep replicas in sync (NTP).
+- Times are stored in whole milliseconds: a fractional slot, lease end or interval (`every(1500.5)`) rounds **up**, and a fractional `now` rounds **down**, so the record a call returns is exactly the stored row and nothing is claimed before it is due.
 - `tests/schedules.integration.test.ts` runs the shared `ScheduleStore` conformance suite (also without `FOUND_ROWS`), 20 claimers on two 2-connection pools, a concurrent schema race and a two-bot end-to-end run against a real server (same `BOTWA_TEST_MYSQL_URL`).
 
 
