@@ -63,8 +63,8 @@ export interface LifecycleStep {
 const LEDGER_SETTLE_MS = 5_000
 
 /**
- * Wait (bounded) for the after-send hooks and ledger rows of sends the provider already
- * settled: closing the store under them lost the bot's last replies from the message log
+ * Wait (bounded) for sends still in flight and the after-send hooks and ledger rows of
+ * sends the provider already settled: closing the store under them lost the bot's last replies from the message log
  * and reported the store's "closed" error on the 'error' event.
  */
 async function settleLedgerWrites(k: BotKernel): Promise<void> {
@@ -87,7 +87,7 @@ export function defaultLifecycleSteps(k: BotKernel): LifecycleStep[] {
       name: 'storage',
       start: () => k.store.start(),
       rollback: guardedRollback(k, 'store start rollback failed', () => k.store.stop()),
-      // The ledger rows of sends the provider already settled land before the store closes.
+      // The ledger rows of in-flight and just-settled sends land before the store closes.
       stop: async () => { await settleLedgerWrites(k); await k.store.stop() },
     },
     // Multi-replica coordination (`BotConfig.coordination`) only: the coordinator starts

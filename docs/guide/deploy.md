@@ -152,7 +152,7 @@ process.on('SIGTERM', async () => {
 | `drain` | `boolean` | `false` | Wait for in-flight sends to complete |
 | `timeout` | `number` | `10000` | Max ms to wait for drain before forcing stop |
 
-Replies the provider already accepted are still recorded in the message log (after-send hooks and the store write, up to 5 s) before the store is closed, with or without `drain`.
+Replies still being sent when `stop()` begins, and those the provider already accepted, are still recorded in the message log (after-send hooks and the store write, up to 5 s) before the store is closed, with or without `drain`.
 
 After the drain, `stop()` leaves nothing running behind it: messages still queued for a chat are dropped instead of being handled, no new conversation starts until `start()`, paced replies still waiting are dropped (`{ skipped: true }`) and running `ctx.stream()`s are cancelled without touching the transport again (no final flush, edit or deletion; they resolve with `cancelled: true`). No timer of the bot keeps the process alive afterwards; `pnpm bench:soak` checks this under load (see `CONTRIBUTING.md`).
 

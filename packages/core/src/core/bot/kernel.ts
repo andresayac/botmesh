@@ -118,8 +118,8 @@ export interface BotKernel {
   /** In-flight outbound sends — tracked so `stop({ drain: true })` can wait for them. */
   readonly inflightSends: Set<Promise<unknown>>
   /**
-   * Bookkeeping of sends the provider already settled (after-send hooks + outbound ledger
-   * row): `stop()` lets them finish (bounded) before it closes the store.
+   * Sends from their provider call until their bookkeeping (after-send hooks + outbound
+   * ledger row) is done: `stop()` lets them finish (bounded) before it closes the store.
    */
   readonly ledgerWrites: Set<Promise<void>>
   /** Provider events still being handled (stored, dispatched) — see `Bot.isBusy`. */

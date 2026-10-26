@@ -85,4 +85,41 @@ describe('SQLiteStore lifecycle', () => {
     expect(log.filter((m) => m.body === 'hi')).toHaveLength(4)
     await bot.stop()
   })
+
+  it.each([':memory:', ''])('an in-memory database (%j) keeps its data across stop() / start()', async (file) => {
+    const store = new SQLiteStore({ file })
+    const schedules = store.schedules()
+    const kv = store.durability().kv
+    await store.start()
+    await store.setCursor('a', '1')
+    await schedules.register({ id: 't', kind: 'interval', spec: '1000', nextRunAt: 10 }, 0)
+    await kv.insert('inbox', 'a', '{}', { due: null, done: null })
+    await store.stop()
+    await store.start()
+    expect(await store.getCursor('a')).toBe('1')
+    expect((await schedules.get('t'))?.spec).toBe('1000')
+    expect(await kv.get('inbox', 'a')).toMatchObject({ value: '{}' })
+    await store.stop()
+  })
+
+  it('a Bot on an in-memory database keeps its chats across stop() / start() and a failed start', async () => {
+    const store = new SQLiteStore({ file: ':memory:' })
+    const { bot, provider, chat } = await createTestBot({ store })
+    bot.when('hi', (ctx) => ctx.reply('hello'))
+    await chat.send('hi')
+    await chat.expectReply('hello')
+    await bot.stop()
+    await bot.start()
+    expect(await store.listChats()).toHaveLength(1)
+    const connect = provider.start.bind(provider)
+    provider.start = async () => { throw new Error('offline') }
+    await bot.stop()
+    await expect(bot.start()).rejects.toThrow('offline')
+    provider.start = connect
+    await bot.start()
+    const [stored] = await store.listChats()
+    const log = await store.getMessagesByChat(stored!.id, Infinity)
+    expect(log.map((m) => m.body)).toEqual(['hi', 'hello'])
+    await bot.stop()
+  })
 })

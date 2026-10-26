@@ -47,6 +47,32 @@ describe('bot.stop() and pending store writes', () => {
     expect(log.map((m) => m.body)).toEqual(['hi', 'hello'])
   })
 
+  it('records a reply still being sent when stop() starts (no drain)', async () => {
+    const store = new ClosingStore()
+    const { bot, provider, chat } = await createTestBot({ store })
+    const errors: unknown[] = []
+    bot.on('error', (e) => { errors.push(e) })
+    const send = provider.send.bind(provider)
+    let sending!: () => void
+    const sendStarted = new Promise<void>((r) => { sending = r })
+    provider.send = async (...args: Parameters<typeof send>) => {
+      sending()
+      await new Promise((r) => setTimeout(r, 80))
+      return send(...args)
+    }
+    bot.when('hi', (ctx) => { void ctx.reply('hello').catch(() => {}) })
+    await chat.send('hi')
+    await sendStarted
+    await bot.stop()
+    await new Promise((r) => setTimeout(r, 150)) // let any write still in flight hit the closed store
+    expect(store.lateCalls).toEqual([])
+    expect(errors).toEqual([])
+    store.closed = false
+    const [stored] = await store.listChats()
+    const log = await store.getMessagesByChat(stored!.id, Infinity)
+    expect(log.map((m) => m.body)).toEqual(['hi', 'hello'])
+  })
+
   it('a hung after-send hook does not hang stop() forever', async () => {
     const store = new ClosingStore()
     const { bot, chat } = await createTestBot({ store })

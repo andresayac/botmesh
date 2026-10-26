@@ -118,7 +118,7 @@ bot.use(
 
 If the process crashes mid-flow, the next message from that user **resumes at the exact step** where it left off: it asks the pending question again (`¿Tu email?` above) and the flow goes on with the state it had. The checkpoint is written when a step completes, so a flow still waiting on its **first** question has nothing saved yet: after a restart, the user starts it again with its trigger.
 
-`bot.stop()` and a failed `bot.start()` close the database; the next `bot.start()` reopens it, so a bot can be stopped and started again with the same `SQLiteStore` (and the `schedules()` / `durability()` backends it handed out).
+`bot.stop()` and a failed `bot.start()` close the database; the next `bot.start()` reopens it, so a bot can be stopped and started again with the same `SQLiteStore` (and the `schedules()` / `durability()` backends it handed out). An in-memory database (`file: ':memory:'`) is never closed by `stop()`: closing it would discard its data.
 
 ## RedisStore (distributed)
 

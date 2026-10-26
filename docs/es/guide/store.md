@@ -119,7 +119,7 @@ bot.use(
 
 Si el proceso se cae a mitad del flujo, el próximo mensaje de ese usuario **reanuda en el paso exacto** donde se quedó: vuelve a hacer la pregunta pendiente (`¿Tu email?` arriba) y el flujo sigue con el estado que tenía. El checkpoint se escribe al completar un paso, así que un flujo que aún espera su **primera** pregunta no tiene nada guardado: tras un reinicio, el usuario lo vuelve a empezar con su disparador.
 
-`bot.stop()` y un `bot.start()` fallido cierran la base de datos; el siguiente `bot.start()` la reabre, así que un bot puede pararse y volver a arrancar con el mismo `SQLiteStore` (y con los backends `schedules()` / `durability()` que entregó).
+`bot.stop()` y un `bot.start()` fallido cierran la base de datos; el siguiente `bot.start()` la reabre, así que un bot puede pararse y volver a arrancar con el mismo `SQLiteStore` (y con los backends `schedules()` / `durability()` que entregó). Una base en memoria (`file: ':memory:'`) nunca la cierra `stop()`: cerrarla perdería sus datos.
 
 ## RedisStore (distribuido)
 

@@ -54,6 +54,9 @@ export class OutboundPipeline {
       ? durable.run(payload, () => provider.send(payload.chatId, payload.content, payload.options))
       : provider.send(payload.chatId, payload.content, payload.options)
     inflightSends.add(op)
+    // Pending from the provider call on, so a stop() that starts while it is in flight
+    // still lets its bookkeeping (after-send hooks + ledger row) land before the store closes.
+    const recorded = this.ledgerWrite()
     try {
       let res: SendResult
       try { res = await op } catch (error) { counters.outbound(false); throw error }
@@ -62,41 +65,32 @@ export class OutboundPipeline {
       if (isEditableSend(payload.content)) {
         if (origin !== 'ctx') this.k.externalSends.mark(payload.chatId)
       }
-      const recorded = this.ledgerWrite()
-      try {
-        await hooks.runAfter('send', payload)
-        await messageLog.outbound({
-          ref: res.ref,
-          chatId: payload.chatId,
-          content: payload.content,
-          options: payload.options,
-          status: 'sent',
-          raw: config.persistRaw ? res.raw : undefined,
-        })
-      } finally {
-        recorded()
-      }
+      await hooks.runAfter('send', payload)
+      await messageLog.outbound({
+        ref: res.ref,
+        chatId: payload.chatId,
+        content: payload.content,
+        options: payload.options,
+        status: 'sent',
+        raw: config.persistRaw ? res.raw : undefined,
+      })
       return res
     } catch (error) {
       // Deferred to the outbox sweeper: not failed (the ledger row is written when it goes out).
       if (isSendDeferred(error)) { span?.setAttribute(TRACE_ATTR.sendOutcome, 'deferred'); throw error }
       span?.setAttribute(TRACE_ATTR.sendOutcome, 'failed')
-      const recorded = this.ledgerWrite()
-      try {
-        await messageLog.outbound({
-          ref: localRef,
-          chatId: payload.chatId,
-          content: payload.content,
-          options: payload.options,
-          status: 'failed',
-          error: toStoredError(error),
-        })
-      } finally {
-        recorded()
-      }
+      await messageLog.outbound({
+        ref: localRef,
+        chatId: payload.chatId,
+        content: payload.content,
+        options: payload.options,
+        status: 'failed',
+        error: toStoredError(error),
+      })
       throw error
     } finally {
       inflightSends.delete(op)
+      recorded()
     }
   }
 
@@ -133,9 +127,9 @@ export class OutboundPipeline {
   }
 
   /**
-   * Mark the bookkeeping of a settled send (after-send hooks + ledger row) as pending in
-   * `ledgerWrites`, so `stop()` does not close the store under it; call the returned
-   * function when it is done. A plain deferred: no extra await on the send path.
+   * Mark a send as pending in `ledgerWrites` from its provider call until its bookkeeping
+   * (after-send hooks + ledger row) is done, so `stop()` does not close the store under it;
+   * call the returned function when it is done. A plain deferred: no extra await on the send path.
    */
   private ledgerWrite(): () => void {
     const writes = this.k.ledgerWrites
@@ -160,19 +154,16 @@ export class OutboundPipeline {
     assertCoordinated(this.k)
     const op = provider.editMessage!(ref, payload.content)
     inflightSends.add(op)
+    const recorded = this.ledgerWrite()
     try {
       const res = await op
       span?.setAttribute(TRACE_ATTR.sendOutcome, 'ok')
-      const recorded = this.ledgerWrite()
-      try {
-        await hooks.runAfter('send', payload)
-        await messageLog.edit(ref, payload.content, config.persistRaw ? res.raw : undefined)
-      } finally {
-        recorded()
-      }
+      await hooks.runAfter('send', payload)
+      await messageLog.edit(ref, payload.content, config.persistRaw ? res.raw : undefined)
       return res
     } finally {
       inflightSends.delete(op)
+      recorded()
     }
   }
 

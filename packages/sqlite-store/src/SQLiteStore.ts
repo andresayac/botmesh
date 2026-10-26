@@ -33,8 +33,17 @@ import { SQLiteScheduleStore, rebindScheduleStore } from './schedules.js'
 import { SQLiteDurability, rebindDurableKv } from './durability.js'
 import { openError } from './openError.js'
 
+/** `':memory:'` and `''` (anonymous temporary database) only exist while their connection is open. */
+function isInMemory(file: string): boolean {
+  return file === ':memory:' || file === ''
+}
+
 export interface SQLiteStoreOptions {
-  /** Path to the SQLite database file. Default: './bot.db' */
+  /**
+   * Path to the SQLite database file. Default: './bot.db'. `':memory:'` (or `''`, an
+   * anonymous temporary database) lives only in this process: `stop()` keeps it open,
+   * since closing it would discard its data.
+   */
   file?: string
   /** Enable WAL mode for better concurrent read performance. Default: true */
   wal?: boolean
@@ -481,9 +490,14 @@ export class SQLiteStore implements IStore {
     if (this.durabilityBackend) rebindDurableKv(this.durabilityBackend.kv, this.db)
   }
 
-  /** Closes the database (idempotent; `start()` reopens it). A close failure goes to `logger.error`. */
+  /**
+   * Closes the database (idempotent; `start()` reopens it). A close failure goes to
+   * `logger.error`. An in-memory database (`':memory:'` or `''`) stays open: closing it
+   * would discard every chat, checkpoint and schedule, and the next `start()` would
+   * silently begin from an empty database.
+   */
   async stop(): Promise<void> {
-    if (!this.db.open) return
+    if (!this.db.open || isInMemory(this.file)) return
     try { this.db.close() } catch (err) { this.logger?.error?.({ err }, 'SQLiteStore failed to close') }
   }
 }
