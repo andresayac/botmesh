@@ -22,6 +22,7 @@
  * each other's mail.
  */
 import { randomUUID } from 'node:crypto'
+import { createConnection } from 'node:net'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Bot, flow, MemoryStore, type InboundEvent, type InboundMessage } from '@botmesh/core'
 import { cursorThreadStore, EmailProvider, type EmailProviderConfig, type EmailRaw } from '../src/index.js'
@@ -78,6 +79,37 @@ async function sendAs(mail: MailOptions): Promise<string> {
   const messageId = mail.messageId ?? mid()
   await t.sendMail({ ...mail, messageId: `<${messageId}>` })
   return messageId
+}
+
+/** Submit `data` byte for byte over a bare SMTP session (no client-side header cleanup). */
+async function smtpRaw(from: string, to: string, data: string): Promise<void> {
+  const socket = createConnection({ host: HOST, port: SMTP_PORT })
+  socket.setEncoding('latin1')
+  let buffer = ''
+  const waiters: Array<() => void> = []
+  socket.on('data', (chunk: string) => { buffer += chunk; waiters.splice(0).forEach((w) => w()) })
+  const reply = async (): Promise<string> => {
+    for (;;) {
+      if (/(^|\r\n)\d{3} [^\r\n]*\r\n$/.test(buffer)) { const r = buffer; buffer = ''; return r }
+      await new Promise<void>((r) => waiters.push(r))
+    }
+  }
+  const cmd = async (line: string, expected: string): Promise<void> => {
+    socket.write(`${line}\r\n`)
+    const r = await reply()
+    if (!r.startsWith(expected)) throw new Error(`SMTP ${line.split(' ')[0]}: ${r}`)
+  }
+  try {
+    await reply() // greeting
+    await cmd('HELO it.test', '250')
+    await cmd(`MAIL FROM:<${from}>`, '250')
+    await cmd(`RCPT TO:<${to}>`, '250')
+    await cmd('DATA', '354')
+    await cmd(`${data.replace(/^\./gm, '..')}\r\n.`, '250')
+    await cmd('QUIT', '221')
+  } finally {
+    socket.end()
+  }
 }
 
 /** Every message in `user`'s INBOX, parsed. */
@@ -385,6 +417,35 @@ describe.skipIf(!ENABLED)('EmailProvider against a real IMAP/SMTP server (GreenM
     await bot.stop()
     await settle(500)
     expect(sockets()).toBeLessThanOrEqual(baseline)
+  }, T)
+
+  it('hostile inbound headers never reach the reply envelope or headers', async () => {
+    const bot = addr('bot')
+    const ana = addr('ana')
+    const evil = addr('evil')
+    const h = await startProvider(bot)
+
+    // Raw SMTP, so the bytes are exactly the attacker's (a mail client would clean them).
+    const encodedEvil = evil.replace('@', '=40')
+    const raw = (from: string, id: string, extra = ''): string =>
+      `From: ${from}\r\nTo: ${bot}\r\nSubject: =?utf-8?Q?Hola=0D=0ABcc:_${encodedEvil}?=\r\nMessage-ID: <${id}>\r\n${extra}\r\nhola`
+    await smtpRaw(ana, bot, raw(`<${ana}\rRCPT TO:${evil}\r>`, mid()))
+    const good = mid()
+    await smtpRaw(ana, bot, raw(`=?utf-8?Q?Ana=0D=0ABcc:_${encodedEvil}?= <${ana}>`, good, `References: <root-${good}> <${'x'.repeat(2000)}@x>\r\n`))
+
+    const m = await waitFor(() => h.messages.find((x) => x.ref.id === good))
+    await settle(1000)
+    // The server may normalize the bare CRs; either way no sender is anything but Ana.
+    expect(h.messages.map((x) => x.senderId)).toEqual(h.messages.map(() => ana))
+    expect(m.chatId).toBe(`thread:root-${good}`)
+
+    const { ref } = await h.provider.send(m.chatId, { kind: 'document', media: Buffer.from('x'), filename: `a\r\nBcc: ${evil}.txt`, caption: 'ok' })
+    const reply = await awaitMail(ana, (x) => x.messageId === ref.id)
+    expect(reply.headers.has('bcc')).toBe(false)
+    expect(reply.subject).not.toMatch(/[\r\n]/)
+    for (const x of h.messages) if (x.ref.id !== good) await h.provider.send(x.chatId, { kind: 'text', text: 'ok' })
+    await settle(1000)
+    expect(await mailboxOf(evil)).toHaveLength(0)
   }, T)
 
   it('runs a Bot flow over email: ask by mail, answer by mail', async () => {

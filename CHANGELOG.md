@@ -4,6 +4,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### `@botmesh/email`: endurecimiento para la beta (2026-10)
+- Una dirección con espacios o caracteres de control (p. ej. un CR suelto en `From` o `Reply-To`) ya no es una dirección: el correo se descarta como `invalid` y nunca llega al sobre SMTP (`RCPT TO`). `send()` también rechaza con `RecipientUnreachableError` un destinatario guardado que no sea una dirección simple, y un chatId con varias direcciones dice que no es una dirección válida en lugar de "hilo desconocido".
+- Los Message-ID de más de 998 caracteres se ignoran (el correo recibe un id sintético, antes un id de 10 MB acababa como chatId) y la cadena de `References` se acota a la raíz más los 99 ids más recientes: un correo con millones de referencias ya no bloquea la cola de IMAP con millones de búsquedas en el store de hilos.
+- Las respuestas solo ponen ids reales en `In-Reply-To`/`References`: ni el id sintético de un correo sin Message-ID (`ctx.reply()`) ni un `quoted.id` mal formado.
+- Un `document` con un `mimetype` que no es un tipo de medio, y los adjuntos nativos con `contentType` inválido o `cid`/`filename` con caracteres de control, rechazan con `UnsupportedContentError` (antes salía un correo que algunos servidores descartaban sin avisar).
+- Una cabecera `Date` más de 5 minutos en el futuro ya no se usa como `ctx.timestamp` (se usa la hora de recepción).
+- Errores accionables: TLS implícito contra un puerto en texto plano o STARTTLS rechaza con `IMAP/SMTP TLS handshake failed ... set imap.secure: false` (antes, el texto crudo de OpenSSL); un buzón inexistente dice `IMAP mailbox "X" cannot be selected` (antes `Command failed`); los fallos de conexión SMTP empiezan por `SMTP connection failed:`.
+- La suite real contra GreenMail añade un caso con cabeceras hostiles enviadas por SMTP en crudo.
+
 ### Integración de los 26 paquetes promovidos en `main` (2026-10)
 - Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
 - Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).

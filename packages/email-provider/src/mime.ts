@@ -250,11 +250,26 @@ export function partText(part: MimePart): string {
 
 /* ---------------------------------------------------------------- extraction */
 
+/** RFC 5322 line limit: no real Message-ID is longer. Longer ones are dropped (a hostile id would become a megabyte chatId). */
+const MAX_MSG_ID_LENGTH = 998
+/** Message-IDs kept from one References header: the root and the most recent tail. */
+export const MAX_PARSED_REFERENCES = 100
+
+const validMsgId = (id: string): boolean => id.length <= MAX_MSG_ID_LENGTH && !/[\u0000-\u001f\u007f]/.test(id)
+
+/**
+ * Message-IDs of a header, without brackets. Oversized or control-character ids
+ * are dropped, and a list longer than `MAX_PARSED_REFERENCES` keeps its first
+ * (thread root) and last entries, so one email cannot make the thread lookup
+ * walk millions of ids.
+ */
 function msgIds(value: string | undefined): string[] {
   if (!value) return []
   const bracketed = [...value.matchAll(/<([^<>\s]+)>/g)].map((m) => m[1]!)
-  if (bracketed.length) return bracketed
-  return value.split(/[\s,]+/).map((s) => s.trim()).filter((s) => s.includes('@'))
+  const ids = (bracketed.length ? bracketed : value.split(/[\s,]+/).map((s) => s.trim()).filter((s) => s.includes('@')))
+    .filter(validMsgId)
+  if (ids.length <= MAX_PARSED_REFERENCES) return ids
+  return [ids[0]!, ...ids.slice(ids.length - (MAX_PARSED_REFERENCES - 1))]
 }
 
 /**

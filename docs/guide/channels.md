@@ -773,7 +773,12 @@ const provider = new EmailProvider({
   (`status: 'failed'` events, suppression of hard-bounced addresses).
 - `From` is not authenticated by email itself: use
   `requireAuthentication: { authservId }` to accept only mail your MTA
-  authenticated.
+  authenticated. Hostile headers are contained: addresses with control
+  characters are dropped, oversized Message-IDs ignored and `References`
+  chains capped.
+- `secure` means implicit TLS (default except IMAP port 143, and only SMTP
+  port 465); against a plain-text or STARTTLS port `start()`/`send()` reject
+  with a `TLS handshake failed` message that says which option to set.
 - Without IMAP, `ingest(rawMime)` accepts raw MIME from an inbound-mail
   webhook and resolves `{ status, accepted, reason? }`.
 - A transport built from `smtp` is closed on `stop()` and rebuilt on the

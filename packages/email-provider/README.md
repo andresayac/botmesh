@@ -41,7 +41,7 @@ With Gmail or Microsoft 365 use an app password or OAuth2 (`accessToken` instead
 
 | Concept | Email |
 | --- | --- |
-| `senderId` | Normalized `From` address (lowercase, no `<>`). The same person → the same id. |
+| `senderId` | Normalized `From` address (lowercase, no `<>`). The same person → the same id. A `From` with whitespace or control characters inside the address is not an address: the email is skipped as `invalid`. |
 | `chatId` (`thread` mode, the default) | `thread:<root Message-ID>`: one chat per thread, resolved through `In-Reply-To` / `References` (plus an index of the Message-IDs the bot sent, so it works even when the client trims `References`). The chat belongs to whoever opened the thread: if another address replies in it (a "reply all" or a forged `In-Reply-To`), it gets its own chat. |
 | `chatId` (`sender` mode) | The sender address: one chat per person, like a DM. |
 | `body` | New text of the reply: quoted history (`On … wrote:`, `El … escribió:`, Outlook blocks, `>`) and the signature (`-- `) are stripped. If the email only has HTML it is converted to text. If nothing is left, the subject is used. The full text is in `ctx.raw.text`. |
@@ -49,7 +49,7 @@ With Gmail or Microsoft 365 use an app password or OAuth2 (`accessToken` instead
 | Replies | `In-Reply-To`, `References`, `Re: <subject>` and the `From` recipient (or `Reply-To` when it is on the same domain; see `replyTo`). |
 | `send('person@x.com', ...)` | Starts a new thread with that address (`platformData.subject` for the subject). |
 | Buttons / lists / cards | Degrade to numbered text. `poll`, `reaction` and `template` throw `UnsupportedContentError`. |
-| `native` | `{ kind: 'native', provider: 'email', payload: { subject, text, html, cc, bcc, headers, attachments } }`. Attachments only accept `{ filename, content: Buffer \| Uint8Array, contentType, cid }` (for files or URLs use `image`/`document`, which go through `secureFetch`); threading and loop-protection headers cannot be overridden. |
+| `native` | `{ kind: 'native', provider: 'email', payload: { subject, text, html, cc, bcc, headers, attachments } }`. Attachments only accept `{ filename, content: Buffer \| Uint8Array, contentType, cid }` (for files or URLs use `image`/`document`, which go through `secureFetch`); `contentType` must be a media type and `cid`/`filename` cannot hold control characters. Threading and loop-protection headers cannot be overridden. A `document`'s `mimetype` must be a media type too (`application/pdf`), or the send rejects with `UnsupportedContentError`. |
 
 `options.platformData` in `send()` accepts `subject` and `html`.
 
@@ -81,6 +81,8 @@ Email does not authenticate `From`: anyone can write to the bot pretending to be
 - With `requireAuthentication: { authservId: 'mx.your-domain.com' }` only emails with `dmarc=pass` (or `dkim=pass` aligned with the `From` domain) in an `Authentication-Results` header written by **your** MTA are accepted; the rest are ignored, because the sender can add whatever headers it wants. Everything else is discarded with `reason: 'unauthenticated'`.
 
 Without `requireAuthentication`, treat `senderId` as a declared, unverified address: do not reveal a user's data (`ctx.user`, CRM) just because they write "from" their address. The per-sender cap can also be exhausted with forged senders.
+
+Headers are attacker-controlled input too. Addresses with whitespace or control characters are not addresses, so they never reach the SMTP envelope; Message-IDs longer than 998 characters are ignored (the email gets a synthetic id); a `References` chain keeps its root and the 99 most recent ids; and a `Date` more than 5 minutes in the future is replaced by the receive time in `ctx.timestamp`. Outbound replies carry `In-Reply-To`/`References` only with real Message-IDs (never the synthetic id of mail that had none, or a malformed `quoted.id`).
 
 ## Persisting threads
 
@@ -167,6 +169,9 @@ With [`@botmesh/server`](https://andresayac.github.io/botmesh/guide/server), mou
 | `start()` or the first send rejects with a `ProviderError` naming `imapflow` or `nodemailer` | The optional peer is not installed: `pnpm add imapflow` (inbound) and/or `pnpm add nodemailer` (outbound). |
 | `connection` closes with `reason: 'sessionInvalid'` | IMAP login failed: wrong password, or the mail provider needs an app password or OAuth2 (`accessToken`). |
 | Sends reject with `ProviderError` (`EAUTH`, 535) | SMTP login failed: same fix for the `smtp` credentials. |
+| `start()` or a send rejects with `IMAP TLS handshake failed` / `SMTP TLS handshake failed` | Implicit TLS against a plain-text or STARTTLS port. `secure` defaults to TLS on every IMAP port but 143 and only on SMTP port 465: set `imap.secure: false` / `smtp.secure: false`, or use port 993 / 465. |
+| `start()` rejects with `IMAP mailbox "…" cannot be selected` | `imap.mailbox` does not exist on the server (names are case-sensitive on most servers, except `INBOX`). |
+| `send()` rejects with `RecipientUnreachableError` "Unknown email thread" | The thread state is gone (in-memory store after a restart, or evicted): persist it with `cursorThreadStore(store)`. A chatId with several addresses is rejected too: send to one address and use native `cc`/`bcc`. |
 | Customer emails are ignored | They were classified as automatic (auto-replies, lists, bulk), came from the bot itself, hit the per-sender cap, or failed `requireAuthentication`. `ingest()` returns the `reason`; over IMAP it is logged at `debug`. |
 | The bot answers old mail on its first start | `processExisting: 'unseen'` (default) processes unread mail once; use `'none'` to start from now. |
 | Replies start a new chat after a restart | Thread state lives in memory: pass `threadStore: cursorThreadStore(store)`. |

@@ -800,7 +800,13 @@ const provider = new EmailProvider({
   rebote permanente).
 - El email no autentica `From` por sí mismo: usa
   `requireAuthentication: { authservId }` para aceptar solo correo que tu MTA
-  haya autenticado.
+  haya autenticado. Las cabeceras hostiles quedan contenidas: se descartan las
+  direcciones con caracteres de control, se ignoran los Message-ID enormes y
+  se acota la cadena de `References`.
+- `secure` es TLS implícito (por defecto salvo en el puerto IMAP 143, y solo
+  en el puerto SMTP 465); contra un puerto en texto plano o con STARTTLS,
+  `start()`/`send()` rechazan con un mensaje `TLS handshake failed` que dice
+  qué opción cambiar.
 - Sin IMAP, `ingest(rawMime)` acepta el MIME crudo de un webhook de correo
   entrante y resuelve `{ status, accepted, reason? }`.
 - El transporte creado desde `smtp` se cierra en `stop()` y se reconstruye

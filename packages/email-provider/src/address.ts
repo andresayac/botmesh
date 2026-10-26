@@ -82,6 +82,18 @@ function stripComments(value: string): string {
   }
 }
 
+/**
+ * Whitespace or a control character inside an address is never valid mail
+ * routing (RFC 5321 forbids them unquoted), and a bare CR could reach the SMTP
+ * envelope (`RCPT TO`): such an entry is not an address.
+ */
+const UNSAFE_IN_ADDRESS = /[\s\u0000-\u001f\u007f]/
+
+/** True when `address` holds whitespace or a control character. */
+export function hasUnsafeAddressChars(address: string): boolean {
+  return UNSAFE_IN_ADDRESS.test(address)
+}
+
 function parseMailbox(token: string): EmailAddress | undefined {
   const t = token.trim()
   if (!t) return undefined
@@ -91,13 +103,14 @@ function parseMailbox(token: string): EmailAddress | undefined {
   const gt = lt === -1 ? -1 : t.indexOf('>', lt + 1)
   if (gt !== -1) {
     const address = t.slice(lt + 1, gt).trim()
-    if (!address.includes('@')) return undefined
+    if (!address.includes('@') || UNSAFE_IN_ADDRESS.test(address)) return undefined
     const rawName = stripComments(t.slice(0, lt)).trim()
     const name = rawName ? decodeEncodedWords(unquote(rawName)).trim() : ''
     return { name: name || undefined, address }
   }
-  const bare = stripComments(t).trim()
-  if (!bare.includes('@') || /\s/.test(bare)) return undefined
+  // An unclosed angle address (`<ana@x.test`) keeps its address, without the bracket.
+  const bare = stripComments(t).trim().replace(/^<+/, '')
+  if (!bare.includes('@') || UNSAFE_IN_ADDRESS.test(bare) || /[<>]/.test(bare)) return undefined
   return { name: undefined, address: bare }
 }
 
