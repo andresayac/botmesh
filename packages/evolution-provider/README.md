@@ -134,7 +134,7 @@ and any other `MediaSource` (Buffer, path, stream) travels as base64.
 | 400/404 with `exists: false` (number not on WhatsApp) | `RecipientUnreachableError` |
 | 401/403 | `ProviderError` "Unauthorized — check the Evolution apiKey" |
 | 404 | `ProviderError` "Instance or resource not found" |
-| `Cannot read properties of undefined (reading 'onWhatsApp')` (instance never connected, or logged out) | `ProviderError` "The Evolution instance is not connected to WhatsApp: call start() and pair it" |
+| `Cannot read properties of undefined (reading 'onWhatsApp')` (instance never connected) or HTTP 500 `Connection Closed` (instance logged out) | `ProviderError` "The Evolution instance is not connected to WhatsApp: call start() and pair it" |
 | network failure | `ProviderError` naming the cause (`ECONNREFUSED`, `TIMEOUT`...), never the API key |
 
 A `template` send, and a poll with fewer than 2 or more than 12 options, an empty

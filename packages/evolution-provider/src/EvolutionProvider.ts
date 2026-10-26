@@ -73,11 +73,12 @@ function saysNotOnWhatsApp(body: unknown): boolean {
 }
 
 /**
- * True when Evolution answered with the TypeError it throws while the instance has no WhatsApp
- * socket (never connected, or logged out): `Cannot read properties of undefined (reading 'onWhatsApp')`.
+ * True when Evolution says the instance has no live WhatsApp socket: the TypeError it throws for
+ * an instance that never connected (`Cannot read properties of undefined (reading 'onWhatsApp')`)
+ * or Baileys' `Connection Closed` once the instance logged out (state `close`).
  */
 function saysNoSession(detail: string): boolean {
-  return /Cannot read propert(y|ies) of undefined \(reading '[A-Za-z]+'\)/.test(detail)
+  return /Cannot read propert(y|ies) of undefined \(reading '[A-Za-z]+'\)/.test(detail) || /\bConnection Closed\b/.test(detail)
 }
 
 /** Translate an Evolution API error response into a typed provider error. */

@@ -126,6 +126,26 @@ describe('error quality', () => {
     }
   })
 
+  it('explains the "Connection Closed" Evolution returns after the instance logged out', () => {
+    // Real v2.3.4 body for a send after DELETE /instance/logout (state 'close').
+    const bodies = [
+      { status: 500, error: 'Internal Server Error', response: { message: 'Connection Closed' } },
+      { status: 400, error: 'Bad Request', response: { message: ['Error: Connection Closed'] } },
+    ]
+    for (const body of bodies) {
+      const err = toEvolutionError(body.status, body, PN)
+      expect(err.constructor).toBe(ProviderError)
+      expect(err.message).toMatch(/not connected to WhatsApp/)
+      expect(err.message).toMatch(/start\(\)/)
+      expect(err.message).toMatch(/Connection Closed/)
+    }
+  })
+
+  it('does not misread a body that only mentions a closed connection in passing', () => {
+    const err = toEvolutionError(500, { status: 500, response: { message: 'Webhook connection closed by peer while retrying' } }, PN)
+    expect(err.message).not.toMatch(/not connected to WhatsApp/)
+  })
+
   it('does not misread "Message not found" (getBase64FromMediaMessage) as an unreachable recipient', () => {
     const err = toEvolutionError(400, { status: 400, error: 'Bad Request', response: { message: ['Message not found'] } }, PN)
     expect(err.constructor).toBe(ProviderError)
