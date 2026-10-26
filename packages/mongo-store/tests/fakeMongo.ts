@@ -17,6 +17,10 @@
  *    (inclusion) is honoured.
  *  - Filters: equality on top-level or dotted paths plus the `$lte` and `$in` operators —
  *    exactly the shapes MongoStore sends.
+ *  - `fieldsAsRaw`: js-bson looks a field name up in that map with a plain `map[name]`, and
+ *    the driver's default map is an ordinary object, so an array field named after an
+ *    `Object.prototype` member (`constructor`, `toString`, …) reads back with its documents
+ *    as raw BSON Buffers. A null-prototype map avoids it.
  */
 import type {
   MongoLikeClient,
@@ -28,7 +32,7 @@ import type {
 type Doc = { _id: string } & Record<string, unknown>
 
 interface WriteOptions { ignoreUndefined?: boolean }
-interface ReadOptions { promoteBuffers?: boolean; projection?: Record<string, 0 | 1> }
+interface ReadOptions { promoteBuffers?: boolean; projection?: Record<string, 0 | 1>; fieldsAsRaw?: Record<string, unknown> }
 
 /** Stand-in for the driver's `Binary` (subtype 0): what bytes read back as without `promoteBuffers`. */
 export class FakeBinary {
@@ -87,6 +91,9 @@ function toBson(value: unknown, opts: WriteOptions, inArray = false): unknown {
   return out
 }
 
+/** The driver's default `fieldsAsRaw`: an ordinary object (so it "has" `constructor`, `toString`…). */
+const DRIVER_FIELDS_AS_RAW: Record<string, unknown> = {}
+
 /** Deserialize a stored value: a fresh copy, Binary promoted to Buffer on request. */
 function fromBson(value: unknown, opts: ReadOptions): unknown {
   if (value === null || typeof value !== 'object') return value
@@ -97,8 +104,19 @@ function fromBson(value: unknown, opts: ReadOptions): unknown {
   if (value instanceof RegExp) return new RegExp(value.source, value.flags)
   if (Array.isArray(value)) return value.map((v) => fromBson(v, opts))
   const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(value)) out[k] = fromBson(v, opts)
+  const raw = opts.fieldsAsRaw ?? DRIVER_FIELDS_AS_RAW
+  for (const [k, v] of Object.entries(value)) {
+    // js-bson: `fieldsAsRaw[name]` truthy → the array's documents stay raw BSON (a Buffer).
+    out[k] = Array.isArray(v) && raw[k]
+      ? v.map((e) => (isRawDocument(e) ? Buffer.from(JSON.stringify(e)) : fromBson(e, opts)))
+      : fromBson(v, opts)
+  }
   return out
+}
+
+/** A stored sub-document (what js-bson leaves raw under a `fieldsAsRaw` array). */
+function isRawDocument(e: unknown): boolean {
+  return e !== null && typeof e === 'object' && !Array.isArray(e) && !(e instanceof FakeBinary) && !(e instanceof Date) && !(e instanceof RegExp)
 }
 
 function read<T>(doc: T, opts: ReadOptions = {}): T {

@@ -18,6 +18,7 @@ import type { UserId } from '@botmesh/core'
 import type { UserDataEntry } from '@botmesh/core/spi'
 import type { MongoLikeCollection } from './MongoStore.js'
 import { idString } from './ids.js'
+import { READ } from './read.js'
 
 export interface UserDataDoc {
   _id: string
@@ -32,7 +33,6 @@ export interface UserDataDoc {
 
 /** Same driver options as MongoStore's own collections: never write `undefined` as null, return Binary as Buffer. */
 const UPSERT = { upsert: true, ignoreUndefined: true } as const
-const READ = { promoteBuffers: true } as const
 
 const docId = (userId: UserId, namespace: string, key: string): string =>
   JSON.stringify([idString(userId, 'userId'), idString(namespace, 'namespace'), idString(key, 'key')])
