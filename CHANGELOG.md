@@ -5,7 +5,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 ## [Unreleased]
 
 ### `@botmesh/tickets`: validación de entrada y errores más claros (2026-10)
-- `update()` rechaza un `subject` que no sea string y `close()` un `reason` que no sea string; `create()` y `update()` rechazan un `meta` que no sea un objeto JSON plano (sin `Date`, `Map`, instancias de clases, funciones ni `BigInt`) antes de escribir nada, así que ya no se consume un id.
+- `update()` rechaza un `subject` que no sea string y `close()` un `reason` que no sea string; `create()` y `update()` rechazan un `meta` que no sea un objeto JSON plano (sin `Date`, `Map`, instancias de clases, funciones ni `BigInt`) antes de escribir nada, así que ya no se consume un id. Una propiedad con valor `undefined` se sigue aceptando y se descarta (como en JSON; también en la copia en memoria), y un `undefined` dentro de un array se rechaza.
 - `new TicketDesk()` sin `storage` utilizable e `isOpen()`/`isWithinWorkingHours()` con una `Date` inválida lanzan un `TypeError` que dice qué pasar; un valor guardado que no es JSON válido rechaza la llamada con un error que nombra la clave.
 - Las plantillas de mensajes solo leen campos propios del ticket (`{{constructor}}` sale vacío) y una ventana de horario ya no puede empezar a las `24:00`.
 - Documentado: con `handoffOnAssign`, reasignar o desasignar mantiene el handoff (y su `meta.assignee` de la primera asignación); en modo compartido cada llamada relee todos los tickets activos.

@@ -257,7 +257,9 @@ used without a bot: `new TicketDesk({ storage: memoryTicketStorage() })`.
   `bot.resume(chatId)` yourself if the bot should answer again.
 - `meta` must be a plain JSON object (no `Date`, `Map`, class instances,
   functions or `BigInt`); anything else is rejected before the ticket is
-  stored.
+  stored. A property set to `undefined` is dropped, as in JSON, so
+  `{ email: user?.email }` or `{ ...prev, key: undefined }` (to remove a
+  key) work; `undefined` inside an array is rejected.
 - In shared mode every call re-reads the index and every active ticket, so
   its cost grows with the number of open tickets.
 - `list()` with a filter that may include `closed` scans every id from 1

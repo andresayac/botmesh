@@ -29,6 +29,26 @@ describe('TicketDesk — input validation', () => {
     expect(t.id).toBe('1')
   })
 
+  it('accepts undefined object properties in meta and drops them, as JSON does', async () => {
+    const storage = memoryTicketStorage()
+    const d = new TicketDesk({ storage })
+    const t = await d.create({ chatId: 'a', subject: 's', meta: { orderId: undefined, x: 1, nested: { gone: undefined, kept: 'y' } } })
+    expect(t.meta).toEqual({ x: 1, nested: { kept: 'y' } })
+    expect(Object.keys(t.meta!)).toEqual(['x', 'nested'])
+    expect(Object.keys(t.meta!.nested as object)).toEqual(['kept'])
+    // Removing a key with `key: undefined` on update works too.
+    const u = await d.update(t.id, { meta: { ...t.meta, x: undefined } })
+    expect(Object.keys(u.meta!)).toEqual(['nested'])
+    // The copy in memory matches what a fresh desk reads back from storage.
+    const fresh = new TicketDesk({ storage })
+    expect(await d.get(t.id)).toStrictEqual(await fresh.get(t.id))
+  })
+
+  it('still rejects undefined inside meta arrays (JSON would turn it into null)', async () => {
+    const d = desk()
+    await expect(d.create({ chatId: 'a', subject: 's', meta: { list: [1, undefined] } })).rejects.toThrow(/meta must be JSON-serializable/)
+  })
+
   it('a desk without a usable storage fails at construction with a clear message', () => {
     expect(() => new TicketDesk(undefined as never)).toThrow(/TicketDesk: options\.storage/)
     expect(() => new TicketDesk({} as never)).toThrow(/TicketDesk: options\.storage/)

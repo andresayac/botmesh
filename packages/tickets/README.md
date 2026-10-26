@@ -83,7 +83,7 @@ Templates accept `{{id}}`, `{{position}}`, `{{subject}}`, `{{priority}}`, `{{ass
 
 States: `open` (queued), `assigned`, `pending` (waiting for the customer, out of the queue) and `closed`. Ids are sequential (`'1'`, `'2'`, …) per bot namespace. `TICKET_STATUSES` and `TICKET_PRIORITIES` list them (frozen).
 
-`meta` must be a plain JSON object (no `Date`, `Map`, class instances, functions or `BigInt`); `create` and `update` reject anything else with a `TypeError` before writing. A stored value that is not valid JSON makes the call reject with an error that names the storage key.
+`meta` must be a plain JSON object (no `Date`, `Map`, class instances, functions or `BigInt`); `create` and `update` reject anything else with a `TypeError` before writing. A property set to `undefined` is dropped, as JSON does (so `{ ...prev, key: undefined }` removes a key); `undefined` inside an array is rejected. A stored value that is not valid JSON makes the call reject with an error that names the storage key.
 
 `TicketDesk` works without a bot: `new TicketDesk({ storage: memoryTicketStorage() })`.
 

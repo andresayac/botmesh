@@ -114,7 +114,12 @@ function parseIndex(key: string, raw: string | undefined): string[] {
   return Array.isArray(parsed) ? parsed.map(String) : []
 }
 
-/** `meta` must be a plain object that survives a JSON round trip (tickets are stored as JSON). */
+/**
+ * `meta` must be a plain object that survives a JSON round trip (tickets are stored as JSON).
+ * An object property whose value is `undefined` is allowed (JSON drops it, so
+ * `{ email: user?.email }` or `{ ...prev, key: undefined }` work); `undefined` inside an
+ * array is not, because JSON would silently turn it into `null`.
+ */
 function assertMeta(meta: unknown, operation: string): asserts meta is Record<string, unknown> {
   const proto = meta !== null && typeof meta === 'object' ? Object.getPrototypeOf(meta) : undefined
   if (proto === undefined || (proto !== Object.prototype && proto !== null)) {
@@ -126,13 +131,18 @@ function assertMeta(meta: unknown, operation: string): asserts meta is Record<st
     if (Array.isArray(v)) return v.some(bad)
     if (typeof v === 'object') {
       const p = Object.getPrototypeOf(v)
-      return (p !== Object.prototype && p !== null) || Object.values(v).some(bad)
+      return (p !== Object.prototype && p !== null) || Object.values(v).some((x) => x !== undefined && bad(x))
     }
     return true
   }
   if (bad(meta)) {
-    throw new TypeError(`tickets.${operation}: meta must be JSON-serializable (plain objects, arrays, strings, finite numbers, booleans and null)`)
+    throw new TypeError(`tickets.${operation}: meta must be JSON-serializable (plain objects, arrays, strings, finite numbers, booleans and null; undefined properties are dropped)`)
   }
+}
+
+/** A validated `meta` as it will be stored: a JSON copy, so `undefined` properties are gone in memory too. */
+function storedMeta(meta: Record<string, unknown>): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(meta)) as Record<string, unknown>
 }
 
 /** The ticket a chat's `open:<chatId>` claim names (`''` or garbage = no claim). */
@@ -275,7 +285,7 @@ export class TicketDesk implements TicketsApi {
         subject: input.subject,
         priority,
         status: 'open',
-        ...(input.meta !== undefined ? { meta: clone(input.meta) } : {}),
+        ...(input.meta !== undefined ? { meta: storedMeta(input.meta) } : {}),
         createdAt: at,
         updatedAt: at,
       }
@@ -334,7 +344,7 @@ export class TicketDesk implements TicketsApi {
       const next: Ticket = { ...cur }
       if (patch.subject !== undefined) next.subject = patch.subject
       if (patch.priority !== undefined) next.priority = patch.priority
-      if (patch.meta !== undefined) next.meta = clone(patch.meta)
+      if (patch.meta !== undefined) next.meta = storedMeta(patch.meta)
       if (patch.assignee !== undefined) {
         if (patch.assignee === null) {
           delete next.assignee
