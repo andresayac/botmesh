@@ -208,7 +208,7 @@ the update is acknowledged (200) and dropped (also leave it out of
 | `edit`                   | ✅     | `editMessageText` (text only)                     |
 | `typing`                 | ✅     | `sendChatAction` (typing / record_voice)          |
 | `presence`               | ❌     | bots cannot read presence                         |
-| `readReceipts`           | ❌     | bots get no read receipts (`markRead` is a no-op) |
+| `readReceipts`           | ❌     | bots get no read receipts (no `markRead()`; `ctx.markRead()` does nothing) |
 | `groups`                 | ✅     | group / supergroup / channel classification       |
 | `templates`              | ❌     | use `text`/`buttons`/`native`                     |
 | `interactionsRequireAck` | ❌     | `answerCallbackQuery` stops the spinner; no hard deadline |

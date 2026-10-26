@@ -6,6 +6,7 @@ import {
   RateLimitedError,
   RecipientUnreachableError,
   UnsupportedContentError,
+  type IProvider,
 } from '@botmesh/core'
 import { TelegramProvider } from '../src/TelegramProvider.js'
 
@@ -188,11 +189,10 @@ describe('TelegramProvider actions', () => {
     await expect(p.editMessage!({ id: '42', chatId: '77' }, { kind: 'location', lat: 0, lng: 0 })).rejects.toBeInstanceOf(UnsupportedContentError)
   })
 
-  it('markRead is a documented no-op (no API call)', async () => {
-    const calls = mockFetch(() => ({ body: { ok: true, result: true } }))
+  it('has no markRead (bots get no read receipts): the method is absent, ctx.markRead() is a no-op', () => {
     const p = new TelegramProvider(baseCfg)
-    await p.markRead!([{ id: '1', chatId: 'x' }])
-    expect(calls).toHaveLength(0)
+    expect((p as IProvider).markRead).toBeUndefined()
+    expect(p.capabilities.readReceipts).toBe(false)
   })
 
   it('downloadMedia resolves getFile then fetches the file bytes', async () => {

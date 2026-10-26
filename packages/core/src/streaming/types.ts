@@ -47,7 +47,7 @@ export interface StreamOptions {
    * already completed before the cancel stay.
    */
   onCancel?: 'flush' | 'discard'
-  /** Max chars per message. Default `capabilities.maxTextLength`, else 4096. */
+  /** Max chars per message. Default `capabilities.maxTextLength`, else 4096 (`capabilities.maxTextBytes` also applies). */
   maxLength?: number
   /** `'chunk'`: minimum chars before a chunk is sent at a sentence boundary. Default 160. */
   minChunkChars?: number
@@ -88,7 +88,7 @@ export interface StreamResult {
  * bot; tests and custom integrations can provide their own.
  */
 export interface StreamTarget {
-  capabilities?: Pick<ProviderCapabilities, 'streaming' | 'maxTextLength' | 'edit'>
+  capabilities?: Pick<ProviderCapabilities, 'streaming' | 'maxTextLength' | 'maxTextBytes' | 'edit'>
   /** `false` for groups/channels: native drafts are attempted only when not `false`. */
   isPrivate?: boolean
   send(content: OutboundContent, options?: SendOptions): Promise<SentMessage>

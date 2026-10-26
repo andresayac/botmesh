@@ -1,6 +1,6 @@
 /**
- * restClient — thin fetch wrapper over the Discord REST API (v10). Node 20
- * global fetch; maps Discord errors to the core's typed provider errors.
+ * restClient — thin fetch wrapper over the Discord REST API (v10). Node global
+ * fetch with a per-request timeout; maps Discord errors to the core's typed provider errors.
  */
 
 import {
@@ -21,6 +21,20 @@ export interface DiscordRestClientConfig {
   /** E.g. 'v10'. */
   apiVersion: string
   mediaDownload?: Omit<SecureFetchOptions, 'fetch'>
+  /** Time allowed for each REST request, body included, in ms. Default {@link DEFAULT_REST_TIMEOUT_MS}. */
+  timeoutMs?: number
+}
+
+/** Default time allowed for one REST request: 60 s. */
+export const DEFAULT_REST_TIMEOUT_MS = 60_000
+
+/** Wrap a transport failure or timeout in a typed {@link ProviderError} (original as `cause`; no URL, no token). */
+function transportError(err: unknown, timeoutMs: number, timedOut: boolean): ProviderError {
+  const wrapped = new ProviderError(timedOut
+    ? `Discord API request timed out after ${timeoutMs}ms`
+    : `Discord API request failed: ${err instanceof Error ? err.message : String(err)}`)
+  ;(wrapped as { cause?: unknown }).cause = err
+  return wrapped
 }
 
 /**
@@ -35,7 +49,9 @@ export function toProviderError(chatId: ChatId, status: number, body: DiscordApi
   const msg = body.message ?? 'Discord API error'
   const detail = `${msg}${body.code ? ` (code ${body.code})` : ''} (HTTP ${status})`
   if (status === 429) {
-    const ms = body.retry_after ? Math.ceil(body.retry_after * 1000) : 1_000
+    const sec = typeof body.retry_after === 'number' && Number.isFinite(body.retry_after) && body.retry_after > 0 ? body.retry_after : 1
+    // Capped at 24 h like the other channels (more would overflow setTimeout).
+    const ms = Math.min(86_400_000, Math.ceil(sec * 1000))
     return new RateLimitedError(ms, detail)
   }
   if (status === 403 || (body.code !== undefined && UNREACHABLE_CODES.has(body.code))) {
@@ -83,10 +99,25 @@ export class DiscordRestClient {
       headers['Content-Type'] = 'application/json'
       body = JSON.stringify(opts.json)
     }
-    const res = await fetch(this.base(path), { method, headers, body })
-    const parsed = (await res.json().catch(() => ({}))) as DiscordApiErrorBody & Record<string, unknown>
-    if (!res.ok) throw toProviderError(opts.chatId ?? '', res.status, parsed)
-    return parsed
+    const timeoutMs = this.cfg.timeoutMs ?? DEFAULT_REST_TIMEOUT_MS
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    timer.unref?.()
+    try {
+      let res: Response
+      try {
+        res = await fetch(this.base(path), { method, headers, body, signal: controller.signal })
+      } catch (err) {
+        throw transportError(err, timeoutMs, controller.signal.aborted)
+      }
+      const parsed = (await res.json().catch(() => ({}))) as DiscordApiErrorBody & Record<string, unknown>
+      // An abort mid-body reads as `{}`: it must not pass as success.
+      if (controller.signal.aborted) throw transportError(controller.signal.reason, timeoutMs, true)
+      if (!res.ok) throw toProviderError(opts.chatId ?? '', res.status, parsed)
+      return parsed
+    } finally {
+      clearTimeout(timer)
+    }
   }
 
   /** POST /channels/{channelId}/messages (JSON or multipart when files). */

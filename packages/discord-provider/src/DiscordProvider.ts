@@ -21,6 +21,7 @@ import type {
   ChatId,
   IProvider,
   InboundEvent,
+  InboundInteraction,
   MediaRef,
   MediaSource,
   MessageRef,
@@ -42,6 +43,10 @@ import { toOutbound, type DiscordFile } from './toOutbound.js'
 
 /** Default `reactionMemory`: messages whose own-reaction emoji is remembered. */
 const DEFAULT_REACTION_MEMORY = 1000
+/** Default delay before an unanswered interaction is deferred by the provider (Discord fails it at ~3 s). */
+const DEFAULT_AUTO_ACK_MS = 2000
+/** How many auto-deferred interaction ids are remembered (to route a late text ack to a followup). */
+const AUTO_ACKED_MEMORY = 1000
 
 /** Hosts (and their subdomains) that serve Discord attachments (`cdn.discordapp.com`, `media.discordapp.net`). */
 export const DISCORD_MEDIA_HOSTS: readonly string[] = Object.freeze(['discordapp.com', 'discordapp.net'])
@@ -61,6 +66,23 @@ const DEFAULT_NAME: Record<string, string> = {
 
 function mimeFor(path: string): string | undefined {
   return EXT_MIME[path.split('.').pop()?.toLowerCase() ?? '']
+}
+
+/**
+ * Read a local media file. A missing or unreadable path rejects with
+ * `UnsupportedContentError` (the fs error as `cause`), like every channel, never a raw ENOENT.
+ */
+async function readLocalMedia(path: string, kind: OutboundContent['kind']): Promise<Buffer> {
+  try {
+    return await readFile(path)
+  } catch (err) {
+    const code = (err as { code?: string }).code
+    const shown = path.length > 80 ? `${path.slice(0, 80)}…` : path
+    throw Object.assign(
+      new UnsupportedContentError(kind, `Discord ${kind}: ${JSON.stringify(shown)} is neither an http(s) URL nor a readable file (${code ?? 'read failed'}).`),
+      { cause: err },
+    )
+  }
 }
 
 export class DiscordProvider implements IProvider<unknown> {
@@ -104,11 +126,27 @@ export class DiscordProvider implements IProvider<unknown> {
    */
   private readonly ownReactions = new Map<string, string>()
   private readonly reactionMemory: number
+  /** ms before an unanswered interaction is deferred by the provider (`false` = never). */
+  private readonly autoAckMs: number | false
+  /** Interactions waiting for an ack: `<id>:<token>` → their auto-ack timer. */
+  private readonly pendingAcks = new Map<string, ReturnType<typeof setTimeout>>()
+  /** Interactions the provider deferred on its own (bounded, oldest evicted). */
+  private readonly autoAcked = new Set<string>()
+  /** Application id for interaction followups: `config.appId`, else learnt from READY or an interaction. */
+  private appId: string | undefined
 
   constructor(config: DiscordProviderConfig) {
     if (typeof config.token !== 'string' || config.token.trim() === '') {
       throw new Error('DiscordProvider requires `token` (Developer Portal → Bot → Reset Token); got an empty value — is the env var set?')
     }
+    if (config.requestTimeoutMs !== undefined && !(typeof config.requestTimeoutMs === 'number' && Number.isFinite(config.requestTimeoutMs) && config.requestTimeoutMs > 0)) {
+      throw new TypeError('DiscordProvider: `requestTimeoutMs` must be a positive number of milliseconds')
+    }
+    const autoAck = config.autoAcknowledgeMs ?? DEFAULT_AUTO_ACK_MS
+    if (autoAck !== false && !(typeof autoAck === 'number' && Number.isFinite(autoAck) && autoAck >= 0 && autoAck < 3000)) {
+      throw new TypeError('DiscordProvider: `autoAcknowledgeMs` must be false or a number of ms from 0 to 2999 (Discord fails an interaction after ~3 s)')
+    }
+    this.autoAckMs = autoAck
     const memory = config.reactionMemory ?? DEFAULT_REACTION_MEMORY
     if (!Number.isSafeInteger(memory) || memory < 0) {
       throw new Error(`DiscordProvider: reactionMemory must be a non-negative integer (got ${String(memory)})`)
@@ -132,8 +170,10 @@ export class DiscordProvider implements IProvider<unknown> {
       apiUrl: this.config.apiUrl,
       apiVersion: this.config.apiVersion,
       mediaDownload: this.config.mediaDownload,
+      ...(this.config.requestTimeoutMs !== undefined ? { timeoutMs: this.config.requestTimeoutMs } : {}),
     })
     this._selfId = config.selfId ?? null
+    this.appId = config.appId
   }
 
   get selfId(): UserId | null { return this._selfId }
@@ -147,6 +187,7 @@ export class DiscordProvider implements IProvider<unknown> {
     return () => this.listeners.delete(listener)
   }
   private fan(e: InboundEvent): void {
+    if (e.kind === 'interaction') this.scheduleAutoAck(e.interaction.interactionId, e.interaction.kind)
     for (const listener of this.listeners) {
       try {
         void Promise.resolve(listener(e))
@@ -174,22 +215,48 @@ export class DiscordProvider implements IProvider<unknown> {
   }
 
   async stop(): Promise<void> {
+    for (const timer of this.pendingAcks.values()) clearTimeout(timer)
+    this.pendingAcks.clear()
     await this.gateway?.stop()
     this.gateway = null
+  }
+
+  /** Defer `interactionId` after `autoAcknowledgeMs` unless a handler acknowledges it first. */
+  private scheduleAutoAck(interactionId: string, kind: InboundInteraction['kind']): void {
+    if (this.autoAckMs === false || kind === 'autocomplete' || !interactionId.includes(':') || this.pendingAcks.has(interactionId)) return
+    const timer = setTimeout(() => {
+      this.pendingAcks.delete(interactionId)
+      this.autoAcked.add(interactionId)
+      if (this.autoAcked.size > AUTO_ACKED_MEMORY) this.autoAcked.delete(this.autoAcked.values().next().value as string)
+      const sep = interactionId.indexOf(':')
+      // Components: DEFERRED_UPDATE_MESSAGE (6); commands and modals: DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE (5).
+      const type = kind === 'button' || kind === 'list' ? 6 : 5
+      this.rest.ackInteraction(interactionId.slice(0, sep), interactionId.slice(sep + 1), { type })
+        .catch((err: unknown) => this.logger.warn({ err, interactionKind: kind }, 'DiscordProvider: automatic interaction acknowledgement failed'))
+    }, this.autoAckMs)
+    timer.unref?.()
+    this.pendingAcks.set(interactionId, timer)
   }
 
   private onGatewayDispatch(t: string, d: unknown): void {
     if (t === 'READY') {
       const user = (d as { user?: { id: string } } | undefined)?.user
       if (user?.id && !this._selfId) this._selfId = user.id
+      this.learnAppId((d as { application?: { id?: unknown } } | undefined)?.application?.id)
       this.fan({ kind: 'connection', update: { state: 'ready' } })
     } else if (t === 'RESUMED') {
       // A resumed session is live again: without this the connection would
       // stay 'authenticating' after every successful RESUME.
       this.fan({ kind: 'connection', update: { state: 'ready' } })
     }
+    if (t === 'INTERACTION_CREATE') this.learnAppId((d as { application_id?: unknown } | undefined)?.application_id)
     const event = parseDispatch(t, d, this._selfId)
     if (event) this.fan(event)
+  }
+
+  /** Keep the first application id seen when `appId` was not configured. */
+  private learnAppId(id: unknown): void {
+    if (!this.appId && typeof id === 'string' && /^\d{1,32}$/.test(id)) this.appId = id
   }
 
   /* Outbound ---------------------------------------------------------------- */
@@ -257,11 +324,11 @@ export class DiscordProvider implements IProvider<unknown> {
     if (options?.platformData) Object.assign(payload, options.platformData)
 
     // Reply INTO an interaction (Discord followup) when we can.
-    if (options?.interactionId && this.config.appId) {
+    if (options?.interactionId && this.appId) {
       const token = options.interactionId.includes(':')
         ? options.interactionId.slice(options.interactionId.indexOf(':') + 1)
         : options.interactionId
-      const body = await this.rest.sendFollowup(this.config.appId, token, payload, files)
+      const body = await this.rest.sendFollowup(this.appId, token, payload, files)
       return { ref: { id: body.id ?? '', chatId }, raw: body }
     }
 
@@ -277,20 +344,20 @@ export class DiscordProvider implements IProvider<unknown> {
     const name = content.kind === 'document'
       ? ((content as { filename?: string }).filename ?? DEFAULT_NAME.document)
       : DEFAULT_NAME[content.kind] ?? 'file.bin'
-    return this.resolveMedia((content as { media: MediaSource }).media, name)
+    return this.resolveMedia((content as { media: MediaSource }).media, name, content.kind)
   }
 
-  private async resolveMedia(source: MediaSource, name: string): Promise<DiscordFile> {
+  private async resolveMedia(source: MediaSource, name: string, kind: OutboundContent['kind']): Promise<DiscordFile> {
     if (typeof source === 'string') {
       return /^https?:\/\//i.test(source)
         ? this.downloadAsFile(source, name)
-        : { name: basename(source), buffer: await readFile(source), contentType: mimeFor(source) }
+        : { name: basename(source), buffer: await readLocalMedia(source, kind), contentType: mimeFor(source) }
     }
     if (Buffer.isBuffer(source)) return { name, buffer: source, contentType: mimeFor(name) }
     if ('url' in source) return this.downloadAsFile(source.url, name)
     if ('buffer' in source) return { name, buffer: source.buffer, contentType: mimeFor(name) }
     if ('path' in source) {
-      return { name: basename(source.path), buffer: await readFile(source.path), contentType: mimeFor(source.path) }
+      return { name: basename(source.path), buffer: await readLocalMedia(source.path, kind), contentType: mimeFor(source.path) }
     }
     if ('stream' in source) {
       const chunks: Buffer[] = []
@@ -301,7 +368,7 @@ export class DiscordProvider implements IProvider<unknown> {
     }
     if ('native' in source) {
       if (Buffer.isBuffer(source.native)) return { name, buffer: source.native }
-      if (typeof source.native === 'string') return this.resolveMedia(source.native, name)
+      if (typeof source.native === 'string') return this.resolveMedia(source.native, name, kind)
     }
     throw new UnsupportedContentError('image', 'Unsupported MediaSource for Discord')
   }
@@ -345,8 +412,7 @@ export class DiscordProvider implements IProvider<unknown> {
 
   /* Capability-gated actions -------------------------------------------------- */
 
-  /** Discord has no read-receipt primitive — intentional no-op. */
-  async markRead(_refs: MessageRef[]): Promise<void> {}
+  // No markRead(): Discord has no read-receipt primitive (capabilities.readReceipts false).
 
   /**
    * POST /channels/{id}/typing. Discord shows one indicator for both 'typing'
@@ -375,13 +441,26 @@ export class DiscordProvider implements IProvider<unknown> {
   /**
    * Answer an interaction before the ~3s deadline. `interactionId` is the
    * `<id>:<token>` pair emitted on the InboundInteraction. With `text` posts
-   * an immediate response (type 4); otherwise defers (type 6).
+   * an immediate response (type 4); otherwise defers (type 6). After the provider
+   * deferred it on its own (`autoAcknowledgeMs`), `text` is sent as a followup.
    */
   async acknowledgeInteraction(interactionId: string, opts?: { text?: string; defer?: boolean }): Promise<void> {
     const sep = interactionId.indexOf(':')
     if (sep === -1) throw new ProviderError('acknowledgeInteraction requires the "<id>:<token>" interactionId')
     const id = interactionId.slice(0, sep)
     const token = interactionId.slice(sep + 1)
+    const pending = this.pendingAcks.get(interactionId)
+    if (pending) { clearTimeout(pending); this.pendingAcks.delete(interactionId) }
+    if (this.autoAcked.has(interactionId)) {
+      // Already deferred by the provider: Discord accepts one initial response, so a
+      // text answer goes out as a followup instead.
+      if (!opts?.text || opts.defer) return
+      if (!this.appId) {
+        throw new ProviderError('acknowledgeInteraction: the interaction was already deferred (autoAcknowledgeMs) and its text can only go out as a followup, which needs `appId` (not configured and not received from Discord yet)')
+      }
+      await this.rest.sendFollowup(this.appId, token, { content: opts.text })
+      return
+    }
     const callback = opts?.text && !opts?.defer
       ? { type: 4, data: { content: opts.text } }
       : { type: 6 }

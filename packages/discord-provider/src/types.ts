@@ -34,7 +34,11 @@ export interface DiscordProviderConfig {
    * Add `GatewayIntents.DirectMessages` to receive DMs.
    */
   intents?: number
-  /** Application id — required to send interaction followups via `SendOptions.interactionId`. */
+  /**
+   * Application id, used for interaction followups (`SendOptions.interactionId` and a
+   * late `ctx.acknowledge(text)`). When omitted, the id Discord sends on READY or on an
+   * interaction is used.
+   */
   appId?: string
   /** The bot's own user id (for `fromMe`); auto-detected from gateway READY when omitted. */
   selfId?: string
@@ -46,6 +50,23 @@ export interface DiscordProviderConfig {
   apiVersion?: string
   /** Safe-download policy for Discord CDN URLs. */
   mediaDownload?: Omit<SecureFetchOptions, 'fetch'>
+  /**
+   * Time allowed for each REST request (send, edit, delete, typing, reactions,
+   * interaction callbacks), body included, in ms. A request that takes longer rejects
+   * with a `ProviderError` ("timed out"). Default 60 000.
+   */
+  requestTimeoutMs?: number
+  /**
+   * Discord fails an interaction (button, select menu, slash command, modal) that is
+   * not answered within ~3 s. When no handler calls `ctx.acknowledge()` within this
+   * many ms of receiving it, the provider defers it on its own (`DEFERRED_UPDATE_MESSAGE`
+   * for components, `DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE` for commands and modals); a
+   * later `ctx.acknowledge(text)` then posts `text` as a followup (see `appId`; with no
+   * application id known it rejects with `ProviderError` rather than dropping the text).
+   * Autocomplete is never auto-acknowledged. Default 2000 (must be below 3000);
+   * `false` disables it.
+   */
+  autoAcknowledgeMs?: number | false
   /**
    * Durable inbox (`BotConfig.durability`): hosts whose attachment URLs are journaled so a
    * replayed message can download its media again. A name also allows its subdomains.

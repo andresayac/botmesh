@@ -45,16 +45,35 @@ function mediaPayload(content: OutboundContent & { caption?: string }, file: Dis
 /** Discord: at most 5 buttons per action row and 5 action rows per message. */
 const BUTTONS_PER_ROW = 5
 const MAX_ROWS = 5
+/** Discord: at most 25 options in a select menu and 10 answers in a poll. */
+const MAX_SELECT_OPTIONS = 25
+const MAX_POLL_ANSWERS = 10
+
+/** First `max` characters (code points: an emoji is never split into a lone surrogate). */
+function cut(text: string, max: number): string {
+  const chars = Array.from(text)
+  return chars.length <= max ? text : chars.slice(0, max).join('')
+}
 
 /**
- * Buttons -> action rows (type 1) of up to 5 buttons each, at most 25 buttons.
- * `custom_id` must be 1-100 chars, so an empty id falls back to the title.
+ * Reject more options than Discord can show (like the Cloud API does), rather than
+ * dropping the ones the user would never see.
  */
-function buttonRows(buttons: Array<{ id: string; title: string; url?: string }>): Array<Record<string, unknown>> {
-  const components = buttons.slice(0, BUTTONS_PER_ROW * MAX_ROWS).map((b) =>
+function assertAtMost(kind: OutboundContent['kind'], what: string, count: number, max: number): void {
+  if (count > max) throw new UnsupportedContentError(kind, `Discord allows at most ${max} ${what}; got ${count}. Split the options or use a numbered text menu.`)
+}
+
+/**
+ * Buttons -> action rows (type 1) of up to 5 buttons each, at most 25 buttons (more
+ * rejects with `UnsupportedContentError`). `custom_id` must be 1-100 chars, so an empty
+ * id falls back to the title.
+ */
+function buttonRows(kind: 'buttons' | 'card', buttons: Array<{ id: string; title: string; url?: string }>): Array<Record<string, unknown>> {
+  assertAtMost(kind, 'buttons per message', buttons.length, BUTTONS_PER_ROW * MAX_ROWS)
+  const components = buttons.map((b) =>
     b.url
-      ? { type: 2, style: 5, label: b.title.slice(0, 80), url: b.url }
-      : { type: 2, style: 1, label: b.title.slice(0, 80), custom_id: (b.id || b.title).slice(0, 100) },
+      ? { type: 2, style: 5, label: cut(b.title, 80), url: b.url }
+      : { type: 2, style: 1, label: cut(b.title, 80), custom_id: cut(b.id || b.title, 100) },
   )
   const rows: Array<Record<string, unknown>> = []
   for (let i = 0; i < components.length; i += BUTTONS_PER_ROW) {
@@ -81,38 +100,37 @@ export function toOutbound(content: OutboundContent, file?: DiscordFile): Discor
       return {
         payload: {
           content: content.text,
-          components: buttonRows(content.buttons),
+          components: buttonRows('buttons', content.buttons),
         },
       }
 
     case 'list': {
-      const options = content.sections
-        .flatMap((s) => s.rows)
-        .slice(0, 25)
-        .map((r) => ({
-          label: r.title.slice(0, 100),
-          value: (r.id || r.title).slice(0, 100),
-          ...(r.description ? { description: r.description.slice(0, 100) } : {}),
-        }))
-      const customId = (content.buttonText || 'select').slice(0, 100)
+      const rows = content.sections.flatMap((s) => s.rows)
+      assertAtMost('list', 'select menu options', rows.length, MAX_SELECT_OPTIONS)
+      const options = rows.map((r) => ({
+        label: cut(r.title, 100),
+        value: cut(r.id || r.title, 100),
+        ...(r.description ? { description: cut(r.description, 100) } : {}),
+      }))
+      const customId = cut(content.buttonText || 'select', 100)
       return {
         payload: {
           content: content.text,
           components: [{
             type: 1,
-            components: [{ type: 3, custom_id: customId, placeholder: content.buttonText.slice(0, 150), options }],
+            components: [{ type: 3, custom_id: customId, placeholder: cut(content.buttonText, 150), options }],
           }],
         },
       }
     }
 
     case 'card': {
-      const embed: Record<string, unknown> = { title: content.title.slice(0, 256) }
-      if (content.body) embed.description = content.body.slice(0, 4096)
+      const embed: Record<string, unknown> = { title: cut(content.title, 256) }
+      if (content.body) embed.description = cut(content.body, 4096)
       if (content.imageUrl) embed.image = { url: content.imageUrl }
       const payload: Record<string, unknown> = { embeds: [embed] }
       if (content.buttons?.length) {
-        payload.components = buttonRows(content.buttons)
+        payload.components = buttonRows('card', content.buttons)
       }
       return { payload }
     }
@@ -120,11 +138,12 @@ export function toOutbound(content: OutboundContent, file?: DiscordFile): Discor
     case 'form':
       throw new UnsupportedContentError('form', 'This transport has no native forms — flow().form() asks field by field instead (capabilities.forms is not "native").')
     case 'poll':
+      assertAtMost('poll', 'poll answers', content.options.length, MAX_POLL_ANSWERS)
       return {
         payload: {
           poll: {
-            question: { text: content.question.slice(0, 300) },
-            answers: content.options.slice(0, 10).map((o) => ({ poll_media: { text: o.slice(0, 55) } })),
+            question: { text: cut(content.question, 300) },
+            answers: content.options.map((o) => ({ poll_media: { text: cut(o, 55) } })),
             duration: 24,
             allow_multiselect: content.multiSelect ?? false,
           },

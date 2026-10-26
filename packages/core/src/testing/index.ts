@@ -61,6 +61,12 @@ export type {
   IdentityViolation,
   EventRecorder,
 } from './identityContract.js'
+// Inbound shape contract: epoch-ms timestamps and message fields, for provider suites.
+export { checkInboundContract, assertInboundContract, InboundContractError } from './inboundContract.js'
+export type { InboundContractInput, InboundContractOptions, InboundRule, InboundViolation } from './inboundContract.js'
+// Capability contract: capability flags agree with the optional methods a provider exposes.
+export { checkCapabilityContract, assertCapabilityContract, CapabilityContractError } from './capabilityContract.js'
+export type { CapabilityRule, CapabilityViolation } from './capabilityContract.js'
 
 // golden-transcripts: record, redact and replay conversations
 export {

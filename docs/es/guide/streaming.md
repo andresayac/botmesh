@@ -42,7 +42,8 @@ El provider declara `capabilities.streaming` (`'draft' | 'edit' | 'none'`) y
 - Ningún mensaje supera `maxLength` (por defecto
   `capabilities.maxTextLength`, si no 4096): el texto largo se parte por
   límites naturales (párrafos, líneas, frases, palabras) y sigue en un mensaje
-  nuevo.
+  nuevo. En los canales que cuentan bytes (`capabilities.maxTextBytes`,
+  Instagram) ningún mensaje supera tampoco esos bytes UTF-8.
 
 ## Opciones
 
@@ -209,7 +210,7 @@ provider.edits  // the live and final edits
 
 `streaming: 'edit'` también expone `editMessage` (se registra en `edits`) y
 `deleteMessage` (`deleted`); `streaming: 'draft'` añade `sendDraft` (se
-registra en `drafts`). `maxTextLength` simula el límite de longitud y
+registra en `drafts`). `maxTextLength` y `maxTextBytes` simulan los límites de longitud y
 `supports` activa u oculta cada método por separado.
 
 ## Siguientes pasos

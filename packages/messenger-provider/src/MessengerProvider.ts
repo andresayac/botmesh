@@ -37,7 +37,7 @@ import type {
 import { ProviderError, UnsupportedContentError } from '@botmesh/core'
 import {
   toGraphError,
-  readGraphResponse,
+  graphRequest,
   verifyChallenge,
   checkGraphSignature,
   tryParseGraphBody,
@@ -86,6 +86,9 @@ export class MessengerProvider implements IProvider<unknown> {
     }
     if (typeof config.verifyToken !== 'string' || config.verifyToken === '') {
       throw new Error('MessengerProvider requires `verifyToken` (the webhook verify token you set in Meta); without it the GET handshake always fails.')
+    }
+    if (config.requestTimeoutMs !== undefined && !(typeof config.requestTimeoutMs === 'number' && Number.isFinite(config.requestTimeoutMs) && config.requestTimeoutMs > 0)) {
+      throw new TypeError('MessengerProvider: `requestTimeoutMs` must be a positive number of milliseconds')
     }
     this.config = { apiVersion: 'v21.0', graphUrl: 'https://graph.facebook.com', pageId: 'me', ...config }
     this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
@@ -173,12 +176,15 @@ export class MessengerProvider implements IProvider<unknown> {
     chatId: ChatId = '',
     contentKind?: OutboundContent['kind'],
   ): Promise<MessengerSendResponse> {
-    const res = await fetch(this.url('messages'), {
+    return graphRequest<MessengerSendResponse>(this.url('messages'), {
       method: 'POST',
       headers: { Authorization: `Bearer ${this.config.accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+    }, {
+      chatId,
+      ...(contentKind !== undefined ? { contentKind } : {}),
+      ...(this.config.requestTimeoutMs !== undefined ? { timeoutMs: this.config.requestTimeoutMs } : {}),
     })
-    return readGraphResponse<MessengerSendResponse>(res, { chatId, contentKind })
   }
 
   /**

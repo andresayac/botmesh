@@ -208,6 +208,33 @@ Opciones: `requireRefChatId`, `rejectSuspiciousIds`, `distinctHumans`.
 Hay un ejemplo real en
 `packages/baileys-provider/tests/identity-contract.test.ts`.
 
+## Contratos de providers
+
+Dos comprobaciones más mantienen coherentes todos los canales (ver el
+[contrato común de los canales](/es/guide/canales#contrato-comun-de-los-canales)). Cada
+provider integrado las ejecuta en su `tests/channel-contract.test.ts`.
+
+```ts
+import { assertCapabilityContract, assertInboundContract, recordEvents } from '@botmesh/core/testing'
+
+// Forma de la entrada: timestamps en ms epoch (nunca segundos, nunca 0), body string, mentions array.
+const rec = recordEvents(provider)
+await provider.ingest(webhookBody, headers)
+assertInboundContract(rec.events)
+
+// Las capacidades coinciden con los métodos: typing() ⇔ capabilities.typing,
+// markRead() ⇔ readReceipts, editMessage() ⇔ edit, límites de texto válidos.
+assertCapabilityContract(provider)
+```
+
+`checkInboundContract(events, { now?, maxFutureSkewMs?, minTimestamp? })` devuelve las
+violaciones (`timestamp-missing`, `timestamp-unit`, `timestamp-future`, `respond-by`,
+`body`, `mentions`, `message-type`); `assertInboundContract` lanza un
+`InboundContractError`. `checkCapabilityContract` / `assertCapabilityContract` hacen lo
+mismo con las capacidades (`CapabilityContractError`). `MockProvider` cumple ambos: emite
+ms epoch, y sus flags `typing`/`readReceipts` siguen a la existencia de un método
+`typing()`/`markRead()` (una subclase o un test que añade uno recibe el flag).
+
 ## Transcripciones doradas
 
 Para fijar conversaciones completas, graba una (`recordTranscript`) o léela

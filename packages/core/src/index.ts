@@ -328,6 +328,7 @@ export type { FlowTriggerOptions, FlowTriggerTarget, RegisteredFlowInfo } from '
 // Streaming: ctx.stream() and the text helpers behind it
 export { streamText } from './streaming/streamText.js'
 export { splitMessage } from './streaming/split.js'
+export type { SplitTextOptions } from './streaming/split.js'
 export type { StreamSource, StreamStrategy, StreamOptions, StreamResult, StreamTarget } from './streaming/types.js'
 
 // Native forms: flow().form(definition) (provider renderers: '@botmesh/core/spi')

@@ -20,10 +20,26 @@ const BUTTON_TITLE = 20
 const ELEMENT_TEXT = 80
 const BUTTON_TEXT = 640
 const MAX_BUTTONS = 3
+/** Generic template: at most 10 elements (one per list row). */
+const MAX_ELEMENTS = 10
+
+/** First `max` characters (code points: an emoji is never split into a lone surrogate). */
+function cut(text: string, max: number): string {
+  const chars = Array.from(text)
+  return chars.length <= max ? text : chars.slice(0, max).join('')
+}
+
+/**
+ * Reject more options than the Send API shows (like the Cloud API does), rather than
+ * dropping the ones the user would never see.
+ */
+function assertAtMost(kind: OutboundContent['kind'], what: string, count: number, max: number): void {
+  if (count > max) throw new UnsupportedContentError(kind, `Messenger allows at most ${max} ${what}; got ${count}. Split the options or use a numbered text menu.`)
+}
 
 /** A URL button opens the link (web_url); any other button posts its id back (postback). */
 function sendApiButton(b: Pick<Button, 'id' | 'title'> & { url?: string }): Record<string, unknown> {
-  const title = b.title.slice(0, BUTTON_TITLE)
+  const title = cut(b.title, BUTTON_TITLE)
   return b.url
     ? { type: 'web_url', title, url: b.url }
     // An empty payload is rejected by the Send API: fall back to the title.
@@ -34,11 +50,12 @@ function genericTemplate(elements: Array<Record<string, unknown>>): Record<strin
   return { attachment: { type: 'template', payload: { template_type: 'generic', elements } } }
 }
 
-function buttonTemplate(text: string, buttons: Button[]): Record<string, unknown> {
+function buttonTemplate(kind: 'buttons' | 'card', text: string, buttons: Button[]): Record<string, unknown> {
+  assertAtMost(kind, 'buttons per template', buttons.length, MAX_BUTTONS)
   return {
     attachment: {
       type: 'template',
-      payload: { template_type: 'button', text, buttons: buttons.slice(0, MAX_BUTTONS).map(sendApiButton) },
+      payload: { template_type: 'button', text, buttons: buttons.map(sendApiButton) },
     },
   }
 }
@@ -59,20 +76,21 @@ function cardMessages(content: CardContent): Array<Record<string, unknown>> {
   const text = [content.title, content.body].filter(Boolean).join('\n')
   const buttons = content.buttons ?? []
   if (!content.imageUrl && !buttons.length) return [{ text }]
+  assertAtMost('card', 'buttons per template', buttons.length, MAX_BUTTONS)
   const fits = content.title.length <= ELEMENT_TEXT && (content.body ?? '').length <= ELEMENT_TEXT
   if (fits) {
     return [genericTemplate([{
       title: content.title,
       ...(content.body ? { subtitle: content.body } : {}),
       ...(content.imageUrl ? { image_url: content.imageUrl } : {}),
-      ...(buttons.length ? { buttons: buttons.slice(0, MAX_BUTTONS).map(sendApiButton) } : {}),
+      ...(buttons.length ? { buttons: buttons.map(sendApiButton) } : {}),
     }])]
   }
   const messages: Array<Record<string, unknown>> = []
   if (content.imageUrl) messages.push(attachmentMessage('image', content.imageUrl))
   if (!buttons.length) messages.push({ text })
-  else if (text.length <= BUTTON_TEXT) messages.push(buttonTemplate(text, buttons))
-  else messages.push({ text }, buttonTemplate(content.title.slice(0, BUTTON_TEXT), buttons))
+  else if (text.length <= BUTTON_TEXT) messages.push(buttonTemplate('card', text, buttons))
+  else messages.push({ text }, buttonTemplate('card', cut(content.title, BUTTON_TEXT), buttons))
   return messages
 }
 
@@ -116,19 +134,20 @@ export function toOutbound(content: OutboundContent, mediaUrl?: string): Record<
       return attachmentMessage('file', mediaUrl)
 
     case 'buttons':
-      return buttonTemplate(content.text, content.buttons)
+      return buttonTemplate('buttons', content.text, content.buttons)
 
     case 'list': {
       // Generic template: one element per row (max 10), each with a postback
       // button carrying the row id.
-      const rows = content.sections.flatMap((s) => s.rows).slice(0, 10)
+      const rows = content.sections.flatMap((s) => s.rows)
+      assertAtMost('list', 'list rows (generic template elements)', rows.length, MAX_ELEMENTS)
       const elements = rows.length
         ? rows.map((r) => ({
-            title: r.title.slice(0, ELEMENT_TEXT),
-            ...(r.description ? { subtitle: r.description.slice(0, ELEMENT_TEXT) } : {}),
+            title: cut(r.title, ELEMENT_TEXT),
+            ...(r.description ? { subtitle: cut(r.description, ELEMENT_TEXT) } : {}),
             buttons: [sendApiButton(r)],
           }))
-        : [{ title: content.text.slice(0, ELEMENT_TEXT) }]
+        : [{ title: cut(content.text, ELEMENT_TEXT) }]
       return genericTemplate(elements)
     }
 

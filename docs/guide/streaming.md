@@ -40,7 +40,9 @@ and `ctx.stream()` picks the strategy from it:
   `draft` → `edit` → `chunk`. `'chunk'` and `'buffer'` are always available.
 - No message ever exceeds `maxLength` (default `capabilities.maxTextLength`,
   else 4096): long text is split at natural boundaries (paragraphs, lines,
-  sentences, words) and continues in a new message.
+  sentences, words) and continues in a new message. On channels that count
+  bytes (`capabilities.maxTextBytes`, Instagram) no message exceeds that many
+  UTF-8 bytes either.
 
 ## Options
 
@@ -205,7 +207,7 @@ provider.edits  // the live and final edits
 
 `streaming: 'edit'` also exposes `editMessage` (recorded in `edits`) and
 `deleteMessage` (`deleted`); `streaming: 'draft'` adds `sendDraft` (recorded
-in `drafts`). `maxTextLength` simulates the length limit, and `supports`
+in `drafts`). `maxTextLength` and `maxTextBytes` simulate the length limits, and `supports`
 enables or hides each seam individually.
 
 ## Next steps

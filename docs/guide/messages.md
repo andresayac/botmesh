@@ -18,7 +18,8 @@ Every send (these helpers, `bot.send`, broadcasts, `ctx.edit`) is checked after 
 deliver (a `text` that is not a string, such as `ctx.reply(undefined)`; media
 without a source; coordinates outside ±90/±180; a poll or button message with no
 options) rejects with a `TypeError` that names the field, and nothing is sent.
-Transport limits (text length, number of buttons) are still checked by each provider.
+Transport limits (number of buttons, media size) are still checked by each provider; a
+text longer than the channel allows is split for you (see [Long text](#long-text-is-split-automatically)).
 Every `MediaSource` form is accepted, including `{ native }` (a provider-specific
 reference such as a Telegram `file_id`).
 
@@ -26,6 +27,39 @@ A `ctx` reply that hits a `RateLimitedError` asking for a wait of up to 5 s is
 retried in place (at most twice), so a flow step does not end on a transient
 rate limit. Longer waits and other errors reject as before; `bot.send()` is not
 retried (broadcasts have their own back-off).
+
+### Long text is split automatically
+
+Every channel caps the length of one text message (`capabilities.maxTextLength` in UTF-16
+code units, and `capabilities.maxTextBytes` in UTF-8 bytes on Instagram). A `text` send
+longer than that — a `ctx` reply, a flow `.say`, `bot.send` or a broadcast — goes out as
+several messages, in order, cut at the most natural boundary that fits: paragraph, line,
+sentence, then word. A cut never splits an emoji (surrogate pairs, ZWJ sequences, flags,
+skin tones) or the chat's markup: links and URLs stay whole, and a code block, inline
+code, a `*bold*` run or an HTML element longer than the limit is closed at the end of
+one part and reopened at the start of the next.
+
+```ts
+const sent = await ctx.reply(longAnswer) // 9000 chars on Telegram → 3 messages
+sent.id        // the last part
+sent.parts     // the ref of every part, in order (only set when the text was split)
+```
+
+`before('send')` hooks run **once, on the whole text**, before it is split: a hook that
+adds a footer or translates the text changes the whole message, and what it returns is
+what gets split, so every part still fits (a hook that makes a short text too long gets
+it split too). An `abort()` skips the whole text. Each part is then a send of its own:
+`after('send')` hooks, the message log and the durable outbox see every part. Only the
+first part keeps `quoted`; an explicit `idempotencyKey` gets a `#2`, `#3`… suffix from
+the second part on (from `#1` when a hook made the text too long). If a part fails, the
+send rejects and the remaining parts are not sent; with durability, a part the outbox
+defers (`SendDeferredError`) is followed by the remaining parts in the outbox, so the
+sweeper delivers all of them, in order. `bot.enqueue()` splits too: it journals one
+record per part (`key`, `key#2`, …). Text that fits is sent untouched.
+`ctx.edit` is never split, and `ctx.stream()` splits on its own. Turn it off with
+`new Bot({ splitLongText: false })` (the provider then rejects a long text with
+`PayloadTooLargeError`). To split text yourself, use `splitMessage(text, { maxLength,
+maxBytes, format })` from `@botmesh/core`.
 
 ## Send photo
 
@@ -322,7 +356,8 @@ Besides the reply helpers, every handler receives data fields on `ctx`:
 participant in groups), `ctx.senderInfo`, `ctx.pushName`, `ctx.chat`
 (`{ id, kind, name?, isGroup, isBroadcast, participants? }`), `ctx.type`,
 `ctx.isGroup` / `ctx.isPrivate` / `ctx.isFromMe`, `ctx.mentions`,
-`ctx.quoted?`, `ctx.media?` (after `loadMediaOf`), `ctx.timestamp`, `ctx.tools` (DI registry),
+`ctx.quoted?`, `ctx.media?` (after `loadMediaOf`), `ctx.timestamp` (when the message was
+sent, in epoch **milliseconds** on every channel: `new Date(ctx.timestamp)`), `ctx.tools` (DI registry),
 `ctx.raw` (provider-native payload), `ctx.ref` (the message reference —
 `{ id, chatId, native? }`, replaces v1's `ctx.key`), `ctx.user` (the
 sender's [persistent profile](./user-data)), `ctx.handoff()` (pass the chat

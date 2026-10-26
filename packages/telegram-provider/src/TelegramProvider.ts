@@ -112,10 +112,17 @@ const UNREACHABLE_400 = /chat not found|user not found|PEER_ID_INVALID|bot was k
 /** 400 descriptions meaning the payload (text, caption, file) exceeds a Bot API limit. */
 const TOO_LARGE_400 = /too long|too big|entity too large/i
 
+/** Longest 429 `retry_after` honoured, in seconds (24 h, as in `@botmesh/graph-core`). */
+const MAX_RETRY_AFTER_SEC = 86_400
+
 /** Translate a Bot API error envelope into a typed provider error. */
 export function toProviderError(chatId: ChatId, errorCode: number | undefined, description: string | undefined, retryAfterSec?: number): ProviderError {
   const desc = description ?? `Telegram error ${errorCode ?? 'unknown'}`
-  if (errorCode === 429) return new RateLimitedError((retryAfterSec ?? 1) * 1000, desc)
+  if (errorCode === 429) {
+    // Clamp: a missing/invalid value waits 1 s; a huge one would overflow setTimeout (it fires at once).
+    const sec = typeof retryAfterSec === 'number' && Number.isFinite(retryAfterSec) && retryAfterSec >= 0 ? Math.min(retryAfterSec, MAX_RETRY_AFTER_SEC) : 1
+    return new RateLimitedError(sec * 1000, desc)
+  }
   if (errorCode === 403) return new RecipientUnreachableError(chatId, desc)
   if (errorCode === 413 || (errorCode === 400 && TOO_LARGE_400.test(desc))) return new PayloadTooLargeError(desc)
   if (errorCode === 400 && UNREACHABLE_400.test(desc)) return new RecipientUnreachableError(chatId, desc)
@@ -627,8 +634,7 @@ export class TelegramProvider implements IProvider<unknown> {
     })
   }
 
-  /** Bots receive no read receipts on Telegram — documented no-op. */
-  async markRead(_refs: MessageRef[]): Promise<void> {}
+  // No markRead(): bots get no read receipts on Telegram (capabilities.readReceipts false).
 
   /** sendChatAction: typing / record_voice. 'paused' has no Bot API primitive. */
   async typing(chatId: ChatId, state: 'typing' | 'recording' | 'paused' = 'typing'): Promise<void> {

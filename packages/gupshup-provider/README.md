@@ -55,7 +55,7 @@ app.listen(3000)
 | `text` | `{ type: 'text' }` |
 | `image` / `video` / `audio` / `voice` / `document` / `sticker` | `image` (`originalUrl`/`previewUrl`), `video`, `audio`, `file`, `sticker` (**public URL**) |
 | `location` / `contact` | `location` / `contact` |
-| `buttons` | `quick_reply` (≤ 3, `postbackText` = button `id`) → `list` (≤ 10) → numbered text |
+| `buttons` | `quick_reply` (≤ 3, `postbackText` = button `id`) → `list` (≤ 10, list button labelled `listButtonText`, default `'Opciones'`) → numbered text |
 | `list` | interactive `list` (`postbackText` = row `id`; > 10 rows → numbered text) |
 | `template` | `/template/msg` with `{ id: name, params: components }` (`components` = array of strings or `{ params }`) |
 | `native` (`provider: 'gupshup'`) | `message` object as-is |

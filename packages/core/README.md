@@ -63,6 +63,7 @@ No camera? Set `pairingCode: '+57300XXXXXXX'` on `BaileysProvider` (full interna
 - **Projected interactions** — button/slash clicks arrive as a `type: 'buttons'` message with `ctx.acknowledge()` (no-op on WhatsApp).
 - **Runtime config validation** — the constructor throws `ConfigValidationError` with a clear message.
 - **Group mode** — `config.groupMode: 'all' | 'mentions' | 'commands'`.
+- **One contract on every channel** — `ctx.timestamp` is epoch milliseconds everywhere, and a text longer than the channel allows (`capabilities.maxTextLength` / `maxTextBytes`) is split into several messages at paragraph, sentence or word boundaries, never inside an emoji or the markup (`splitLongText: false` opts out). Provider authors check the contract with `assertInboundContract` and `assertCapabilityContract` from `@botmesh/core/testing`.
 - **Graceful shutdown with drain** — `bot.stop({ drain: true })` waits for in-flight sends.
 - **Testing kit without a real transport** — `createTestBot()` from `@botmesh/core/testing`, with a v2 `MockProvider` and assertions over the outbox.
 - **Hooks and plugins with DI** — `before`/`after`/`onError`, `bot.plug()`/`unplug()`, `bot.provide()`.

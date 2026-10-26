@@ -340,7 +340,7 @@ export class Bot extends EventEmitter {
    */
   async send(chatId: ChatId, content: string | OutboundContent, options?: SendOptions): Promise<SentMessage> {
     const r = await this.outbound.send(chatId, toOutbound(content), options)
-    return { ref: r.ref, id: r.ref.id, chatId: r.ref.chatId, raw: r.raw, skipped: r.skipped }
+    return { ref: r.ref, id: r.ref.id, chatId: r.ref.chatId, raw: r.raw, skipped: r.skipped, ...(r.parts ? { parts: r.parts } : {}) }
   }
 
   /**
@@ -359,7 +359,8 @@ export class Bot extends EventEmitter {
    * hooks, journals the send and returns its outbox key at once; the background sweeper
    * delivers it (retries, backoff, dead-letter queue). Enqueueing an `idempotencyKey` that
    * already exists is a no-op (`status: 'exists'`) — use it for campaigns and scheduled
-   * jobs that may run twice.
+   * jobs that may run twice. A text over the channel's limit is split after the hooks
+   * (`BotConfig.splitLongText`) into one record per part: `key`, `key#2`, ….
    *
    * @example
    * ```ts
@@ -367,9 +368,7 @@ export class Bot extends EventEmitter {
    * ```
    */
   async enqueue(chatId: ChatId, content: string | OutboundContent, options?: SendOptions): Promise<{ key: string; status: 'queued' | 'exists' | 'skipped' }> {
-    const durable = this.kernel.durable
-    if (!durable) throw new Error('bot.enqueue() needs BotConfig.durability')
-    return durable.enqueue(chatId, toOutbound(content), options)
+    return this.outbound.enqueue(chatId, toOutbound(content), options)
   }
 
   /**

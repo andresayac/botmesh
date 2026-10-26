@@ -71,10 +71,14 @@ function textOf(content: proto.IMessage | null | undefined): string {
   )
 }
 
-/** Epoch seconds from a `number | Long | null` protobuf timestamp (0 when absent). */
+/**
+ * Epoch ms from a `number | Long | null` protobuf timestamp (WhatsApp sends epoch
+ * seconds). The receive time when it is absent or invalid, so `timestamp` is never `0`.
+ */
 function timestampOf(value: WAMessage['messageTimestamp']): number {
-  const n = Number(toNumber(value ?? 0))
-  return Number.isFinite(n) ? n : 0
+  const n = value === null || value === undefined ? NaN : Number(toNumber(value))
+  const ms = Math.round(n * 1000)
+  return Number.isSafeInteger(ms) && ms > 0 ? ms : Date.now()
 }
 
 export function toInbound(message: WAMessage, identity: IdentityStore): InboundMessage<WAMessage> {

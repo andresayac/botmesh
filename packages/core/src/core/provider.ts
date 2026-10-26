@@ -209,6 +209,11 @@ export interface InboundMessage<TRaw = unknown> {
 
   type: MessageType
   body: string
+  /**
+   * When the message was sent, in **epoch milliseconds** (every provider: transports that
+   * report seconds multiply by 1000; one that reports none uses the receive time, never
+   * `0`). Checked by `assertInboundContract` from `@botmesh/core/testing`.
+   */
   timestamp: number
 
   mentions: UserId[]
@@ -251,6 +256,7 @@ export interface InboundInteraction<TRaw = unknown> {
   data: string
   /** Epoch ms by which acknowledgeInteraction() must run, if the transport enforces one. */
   respondBy?: number
+  /** When the interaction happened, in epoch milliseconds (see {@link InboundMessage.timestamp}). */
   timestamp: number
   raw: TRaw
 }
@@ -261,6 +267,7 @@ export interface DeliveryStatus {
   status: 'sent' | 'delivered' | 'read' | 'failed'
   recipient?: UserId
   error?: { code?: string | number; message?: string }
+  /** When the transport recorded the status, in epoch milliseconds (receive time when it sends none). */
   timestamp: number
   /**
    * Transport-specific receipt data the core never interprets (e.g. the
@@ -414,6 +421,12 @@ export interface SendResult<TRaw = unknown> {
   raw?: TRaw
   /** True when a before('send') hook aborted; nothing was transmitted. */
   skipped?: boolean
+  /**
+   * Set only when the core split a long text into several messages (see
+   * `BotConfig.splitLongText`): the ref of every part, in send order. `ref` and `raw`
+   * are then those of the last part.
+   */
+  parts?: MessageRef[]
 }
 
 /* ============================================================================
@@ -423,7 +436,17 @@ export interface SendResult<TRaw = unknown> {
 export interface ProviderCapabilities {
   /** Content kinds this provider can actually deliver. */
   contentKinds: ReadonlyArray<OutboundContent['kind']>
+  /**
+   * Max length of one text message in UTF-16 code units (`string.length`). A longer
+   * `text` send is split by the core into several messages (`BotConfig.splitLongText`);
+   * `ctx.stream()` honours it too. Unset = no known limit.
+   */
   maxTextLength?: number
+  /**
+   * Max size of one text message in UTF-8 bytes, for transports that count bytes
+   * (Instagram: 1000). Applied together with {@link maxTextLength}. Unset = no byte limit.
+   */
+  maxTextBytes?: number
   maxMediaBytes?: number
   maxButtonDataBytes?: number
   buttons: boolean
@@ -554,10 +577,19 @@ export class UnsupportedContentError extends ProviderError {
     this.name = 'UnsupportedContentError'
   }
 }
+/** Longest wait a {@link RateLimitedError} carries: 24 h. */
+const MAX_RETRY_AFTER_MS = 86_400_000
 /** Server-signalled quota (Telegram 429 retry_after, Discord bucket, Cloud API tier). */
 export class RateLimitedError extends ProviderError {
-  constructor(public readonly retryAfterMs: number, message?: string) {
-    super(message ?? `Rate limited; retry after ${retryAfterMs}ms`)
+  /**
+   * How long the transport asked to wait, in ms. Capped at 24 h (`86_400_000`), so a
+   * wait built on it never overflows `setTimeout` (which fires at once past ~24.8 days).
+   */
+  public readonly retryAfterMs: number
+  constructor(retryAfterMs: number, message?: string) {
+    const capped = retryAfterMs > MAX_RETRY_AFTER_MS ? MAX_RETRY_AFTER_MS : retryAfterMs
+    super(message ?? `Rate limited; retry after ${capped}ms`)
+    this.retryAfterMs = capped
     this.name = 'RateLimitedError'
   }
 }
@@ -672,7 +704,15 @@ export interface IProvider<TRaw = unknown> {
   getMessage?(ref: MessageRef): Promise<InboundMessage<TRaw> | undefined>
 
   /* Capability-gated optional actions — presence/read/delete/edit/ack. Bot must
-   * feature-detect (`if (provider.typing)`), never reach into a socket. */
+   * feature-detect (`if (provider.typing)`), never reach into a socket.
+   * UNSUPPORTED-OPERATION RULE (same for every provider): an operation the transport
+   * cannot perform is ABSENT — the method is not defined and its capability flag is
+   * false (`typing` ⇔ `capabilities.typing`, `markRead` ⇔ `readReceipts`, `editMessage`
+   * ⇔ `edit`); `ctx.typing()`/`markRead()`/`delete()` are then no-ops. A defined method
+   * performs the operation or rejects (`UnsupportedContentError`/`ProviderError`) for a
+   * target it cannot handle; it is never a silent stand-in for "not supported". Only
+   * transient UI hints may be skipped silently (e.g. typing `paused` where the transport
+   * has no stop primitive). `assertCapabilityContract` (`@botmesh/core/testing`) checks it. */
   markRead?(refs: MessageRef[]): Promise<void>
   typing?(chatId: ChatId, state?: 'typing' | 'recording' | 'paused'): Promise<void>
   deleteMessage?(ref: MessageRef): Promise<void>
@@ -751,6 +791,10 @@ export interface MessageContext<TTools extends object = DefaultTools, TRaw = unk
   sharedLocation?: InboundLocation
   ref: MessageRef
   raw: TRaw
+  /**
+   * When the message was sent, in epoch milliseconds (`new Date(ctx.timestamp)` works).
+   * A provider that still reports epoch seconds is converted.
+   */
   timestamp: number
 
   /**
@@ -923,6 +967,8 @@ export interface SentMessage<TRaw = unknown> {
   chatId: ChatId
   raw?: TRaw
   skipped?: boolean
+  /** The ref of every part when a long text was split (see {@link SendResult.parts}). */
+  parts?: MessageRef[]
 }
 
 /* ============================================================================
@@ -1397,6 +1443,27 @@ export interface BotConfig {
   connectionId?: string
   /** Persist provider-native payloads. Disabled by default to minimize PII. */
   persistRaw?: boolean
+  /**
+   * Split a `text` send longer than the provider's `capabilities.maxTextLength` (UTF-16
+   * code units) or `capabilities.maxTextBytes` (UTF-8) into several messages, sent in
+   * order at paragraph, line, sentence or word boundaries, never inside a grapheme
+   * (emoji, flags) or the chat's markup (a code block, inline code, a bold run or an HTML
+   * element longer than the limit is closed and reopened; links and URLs stay whole).
+   * `before('send')` hooks run once on the whole text and what they return is split (so
+   * a footer is added once and every part still fits; a hook that makes a short text too
+   * long gets it split too, its explicit key then suffixed from `#1`); an abort skips the
+   * whole text. Each part is then a send of its own: `after('send')` hooks, the message
+   * log and the durable outbox see each part. Only the first part keeps `options.quoted`;
+   * an explicit `idempotencyKey` gets a `#2`, `#3`… suffix from the second part on. The
+   * result is the last part's, with `parts` listing every part. A part that fails rejects
+   * the send and the remaining parts are not sent, except when the durable outbox defers
+   * it (`SendDeferredError`): the remaining parts are then journaled behind it and the
+   * sweeper delivers them too. `bot.enqueue()` journals one record per part (`<key>`,
+   * `<key>#2`…). Edits and `ctx.stream()` (which splits on its own) are not affected, and
+   * the outbox sweeper sends a record as it was journaled. Default `true`; `false` sends
+   * the text as given (the provider may then reject it with `PayloadTooLargeError`).
+   */
+  splitLongText?: boolean
   /**
    * Inbound idempotency: a redelivered message/interaction (webhook retry,
    * reconnect replay) never runs handlers twice. Keyed by `chatId` + `ref.id`

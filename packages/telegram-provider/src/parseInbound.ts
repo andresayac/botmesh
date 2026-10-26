@@ -62,9 +62,10 @@ const fileOf = (v: unknown): FileFields | undefined =>
     ? { file_id: v.file_id, mime_type: str(v.mime_type), file_name: str(v.file_name), file_size: num(v.file_size), emoji: str(v.emoji) }
     : undefined
 /** Telegram dates are unix seconds; a missing/zero/invalid one becomes the receive time. */
+/** Epoch ms of a Bot API date (epoch seconds); the receive time when absent or invalid. */
 const secondsToMs = (v: unknown): number => {
-  const s = num(v)
-  return s && s > 0 ? s * 1000 : Date.now()
+  const ms = Math.round((num(v) ?? Number.NaN) * 1000)
+  return Number.isSafeInteger(ms) && ms > 0 ? ms : Date.now()
 }
 const nameOf = (o: { first_name?: unknown; last_name?: unknown; username?: unknown }): string | undefined =>
   [str(o.first_name), str(o.last_name)].filter(Boolean).join(' ') || str(o.username)
@@ -301,8 +302,8 @@ function toMessage(msg: TelegramMessage, updateId: number, selfId?: string, botU
  *    that chat fails (RecipientUnreachableError) if the user never started the
  *    bot; acknowledgeInteraction (answerCallbackQuery) always works;
  *  - neither (not expected; defensive): user chat + `upd:<update_id>` ref.
- * The Bot API sends no press time: the original message date is used when
- * known and non-zero, otherwise the receive time.
+ * The Bot API sends no press time: `timestamp` is the receive time (the epoch ms
+ * when the update arrived), not the date of the message that carries the keyboard.
  */
 function toInteraction(cb: TelegramCallbackQuery, updateId: number): InboundInteraction<TelegramCallbackQuery> | undefined {
   const from = userOf(cb.from)
@@ -330,7 +331,7 @@ function toInteraction(cb: TelegramCallbackQuery, updateId: number): InboundInte
     isGroup: chat.isGroup,
     kind: 'button',
     data: str(cb.data) ?? '',
-    timestamp: secondsToMs(msg?.date),
+    timestamp: Date.now(),
     raw: cb,
   }
 }

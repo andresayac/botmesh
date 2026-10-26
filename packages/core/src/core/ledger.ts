@@ -9,20 +9,25 @@ import type { IStore } from '../store/IStore.js'
 import type { StoreNamespace } from '../store/NamespacedStore.js'
 import { KeyedQueue } from '../utils/keyedQueue.js'
 
+/**
+ * Epoch ms of a provider timestamp. The contract is epoch ms; a value below 1e12 is a
+ * provider that still sends epoch seconds and is converted (tolerated for third-party
+ * providers written against the alpha, which did not fix the unit).
+ */
 export function normalizeTimestamp(timestamp: number): number {
   return timestamp > 0 && timestamp < 1_000_000_000_000 ? timestamp * 1000 : timestamp
 }
 
 /**
  * Persisted timestamp of a live inbound message. Providers with second-precision
- * clocks (WhatsApp, Telegram) floor to the second, while outbound rows use
- * `Date.now()`; when the message is received within that same second, use the
- * receive time so the message log orders it correctly against the bot's replies.
+ * clocks (WhatsApp, Telegram, the Cloud API) report a whole second (`× 1000`), while
+ * outbound rows use `Date.now()`; when the message is received within that same second,
+ * use the receive time so the message log orders it correctly against the bot's replies.
  * Late deliveries (history sync, retries) keep the provider time.
  */
 export function receiveTimestamp(timestamp: number, now = Date.now()): number {
   const ms = normalizeTimestamp(timestamp)
-  const secondPrecision = timestamp > 0 && timestamp < 1_000_000_000_000
+  const secondPrecision = ms > 0 && ms % 1000 === 0
   return secondPrecision && now >= ms && now - ms < 1000 ? now : ms
 }
 

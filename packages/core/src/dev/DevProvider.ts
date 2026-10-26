@@ -141,7 +141,7 @@ export class DevProvider extends MockProvider {
       fromMe: false,
       type: input.kind,
       body: input.caption ?? '',
-      timestamp: Math.floor(Date.now() / 1000),
+      timestamp: Date.now(),
       mentions: input.mentions ?? [],
       media: {
         kind: input.kind,

@@ -336,6 +336,22 @@ have not been confirmed against the real platform.
 | plugins | nlu, dialogflow, chatwoot, tickets, moderation, rag, voice, events, otel | ready for beta | MEDIUM: `TicketDesk` ids collide across replicas. Moderation and chatwoot keep in-memory maps that only grow. Chatwoot accepts HMAC signatures without a timestamp (replayable). rag can lose a document on an embedder dimension change. The plugins depend on core through `workspace:*`, so a clean install gets two copies of core. The otel metric names use the `botwa.*` prefix. |
 | tooling | eslint-plugin-botmesh (mcp is covered under platform) | not reviewed in this campaign | Its 92 tests pass. It has no area verdict. |
 
+### Channel items left out of the cross-channel normalization
+
+The normalization work (epoch-ms timestamps, text splitting, declared limits, absent
+unsupported operations, request timeouts, Discord auto-acknowledgement) did not cover
+these channel items. They stay open here until fixed:
+
+- [ ] The Discord interaction token is embedded in `interactionId` (handled by the open-defects work).
+- [ ] Telegram webhook `ingest()` still runs after `stop()` (handled by the open-defects work).
+- [ ] An unknown Cloud API `interactive.type` is emitted as an empty `button` interaction (handled by the open-defects work).
+- [ ] Ingest return types and error-mapper names differ per provider.
+- [ ] `debug` vs `logger` in every provider (cross-cutting decision 4).
+- [ ] Telegram `pollTimeout` is in seconds; add `pollTimeoutMs` and deprecate the old name.
+- [ ] The Cloud API typing indicator (`typing_indicator` sent with a read receipt) is not
+  implemented: `capabilities.typing` stays `false`. It needs the last inbound message id
+  per chat, so it is a feature for after stable, not a defect.
+
 ## Cross-cutting decisions
 
 These affect several packages and must be settled once, in core first.

@@ -19,8 +19,9 @@
 
 import { RateLimitedError } from '../core/provider.js'
 import type { DraftOptions, MessageRef, SentMessage } from '../core/provider.js'
+import { Buffer } from 'node:buffer'
 import { abortableSleep } from '../utils/timers.js'
-import { findSplitPoint, lastBoundaryAfter, splitMessage } from './split.js'
+import { findSplitPoint, lastBoundaryAfter, splitMessage, type SplitTextOptions } from './split.js'
 import type { StreamOptions, StreamResult, StreamSource, StreamStrategy, StreamTarget } from './types.js'
 
 const DEFAULT_MAX_LENGTH = 4096
@@ -83,6 +84,8 @@ function toIterator(source: StreamSource): AnyIterator {
 class StreamSession {
   private strategy: StreamStrategy
   private readonly maxLength: number
+  /** UTF-8 byte limit per message (`capabilities.maxTextBytes`), if any. */
+  private readonly maxBytes: number | undefined
   private readonly cursor: string
   private readonly throttleMs: number | undefined
   private readonly minChunk: number
@@ -112,6 +115,8 @@ class StreamSession {
     this.strategy = resolveStreamStrategy(target, opts.strategy)
     const capMax = target.capabilities?.maxTextLength
     this.maxLength = Math.max(1, Math.floor(opts.maxLength ?? capMax ?? DEFAULT_MAX_LENGTH))
+    const capBytes = target.capabilities?.maxTextBytes
+    this.maxBytes = typeof capBytes === 'number' && Number.isFinite(capBytes) && capBytes >= 1 ? Math.floor(capBytes) : undefined
     this.cursor = opts.cursor ?? ''
     if (this.cursor.length >= this.maxLength) this.cursor = ''
     this.throttleMs = opts.throttleMs
@@ -126,6 +131,30 @@ class StreamSession {
     return this.strategy === 'draft' || this.strategy === 'edit'
       ? this.maxLength - this.cursor.length
       : this.maxLength
+  }
+
+  /** A live preview (draft/edit) carries the cursor, which counts against the limits. */
+  private get live(): boolean {
+    return this.strategy === 'draft' || this.strategy === 'edit'
+  }
+
+  /** Byte budget of one message (`undefined` = no byte limit), minus the cursor when live. */
+  private byteLimit(live: boolean): number | undefined {
+    if (this.maxBytes === undefined) return undefined
+    return Math.max(1, this.maxBytes - (live ? Buffer.byteLength(this.cursor, 'utf8') : 0))
+  }
+
+  /** True when `text` does not fit `maxLength` chars or the byte budget. */
+  private exceeds(text: string, maxLength: number, live: boolean): boolean {
+    if (text.length > maxLength) return true
+    const bytes = this.byteLimit(live)
+    return bytes !== undefined && Buffer.byteLength(text, 'utf8') > bytes
+  }
+
+  /** Split limits for `maxLength` chars plus the byte budget. */
+  private splitLimit(maxLength: number, live: boolean): SplitTextOptions {
+    const maxBytes = this.byteLimit(live)
+    return maxBytes === undefined ? { maxLength } : { maxLength, maxBytes }
   }
 
   /** The transport shut down: nothing more may reach the target. */
@@ -203,7 +232,7 @@ class StreamSession {
     this.full += piece
     this.current += piece
     try {
-      while (this.current.length > this.limit) await this.enqueue(() => this.commitHead())
+      while (this.exceeds(this.current, this.limit, this.live)) await this.enqueue(() => this.commitHead())
       if (this.strategy === 'chunk') await this.enqueue(() => this.sendReadyChunks())
       else if (this.strategy === 'draft' || this.strategy === 'edit') this.schedulePreview()
     } catch (error) {
@@ -301,8 +330,8 @@ class StreamSession {
 
   private async commitHead(): Promise<void> {
     const limit = this.limit
-    if (this.current.length <= limit) return
-    const cut = findSplitPoint(this.current, limit)
+    if (!this.exceeds(this.current, limit, this.live)) return
+    const cut = findSplitPoint(this.current, this.splitLimit(limit, this.live))
     const head = this.current.slice(0, cut).trimEnd()
     this.current = this.current.slice(cut).trimStart()
     if (this.strategy === 'edit' && this.editRef) {
@@ -320,8 +349,10 @@ class StreamSession {
       const window = this.current.slice(0, this.maxChunk)
       let cut = lastBoundaryAfter(window, this.minChunk)
       if (cut <= 0) {
-        if (this.current.length <= this.maxChunk) return
-        cut = findSplitPoint(this.current, this.maxChunk)
+        if (!this.exceeds(this.current, this.maxChunk, false)) return
+        cut = findSplitPoint(this.current, this.splitLimit(this.maxChunk, false))
+      } else if (this.exceeds(this.current.slice(0, cut), this.maxChunk, false)) {
+        cut = findSplitPoint(this.current, this.splitLimit(this.maxChunk, false))
       }
       const head = this.current.slice(0, cut).trim()
       this.current = this.current.slice(cut).trimStart()
@@ -346,13 +377,13 @@ class StreamSession {
           await this.discardLive(this.editRef)
           return
         }
-        const [first, ...rest] = splitMessage(this.current, this.maxLength)
+        const [first, ...rest] = splitMessage(this.current, this.splitLimit(this.maxLength, false))
         if (first !== undefined && (first !== this.lastShown || this.cursor)) await this.finalEdit(this.editRef, first)
         for (const part of rest) await this.sendMessage(part)
         return
       }
       if (discard) return
-      for (const part of splitMessage(this.current, this.maxLength)) await this.sendMessage(part)
+      for (const part of splitMessage(this.current, this.splitLimit(this.maxLength, false))) await this.sendMessage(part)
     }).catch((error: unknown) => { this.fatal ??= error })
   }
 

@@ -33,6 +33,12 @@ export interface GupshupProviderConfig {
   http?: ProviderHttpOptions
   /** The bot's own id (defaults to `source`). */
   selfId?: string
+  /**
+   * Label of the list button used when `buttons` (4–10, no URLs) are sent as a WhatsApp
+   * list (lists sent as `list` content use their own `buttonText`). Max 20 characters.
+   * Default `'Opciones'`.
+   */
+  listButtonText?: string
   debug?: boolean
   logger?: LoggerLike
 }

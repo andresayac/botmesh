@@ -52,7 +52,8 @@ export class InstagramProvider implements IProvider<unknown> {
   readonly id = 'instagram'
   readonly capabilities: ProviderCapabilities = {
     contentKinds: ['text', 'image', 'video', 'audio', 'voice', 'document', 'buttons', 'list', 'card', 'native'],
-    maxTextLength: 1000,           // Send API text limit (1000 bytes of UTF-8: non-ASCII text fits less)
+    maxTextLength: 1000,           // Send API text limit: 1000 bytes of UTF-8 …
+    maxTextBytes: 1000,            // … so non-ASCII text fits less (the core splits by bytes too)
     buttons: true,                 // as quick replies
     lists: false,                  // degraded to numbered text
     polls: false,
@@ -82,6 +83,9 @@ export class InstagramProvider implements IProvider<unknown> {
     if (typeof config.verifyToken !== 'string' || config.verifyToken === '') {
       throw new Error('InstagramProvider requires `verifyToken` (the webhook verify token you set in Meta); without it the GET handshake always fails.')
     }
+    if (config.requestTimeoutMs !== undefined && !(typeof config.requestTimeoutMs === 'number' && Number.isFinite(config.requestTimeoutMs) && config.requestTimeoutMs > 0)) {
+      throw new TypeError('InstagramProvider: `requestTimeoutMs` must be a positive number of milliseconds')
+    }
     this.config = { apiVersion: 'v21.0', graphUrl: 'https://graph.facebook.com', ...config }
     this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
     if (config.mediaRefHosts !== undefined &&
@@ -93,6 +97,7 @@ export class InstagramProvider implements IProvider<unknown> {
       apiVersion: this.config.apiVersion,
       graphUrl: this.config.graphUrl,
       mediaDownload: this.config.mediaDownload,
+      ...(this.config.requestTimeoutMs !== undefined ? { timeoutMs: this.config.requestTimeoutMs } : {}),
     })
     if (!this.config.appSecret && !this.config.allowUnsignedWebhooks) {
       throw new Error(

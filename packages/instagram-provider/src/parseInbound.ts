@@ -167,7 +167,7 @@ function toMessage(ev: IgMessagingEvent, chatId: string, msg: IgMessage): Inboun
     fromMe: false,
     type,
     body,
-    timestamp: num(ev.timestamp) ?? 0,
+    timestamp: eventTime(ev.timestamp),
     mentions: [],
     media,
     ...(location ? { location } : {}),
@@ -190,7 +190,7 @@ function toInteraction(ev: IgMessagingEvent, chatId: string, data: string, mid?:
     isGroup: false,
     kind: 'button',
     data,
-    timestamp: num(ev.timestamp) ?? 0,
+    timestamp: eventTime(ev.timestamp),
     raw: ev,
   }
 }
@@ -209,6 +209,12 @@ function toReaction(ev: IgMessagingEvent, chatId: string, r: IgReaction): Inboun
  * external input: a field of the wrong type is ignored, so a malformed payload
  * yields fewer events, never a throw or an event with non-string ids.
  */
+/** Epoch ms of the event (the webhook sends ms); the receive time when it is missing. */
+function eventTime(v: unknown): number {
+  const ts = num(v)
+  return ts !== undefined && ts > 0 ? Math.round(ts) : Date.now()
+}
+
 export function parseInbound(body: IgWebhookBody): InboundEvent[] {
   const events: InboundEvent[] = []
   const object = rec<IgWebhookBody>(body)?.object

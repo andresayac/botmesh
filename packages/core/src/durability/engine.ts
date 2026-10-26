@@ -36,7 +36,7 @@ import { SendDeferredError, StaleLeaseError } from './errors.js'
 import { MemoryDurability } from './memory.js'
 import type {
   ClaimedSend, DurabilityBackend, DurabilityConfig, InboxJournal, InboxRecord, JsonValue, OutboxError,
-  OutboxJournal, OutboxRecord, RetryBackoff,
+  OutboxJournal, OutboxPut, OutboxRecord, RetryBackoff,
 } from './types.js'
 
 /** Counters behind `bot.durability.metrics()`. */
@@ -134,6 +134,12 @@ export interface DurableSend {
   prior(chatId: string, content: OutboundContent): Promise<SendResult | undefined>
   /** Journal + send + record, with inline retries. `call` invokes the provider. */
   run(payload: { chatId: string; content: OutboundContent; options?: SendOptions }, call: () => Promise<SendResult>): Promise<SendResult>
+}
+
+/** Send options of a later part of a split text: only the first part quotes. */
+function withoutQuote(options: SendOptions): SendOptions | undefined {
+  const { quoted: _quoted, ...rest } = options
+  return Object.keys(rest).length > 0 ? rest : undefined
 }
 
 /** A reserved turn in a partition queue (see `DurableEngine.reserve`). */
@@ -771,9 +777,14 @@ export class DurableEngine implements DurabilityControl {
   /**
    * Durable fire-and-forget send (`bot.enqueue`): `before('send')` hooks run now, the
    * send is journaled `pending` and delivered by the sweeper (right away, then with
-   * retries). Enqueueing a key that already exists is a no-op.
+   * retries). Enqueueing a key that already exists is a no-op. `split` (the bot's long
+   * text splitting) cuts the content the hooks returned into parts: the first is journaled
+   * under the key, the others under `<key>#2`, `<key>#3`…, in send order.
    */
-  async enqueue(chatId: string, content: OutboundContent, opts: SendOptions & { idempotencyKey?: string } = {}): Promise<{ key: string; status: 'queued' | 'exists' | 'skipped' }> {
+  async enqueue(
+    chatId: string, content: OutboundContent, opts: SendOptions & { idempotencyKey?: string } = {},
+    split?: (chatId: string, content: OutboundContent) => string[] | undefined,
+  ): Promise<{ key: string; status: 'queued' | 'exists' | 'skipped' }> {
     const { idempotencyKey, ...options } = opts
     const derived = idempotencyKey === undefined ? nextSendKey() : undefined
     const fingerprint = this.fingerprintOf(chatId, content)
@@ -783,16 +794,74 @@ export class DurableEngine implements DurabilityControl {
       chatId, content, ...(Object.keys(options).length ? { options } : {}),
     }
     if (!(await this.deps.beforeSend(payload))) return { key, status: 'skipped' }
-    const encoded = this.encodeSend(payload)
-    if (!encoded) throw new TypeError('bot.enqueue(): content cannot be journaled (a stream, or larger than durability.outbox.maxPayloadBytes)')
+    const parts = split?.(payload.chatId, payload.content)
+    const sends = parts
+      ? parts.map((text, i) => {
+        const partOptions = i === 0 || !payload.options ? payload.options : withoutQuote(payload.options)
+        return { content: { kind: 'text', text } as OutboundContent, ...(partOptions ? { options: partOptions } : {}) }
+      })
+      : [{ content: payload.content, ...(payload.options ? { options: payload.options } : {}) }]
+    const encoded = sends.map((send) => this.encodeSend(send))
+    if (encoded.some((e) => e === undefined)) {
+      throw new TypeError('bot.enqueue(): content cannot be journaled (a stream, or larger than durability.outbox.maxPayloadBytes)')
+    }
     const now = this.now()
     const cause = currentCause()
-    const put = await this.outbox.put({
-      key, chatId: payload.chatId, ...(cause ? { causationId: cause.id } : {}), ...encoded, ...(fingerprint ? { fingerprint } : {}), createdAt: now,
-    }, now)
-    if (put.status === 'created') this.counters.outboxJournaled++
+    let status: 'created' | 'exists' = 'exists'
+    for (const [i, e] of encoded.entries()) {
+      const put = await this.outbox.put({
+        key: i === 0 ? key : `${key}#${i + 1}`, chatId: payload.chatId, ...(cause ? { causationId: cause.id } : {}), ...e!,
+        ...(i === 0 && fingerprint ? { fingerprint } : {}), createdAt: now + i,
+      }, now)
+      if (put.status === 'created') this.counters.outboxJournaled++
+      if (i === 0) status = put.status
+    }
     if (this.sweeperOn) void this.sweep()
-    return { key, status: put.status === 'created' ? 'queued' : 'exists' }
+    return { key, status: status === 'created' ? 'queued' : 'exists' }
+  }
+
+  /**
+   * Journal the parts of a split text that follow a part the outbox deferred
+   * (`SendDeferredError` from {@link DurableSend.run}), so they are not lost: the sweeper
+   * delivers them after it. Their `before('send')` hooks already ran. Each key derives as
+   * the inline send of that part would have (`options.idempotencyKey`, else the next derived
+   * key), so a replay finds them; `identity` is what the inline send fingerprints. A part is
+   * due no earlier than the deferred one (`behind`): it is journaled with one attempt
+   * charged and the retry time of that part, so the oldest-first sweep keeps their order.
+   */
+  async enqueueBehind(
+    chatId: string,
+    sends: ReadonlyArray<{ content: OutboundContent; options?: SendOptions; identity: OutboundContent }>,
+    behind: string,
+  ): Promise<void> {
+    const ahead = await this.outbox.get(behind)
+    const dueAt = ahead && (ahead.state === 'pending' || ahead.state === 'failed') ? ahead.nextAttemptAt : 0
+    const cause = currentCause()
+    for (const [i, send] of sends.entries()) {
+      const { idempotencyKey, ...options } = (send.options ?? {}) as SendOptions & { idempotencyKey?: string }
+      const derived = idempotencyKey === undefined ? nextSendKey() : undefined
+      const fingerprint = this.fingerprintOf(chatId, send.identity)
+      const { key, record: existing } = await this.resolveKey(idempotencyKey ?? derived ?? `rnd:${randomUUID()}`, derived !== undefined, fingerprint, chatId)
+      if (existing) continue
+      const encoded = this.encodeSend({ content: send.content, ...(Object.keys(options).length ? { options } : {}) })
+      if (!encoded) throw new TypeError('a split text part cannot be journaled (larger than durability.outbox.maxPayloadBytes)')
+      const now = this.now()
+      const put: OutboxPut = {
+        key, chatId, ...(cause ? { causationId: cause.id } : {}), ...encoded, ...(fingerprint ? { fingerprint } : {}), createdAt: now + i,
+      }
+      if (dueAt <= now) {
+        if ((await this.outbox.put(put, now)).status === 'created') this.counters.outboxJournaled++
+        continue
+      }
+      const begun = await this.outbox.put(put, now, { owner: this.instanceId, leaseMs: this.outboxLeaseMs, now })
+      if (begun.status !== 'created') continue
+      this.counters.outboxJournaled++
+      const record = begun.record
+      await this.settleSend(record, () => this.outbox.markFailed(key, record.fencingToken, {
+        name: 'SendDeferredError', message: `waiting for the earlier part ${behind}`,
+      }, { now, retryAt: dueAt }))
+    }
+    if (this.sweeperOn) void this.sweep()
   }
 
   /** Settle an ambiguous claim per `onAmbiguous`: `unknown` (skip) or `pending` (resend, by whoever runs next). */
