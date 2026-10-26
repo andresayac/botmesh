@@ -48,6 +48,25 @@ function byQuestion(rules: Array<[RegExp, string]>, fallback = '?'): Reply {
   return (input) => rules.find(([re]) => re.test(lastUserText(input)))?.[1] ?? fallback
 }
 
+/** Run a page's factory on a MockProvider (no simulator), for failure paths the transcript does not show. */
+async function onMockProvider(page: string, reply: Reply, prepare: (provider: MockProvider) => void = () => {}) {
+  const md = await readPage(page)
+  const program = await importProgram(botBlock(md), reply)
+  const provider = new MockProvider()
+  prepare(provider)
+  const bot = await program.factory(provider)
+  const warnings: unknown[][] = []
+  bot.logger.warn = (...args: unknown[]) => { warnings.push(args) }
+  await bot.start()
+  const texts = (chat?: string) =>
+    provider.outbox.filter((o) => chat === undefined || o.chatId === chat).map((o) => (o.content.kind === 'text' ? o.content.text : `[${o.content.kind}]`))
+  const settle = async () => {
+    await expect.poll(() => bot.isBusy(), { timeout: 5000 }).toBe(false)
+    await new Promise((r) => setTimeout(r, 20))
+  }
+  return { provider, bot, program, warnings, texts, settle, async close() { await bot.stop(); await program.cleanup() } }
+}
+
 // ---------------------------------------------------------------------------------------
 // 1. AI FAQ assistant with guardrails
 
@@ -272,12 +291,16 @@ const ROUTER = [
     reply: routerModel({ payment: /pay/, order: /SIM|order/, labels: ['payment', 'order', 'chat'], chat: 'Happy to help! 😊 Anything else about your Nimbus plan?' }),
     keyword: 'payment',
     firstAsk: 'account number',
+    modelDown: '😕 I cannot answer that right now. Type "payment" or "order", or try again in a moment.',
+    textOnly: '✍️ I can only read text for now. Type "payment", "order" or your question.',
   },
   {
     page: 'docs/es/ejemplos/ia-enrutador.md',
     reply: routerModel({ payment: /pagar/, order: /SIM|pedido/, labels: ['pago', 'pedido', 'charla'], chat: '¡Con gusto! 😊 ¿Algo más sobre tu plan de Nimbus?' }),
     keyword: 'pago',
     firstAsk: 'número de cuenta',
+    modelDown: '😕 Ahora mismo no puedo responder a eso. Escribe "pago" o "pedido", o vuelve a intentarlo en un momento.',
+    textOnly: '✍️ Por ahora solo leo texto. Escribe "pago", "pedido" o tu pregunta.',
   },
 ]
 
@@ -305,6 +328,30 @@ describe.each(ROUTER)('$page', (p) => {
     const run = await runInSimulator(botBlock(md), { reply: (input) => (input.system?.match(/^Clasifica|^Classify/) ? 'refund!!' : 'ok'), lines: ['hello'] })
     runs.push(run)
     expect(run.output).toContain('bot › ok')
+  })
+
+  it('never leaves the customer in silence when the model fails', async () => {
+    const t = await onMockProvider(p.page, () => { throw new Error('model outage') })
+    try {
+      t.provider.incoming('hello there')
+      await t.settle()
+      expect(t.texts()).toEqual([p.modelDown])
+      expect(t.warnings).toHaveLength(1)
+    } finally {
+      await t.close()
+    }
+  })
+
+  it('answers a message without text with a fixed reply and no model call', async () => {
+    const t = await onMockProvider(p.page, p.reply)
+    try {
+      t.provider.incomingMedia('image', Buffer.from('jpg'))
+      await t.settle()
+      expect(t.texts()).toEqual([p.textOnly])
+      expect(t.program.mock.calls).toHaveLength(0)
+    } finally {
+      await t.close()
+    }
   })
 })
 
@@ -337,6 +384,9 @@ const HANDOFF = [
       restart: 'Sorry about that! Please unplug your router for 30 seconds and plug it back in. Did that help?',
       handedOff: 'I have passed your case to our team: a person will write to you here shortly.',
     }),
+    agents: 'agents',
+    escalateText: 'I already did that twice. I want a technician and a refund',
+    handedOffText: 'I have passed your case to our team: a person will write to you here shortly.',
   },
   {
     page: 'docs/es/ejemplos/ia-escalado-humano.md',
@@ -350,6 +400,9 @@ const HANDOFF = [
       restart: '¡Lo siento! Desenchufa el router 30 segundos y vuelve a enchufarlo. ¿Se arregló?',
       handedOff: 'He pasado tu caso a nuestro equipo: una persona te escribirá por aquí en breve.',
     }),
+    agents: 'agentes',
+    escalateText: 'ya lo hice dos veces. Quiero un técnico y un reembolso',
+    handedOffText: 'He pasado tu caso a nuestro equipo: una persona te escribirá por aquí en breve.',
   },
 ]
 
@@ -360,6 +413,34 @@ describe.each(HANDOFF)('$page', (p) => {
     // The model was not called while the chat was handed off ("hello?").
     expect(run.mock.calls).toHaveLength(3)
     expect(run.bot.isHandedOff('user')).toBe(false)
+  })
+
+  it('still hands the chat off when the agents chat cannot be reached', async () => {
+    const unhandled: unknown[] = []
+    const onUnhandled = (err: unknown) => { unhandled.push(err) }
+    process.on('unhandledRejection', onUnhandled)
+    const t = await onMockProvider(p.page, p.reply, (provider) => {
+      const send = provider.send.bind(provider)
+      provider.send = async (chatId, content, options) => {
+        if (chatId === p.agents) throw new Error('agents chat unreachable')
+        return send(chatId, content, options)
+      }
+    })
+    try {
+      t.provider.incoming(p.escalateText, { from: 'customer' })
+      await t.settle()
+      expect(t.bot.isHandedOff('customer')).toBe(true)
+      expect(t.texts('customer')).toEqual([p.handedOffText])
+      // The case and the relay of the escalating message both failed, and both were logged.
+      expect(t.warnings).toHaveLength(2)
+      t.provider.incoming('hello?', { from: 'customer' })
+      await t.settle()
+      expect(t.warnings).toHaveLength(3)
+      expect(unhandled).toEqual([])
+    } finally {
+      process.off('unhandledRejection', onUnhandled)
+      await t.close()
+    }
   })
 })
 

@@ -90,12 +90,20 @@ const createBot = defineBot((provider) => {
 
   // Texto libre: clasificar y después pasar a un flujo o dejar que responda la IA.
   bot.onMessage(async (ctx) => {
-    const intencion = await clasificar(ctx)
-    if (intencion === 'charla') {
-      await ctx.reply(await ctx.tools.ai.replyInChat(chatKeyOf(ctx), ctx.body))
-      return
+    // Fotos, audios o ubicaciones sin texto: no hay nada que clasificar, así que no se llama al modelo.
+    if (!ctx.body.trim()) return ctx.reply('✍️ Por ahora solo leo texto. Escribe "pago", "pedido" o tu pregunta.')
+    try {
+      const intencion = await clasificar(ctx)
+      if (intencion === 'charla') {
+        await ctx.reply(await ctx.tools.ai.replyInChat(chatKeyOf(ctx), ctx.body))
+        return
+      }
+      await bot.trigger(intencion, { chatId: ctx.from, userId: ctx.sender, isGroup: ctx.isGroup })
+    } catch (err) {
+      // Sin key, timeout, límite de peticiones o caída: queda en el log y el cliente nunca se queda sin respuesta.
+      bot.logger.warn({ err }, 'falló el enrutador de IA')
+      await ctx.reply('😕 Ahora mismo no puedo responder a eso. Escribe "pago" o "pedido", o vuelve a intentarlo en un momento.')
     }
-    await bot.trigger(intencion, { chatId: ctx.from, userId: ctx.sender, isGroup: ctx.isGroup })
   })
 
   return bot
@@ -127,6 +135,11 @@ if (isMainModule(import.meta)) {
 - **La charla guarda historial.** `replyInChat(chatKeyOf(ctx), text)` lee y
   guarda el historial de IA del chat y usa la persona del plugin. Con
   `autoReply: false` el plugin no añade su propio catch-all.
+- **Nunca en silencio.** Un error del modelo (sin key, timeout, límite de
+  peticiones, caída) queda en el log y el cliente recibe una respuesta fija
+  que lo lleva a los flujos, que siguen funcionando sin la IA. Los mensajes
+  sin texto (una foto, una nota de voz, una ubicación) también reciben una
+  respuesta fija, sin llamar al modelo.
 - **Coste.** Las palabras clave ("pago", "pedido") y los comandos slash se
   saltan el clasificador. La llamada del clasificador es corta
   (`maxTokens: 100`, `effort: 'low'`); `maxTokens` incluye los tokens de

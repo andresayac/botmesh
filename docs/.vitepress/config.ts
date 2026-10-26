@@ -115,7 +115,7 @@ const enSidebar = {
   '/examples/': [
     {
       text: 'Examples',
-      items: [{ text: 'Overview', link: '/examples/' }],
+      items: [{ text: 'Overview', link: '/examples/index' }],
     },
     {
       text: 'Beginner',
@@ -228,7 +228,7 @@ const esSidebar = {
   '/es/ejemplos/': [
     {
       text: 'Ejemplos',
-      items: [{ text: 'Índice', link: '/es/ejemplos/' }],
+      items: [{ text: 'Índice', link: '/es/ejemplos/index' }],
     },
     {
       text: 'Principiante',
@@ -277,11 +277,7 @@ function listPages(dir: string, prefix = ''): string[] {
 
 function sidebarPages(sidebar: DefaultTheme.SidebarMulti): string[] {
   const walk = (items: DefaultTheme.SidebarItem[]): string[] =>
-    items.flatMap((item) => [
-      // `/examples/` is the folder's index page.
-      ...(item.link ? [`${item.link.slice(1).replace(/\/$/, '/index')}.md`] : []),
-      ...walk(item.items ?? []),
-    ])
+    items.flatMap((item) => [...(item.link ? [`${item.link.slice(1)}.md`] : []), ...walk(item.items ?? [])])
   return Object.values(sidebar).flatMap((group) => walk(Array.isArray(group) ? group : group.items))
 }
 

@@ -90,12 +90,20 @@ const createBot = defineBot((provider) => {
 
   // Free text: classify, then hand off to a flow or let the AI answer.
   bot.onMessage(async (ctx) => {
-    const intent = await classify(ctx)
-    if (intent === 'chat') {
-      await ctx.reply(await ctx.tools.ai.replyInChat(chatKeyOf(ctx), ctx.body))
-      return
+    // Photos, audio or locations without text: nothing to classify, so no model call.
+    if (!ctx.body.trim()) return ctx.reply('✍️ I can only read text for now. Type "payment", "order" or your question.')
+    try {
+      const intent = await classify(ctx)
+      if (intent === 'chat') {
+        await ctx.reply(await ctx.tools.ai.replyInChat(chatKeyOf(ctx), ctx.body))
+        return
+      }
+      await bot.trigger(intent, { chatId: ctx.from, userId: ctx.sender, isGroup: ctx.isGroup })
+    } catch (err) {
+      // No key, timeout, rate limit or outage: log it and never leave the customer in silence.
+      bot.logger.warn({ err }, 'AI router failed')
+      await ctx.reply('😕 I cannot answer that right now. Type "payment" or "order", or try again in a moment.')
     }
-    await bot.trigger(intent, { chatId: ctx.from, userId: ctx.sender, isGroup: ctx.isGroup })
   })
 
   return bot
@@ -127,6 +135,10 @@ if (isMainModule(import.meta)) {
 - **Chit-chat keeps a history.** `replyInChat(chatKeyOf(ctx), text)` reads and
   stores the chat's AI history and uses the plugin's persona. With
   `autoReply: false` the plugin does not add its own catch-all.
+- **Never silent.** A model error (no key, timeout, rate limit, outage) is
+  logged and the customer gets a fixed answer that points to the flows, which
+  still work without the AI. Messages with no text (a photo, a voice note, a
+  location) get a fixed answer too, without a model call.
 - **Cost.** Keywords ("payment", "order") and slash commands skip the
   classifier. The classifier call is short (`maxTokens: 100`,
   `effort: 'low'`); `maxTokens` includes the thinking tokens of reasoning

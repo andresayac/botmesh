@@ -16,8 +16,9 @@ An internet-provider assistant that solves what it can and, when it should not g
 - Node.js 22.12 or newer.
 - An Anthropic API key in the `ANTHROPIC_API_KEY` environment variable (or
   another model with tool calling, see [below](#other-model-providers)).
-- Optional: `AGENTS_CHAT_ID`, the chat where your agents get the summaries
-  (for example a WhatsApp group id).
+- `AGENTS_CHAT_ID`, the chat where your agents get the summaries (for example
+  a WhatsApp group id). It is required on WhatsApp and Telegram; the simulator
+  uses a chat called `agents`.
 
 ```bash
 npm install @botmesh/core @botmesh/ai @anthropic-ai/sdk @botmesh/baileys
@@ -34,7 +35,7 @@ import { Bot, defineBot, isMainModule } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
 import { aiPlugin } from '@botmesh/ai'
 
-// Where agents receive the summaries: a group or an agent's chat id.
+// Where agents receive the summaries: a group or an agent's chat id ('agents' in the simulator).
 const AGENTS_CHAT = process.env.AGENTS_CHAT_ID ?? 'agents'
 
 const PERSONA = [
@@ -47,6 +48,10 @@ const PERSONA = [
 const createBot = defineBot((provider) => {
   // While a chat is handed off, only the /bot command still reaches the bot.
   const bot = new Bot({ provider, handoff: { allowCommands: ['bot'] } })
+
+  // Best effort: a failed notification is logged, it never blocks the handoff or crashes the bot.
+  const notifyAgents = (text) =>
+    bot.send(AGENTS_CHAT, text).catch((err) => bot.logger.warn({ err }, 'could not notify the agents'))
 
   const tools = {
     escalate_to_human: {
@@ -61,8 +66,8 @@ const createBot = defineBot((provider) => {
         additionalProperties: false,
       },
       handler: async ({ reason, summary }, { ctx }) => {
-        await bot.send(AGENTS_CHAT, `🆘 New case from ${ctx.from} (${reason})\n${summary}`)
-        await ctx.handoff({ reason, meta: { summary } }) // the bot stops answering this chat
+        await ctx.handoff({ reason, meta: { summary } }) // first: the bot stops answering this chat
+        await notifyAgents(`🆘 New case from ${ctx.from} (${reason})\n${summary}`)
         return { handedOff: true }
       },
     },
@@ -78,7 +83,7 @@ const createBot = defineBot((provider) => {
 
   // A handed-off chat still emits 'message': relay it to the agents.
   bot.on('message', (ctx) => {
-    if (bot.isHandedOff(ctx.from)) void bot.send(AGENTS_CHAT, `💬 ${ctx.from}: ${ctx.body}`)
+    if (bot.isHandedOff(ctx.from)) void notifyAgents(`💬 ${ctx.from}: ${ctx.body}`)
   })
 
   // Return the chat to the bot. Your inbox can call bot.resume(chatId) when the agent closes the case.
@@ -94,6 +99,7 @@ export default createBot
 
 // `node bot.js` connects to WhatsApp; `npx botmesh dev bot.js` skips this block.
 if (isMainModule(import.meta)) {
+  if (!process.env.AGENTS_CHAT_ID) throw new Error('Set AGENTS_CHAT_ID to the chat where your agents get the cases')
   const bot = await createBot(new BaileysProvider({ session: 'support-bot' }))
   bot.on('handoff', ({ chatId, reason }) => console.log(`👤 ${chatId} handed to a human (${reason})`))
   await bot.start()
@@ -108,6 +114,10 @@ if (isMainModule(import.meta)) {
 - **The summary is a tool argument.** The model writes it while deciding to
   escalate, so the agent gets "problem, what was tried, what the customer
   wants" without an extra model call.
+- **Hand off first, notify second.** The tool calls `ctx.handoff()` before
+  it tells the agents, and `notifyAgents()` catches its own errors: if the
+  agents' chat cannot be reached, the customer is still handed off and the
+  failure goes to the log instead of crashing the process.
 - **`ctx.handoff()` pauses the bot in that chat.** Messages are still stored,
   hooks run and the `'message'` event fires (the example relays them to the
   agents, starting with the message that triggered the escalation), but no

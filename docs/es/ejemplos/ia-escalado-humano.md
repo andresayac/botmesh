@@ -16,8 +16,9 @@ Un asistente de un proveedor de internet que resuelve lo que puede y, cuando no 
 - Node.js 22.12 o superior.
 - Una API key de Anthropic en la variable de entorno `ANTHROPIC_API_KEY` (u
   otro modelo con tool calling, ver [más abajo](#otros-proveedores-de-modelos)).
-- Opcional: `AGENTS_CHAT_ID`, el chat donde tus agentes reciben los resúmenes
-  (por ejemplo el id de un grupo de WhatsApp).
+- `AGENTS_CHAT_ID`, el chat donde tus agentes reciben los resúmenes (por
+  ejemplo el id de un grupo de WhatsApp). Es obligatoria en WhatsApp y
+  Telegram; el simulador usa un chat llamado `agentes`.
 
 ```bash
 npm install @botmesh/core @botmesh/ai @anthropic-ai/sdk @botmesh/baileys
@@ -34,7 +35,7 @@ import { Bot, defineBot, isMainModule } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
 import { aiPlugin } from '@botmesh/ai'
 
-// Donde los agentes reciben los resúmenes: un grupo o el chat de un agente.
+// Donde los agentes reciben los resúmenes: un grupo o el chat de un agente ('agentes' en el simulador).
 const AGENTS_CHAT = process.env.AGENTS_CHAT_ID ?? 'agentes'
 
 const PERSONA = [
@@ -47,6 +48,10 @@ const PERSONA = [
 const createBot = defineBot((provider) => {
   // Mientras un chat está en handoff, solo el comando /bot sigue llegando al bot.
   const bot = new Bot({ provider, lang: 'es', handoff: { allowCommands: ['bot'] } })
+
+  // Sin bloquear: un aviso que falla queda en el log, nunca frena el handoff ni tumba el bot.
+  const avisarAgentes = (texto) =>
+    bot.send(AGENTS_CHAT, texto).catch((err) => bot.logger.warn({ err }, 'no se pudo avisar a los agentes'))
 
   const tools = {
     escalar_a_humano: {
@@ -61,8 +66,8 @@ const createBot = defineBot((provider) => {
         additionalProperties: false,
       },
       handler: async ({ motivo, resumen }, { ctx }) => {
-        await bot.send(AGENTS_CHAT, `🆘 Caso nuevo de ${ctx.from} (${motivo})\n${resumen}`)
-        await ctx.handoff({ reason: motivo, meta: { resumen } }) // el bot deja de responder en este chat
+        await ctx.handoff({ reason: motivo, meta: { resumen } }) // primero: el bot deja de responder en este chat
+        await avisarAgentes(`🆘 Caso nuevo de ${ctx.from} (${motivo})\n${resumen}`)
         return { escalado: true }
       },
     },
@@ -78,7 +83,7 @@ const createBot = defineBot((provider) => {
 
   // Un chat en handoff sigue emitiendo 'message': se reenvía a los agentes.
   bot.on('message', (ctx) => {
-    if (bot.isHandedOff(ctx.from)) void bot.send(AGENTS_CHAT, `💬 ${ctx.from}: ${ctx.body}`)
+    if (bot.isHandedOff(ctx.from)) void avisarAgentes(`💬 ${ctx.from}: ${ctx.body}`)
   })
 
   // Devuelve el chat al bot. Tu bandeja de entrada puede llamar a bot.resume(chatId) al cerrar el caso.
@@ -94,6 +99,7 @@ export default createBot
 
 // `node bot.js` conecta con WhatsApp; `npx botmesh dev bot.js` se salta este bloque.
 if (isMainModule(import.meta)) {
+  if (!process.env.AGENTS_CHAT_ID) throw new Error('Pon en AGENTS_CHAT_ID el chat donde tus agentes reciben los casos')
   const bot = await createBot(new BaileysProvider({ session: 'soporte-bot' }))
   bot.on('handoff', ({ chatId, reason }) => console.log(`👤 ${chatId} pasó a una persona (${reason})`))
   await bot.start()
@@ -108,6 +114,11 @@ if (isMainModule(import.meta)) {
 - **El resumen es un argumento de la herramienta.** El modelo lo escribe al
   decidir escalar, así el agente recibe "problema, qué se probó, qué quiere el
   cliente" sin una llamada extra al modelo.
+- **Primero el handoff, después el aviso.** La herramienta llama a
+  `ctx.handoff()` antes de avisar a los agentes, y `avisarAgentes()` captura
+  sus propios errores: si no se puede llegar al chat de los agentes, el
+  cliente pasa igualmente a una persona y el fallo va al log en vez de tumbar
+  el proceso.
 - **`ctx.handoff()` pausa el bot en ese chat.** Los mensajes se siguen
   guardando, los hooks corren y el evento `'message'` se emite (el ejemplo los
   reenvía a los agentes, empezando por el mensaje que provocó el escalado),
