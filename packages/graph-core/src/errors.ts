@@ -46,9 +46,10 @@ const UNREACHABLE_SUBCODES = new Set([1545041, 2018001, 2534014])
 
 /** Translate a Graph error into the core's typed provider error. */
 export function toGraphError(err: GraphError, opts: GraphErrorOptions = {}): ProviderError {
-  const code = err.code
-  const subcode = err.error_subcode
-  const msg = err.message ?? 'Graph API error'
+  // The body is external JSON: accept a numeric string code, ignore a non-string message.
+  const code = graphNumber(err?.code)
+  const subcode = graphNumber(err?.error_subcode)
+  const msg = typeof err?.message === 'string' && err.message.length > 0 ? err.message : 'Graph API error'
   const chatId = opts.chatId ?? ''
   // Subcodes are more specific than codes (the window error is a plain code 10),
   // so they are checked first.
@@ -92,12 +93,40 @@ export function toGraphError(err: GraphError, opts: GraphErrorOptions = {}): Pro
       return new RateLimitedError(opts.retryAfterMs ?? 6_000, `${msg} (131056)`)
     case 131048: // WhatsApp spam rate limit: the number's sends are restricted
       return new RateLimitedError(opts.retryAfterMs ?? 60_000, `${msg} (131048)`)
+    // Setup mistakes: still a generic ProviderError, with a hint at the config to check.
+    case 190:    // invalid / expired / unparsable access token
+      return new ProviderError(`${msg} (code 190) — the access token is invalid or expired: use a permanent system-user token with the messaging permission.`)
+    case 100:    // subcode 33: the object (phone number / page / WABA id) does not exist or is not accessible
+      if (subcode === 33) {
+        return new ProviderError(`${msg} (code 100/33) — check the configured phone number id (or page / WABA id) and that the token can access it.`)
+      }
+      return new ProviderError(`${msg} (code 100${subcode !== undefined ? `/${subcode}` : ''})`)
     // 147001-147005 (business-username API: not available, not eligible, FB/IG not
     // linked, transfer required) fall through on purpose: they are account-management
     // failures, not send failures, so no typed send error fits.
     default:
       return new ProviderError(`${msg}${code ? ` (code ${code})` : ''}`)
   }
+}
+
+/** A Graph numeric field (code / subcode), also when it arrives as a digit string. */
+function graphNumber(value: unknown): number | undefined {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
+  return typeof value === 'string' && /^\d{1,12}$/.test(value.trim()) ? Number(value.trim()) : undefined
+}
+
+/**
+ * `Retry-After` in ms: delay-seconds (`"7"`, also fractional) or an HTTP-date
+ * (a past date means now). `undefined` when absent or unparsable, so the code's
+ * default applies; never negative.
+ */
+function retryAfterMs(header: string | null): number | undefined {
+  const text = header?.trim()
+  if (!text) return undefined
+  if (/^\d+(?:\.\d+)?$/.test(text)) return Math.round(Number(text) * 1000)
+  // An HTTP-date always spells the day/month (`Date.parse("-5")` would read a year).
+  const at = /[a-z]/i.test(text) ? Date.parse(text) : Number.NaN
+  return Number.isNaN(at) ? undefined : Math.max(0, at - Date.now())
 }
 
 /** The subset of a fetch `Response` that {@link readGraphResponse} reads. */
@@ -111,8 +140,8 @@ export interface GraphResponseLike {
 /**
  * Read a Graph API response: resolve to its JSON body (an unparsable body is
  * `{}`), or reject with the typed error {@link toGraphError} maps it to when the
- * HTTP status fails or the body carries an `error` object. A `Retry-After`
- * header (seconds) overrides `opts.retryAfterMs`.
+ * HTTP status fails or the body carries an `error`. A `Retry-After` header
+ * (seconds or an HTTP-date) overrides `opts.retryAfterMs`.
  *
  * This is the single response check shared by the WhatsApp Cloud API,
  * Messenger and Instagram clients, so the Messenger Platform window /
@@ -122,11 +151,8 @@ export async function readGraphResponse<T = unknown>(res: GraphResponseLike, opt
   const parsed = await res.json().catch(() => ({}))
   const body = (parsed && typeof parsed === 'object' ? parsed : {}) as { error?: GraphError }
   if (!res.ok || body.error) {
-    const retryAfter = Number(res.headers.get('Retry-After')) || undefined
-    throw toGraphError(body.error ?? { message: `HTTP ${res.status}` }, {
-      ...opts,
-      retryAfterMs: retryAfter ? retryAfter * 1000 : opts.retryAfterMs,
-    })
+    const error = body.error && typeof body.error === 'object' ? body.error : { message: `HTTP ${res.status}` }
+    throw toGraphError(error, { ...opts, retryAfterMs: retryAfterMs(res.headers.get('Retry-After')) ?? opts.retryAfterMs })
   }
   return body as T
 }

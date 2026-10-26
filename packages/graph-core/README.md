@@ -27,6 +27,8 @@ No extra dependencies: only `@botmesh/core` and Node ≥ 22's native `crypto`.
 | `tryParseGraphBody<T>(body)` | Like `parseGraphBody`, but never throws: `{ ok: true, body }` or `{ ok: false, status: 400 }` when the body is not a JSON object. Use it in `ingest()` to answer 400 to a malformed body. |
 | `parseGraphBody<T>(body)` | Turns the body (string, `Buffer`/`Uint8Array` or an already-parsed object) into `T`. Throws `SyntaxError` when the raw body is not JSON. |
 | `toGraphError(err, { chatId?, retryAfterMs?, contentKind? })` | Translates a Graph error into the core's `ProviderError` subclasses. |
+| `readGraphResponse<T>(res, opts?)` | Reads a Graph `fetch` response: resolves to the JSON body, or rejects with the `toGraphError` mapping when the status fails or the body has an `error`. A `Retry-After` header (seconds or an HTTP-date) sets `retryAfterMs`. |
+| `META_MEDIA_HOSTS`, `serializeUrlMediaRef`, `rehydrateUrlMediaRef` | Durable media references for the URL-token transports (Messenger, Instagram): only an allow-listed URL is journaled, and a stored value is validated again when read back. |
 
 ## Usage
 
@@ -65,16 +67,19 @@ Without an `appSecret`, `checkGraphSignature` lets the request through. That is 
 | `131026`: recipient cannot receive | `RecipientUnreachableError` |
 | `131030`: recipient outside the test number's allowed list (WhatsApp) | `RecipientUnreachableError` |
 | `551`: the person is unavailable (Messenger/Instagram) | `RecipientUnreachableError` |
-| `10` with subcode `2018278`: outside the messaging window (Messenger/Instagram) | `OutsideSessionWindowError` |
+| `10` with subcode `2018278` (Messenger) or `2534022` (Instagram): outside the messaging window | `OutsideSessionWindowError` |
+| subcodes `1545041`, `2018001`, `2534014`: no matching user (Messenger/Instagram) | `RecipientUnreachableError` |
 | `131051`: unsupported message type | `UnsupportedContentError` (`kind`: the send's `contentKind`, or `'native'`) |
 | `131062`: the BSUID recipient does not accept this message (WhatsApp; *one-tap*, *zero-tap* and *copy code* authentication templates) | `UnsupportedContentError` (`kind`: the send's `contentKind`, or `'template'`); send it to the phone (`wa_id`) instead |
 | `4`, `613`, `80007`, `36003`: rate limit | `RateLimitedError` (`retryAfterMs` or 60 s by default) |
 | `130429`: Cloud API messages-per-second limit | `RateLimitedError` (`retryAfterMs` or 1 s) |
 | `131056`: too many messages to the same user (*pair rate limit*) | `RateLimitedError` (`retryAfterMs` or 6 s) |
 | `131048`: spam limit | `RateLimitedError` (`retryAfterMs` or 60 s) |
+| `190`: invalid or expired access token | `ProviderError`, with a hint to check the token |
+| `100` with subcode `33`: the phone number / page / WABA id does not exist or the token cannot reach it | `ProviderError`, with a hint to check the configured id |
 | anything else (including `147001`–`147005` from the username API) | `ProviderError` |
 
-`contentKind` is the `kind` of the `OutboundContent` that failed. Pass it when you know it: that way
+Codes that arrive as digit strings are mapped like numbers. `contentKind` is the `kind` of the `OutboundContent` that failed. Pass it when you know it: that way
 `UnsupportedContentError.kind` says which content Graph rejected instead of each code's default.
 
 ```ts
