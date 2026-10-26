@@ -124,3 +124,30 @@ describe('plugins: async install()', () => {
     await bot.stop()
   })
 })
+
+describe('plug() config typing', () => {
+  interface GreetConfig {
+    greeting?: string
+  }
+  const greet: PluginSpec<GreetConfig> = {
+    name: 'greet-typed',
+    version: '1.0.0',
+    install(ctx, config = {}) {
+      ctx.bot.when('hi', (c) => c.reply(config.greeting ?? 'hello'))
+    },
+  }
+
+  it('checks config against the plugin config type (interfaces included)', async () => {
+    const { bot, chat } = await createTestBot()
+    const config: GreetConfig = { greeting: 'hey' }
+    const off = bot.plug(greet, config)
+    await chat.send('hi')
+    await chat.expectReply('hey')
+    off()
+    const typo = () =>
+      // @ts-expect-error `greting` is not a GreetConfig option
+      bot.plug(greet, { greting: 'x' })
+    void typo
+    await bot.stop()
+  })
+})

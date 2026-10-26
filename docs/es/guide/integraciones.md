@@ -521,8 +521,12 @@ whenIntent(bot, nlu, 'pedido.estado', async (ctx, match) => {
 - `engine.match(text)` devuelve `{ intent, confidence, entities? }` o `null`;
   `engine.rank(text)` puntúa todas las intenciones (útil para depurar una
   frase); `engine.define(intent, utterances)` añade frases en caliente.
-- La comparación normaliza mayúsculas, tildes y puntuación (`¡HOLA!` equivale
-  a `hola`) y puntúa por palabras en común. Una frase exacta, o una con
+- La comparación normaliza mayúsculas, tildes, puntuación, letras de ancho
+  completo y caracteres invisibles (`¡HOLA!` equivale a `hola`) y puntúa por
+  palabras en común; los signos vocálicos de escrituras como el devanagari se
+  quedan en su palabra. Una frase con solo emojis o puntuación lanza en
+  `define()`: nunca podría coincidir. La puntuación separa palabras, así que un
+  id como `A-1` no llena un único slot. Una frase exacta, o una con
   marcadores `{slot}` que encaja con todo el mensaje, puntúa `1`; cada slot
   captura una palabra.
 - Alcance: sin lematización, sinónimos ni embeddings. Dale a cada intención

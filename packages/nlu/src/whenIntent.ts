@@ -36,6 +36,17 @@ export function whenIntent(
   intent: string,
   handler: IntentHandler,
 ): () => void {
+  if (typeof (engine as Partial<IntentEngine> | undefined)?.match !== 'function') {
+    throw new TypeError(
+      'whenIntent: engine must be an IntentEngine (reading bot.injectTools.nlu? plug nluPlugin before calling whenIntent, or pass new IntentEngine())',
+    )
+  }
+  if (typeof intent !== 'string' || intent.trim() === '') {
+    throw new TypeError('whenIntent: intent must be a non-empty string')
+  }
+  if (typeof handler !== 'function') throw new TypeError('whenIntent: handler must be a function')
+  // The engine caches the last ranked text, so the predicate, the handler and every other
+  // whenIntent on the same engine score a message once.
   return bot.when(
     (c) => engine.match(c.body)?.intent === intent,
     (ctx) => {

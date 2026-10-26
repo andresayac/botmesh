@@ -505,8 +505,11 @@ whenIntent(bot, nlu, 'order.status', async (ctx, match) => {
 - `engine.match(text)` returns `{ intent, confidence, entities? }` or `null`;
   `engine.rank(text)` scores every intent (useful to debug a phrase);
   `engine.define(intent, utterances)` adds phrases at runtime.
-- Matching normalizes case, accents and punctuation (`¡HOLA!` equals `hola`),
-  then scores token overlap. An exact phrase, or a phrase with `{slot}`
+- Matching normalizes case, accents, punctuation, full-width letters and
+  invisible characters (`¡HOLA!` equals `hola`), then scores the words in
+  common; vowel signs of scripts such as Devanagari stay in their word. A
+  phrase with only emoji or punctuation throws in `define()`: it could never
+  match. Punctuation splits words, so an id like `A-1` does not fill one slot. An exact phrase, or a phrase with `{slot}`
   placeholders that lines up with the whole message, scores `1`; a slot
   captures one word.
 - Scope: no stemming, synonyms or embeddings. Give each intent several short

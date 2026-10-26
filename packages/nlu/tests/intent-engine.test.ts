@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { IntentEngine, normalizeText } from '../src/index.js'
 
 function greetingEngine(): IntentEngine {
@@ -208,5 +208,101 @@ describe('IntentEngine — hostile input and config mistakes', () => {
     expect(() => nlu.match('hola', Number.NaN)).toThrow(/threshold must be a number in \[0, 1\]/)
     expect(() => nlu.match('hola', 2)).toThrow(/threshold/)
     expect(nlu.match('hola', 1)).toEqual({ intent: 'greeting', confidence: 1 })
+  })
+})
+
+describe('IntentEngine — unicode beyond Latin accents', () => {
+  it('keeps combining marks of other scripts inside their word (Devanagari, Thai)', () => {
+    expect(normalizeText('नमस्ते दुनिया')).toBe('नमस्ते दुनिया')
+    expect(normalizeText('สวัสดี ครับ')).toBe('สวัสดี ครับ')
+    const nlu = new IntentEngine().define('greet', ['नमस्ते {name}'])
+    expect(nlu.match('नमस्ते दुनिया')).toEqual({ intent: 'greet', confidence: 1, entities: { name: 'दुनिया' } })
+  })
+
+  it('drops optional Arabic and Hebrew vowel marks, like Latin accents', () => {
+    expect(normalizeText('مَرْحَبًا')).toBe('مرحبا')
+    expect(normalizeText('שָׁלוֹם')).toBe('שלום')
+  })
+
+  it('folds compatibility forms (full-width letters, ligatures)', () => {
+    expect(normalizeText('ＨＯＬＡ')).toBe('hola')
+    expect(normalizeText('ﬁn')).toBe('fin')
+  })
+
+  it('removes invisible format characters instead of splitting the word', () => {
+    expect(normalizeText('ho\u200Bla\u00ADmundo\uFEFF')).toBe('holamundo')
+    expect(new IntentEngine().define('g', ['hola']).match('ho\u200Bla')?.confidence).toBe(1)
+  })
+})
+
+describe('IntentEngine — more config mistakes', () => {
+  it('rejects utterances that can never match (only emoji or punctuation)', () => {
+    expect(() => new IntentEngine().define('like', ['👍'])).toThrow(/"👍" has no letters or digits.*never match/)
+    expect(() => new IntentEngine().define('like', ['ok', '?!'])).toThrow(/never match/)
+  })
+
+  it('rejects non-string utterances instead of dropping them silently', () => {
+    expect(() => new IntentEngine().define('x', ['hola', 5 as unknown as string])).toThrow(/utterances must be strings.*index 1/)
+  })
+
+  it('rejects duplicate and reserved slot names', () => {
+    expect(() => new IntentEngine().define('x', ['de {a} a {a}'])).toThrow(/slot \{a\} appears twice/)
+    expect(() => new IntentEngine().define('x', ['pedido {__proto__}'])).toThrow(/slot name \{__proto__\} is reserved/)
+  })
+
+  it('treats slots glued by a mark that normalization removes as adjacent', () => {
+    expect(() => new IntentEngine().define('x', ['{a}\u0301{b} z'])).toThrow(/adjacent slots/)
+  })
+
+  it('gives a clear error when match/rank get a non-string', () => {
+    const nlu = new IntentEngine().define('g', ['hola'])
+    expect(() => nlu.match(undefined as unknown as string)).toThrow(/IntentEngine.match: text must be a string, got undefined/)
+    expect(() => nlu.rank(5 as unknown as string)).toThrow(/IntentEngine.rank: text must be a string, got number/)
+  })
+})
+
+describe('IntentEngine — repeated scoring of the same message', () => {
+  it('scores a message once for many whenIntent-style lookups and re-scores after define()', () => {
+    const nlu = new IntentEngine().define('a', ['hola']).define('b', ['adios'])
+    const spy = vi.spyOn(nlu as unknown as { scoreAll: (t: string) => unknown }, 'scoreAll')
+    for (let i = 0; i < 50; i++) nlu.match('hola amigo')
+    expect(spy).toHaveBeenCalledTimes(1)
+    const first = nlu.rank('hola amigo')
+    first[0].intent = 'mutated'
+    expect(nlu.rank('hola amigo')[0].intent).toBe('a')
+    nlu.define('c', ['hola amigo'])
+    expect(nlu.match('hola amigo')?.intent).toBe('c')
+    expect(spy).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('IntentEngine — repeated words', () => {
+  it('keeps confidence within [0, 1] when an utterance or the input repeats a word', () => {
+    const nlu = new IntentEngine({ threshold: 0 }).define('no', ['no no no']).define('ok', ['ok'])
+    for (const text of ['no', 'no gracias', 'ok ok ok ok', 'no no no no no']) {
+      for (const m of nlu.rank(text)) expect(m.confidence).toBeLessThanOrEqual(1)
+    }
+    // A repeated word in the input must not beat an exact match of another intent.
+    expect(new IntentEngine().define('a', ['hola hola']).define('b', ['hola']).match('hola')?.intent).toBe('b')
+  })
+
+  it('does not give a partial match a perfect score when the input repeats a word or phrase', () => {
+    const nlu = new IntentEngine().define('greet', ['hola']).define('double', ['hola hola'])
+    expect(nlu.rank('hola hola')[0]).toEqual({ intent: 'double', confidence: 1 })
+    expect(nlu.rank('hola hola')[1]?.confidence).toBeLessThan(1)
+    expect(nlu.match('hola hola')?.intent).toBe('double')
+    const ab = new IntentEngine({ threshold: 0 }).define('a', ['a b'])
+    expect(ab.match('a b a')?.confidence).toBeLessThan(1)
+    expect(ab.match('a b a b')?.confidence).toBeLessThan(1)
+    // Only an exact phrase scores 1.
+    expect(ab.match('a b')?.confidence).toBe(1)
+  })
+})
+
+describe('IntentEngine — containment respects word boundaries', () => {
+  it('does not count an utterance found only inside a longer word', () => {
+    const nlu = new IntentEngine().define('order', ['mi pedido'])
+    expect(nlu.match('mi pedidos')).toBeNull()
+    expect(nlu.match('hola mi pedido ya')?.intent).toBe('order')
   })
 })

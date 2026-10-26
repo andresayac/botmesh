@@ -20,6 +20,10 @@ await bot.start()
 // unplug()
 ```
 
+`config` is typed by the plugin (`definePlugin<MyConfig>()`): an unknown option
+is a compile error, and a config declared with the plugin's config interface can
+be passed as is.
+
 `bot.plug(plugin, config?)` returns an **unplug** function (not the bot, so
 `plug()` calls do not chain). Calling it first runs the plugin's
 `uninstall(ctx)`, if it has one, and then reverts, newest first, what the
