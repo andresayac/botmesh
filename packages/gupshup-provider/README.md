@@ -15,7 +15,7 @@ pnpm add @botmesh/core @botmesh/gupshup
 1. A WhatsApp app in Gupshup: **API key**, **app name** (`src.name`) and the app **number**.
 2. A callback URL configured in the console with **v2 payload**, including a secret token in the query: `https://bot.example.com/gupshup?token=<secret>`.
 
-Gupshup does **not sign** its callbacks: the provider authenticates them with that token (constant-time comparison). Gupshup also recommends restricting by IP; do both in production.
+Gupshup does **not sign** its callbacks: the provider authenticates them with that token (constant-time comparison). Generate it URL-safe, e.g. `openssl rand -hex 32`. A base64 secret pasted raw also works (a literal `+` in the query is matched as `+`, not as a space), and so does the percent-encoded form (`encodeURIComponent(secret)`). Gupshup also recommends restricting by IP; do both in production.
 
 ## Usage
 
@@ -106,7 +106,7 @@ Inbound: text, media (`ctx.media`, expiring URL `urlExpiry`), location, contact,
 
 | Symptom | Cause and fix |
 | --- | --- |
-| Every callback is answered `401` | The token is missing or different: register the callback URL with `?token=<webhookToken>` and pass the request URL to `ingestRequest({ url })` / `ingest(body, headers, url)` (the `@botmesh/server` ingress does it), or forward the token in `webhookTokenHeader`. A proxy that strips the query string also causes it. |
+| Every callback is answered `401` | The token is missing or different (a proxy or console that re-encodes the URL can change it; prefer a hex secret): register the callback URL with `?token=<webhookToken>` and pass the request URL to `ingestRequest({ url })` / `ingest(body, headers, url)` (the `@botmesh/server` ingress does it), or forward the token in `webhookTokenHeader`. A proxy that strips the query string also causes it. |
 | Callbacks answered `400` | The body is not the raw JSON Gupshup sent: mount the route with `express.raw`. Also check that the app sends **v2** payloads. |
 | Nothing reaches the bot, no errors | The callback URL in the Gupshup console points elsewhere, or the empty validation ping was the only request (it is answered `200` and ignored). |
 | Sends reject with `OutsideSessionWindowError` | WhatsApp's 24-hour window closed: send an approved template (`kind: 'template'`). |

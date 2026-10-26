@@ -145,8 +145,9 @@ export class GupshupProvider implements IProvider<GupshupCallback> {
    * Returns 200 accepted, 400 unreadable, 401 bad token.
    */
   ingest(rawEvent: unknown, headers?: HeaderBag, requestUrl?: string): number {
-    const fromUrl = requestUrl !== undefined ? this.queryToken(requestUrl) : undefined
-    return this.handle(rawEvent, fromUrl ?? header(headers, this.config.webhookTokenHeader))
+    const fromUrl = requestUrl !== undefined ? this.queryTokens(requestUrl) : undefined
+    const fromHeader = header(headers, this.config.webhookTokenHeader)
+    return this.handle(rawEvent, fromUrl ?? (fromHeader !== undefined ? [fromHeader] : []))
   }
 
   /**
@@ -158,16 +159,39 @@ export class GupshupProvider implements IProvider<GupshupCallback> {
     return this.ingest(req.body, req.headers, req.url)
   }
 
-  private queryToken(url: string): string | undefined {
+  /**
+   * Candidate values of the token query parameter (first occurrence), or
+   * `undefined` when the URL has none. Two readings are accepted: the form
+   * decoding (`+` = space, what `URLSearchParams` does) and the plain percent
+   * decoding (`+` kept). A base64 secret pasted raw into the callback URL
+   * (`?token=ab+cd/ef==`) then still matches, as does the encoded form.
+   */
+  private queryTokens(url: string): string[] | undefined {
+    let search: string
     try {
-      return new URL(url, 'http://callback.local').searchParams.get(this.config.webhookTokenParam) ?? undefined
+      search = new URL(url, 'http://callback.local').search
     } catch {
       return undefined
     }
+    const name = this.config.webhookTokenParam
+    for (const pair of search.slice(1).split('&')) {
+      const eq = pair.indexOf('=')
+      const rawName = eq === -1 ? pair : pair.slice(0, eq)
+      if (formDecode(rawName) !== name) continue
+      const rawValue = eq === -1 ? '' : pair.slice(eq + 1)
+      const candidates: string[] = []
+      for (const v of [formDecode(rawValue), percentDecode(rawValue)]) {
+        if (v !== undefined && !candidates.includes(v)) candidates.push(v)
+      }
+      return candidates
+    }
+    return undefined
   }
 
-  private handle(rawEvent: unknown, token: string | undefined): number {
-    if (this.config.webhookToken && !(token !== undefined && safeEqual(token, this.config.webhookToken))) {
+  private handle(rawEvent: unknown, tokens: readonly string[]): number {
+    const expected = this.config.webhookToken
+    // Every candidate is compared (no short-circuit) so timing does not reveal which reading matched.
+    if (expected && !tokens.reduce((ok, t) => safeEqual(t, expected) || ok, false)) {
       this.logger.warn('Gupshup callback rejected: missing or invalid webhook token')
       return 401
     }
@@ -251,4 +275,18 @@ export class GupshupProvider implements IProvider<GupshupCallback> {
 
   /** Quick replies / list replies need no acknowledgement — no-op. */
   async acknowledgeInteraction(_interactionId: string, _opts?: { text?: string; defer?: boolean }): Promise<void> {}
+}
+
+/** `application/x-www-form-urlencoded` decoding of one query component (`+` = space). */
+function formDecode(raw: string): string | undefined {
+  return percentDecode(raw.replace(/\+/g, ' '))
+}
+
+/** Percent decoding only (`+` kept); `undefined` on a malformed escape. */
+function percentDecode(raw: string): string | undefined {
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return undefined
+  }
 }

@@ -771,6 +771,9 @@ const provider = new GupshupProvider({
 - Con `@botmesh/server`, monta el provider como una ruta: el ingress pasa la
   URL de la petición a `ingest()`, así que el callback con `?token=` funciona
   tal cual.
+- Usa un `webhookToken` seguro para URL (`openssl rand -hex 32`). Un secreto
+  base64 pegado tal cual en `?token=` también coincide (un `+` literal no se
+  lee como espacio), igual que su forma codificada con `%`.
 - `chatId` = los dígitos del teléfono del remitente (sin `+`), justo lo que
   espera la API de envío.
 - Media solo desde URLs públicas. Gupshup también documenta restringir por

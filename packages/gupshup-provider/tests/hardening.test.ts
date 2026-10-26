@@ -47,6 +47,38 @@ describe('ingest(body, headers, requestUrl) — the @botmesh/server ingress sign
   })
 })
 
+describe('webhook tokens with URL-reserved characters (base64 secrets)', () => {
+  const B64 = 'Zm9v+YmFy/YmF6=='
+  function makeWith(webhookToken: string) {
+    return new GupshupProvider({ apiKey: 'k', appName: 'DemoApp', source: '917834811114', webhookToken, logger: pino({ level: 'silent' }) })
+  }
+
+  it('accepts the token pasted raw in the callback URL (a literal "+" is not read as a space)', () => {
+    const provider = makeWith(B64)
+    expect(provider.ingest(json(TEXT), {}, `/gupshup?token=${B64}`)).toBe(200)
+    expect(provider.ingestRequest({ url: `https://bot.example.com/gupshup?token=${B64}`, body: json(TEXT) })).toBe(200)
+  })
+
+  it('accepts the percent-encoded token', () => {
+    const provider = makeWith(B64)
+    expect(provider.ingest(json(TEXT), {}, `/gupshup?token=${encodeURIComponent(B64)}`)).toBe(200)
+  })
+
+  it('still accepts "+" as an encoded space for tokens that contain spaces', () => {
+    const provider = makeWith('a b')
+    expect(provider.ingest(json(TEXT), {}, '/gupshup?token=a+b')).toBe(200)
+    expect(provider.ingest(json(TEXT), {}, '/gupshup?token=a%20b')).toBe(200)
+  })
+
+  it('rejects near misses and malformed escapes', () => {
+    const provider = makeWith(B64)
+    expect(provider.ingest(json(TEXT), {}, '/gupshup?token=Zm9v YmFy/YmF6==')).toBe(401)
+    expect(provider.ingest(json(TEXT), {}, '/gupshup?token=Zm9v%2BYmFy%2FYmF6%3D')).toBe(401)
+    expect(provider.ingest(json(TEXT), {}, '/gupshup?token=%E0%A4%A')).toBe(401)
+    expect(provider.ingest(json(TEXT), {}, `/gupshup?other=1&token=${B64}&token=x`)).toBe(200)
+  })
+})
+
 describe('WhatsApp label limits', () => {
   const chars = (s: unknown) => Array.from(String(s)).length
 
