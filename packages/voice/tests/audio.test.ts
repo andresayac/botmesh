@@ -26,9 +26,8 @@ describe('OGG duration estimate', () => {
     const noHead = Buffer.alloc(64)
     noHead.write('OggS', 0, 'latin1')
     expect(estimateOggDurationSec(noHead)).toBeUndefined()
-    expect(estimateDurationSec(makeOgg(3), 'audio/mpeg')).toBeUndefined()
-    expect(estimateDurationSec(makeOgg(3), 'audio/ogg; codecs=opus')).toBeCloseTo(3, 3)
-    expect(estimateDurationSec(makeOgg(3), undefined)).toBeCloseTo(3, 3)
+    expect(estimateDurationSec(Buffer.from('ID3 not ogg at all, definitely not'))).toBeUndefined()
+    expect(estimateDurationSec(makeOgg(3))).toBeCloseTo(3, 3)
   })
 })
 

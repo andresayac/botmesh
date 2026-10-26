@@ -96,9 +96,13 @@ export function estimateOggDurationSec(buffer: Buffer): number | undefined {
   return Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined
 }
 
-/** Duration of `buffer` when it can be known without decoding (OGG today). */
-export function estimateDurationSec(buffer: Buffer, mimetype: string | undefined): number | undefined {
-  const base = baseMimetype(mimetype)
-  if (base && !['audio/ogg', 'audio/opus', 'application/ogg', 'application/octet-stream'].includes(base)) return undefined
+/**
+ * Duration of `buffer` when it can be known without decoding (OGG today).
+ *
+ * The container is detected from the bytes (`OggS`), never from the declared
+ * mimetype: the sender controls that field, and trusting it would let an OGG
+ * note labelled `audio/mpeg` skip the `maxDurationSec` check.
+ */
+export function estimateDurationSec(buffer: Buffer): number | undefined {
   return estimateOggDurationSec(buffer)
 }

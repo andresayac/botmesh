@@ -195,7 +195,7 @@ export class VoiceClient {
   private checkInput(audio: AudioInput): void {
     const { maxInputBytes, maxDurationSec } = this.limits
     if (audio.buffer.length > maxInputBytes) throw new AudioTooLargeError(audio.buffer.length, maxInputBytes)
-    const duration = audio.durationSec ?? estimateDurationSec(audio.buffer, audio.mimetype)
+    const duration = audio.durationSec ?? estimateDurationSec(audio.buffer)
     if (duration !== undefined && duration > maxDurationSec) throw new AudioTooLongError(duration, maxDurationSec)
   }
 

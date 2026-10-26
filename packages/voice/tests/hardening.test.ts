@@ -203,3 +203,29 @@ describe('end to end under load', () => {
     await bot.stop()
   })
 })
+
+describe('duration cap vs. declared mimetype', () => {
+  it('rejects a long OGG body whatever mimetype it claims, before the paid call', async () => {
+    let calls = 0
+    const stt: SttAdapter = { name: 'counting', transcribe: async () => { calls++; return { text: 'ok', provider: 'counting' } } }
+    const client = new VoiceClient({ stt, limits: { maxDurationSec: 300 } })
+    for (const mimetype of ['audio/mpeg', 'audio/wav', 'video/mp4', 'audio/ogg\r\nX: y', 'garbage', 'audio/ogg']) {
+      await expect(client.transcribe({ buffer: makeOgg(3600), mimetype })).rejects.toMatchObject({ code: 'AUDIO_TOO_LONG' })
+    }
+    expect(calls).toBe(0)
+    expect(await client.transcribe({ buffer: makeOgg(30), mimetype: 'audio/mpeg' })).toBe('ok')
+  })
+
+  it('applies the cap end to end when a voice note claims another mimetype', async () => {
+    let calls = 0
+    const stt: SttAdapter = { name: 'counting', transcribe: async () => { calls++; return { text: 'ok', provider: 'counting' } } }
+    const { bot, provider } = await createTestBot()
+    const errors: unknown[] = []
+    bot.plug(voicePlugin({ stt, limits: { maxDurationSec: 300 }, autoTranscribe: { onError: (e) => { errors.push(e) } } }))
+    provider.incomingMedia('voice', makeOgg(3600), { mimetype: 'audio/mpeg' })
+    await waitFor(() => errors.length === 1)
+    expect(errors[0]).toMatchObject({ code: 'AUDIO_TOO_LONG' })
+    expect(calls).toBe(0)
+    await bot.stop()
+  })
+})

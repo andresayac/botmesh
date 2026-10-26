@@ -145,7 +145,7 @@ voicePlugin({
   stt, tts,
   limits: {
     maxInputBytes: 25 * 1024 * 1024, // maximum audio size; stops the download as soon as it is exceeded (OpenAI limit)
-    maxDurationSec: 300,             // maximum duration; read from the last OGG page before calling the service
+    maxDurationSec: 300,             // maximum duration; read from the last OGG page before calling the service (OGG is detected from the bytes, not the declared mimetype)
     maxTextChars: 4096,              // maximum characters per synthesis
     timeoutMs: 60_000,               // maximum time per STT/TTS call; also the adapters' HTTP timeout
   },

@@ -239,7 +239,7 @@ voicePlugin({
   stt, tts,
   limits: {
     maxInputBytes: 25 * 1024 * 1024, // max audio size; the download is cut as soon as it goes over
-    maxDurationSec: 300,             // max duration; read from the last OGG page before calling the service
+    maxDurationSec: 300,             // max duration; read from the last OGG page before calling the service (OGG is detected from the bytes, not the declared mimetype)
     maxTextChars: 4096,              // max characters per synthesis
     timeoutMs: 60_000,               // max time per STT/TTS call; also the adapters' HTTP timeout
   },
