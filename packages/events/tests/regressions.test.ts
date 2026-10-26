@@ -42,3 +42,29 @@ describe('EventWorker.on unsubscribe', () => {
     expect(seen).toEqual([42])
   })
 })
+
+describe('dead letters reached by maxAttempts', () => {
+  it('record completedAt, so purge({ includeDead }) can remove them (no unbounded DLQ growth)', async () => {
+    const journal = new MemoryEventJournal()
+    let now = 1_000
+    const worker = new EventWorker(journal, { maxAttempts: 1, clock: () => now })
+    worker.on('boom', () => { throw new Error('nope') })
+    await journal.append(createEnvelope({ eventId: 'e1', eventType: 'boom', occurredAt: now, context, payload: 1 }))
+    expect(await worker.runBatch()).toEqual({ processed: 0, failed: 1, stale: 0 })
+
+    const dead = await journal.get('e1')
+    expect(dead).toMatchObject({ state: 'dead', completedAt: 1_000, lastError: 'nope' })
+    now = 5_000
+    expect(await journal.purge({ doneBefore: 2_000, includeDead: true })).toBe(1)
+    expect(await journal.get('e1')).toBeUndefined()
+  })
+
+  it('a replayed dead letter forgets its completedAt', async () => {
+    const journal = new MemoryEventJournal()
+    await journal.append(createEnvelope({ eventId: 'e1', eventType: 'x', occurredAt: 1, context, payload: 1 }))
+    const [r] = await journal.claim(1, { now: 1 })
+    await journal.fail('e1', new Error('x'), { now: 2, fencingToken: r!.fencingToken, maxAttempts: 1 })
+    await journal.replay('e1', 3)
+    expect((await journal.get('e1'))?.completedAt).toBeUndefined()
+  })
+})
