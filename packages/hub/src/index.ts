@@ -25,7 +25,7 @@
 
 export { PluginRegistry } from './registry.js'
 export type { PluginRegistryOptions } from './registry.js'
-export { validateManifest, isRelativeEntry } from './manifest.js'
+export { validateManifest, isRelativeEntry, PLUGIN_PERMISSIONS } from './manifest.js'
 export { MemoryPluginStore } from './memory.js'
 export { KvPluginStore } from './kv.js'
 export type { KvPluginStoreOptions } from './kv.js'

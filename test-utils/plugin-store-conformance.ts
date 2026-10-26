@@ -91,5 +91,18 @@ export function runPluginStoreConformance(name: string, harness: PluginStoreHarn
       await expect(store.get('', 'x')).rejects.toThrow(TypeError)
       await expect(store.list('')).rejects.toThrow(TypeError)
     })
+
+    it('setEnabled runs check on the record it changes and writes nothing when it throws', async () => {
+      await store.install(record())
+      const seen: InstalledPlugin[] = []
+      await expect(store.setEnabled('a', 'crm-sync', true, (current) => {
+        seen.push(current)
+        throw new Error('not granted')
+      })).rejects.toThrow('not granted')
+      expect(seen).toHaveLength(1)
+      expect(seen[0]!.manifest.permissions).toEqual(['contacts:read', 'network:egress'])
+      expect(await store.get('a', 'crm-sync')).toMatchObject({ enabled: false })
+      expect(await store.setEnabled('a', 'crm-sync', true, () => {})).toMatchObject({ enabled: true })
+    })
   })
 }

@@ -17,8 +17,10 @@ export interface PluginStore {
   /** Plugins installed for a tenant, most recently installed first. */
   list(tenantId: string, options?: { limit?: number }): Promise<InstalledPlugin[]>
   /**
-   * Enable or disable an installed plugin.
+   * Enable or disable an installed plugin. `check`, when given, runs on the record being
+   * changed, atomically with the write (inside the compare-and-set): throwing aborts it.
+   * The registry uses it so a concurrent re-install can never be enabled without its grants.
    * @throws {PluginManifestError} (`plugin not installed`) when it does not exist in that tenant.
    */
-  setEnabled(tenantId: string, id: string, enabled: boolean): Promise<InstalledPlugin>
+  setEnabled(tenantId: string, id: string, enabled: boolean, check?: (record: InstalledPlugin) => void): Promise<InstalledPlugin>
 }
