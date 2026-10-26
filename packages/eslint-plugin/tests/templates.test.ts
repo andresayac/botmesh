@@ -1,6 +1,7 @@
 import { Linter } from 'eslint'
 import { describe, expect, it } from 'vitest'
-import { TEMPLATES, TEMPLATE_NAMES } from 'create-botmesh'
+import { TEMPLATE_NAMES } from 'create-botmesh'
+import { TEMPLATES } from 'create-botmesh/internal'
 
 import { configs } from '../src/index.js'
 
