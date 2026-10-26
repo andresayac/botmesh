@@ -162,7 +162,7 @@ tester.run('prefer-ctx-user-over-global-state', rule('prefer-ctx-user-over-globa
       errors: [{ messageId: 'moduleMap' }, { messageId: 'moduleMap' }],
     },
     {
-      code: "let carts = new Map(); export function h(ctx) { return carts.get(ctx.senderId) }",
+      code: "let carts = new Map(); export function h(ctx) { return carts.get(ctx.senderId) } export function add(id, c) { carts.set(id, c) }",
       errors: [{ messageId: 'moduleMap', data: { name: 'carts', key: 'ctx.senderId' } }],
     },
     {

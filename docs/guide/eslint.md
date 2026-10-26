@@ -176,10 +176,15 @@ Options: `{ methods?: ('ask' | 'waitText' | 'waitMedia' | 'waitLocation' | 'choo
 
 ### `botmesh/prefer-ctx-user-over-global-state`
 
-Flags the v1 `globalState` and module-level `Map`s or objects keyed by
-`ctx.from`, `ctx.sender` or `ctx.senderId` (`users.get/set/has/delete(ctx.from)`,
-`scores[ctx.sender]`). That state is lost on restart, grows forever and is not
-shared between replicas. Use [`ctx.user`](/guide/user-data)
+Flags the v1 `globalState` and module-level `Map`s, `Set`s or objects keyed by
+`ctx.from`, `ctx.sender` or `ctx.senderId`. Writes (`users.set/delete(ctx.from)`,
+`seen.add(ctx.from)`, `scores[ctx.sender] = …`, `scores[ctx.sender].n++`) are always
+reported; reads (`users.get/has(ctx.from)`, `scores[ctx.sender]`) only when the
+same binding is also written or reassigned inside a function. A constant
+allow or deny list (`const ADMINS = new Set([...])`, `if (blocked.has(ctx.from))`),
+even one filled at module level, holds no per-user state and is not reported.
+Per-user state is lost on restart, grows forever and is not shared between
+replicas. Use [`ctx.user`](/guide/user-data)
 (`await ctx.user.ns('feature').set(key, value)`) for per-user data and
 `c.state` for per-conversation data.
 

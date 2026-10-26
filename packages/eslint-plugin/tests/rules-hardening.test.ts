@@ -91,8 +91,38 @@ tester.run('no-await-runtime-enter (chains and optional calls)', rule('no-await-
 tester.run('prefer-ctx-user-over-global-state (optional chaining)', rule('prefer-ctx-user-over-global-state'), {
   valid: [],
   invalid: [
-    { code: "const users = new Map(); bot.when('x', (ctx) => users.get(ctx?.from))", errors: [{ messageId: 'moduleMap', data: { name: 'users', key: 'ctx.from' } }] },
-    { code: "const users = {}; bot.when('x', (ctx) => users[ctx?.sender])", errors: [{ messageId: 'moduleMap', data: { name: 'users', key: 'ctx.sender' } }] },
+    { code: "const users = new Map(); bot.when('x', (ctx) => users.get(ctx?.from)); bot.when('y', (ctx) => users.clear())", errors: [{ messageId: 'moduleMap', data: { name: 'users', key: 'ctx.from' } }] },
+    { code: "const users = {}; bot.when('x', (ctx) => users[ctx?.sender]); bot.when('y', (ctx) => { users[ctx.body] = 1 })", errors: [{ messageId: 'moduleMap', data: { name: 'users', key: 'ctx.sender' } }] },
+  ],
+})
+
+tester.run('prefer-ctx-user-over-global-state (read-only lookups)', rule('prefer-ctx-user-over-global-state'), {
+  valid: [
+    // A constant allow/deny list holds no per-user state: looking the sender up is fine.
+    "const blocked = new Set(['573@s.whatsapp.net']); bot.before('message', async (ctx, next) => { if (blocked.has(ctx.from)) return; await next() })",
+    "const ADMINS = new Set(['a', 'b']); bot.when('x', (ctx) => { if (!ADMINS.has(ctx.from)) return })",
+    "const NAMES = new Map([['a', 'Ana']]); bot.when('x', (ctx) => ctx.reply(NAMES.get(ctx.sender) ?? 'hi'))",
+    "const VIP = { a: true }; bot.when('x', (ctx) => VIP[ctx.from] && ctx.reply('vip'))",
+    // Filled once at start-up (module level), only read in handlers.
+    "const ADMINS = new Set(); for (const a of list) ADMINS.add(a); bot.when('x', (ctx) => ADMINS.has(ctx.from))",
+  ],
+  invalid: [
+    // Written in a handler under another key: the reads are per-user state too.
+    {
+      code: "const carts = new Map(); bot.when('x', (ctx) => carts.get(ctx.from)); bot.when('y', (ctx) => { const id = ctx.from; carts.set(id, []) })",
+      errors: [{ messageId: 'moduleMap', data: { name: 'carts', key: 'ctx.from' } }],
+    },
+    {
+      code: "const seen = new Set(); bot.when('x', (ctx) => { if (seen.has(ctx.from)) return; seen.add(ctx.from) })",
+      errors: [{ messageId: 'moduleMap', data: { name: 'seen', key: 'ctx.from' } }, { messageId: 'moduleMap', data: { name: 'seen', key: 'ctx.from' } }],
+    },
+    // Keyed writes are reported even when nothing reads them.
+    { code: "const seen = new Set(); bot.when('x', (ctx) => { seen.add(ctx.from) })", errors: [{ messageId: 'moduleMap' }] },
+    { code: "const users = {}; bot.when('x', (ctx) => { delete users[ctx.from] })", errors: [{ messageId: 'moduleMap' }] },
+    { code: "const users = {}; bot.when('x', (ctx) => { users[ctx.from].count++ })", errors: [{ messageId: 'moduleMap' }] },
+    { code: "const users = {}; bot.when('x', (ctx) => { users[ctx.from] ??= {} })", errors: [{ messageId: 'moduleMap' }] },
+    // Reassigned in a handler.
+    { code: "let users = {}; bot.when('x', (ctx) => users[ctx.from]); bot.when('r', () => { users = {} })", errors: [{ messageId: 'moduleMap' }] },
   ],
 })
 

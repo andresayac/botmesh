@@ -59,7 +59,7 @@ The rules are syntactic and need no type information, so they work on JavaScript
 | `botmesh/no-async-plugin-install` | An `async install()` in `definePlugin({...})`, a plugin object literal or a plugin class: `bot.plug()` does not await it. | none |
 | `botmesh/no-empty-trigger` | `''`, `'   '`, `[]`, `['']` or `{ pattern: '' }` as a trigger of `flow()`, `addKeyword()`, `bot.when()` or a conversation. `flow([])`, the trigger-less sub-flow idiom, is allowed. | none |
 | `botmesh/require-timeout-on-ask` | An answer wait without an explicit timeout (it falls back to `conversation.timeout` or the built-in 5 minutes) or with a timeout of `0` (never expires): `.ask()` without `{ timeout }` or a `.timeout()` in the chain, `c.ask()` and, when configured, `c.waitText` / `c.waitMedia` / `c.waitLocation` / `c.choose` / `c.waitAny` (which takes `{ timeoutMs }`) and flow `.choose()` / `.form()`. | `{ methods, allowFlowTimeout }` (default `['ask']`, `true`) |
-| `botmesh/prefer-ctx-user-over-global-state` | `globalState` (v1) and module-level `Map`s or objects indexed by `ctx.from`, `ctx.sender` or `ctx.senderId`: lost on restart and not shared between replicas. Use `ctx.user`. | `{ contextNames }` (default `['ctx']`) |
+| `botmesh/prefer-ctx-user-over-global-state` | `globalState` (v1) and module-level `Map`s, `Set`s or objects written under `ctx.from`, `ctx.sender` or `ctx.senderId` (read-only lookups in constant allow/deny lists are fine): lost on restart and not shared between replicas. Use `ctx.user`. | `{ contextNames }` (default `['ctx']`) |
 
 Every rule links to its section of the [guide](https://andresayac.github.io/botmesh/guide/eslint) (`meta.docs.url`), so editors show the documentation link next to the finding.
 

@@ -177,10 +177,16 @@ Opciones: `{ methods?: ('ask' | 'waitText' | 'waitMedia' | 'waitLocation' | 'cho
 
 ### `botmesh/prefer-ctx-user-over-global-state`
 
-Marca el `globalState` de v1 y los `Map` u objetos **de módulo** indexados por
-`ctx.from`, `ctx.sender` o `ctx.senderId`
-(`users.get/set/has/delete(ctx.from)`, `scores[ctx.sender]`). Ese estado se
-pierde al reiniciar, crece sin límite y no se comparte entre réplicas. Usa
+Marca el `globalState` de v1 y los `Map`, `Set` u objetos **de módulo** indexados
+por `ctx.from`, `ctx.sender` o `ctx.senderId`. Las escrituras
+(`users.set/delete(ctx.from)`, `seen.add(ctx.from)`, `scores[ctx.sender] = …`,
+`scores[ctx.sender].n++`) se marcan siempre; las lecturas
+(`users.get/has(ctx.from)`, `scores[ctx.sender]`), solo si la misma variable
+también se escribe o se reasigna dentro de una función. Una lista constante de
+permitidos o bloqueados (`const ADMINS = new Set([...])`,
+`if (blocked.has(ctx.from))`), aunque se rellene a nivel de módulo, no guarda
+estado por usuario y no se marca. El estado por usuario se pierde al reiniciar,
+crece sin límite y no se comparte entre réplicas. Usa
 [`ctx.user`](/es/guide/datos-usuario)
 (`await ctx.user.ns('feature').set(key, value)`) para los datos por usuario y
 `c.state` para los datos de la conversación.
