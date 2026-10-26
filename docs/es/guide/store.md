@@ -196,6 +196,11 @@ Semántica que todo store debe respetar:
   upsert parcial debe omitir lo que no conoce. El `Bot` ya lo hace: un mensaje sin
   nombre visible (o sin nombre de chat) nunca borra el que estaba guardado.
 - `deleteChat` borra también el log de mensajes de ese chat.
+- `getMessagesByChat` devuelve primero los mensajes más nuevos. Los stores
+  persistentes los ordenan por `timestamp`, así que volver a guardar un mensaje
+  con otro timestamp lo mueve. `MemoryStore` deja un mensaje re-guardado en la
+  posición de su primer guardado (actualiza la fila en su sitio); no cuentes
+  con un re-guardado para reordenar el log.
 - `maxMessagesPerChat` es opt-in en los stores persistentes; por defecto su log
   de mensajes no tiene límite. `MemoryStore` es la excepción: guarda 1000
   mensajes por chat por defecto porque su log vive en RAM (`Infinity` quita el

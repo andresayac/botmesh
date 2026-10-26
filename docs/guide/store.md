@@ -195,6 +195,11 @@ Semantics every store must keep:
   omit what it does not know. The `Bot` already does: a message without a
   display name (or chat name) never erases the one stored.
 - `deleteChat` also deletes that chat's message log.
+- `getMessagesByChat` returns the newest messages first. The persistent stores
+  order them by `timestamp`, so re-saving a message with a new timestamp moves
+  it. `MemoryStore` keeps a re-saved message at the position of its first
+  save (it updates the row in place); do not rely on re-saves to reorder the
+  log.
 - `maxMessagesPerChat` is opt-in in the persistent stores; by default their
   message log is unbounded. `MemoryStore` is the exception: it keeps 1000
   messages per chat by default because its log lives in RAM (`Infinity`
