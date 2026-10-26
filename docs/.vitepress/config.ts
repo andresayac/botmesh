@@ -155,6 +155,16 @@ const enSidebar = {
         { text: 'AI with human escalation', link: '/examples/ai-handoff' },
       ],
     },
+    {
+      text: 'Advanced',
+      items: [
+        { text: 'Cloud API webhook server', link: '/examples/cloud-api-webhook' },
+        { text: 'Production-ready bot', link: '/examples/production-bot' },
+        { text: 'Scheduled daily digest', link: '/examples/daily-digest' },
+        { text: 'Testing your bot', link: '/examples/testing-your-bot' },
+        { text: 'Build a plugin: FAQ', link: '/examples/faq-plugin' },
+      ],
+    },
   ],
 } satisfies DefaultTheme.SidebarMulti
 
@@ -274,6 +284,16 @@ const esSidebar = {
         { text: 'Respuestas de IA en streaming', link: '/es/ejemplos/ia-streaming' },
         { text: 'Enrutador con IA', link: '/es/ejemplos/ia-enrutador' },
         { text: 'IA con escalado a humano', link: '/es/ejemplos/ia-escalado-humano' },
+      ],
+    },
+    {
+      text: 'Avanzado',
+      items: [
+        { text: 'Webhooks de la Cloud API', link: '/es/ejemplos/webhook-cloud-api' },
+        { text: 'Bot listo para producción', link: '/es/ejemplos/bot-produccion' },
+        { text: 'Resumen diario programado', link: '/es/ejemplos/resumen-diario' },
+        { text: 'Probar tu bot', link: '/es/ejemplos/probar-tu-bot' },
+        { text: 'Crear un plugin: FAQ', link: '/es/ejemplos/plugin-faq' },
       ],
     },
   ],

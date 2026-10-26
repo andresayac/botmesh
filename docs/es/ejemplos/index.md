@@ -62,6 +62,16 @@ Usan [`@botmesh/ai`](/es/guide/ai) con Anthropic por defecto; cada página muest
 | [Enrutador con IA](./ia-enrutador) | Avanzado | IA, Flujos | `generate()`, `replyInChat()`, flujos, `bot.trigger()` | Clasifica el texto libre con el modelo, lleva los pagos a flujos deterministas y deja la charla a la IA. |
 | [IA con escalado a humano](./ia-escalado-humano) | Avanzado | IA, Herramientas, Handoff | tool calling, `ctx.handoff()`, `bot.resume()`, comandos de escape | Pasa el chat a una persona con un resumen para el agente y lo recupera con `/bot`. |
 
+## Avanzado
+
+| Ejemplo | Nivel | Etiquetas | Funcionalidades | Qué construyes |
+| --- | --- | --- | --- | --- |
+| [Servidor de webhooks para la Cloud API](./webhook-cloud-api) | Avanzado | WhatsApp, Cloud API, Webhooks, Seguridad | Webhooks de `@botmesh/meta`, firmas sobre el body crudo, ventana de 24 h, plantillas | Un servidor `node:http` para la Cloud API oficial, con plantilla de respaldo |
+| [Bot listo para producción](./bot-produccion) | Avanzado | Producción, Docker, SQLite, Durabilidad | `SQLiteStore`, durabilidad, flujos persistentes, salud y métricas, apagado ordenado, logs | Un bot de soporte empaquetado como proyecto pequeño con Dockerfile |
+| [Resumen diario programado](./resumen-diario) | Avanzado | Scheduler, Broadcast, Zonas horarias | Scheduler durable, zonas horarias, `bot.broadcast`, altas y bajas con `ctx.user` | Un resumen a las 08:00 en la zona horaria del bot, una vez al día aunque haya reinicios |
+| [Probar tu bot](./probar-tu-bot) | Avanzado | Testing, Vitest, Transcripciones doradas | `createTestBot`, `expectReply`, transcripciones doradas, reproducción | Un archivo de Vitest completo que graba y reproduce una conversación |
+| [Crear un plugin: FAQ con herramientas](./plugin-faq) | Avanzado | Plugins, Inyección de dependencias | `definePlugin`, `install`/`uninstall`, `ctx.onDispose`, `provide` | Un plugin de FAQ reutilizable que comparte sus contadores como herramienta |
+
 El código de cada ejemplo es el mismo en WhatsApp (Baileys) y Telegram:
 solo cambia el provider. Cuando un canal muestra algo distinto (botones,
 stickers), la página del ejemplo lo dice, y la
