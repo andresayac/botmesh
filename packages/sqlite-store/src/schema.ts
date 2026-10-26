@@ -13,7 +13,15 @@
  * `@botmesh/sqlite-store@0.2.0-alpha.0`): its tables were all created with
  * `IF NOT EXISTS`, so the baseline migration (1) only adds what is missing.
  */
-import type BetterSqlite3 from 'better-sqlite3'
+/**
+ * The part of a better-sqlite3 `Database` the migrations use. Structural so the
+ * emitted declarations do not require `@types/better-sqlite3` in consumer projects.
+ */
+export interface SchemaDatabase {
+  exec(sql: string): unknown
+  pragma(source: string, options?: { simple?: boolean }): unknown
+  transaction(fn: () => void): { immediate(): void }
+}
 import { USER_DATA_SCHEMA } from './userData.js'
 
 /** The tables of the store itself (messages, chats, contacts, checkpoints, conversations, cursors). */
@@ -35,7 +43,7 @@ const STORE_SCHEMA = `
 export interface SchemaMigration {
   version: number
   description: string
-  up(db: BetterSqlite3.Database): void
+  up(db: SchemaDatabase): void
 }
 
 /**
@@ -73,14 +81,14 @@ export class SQLiteSchemaVersionError extends Error {
   }
 }
 
-const versionOf = (db: BetterSqlite3.Database): number => Number(db.pragma('user_version', { simple: true }) ?? 0)
+const versionOf = (db: SchemaDatabase): number => Number(db.pragma('user_version', { simple: true }) ?? 0)
 
 /**
  * Throw {@link SQLiteSchemaVersionError} when `db` was written by a newer version than
  * `migrations` knows. Only reads `PRAGMA user_version`, so it can run before any
  * persistent pragma (e.g. `journal_mode = WAL`) touches the file.
  */
-export function assertSupportedVersion(db: BetterSqlite3.Database, migrations: readonly SchemaMigration[], file: string): void {
+export function assertSupportedVersion(db: SchemaDatabase, migrations: readonly SchemaMigration[], file: string): void {
   const latest = migrations.length ? migrations[migrations.length - 1]!.version : 0
   const found = versionOf(db)
   if (found > latest) throw new SQLiteSchemaVersionError(file, found, latest)
@@ -92,7 +100,7 @@ export function assertSupportedVersion(db: BetterSqlite3.Database, migrations: r
  * and wraps a failing step (`cause` keeps the original error).
  */
 export function runMigrations(
-  db: BetterSqlite3.Database,
+  db: SchemaDatabase,
   migrations: readonly SchemaMigration[],
   file: string,
 ): { from: number; to: number } {
