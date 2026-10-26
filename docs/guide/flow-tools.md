@@ -74,7 +74,7 @@ sorted from most to least severe.
 | `empty-choice` | error | `choose()` with no options |
 | `unreachable-step` | warning | steps after an unconditional `goto` (or after a `choose` whose options all jump away) |
 | `unreachable-flow` | warning / info | no trigger can start it and no reachable flow jumps to it. Info when reachable code could still enter it with `c.goto()` |
-| `empty-trigger` | warning / info | `addKeyword([])` never matches; `''` matches messages with no text (or everything with contains/startsWith/endsWith); an empty regex. Info if the flow is only a `goto` target |
+| `empty-trigger` | warning / info | `flow([])` never matches; `''` matches messages with no text (or everything with contains/startsWith/endsWith); an empty regex. Info if the flow is only a `goto` target |
 | `duplicate-trigger` | warning | a route never gets a pattern because an earlier one in the real dispatch order (specificity, then registration) takes it; respects scope and match strategy |
 | `flow-id-collision` | warning | two flows/conversations with the same id (e.g. `flow('hola')` and `flow(['Hola', 'hi'])`): only the last one runs |
 | `persistent-memory-store` | warning | `.persistent()` with a `MemoryStore` without `file` (checkpoints die on restart) |

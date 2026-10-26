@@ -71,6 +71,18 @@ No camera? Set `pairingCode: '+57300XXXXXXX'` on `BaileysProvider` (full interna
 
 > Note: the WhatsApp management sub-APIs (`bot.groups/profile/privacy/chats/presence`) moved to the transport and will be re-exposed as provider namespaces soon.
 
+## Entry points
+
+| Import from | For |
+| --- | --- |
+| `@botmesh/core` | Applications: `Bot`, the flow DSL, message types, options and errors. |
+| `@botmesh/core/testing` | Tests: `createTestBot`, `MockProvider`, chaos kit, golden transcripts, `MemoryCoordinator`. |
+| `@botmesh/core/spi` | Authors of stores, durability backends, schedule stores, coordinators, tracer integrations and transports (`KvDurability`, `MemoryKv`, `MemoryScheduleStore`, `messageKey`, `toInboundLocation`, record types). Covered by semver. |
+| `@botmesh/core/dev` | The `botmesh dev` terminal simulator. |
+| `@botmesh/core/internal` | Engine classes and helpers. No semver guarantee. |
+
+Coming from an earlier alpha? See [Migrating to the stable API](https://github.com/andresayac/botmesh/blob/main/docs/guide/stable-migration.md).
+
 ## Persistent store (SQLite)
 
 The default `MemoryStore` is ideal for development. For production use the [`@botmesh/sqlite-store`](https://github.com/andresayac/botmesh/tree/main/packages/sqlite-store) package:

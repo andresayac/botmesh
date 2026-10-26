@@ -81,11 +81,11 @@ const bot = new Bot({
 
 ## Can I send messages without someone writing first?
 
-Yes, with `bot.sendText`:
+Yes, with `bot.send`:
 
 ```ts
 bot.schedule('0 9 * * *', async () => {
-  await bot.sendText('57300XXXXXXX@s.whatsapp.net', '🌅 Good morning!')
+  await bot.send('57300XXXXXXX@s.whatsapp.net', '🌅 Good morning!')
 })
 ```
 

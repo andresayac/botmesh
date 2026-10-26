@@ -69,7 +69,7 @@ sin `scope()` no debe compartirse entre bots.
 Todos los backends pasan la misma suite de conformidad
 (`test-utils/durability-conformance.ts`), y puedes escribir el tuyo implementando la
 pequeña interfaz `DurableKv` (compare-and-set con versión más dos índices
-ordenados) y envolviéndola en `KvDurability`.
+ordenados) y envolviéndola en `KvDurability` (las dos en `@botmesh/core/spi`).
 
 El bot arranca y detiene el backend por su cuenta. Usa también un **store**
 persistente: los checkpoints de un flow `.persistent()` viven en el store y el

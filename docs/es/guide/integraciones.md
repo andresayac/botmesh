@@ -108,7 +108,7 @@ app.post('/chatwoot', express.raw({ type: '*/*' }), async (req, res) => {
 | Mensaje entrante (también durante el handoff) | Se publica como `incoming` en la conversación del chat (se crea la primera vez). En grupos, el texto va prefijado con el nombre del participante |
 | El bot envía | Se publica como `outgoing`. Los medios se reflejan como texto (`[image] caption`…) |
 | `ctx.handoff()` / `bot.handoff()` | Conversación en `open`, nota privada (`handoffNote`) y se añaden `labels.handoff`. Si el handoff lo originó el propio Chatwoot (`reason` que empieza por `chatwoot:`), solo se añaden las labels |
-| Respuesta pública de un agente (`message_created`) | `bot.handoff(chatId, { reason: 'chatwoot:agent' })` si `autoHandoff` y el chat no está en handoff; luego `bot.sendTo()` (adjuntos por URL). Nunca se re-refleja; un reenvío del mismo id de mensaje se ignora |
+| Respuesta pública de un agente (`message_created`) | `bot.handoff(chatId, { reason: 'chatwoot:agent' })` si `autoHandoff` y el chat no está en handoff; luego `bot.send()` (adjuntos por URL). Nunca se re-refleja; un reenvío del mismo id de mensaje se ignora |
 | Conversación resuelta (`conversation_status_changed`, `conversation_resolved`, o `conversation_updated` con cambio de `status`) | `bot.resume(chatId, { reason: 'chatwoot:resolved' })` si el chat está en handoff (`resumeOnResolve`). Solo termina el handoff: no cierra ningún ticket |
 | `bot.resume()` por otra causa | Conversación `resolved` (`resolveOnResume`), se quitan `labels.handoff` y se añaden `labels.resume` |
 

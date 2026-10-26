@@ -28,10 +28,10 @@ decides qué hacer:
 import { OutsideSessionWindowError } from '@botmesh/core'
 
 try {
-  await bot.sendTo(chatId, 'Your order shipped')
+  await bot.send(chatId, 'Your order shipped')
 } catch (err) {
   if (!(err instanceof OutsideSessionWindowError)) throw err
-  await bot.sendTo(chatId, {
+  await bot.send(chatId, {
     kind: 'template',
     name: 'order_update',
     language: 'en',
@@ -64,7 +64,7 @@ const provider = new CloudAPIProvider({
 ```
 
 Con `sessionWindow`, `provider.send()` (y por tanto `ctx.reply`,
-`bot.sendTo`...) pasa por un `SessionWindowManager`:
+`bot.send`...) pasa por un `SessionWindowManager`:
 
 1. Cada **mensaje** o **interacción** entrante (pulsación de botón o de
    lista) registra la hora del último mensaje del chat. Las reacciones y los
@@ -105,7 +105,7 @@ directamente.
 import { SessionWindowReopenedError } from '@botmesh/meta'
 
 try {
-  await bot.sendTo(chatId, 'Your invoice is attached')
+  await bot.send(chatId, 'Your invoice is attached')
 } catch (err) {
   if (err instanceof SessionWindowReopenedError) {
     // err.template went out; err.queued === true → delivered when the user replies

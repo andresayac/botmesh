@@ -325,7 +325,7 @@ bot.conversation('foto', async (c, ctx) => {
 ```
 
 El tipo público es `ConversationHandler<TTools = DefaultTools>`; los
-handlers tipados con el antiguo `ConversationFn<ConversationControls>`
+handlers tipados con el obsoleto `ConversationFn<ConversationControls>`
 siguen compilando. En el DSL (`flow().do((ctx, c) => ...)`) `ctx` sigue
 siendo un `RuntimeMessage`; ahí usa `userOf(ctx)` y `bot.handoff(ctx.from)`.
 
@@ -426,7 +426,7 @@ bot.conversation('juego', async (c, ctx) => {
 bot.onIdle('10m', async (ctx, { chatId, idleMs, lastActivityAt }) => {
   await ctx.reply('¿Sigues ahí? 👀')       // ctx = el último mensaje procesado de ese chat
 })
-const off = bot.onIdle('1h', (ctx) => bot.sendText(ctx.from, 'Cerramos tu sesión por inactividad'))
+const off = bot.onIdle('1h', (ctx) => bot.send(ctx.from, 'Cerramos tu sesión por inactividad'))
 off()                                       // deja de vigilar y cancela sus temporizadores
 bot.clearIdle(chatId)                       // cancela los temporizadores de un chat (de todos sin argumento)
 ```

@@ -5,13 +5,10 @@ Todo lo que puedes enviar y recibir.
 ## Helpers de respuesta (dentro de un handler)
 
 Todos estos apuntan a `ctx.from` y devuelven `Promise<SentMessage>`.
-`reply`, `say`, `answer` y `text` son alias equivalentes:
+`ctx.reply` es la respuesta de texto (`say`, `answer` y `text` son alias obsoletos):
 
 ```ts
 await ctx.reply('👋 Hello!')
-await ctx.say('How are you?')          // alias
-await ctx.answer('👍')                  // alias
-await ctx.text('plain text')            // alias
 await ctx.quote('replying to your message')     // cita el mensaje entrante
 await ctx.reply('typing this out...', { typing: true }) // muestra "escribiendo…" antes de enviar
 ```
@@ -152,7 +149,7 @@ await ctx.edit('Listo ✅', { fallback: 'skip' }) // nunca envía un mensaje nue
 contexto** (esta ejecución del handler, o este flujo) y solo si es del mismo tipo
 de contenido. Nunca edita respuestas a un mensaje anterior, respuestas del flujo
 de otro participante en un grupo ni una respuesta seguida de un
-`bot.send`/`bot.sendTo` al chat. El resultado trae `edited: true` cuando el
+`bot.send` al chat. El resultado trae `edited: true` cuando el
 provider editó el mensaje en el sitio.
 
 Si el provider no puede editar (sin `capabilities.edit`, un tipo de contenido que
@@ -204,14 +201,14 @@ handler sigue, así que un indicador fallido nunca cuesta la respuesta siguiente
 ## Recibir media
 
 ```ts
-bot.onImage(async (ctx) => { await ctx.reply('📸 Got your image!') })
-bot.onAudio(async (ctx) => { await ctx.reply('🎵 Got your audio') })
-bot.onVideo(async (ctx) => { await ctx.reply('🎬 Got your video') })
-bot.onSticker(async (ctx) => { await ctx.reply('🎨 Got your sticker!') })
-bot.onDocument(async (ctx) => { await ctx.reply('📄 Got your file') })
-bot.onLocation(async (ctx) => { await ctx.reply('📍 Got your location') })
-bot.onContact(async (ctx) => { await ctx.reply('👤 Got your contact') })
-bot.onPoll(async (ctx) => { await ctx.reply('📊 Got your poll') })
+bot.onType('image', async (ctx) => { await ctx.reply('📸 Got your image!') })
+bot.onType('audio', async (ctx) => { await ctx.reply('🎵 Got your audio') })
+bot.onType('video', async (ctx) => { await ctx.reply('🎬 Got your video') })
+bot.onType('sticker', async (ctx) => { await ctx.reply('🎨 Got your sticker!') })
+bot.onType('document', async (ctx) => { await ctx.reply('📄 Got your file') })
+bot.onType('location', async (ctx) => { await ctx.reply('📍 Got your location') })
+bot.onType('contact', async (ctx) => { await ctx.reply('👤 Got your contact') })
+bot.onType('poll', async (ctx) => { await ctx.reply('📊 Got your poll') })
 ```
 
 `onImage`/`onAudio`/etc. son matchers de baja especificidad: un
@@ -227,7 +224,7 @@ coordenadas normalizadas en `ctx.sharedLocation` (no en `ctx.location`, que
 **envía** una):
 
 ```ts
-bot.onLocation(async (ctx) => {
+bot.onType('location', async (ctx) => {
   const loc = ctx.sharedLocation
   if (!loc) return ctx.reply('No pude leer esa ubicación')
   await ctx.reply(`📍 ${loc.latitude}, ${loc.longitude}${loc.name ? ` (${loc.name})` : ''}`)
@@ -246,7 +243,7 @@ ubicaciones. En otros canales, o si el transporte no trae coordenadas,
 `ctx.type` sigue siendo `'location'` pero `sharedLocation` es `undefined`. Si
 escribes un provider, mapea el payload con
 `toInboundLocation({ latitude, longitude, name, address, live })` de
-`@botmesh/core`, que descarta coordenadas ausentes o fuera de rango.
+`@botmesh/core/spi`, que descarta coordenadas ausentes o fuera de rango.
 
 Dentro de una conversación, `c.waitLocation(opts?)` espera una y resuelve con
 el `InboundLocation`; cualquier otra cosa vuelve a pedirla con `otherwise` (por
@@ -288,7 +285,7 @@ el último voto de cada persona y cuenta cada mensaje de voto una sola vez
 descifran las encuestas que vio **este proceso** (tras un reinicio, los
 votos de encuestas anteriores se descartan con un log `debug`) y el bot no
 puede votar. Una encuesta que crea otra persona sigue llegando como mensaje
-`poll` (`bot.onPoll`, el [trigger `POLL`](./triggers#triggers-por-tipo-de-mensaje));
+`poll` (`bot.onType('poll')`, el [trigger `POLL`](./triggers#triggers-por-tipo-de-mensaje));
 el voto cifrado ya no. Detalles en el README de `@botmesh/baileys`.
 
 ## Acceder al contenido del media
@@ -300,7 +297,7 @@ a través del provider y guarda el resultado en `ctx.media`:
 ```ts
 import { loadMediaOf, MediaTooLargeError } from '@botmesh/core'
 
-bot.onImage(async (ctx) => {
+bot.onType('image', async (ctx) => {
   try {
     const media = await loadMediaOf(ctx, { maxBytes: 5 * 1024 * 1024 })
     if (!media) return                 // sin media, o la descarga falló
@@ -368,13 +365,13 @@ una [tarea programada](./scheduler) — usa la instancia del bot directamente.
 El contenido es la unión etiquetada neutral de transporte (`{ kind, ... }`):
 
 ```ts
-await bot.sendText('573001234567@s.whatsapp.net', '🌅 Good morning!')
+await bot.send('573001234567@s.whatsapp.net', '🌅 Good morning!')
 await bot.send('573001234567@s.whatsapp.net', {
   kind: 'image',
   media: { url },
   caption: 'hi',
 })
-await bot.sendTo(chatId, 'Hola, soy Ana de soporte')  // mismo camino; un string se envía como texto
+await bot.send(chatId, 'Hola, soy Ana de soporte')  // mismo camino; un string se envía como texto
 ```
 
 ## Difusiones (broadcast)
@@ -432,9 +429,9 @@ Puedes hacer `await bot.trigger(...)` desde un handler o comando del mismo chat 
   `body` fija el `ctx.body` del mensaje sintético (por defecto `''`).
 - No corren hooks `before('message')`, matchers ni el evento `'message'`, y no se
   persiste nada del mensaje sintético (`ctx.raw` es `{ synthetic: 'trigger', name }`).
-- `bot.triggerFlow(id, { chatId, userId?, isGroup? }, { data?, body? })` es un envoltorio
-  fino con `ifActive: 'replace'` que resuelve `true`/`false` y rechaza con el bot detenido
-  (`state` es un alias obsoleto de `data`).
+- `bot.triggerFlow(id, { chatId, userId?, isGroup? }, { data?, body? })` está obsoleto:
+  equivale a `bot.trigger(id, { chatId, userId, isGroup, data, body, ifActive: 'replace' })`
+  con `result.started` como resultado.
 
 ## Métricas de runtime
 

@@ -25,7 +25,7 @@ bot.on('resume', ({ chatId, at, reason, handoff }) => crm.close(chatId))
 bot.on('message', (ctx) => { if (bot.isHandedOff(ctx.from)) crm.relay(ctx.from, ctx.body) })
 
 // The agent answers outside the pipeline (a string is sent as text)
-await bot.sendTo(chatId, 'Hi, I am Ana 👋')
+await bot.send(chatId, 'Hi, I am Ana 👋')
 await bot.resume(chatId, { reason: 'ticket closed' })
 
 bot.isHandedOff(chatId)   // boolean
@@ -74,8 +74,8 @@ for every member of that group, but not their DMs.
 - They never reject because of store errors; those go to the `'error'`
   event. They throw a `TypeError` synchronously on an empty chat id.
 - `ctx.handoff()` resolves `false` when the context was not built by a bot.
-- `bot.sendTo()` goes through the `before`/`after('send')` hooks and the
-  outbound ledger, like `bot.send()`. It does not resume the bot.
+- An agent's `bot.send()` goes through the `before`/`after('send')` hooks and
+  the outbound ledger like any other send. It does not resume the bot.
 
 ### Persistence
 

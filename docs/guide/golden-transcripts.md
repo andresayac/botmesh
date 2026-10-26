@@ -15,11 +15,14 @@ The workflow:
 
 | Function | Import from | Purpose |
 | --- | --- | --- |
-| `recordTranscript`, `RecordingProvider` | `@botmesh/core` or `@botmesh/core/testing` | Record live traffic through a provider wrapper |
-| `transcriptFromStore`, `transcriptFromMessages` | `@botmesh/core` or `@botmesh/core/testing` | Build a transcript from the store message log |
-| `redactTranscript`, `createRedactionMap` | `@botmesh/core` or `@botmesh/core/testing` | Replace PII with stable placeholders |
-| `parseTranscript`, `serializeTranscript`, `createTranscript` | `@botmesh/core` or `@botmesh/core/testing` | Read, write and hand-write transcripts |
-| `replayTranscript`, `assertTranscript`, `REPLAY_MASKS` | `@botmesh/core/testing` only | Replay and diff |
+| `recordTranscript`, `RecordingProvider` | `@botmesh/core/testing` | Record live traffic through a provider wrapper |
+| `transcriptFromStore`, `transcriptFromMessages` | `@botmesh/core/testing` | Build a transcript from the store message log |
+| `redactTranscript`, `createRedactionMap` | `@botmesh/core/testing` | Replace PII with stable placeholders |
+| `parseTranscript`, `serializeTranscript`, `createTranscript` | `@botmesh/core/testing` | Read, write and hand-write transcripts |
+| `replayTranscript`, `assertTranscript`, `REPLAY_MASKS` | `@botmesh/core/testing` | Replay and diff |
+
+The recording, redaction and format helpers are also re-exported by `@botmesh/core`, marked
+`@deprecated`: import them from `@botmesh/core/testing` (recording works in production too).
 
 ## Record a conversation
 

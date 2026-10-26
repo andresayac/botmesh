@@ -335,7 +335,7 @@ a ser la líder.
 
 ## Tests
 
-`MemoryCoordinator` es la implementación de referencia en un solo proceso.
+`MemoryCoordinator` (de `@botmesh/core/testing`) es la implementación de referencia en un solo proceso.
 Los bots que comparten un `MemoryCoordinationHub` se coordinan igual que
 réplicas que comparten Redis, y `coordinator.crash()` simula la caída de una
 réplica:

@@ -28,7 +28,7 @@ plugin registered through `ctx.bot`:
 - commands (`command()`), matchers (`when()`, `onMessage()`, `onType()`),
   conversations and flow triggers (`conversation()`, `use(flow)`);
 - hooks (`before()`, `after()`, `onError()`, `hook()`);
-- nested plugins (`ctx.bot.plug()` / `ctx.bot.use(plugin)`);
+- nested plugins (`ctx.bot.plug()`, or the deprecated `ctx.bot.use(plugin)`);
 - flows registered at runtime with `ctx.bot.registerFlow()`, or created (not
   replaced) with `ctx.bot.replaceFlow()`;
 - every `ctx.onDispose(fn)` callback.
@@ -62,6 +62,22 @@ const unplugCrm = bot.plug(crm)      // ...then the plugin that requires it
 The check runs at plug time only: unplugging `inbox` later does not unplug
 `crm`. A plugin nested inside another one (`ctx.bot.plug()` from `install()`)
 may require its parent.
+
+### One instance per name (`multiple`)
+
+`bot.plug()` refuses a plugin whose `name` is already plugged on the bot, so a
+plugin registered twice by mistake never runs its handlers twice:
+
+```ts
+const unplug = bot.plug(inbox)
+bot.plug(inbox)   // Error: Plugin "inbox" is already plugged on this bot…
+unplug()
+bot.plug(inbox, { tenant: 'b' })  // ok again: the first instance is gone
+```
+
+A plugin meant to run several times with different configs sets
+`multiple: true` in its spec (every instance must set it). Each instance is
+then unplugged on its own, and any of them satisfies `requires`.
 
 ### Built-in: slashCommands
 
@@ -155,6 +171,7 @@ definePlugin({
   version: string,          // semver (required)
   description?: string,     // human description
   requires?: string[],      // names of plugins that must be plugged first
+  multiple?: boolean,       // allow several instances on one bot (default: plugging the name twice throws)
   install(ctx, config) {    // runs on install (required)
     // ctx: { bot, logger, tools, config, onDispose(fn) }
     // register via ctx.bot.when/command/before/... and use

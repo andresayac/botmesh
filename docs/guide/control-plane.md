@@ -161,25 +161,23 @@ directly in any bot:
 | `bot.unregisterFlow(id)` | Removes a flow or conversation; its triggers stop matching. `false` when unknown. |
 | `bot.hasFlow(id)` | Whether a flow or conversation is registered under `id`. |
 | `bot.listFlows()` | `RegisteredFlowInfo[]`: `{ id, kind: 'flow', steps, persistent }` or `{ id, kind: 'conversation' }`. |
-| `bot.triggerFlow(id, { chatId, userId?, isGroup? }, { data?, body? })` | Starts a flow proactively in a chat. Returns `Promise<boolean>`. |
+| `bot.trigger(id, { chatId, userId?, isGroup?, data?, body?, ifActive? })` | Starts a flow proactively in a chat. Returns a `TriggerResult` (`started`, `reason`). |
 | `bot.listConversations()` | `ConversationSnapshot[]`: `{ key, state, waiting, queued, accepts? }`. |
 | `bot.abortConversation(key)` | Aborts a live conversation by key. |
 
-`triggerFlow()` is a thin wrapper over `bot.trigger()` with
-`ifActive: 'replace'`: it goes through the same access-list and handoff gates,
+With `ifActive: 'replace'` (what the deprecated `bot.triggerFlow()` always did) it goes through the same access-list and handoff gates,
 the chat's FIFO slot, language resolution and metrics, and replaces a
 conversation already running (or dormant) on the same key. `data` is
 shallow-merged into `c.state` (the same option as `bot.trigger()`; `state` is
 a deprecated alias, and passing both throws a `TypeError`); `body` becomes
-`ctx.body` of the synthetic message (default `''`). It resolves `false` when the flow is unknown, the
-subject is blocked by the access lists or the chat is handed off, and rejects
-when the bot is not started.
+`ctx.body` of the synthetic message (default `''`). `started` is `false` when the flow is unknown, the
+subject is blocked by the access lists or the chat is handed off (`reason` says which).
 
 ```ts
 import { flow } from '@botmesh/core'
 
 bot.registerFlow(flow('survey').ask('Your name?', 'name').say((_ctx, c) => `Thanks ${c.state.name}`))
-await bot.triggerFlow('survey', { chatId }, { data: { source: 'campaign' } })
+await bot.trigger('survey', { chatId, data: { source: 'campaign' }, ifActive: 'replace' })
 ```
 
 ## JSON flows

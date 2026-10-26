@@ -76,7 +76,7 @@ ordenados de más a menos grave.
 | `empty-choice` | error | `choose()` sin opciones |
 | `unreachable-step` | warning | pasos después de un `goto` incondicional (o de un `choose` cuyas opciones saltan todas) |
 | `unreachable-flow` | warning / info | ningún trigger lo arranca y ningún flujo alcanzable salta a él. Info si código alcanzable aún podría entrar con `c.goto()` |
-| `empty-trigger` | warning / info | `addKeyword([])` nunca coincide; `''` coincide con mensajes sin texto (o con todo en contains/startsWith/endsWith); un regex vacío. Info si el flujo solo es destino de un `goto` |
+| `empty-trigger` | warning / info | `flow([])` nunca coincide; `''` coincide con mensajes sin texto (o con todo en contains/startsWith/endsWith); un regex vacío. Info si el flujo solo es destino de un `goto` |
 | `duplicate-trigger` | warning | una ruta nunca recibe un patrón porque otra anterior en el orden real del dispatcher (especificidad y luego registro) lo atiende; respeta scope y estrategia |
 | `flow-id-collision` | warning | dos flujos/conversaciones con el mismo id (p. ej. `flow('hola')` y `flow(['Hola', 'hi'])`): solo corre el último |
 | `persistent-memory-store` | warning | `.persistent()` con un `MemoryStore` sin `file` (los checkpoints mueren al reiniciar) |

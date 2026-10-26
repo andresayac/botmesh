@@ -100,7 +100,7 @@ language resolution and only [`CALL` triggers](./triggers#call). No message
 hooks, commands or `'message'` event.
 
 `bot.trigger(name, { chatId })` (start a flow without an inbound message;
-`bot.triggerFlow()` is a thin wrapper over it with `ifActive: 'replace'`)
+the deprecated `bot.triggerFlow()` is a thin wrapper over it with `ifActive: 'replace'`)
 takes its own path too: the access lists, then the chat's FIFO slot, the
 handoff gate, the language resolution and the conversation start. No dedupe,
 persistence, message hooks, matchers or `'message'` event.
@@ -120,7 +120,7 @@ bot.when(/.+/, async (ctx) => {
   await ctx.reply('text received')
 })
 
-bot.onImage(async (ctx) => {
+bot.onType('image', async (ctx) => {
   await ctx.reply('image received') // now reached, because the handler above passed
 })
 ```
@@ -214,6 +214,9 @@ through `ctx.bot` (handlers, hooks, nested plugins, runtime flows and
 `onDispose` callbacks; listeners, tools, locales and scheduled jobs need an
 `onDispose`, see [Plugins](./plugins.md)).
 
+A plugin is plugged once per bot: plugging a plugin whose `name` is already
+plugged throws, unless every instance sets `multiple: true` in its spec.
+
 ## Inbound dedupe
 
 Webhook transports (Cloud API, Messenger, Instagram, Telegram webhook) retry
@@ -274,9 +277,8 @@ the first matching echo; a later redelivery is the deduper's business.
 Providers must give each inbound event an id that names exactly one logical
 event, stays the same when it is redelivered, and is `''` when the
 transport cannot guarantee that. This is the **inbound id contract**,
-documented on `IProvider`. Advanced: `InboundDeduper`,
-`createInboundDeduper`, `inboundDedupeKey` and `DEFAULT_DEDUPE_SIZE` are
-exported from `@botmesh/core`.
+documented on `IProvider`. The deduper itself (`InboundDeduper`,
+`inboundDedupeKey`…) is an engine internal (`@botmesh/core/internal`).
 
 ## `'message'` event vs `onMessage()`
 
@@ -338,6 +340,57 @@ You don't need to memorize this — `ctx.from` gives you the correct id on
 every transport. If you need the transport-native key of the inbound
 message (to quote/edit/delete it with provider calls), use `ctx.ref`
 (`{ id, chatId, native? }`).
+
+## Durations
+
+Every duration option takes a duration string (`'500ms'`, `'30s'`, `'2m'`,
+`'1h'`, `'1d'`, `'1w'`, `'5 minutes'`) or a number of milliseconds. That
+includes **every option whose name ends in `Ms`**: `typing.minMs`,
+`durability.inbox.backoff.baseMs`, `coordination.turnWaitMs`,
+`scheduler.tickMs` and the rest.
+
+```ts
+const bot = new Bot({
+  provider,
+  typing: { minMs: '800ms', maxMs: '3s' },
+  durability: { pollMs: '1s', outbox: { inlineMaxMs: '15s', backoff: { baseMs: '1s', capMs: '1m' } } },
+})
+```
+
+`new Bot()` checks every duration option of `BotConfig`. An invalid value
+throws a `ConfigValidationError` whose `field` is the option's path, so the
+message tells you which option to fix:
+
+```text
+ConfigValidationError: Invalid config.durability.pollMs: expected a duration ('500ms', '30s', '10m', '1h') or milliseconds, got string ("soon")
+```
+
+`parseDuration()` exposes the same grammar.
+
+## Logger
+
+`BotConfig.logger` (and the `logger` option of every provider and store)
+takes a `LoggerLike`: pino, `console`, or any object with `debug`, `info`,
+`warn` and `error`. The packages always call it pino style, so a custom
+logger only has to handle two shapes:
+
+```ts
+logger.warn('provider reconnected')                  // a message
+logger.error({ err, chatId }, 'dispatch error')      // context object first, then the message
+```
+
+An error always goes under the `err` key. The packages never put an object
+after the message (pino would drop it), and `child(bindings)` is optional.
+
+## Package entries
+
+| Import from | For |
+| --- | --- |
+| `@botmesh/core` | Applications: the `Bot`, the flow DSL, the message types, the options and the errors you can catch. |
+| `@botmesh/core/testing` | Tests: `createTestBot`, `MockProvider`, the chaos kit, golden transcripts, crash simulation and `MemoryCoordinator`. |
+| `@botmesh/core/spi` | Authors of stores, durability backends, schedule stores, coordinators, tracer integrations and transports: `KvDurability`, `MemoryKv`, `MemoryScheduleStore`, `messageKey`, `toInboundLocation`, the record types… Covered by semver. |
+| `@botmesh/core/dev` | The `botmesh dev` terminal simulator. |
+| `@botmesh/core/internal` | Engine classes (`Dispatcher`, `ConversationRuntime`, `HookSystem`…). No semver guarantee: do not use it from an application. |
 
 ## Next steps
 

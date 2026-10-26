@@ -85,11 +85,11 @@ const bot = new Bot({
 
 ## ¿Puedo enviar mensajes sin que alguien me escriba primero?
 
-Sí, con `bot.sendText`:
+Sí, con `bot.send`:
 
 ```ts
 bot.schedule('0 9 * * *', async () => {
-  await bot.sendText('57300XXXXXXX@s.whatsapp.net', '🌅 Good morning!')
+  await bot.send('57300XXXXXXX@s.whatsapp.net', '🌅 Good morning!')
 })
 ```
 

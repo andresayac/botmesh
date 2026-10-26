@@ -2,11 +2,11 @@
 
 > **Experimental — not yet published on npm.** `private` package of the monorepo: use it with `workspace:*`; its API may change.
 
-[Chatwoot](https://www.chatwoot.com) integration for [`@botmesh/core`](../core), built on the core's *human handoff* API (`ctx.handoff()`, `bot.resume()`, `bot.sendTo()` and the `'handoff'`/`'resume'` events).
+[Chatwoot](https://www.chatwoot.com) integration for [`@botmesh/core`](../core), built on the core's *human handoff* API (`ctx.handoff()`, `bot.resume()`, `bot.send()` and the `'handoff'`/`'resume'` events).
 
 - **Two-way sync:** every inbound message (also during handoff) is posted as `incoming` in Chatwoot and every bot send as `outgoing`.
 - **Chat ↔ contact/conversation mapping** persisted in the bot store (cursors API, namespaced per bot): survives restarts.
-- **Agent webhook → `bot.sendTo`**, authenticated with a shared token and/or HMAC-SHA256 over the raw body.
+- **Agent webhook → `bot.send`**, authenticated with a shared token and/or HMAC-SHA256 over the raw body.
 - **Auto-handoff** when an agent replies, and **`bot.resume()`** when the conversation is marked as resolved.
 - **Labels** on handoff/resume, per message (`labels.message`) or manually (`addLabels`/`removeLabels`).
 - All outbound HTTP goes through `secureFetch` from [`@botmesh/http`](../http) (HTTPS, anti-SSRF, timeouts, no redirect following).
@@ -58,7 +58,7 @@ app.post('/chatwoot', express.raw({ type: '*/*' }), async (req, res) => {
 | Inbound message | `incoming` in the chat's conversation (created on first use). In groups, the text is prefixed with the participant's name. |
 | The bot sends | `outgoing` (media is mirrored as `[image] caption`, etc.). |
 | `ctx.handoff()` / `bot.handoff()` | `open` conversation, private note (`handoffNote`) and `labels.handoff`. |
-| Public reply from an agent (`message_created` webhook) | `bot.handoff()` if `autoHandoff` and the chat is not already handed off; then `bot.sendTo()` (attachments by URL). It is not mirrored back into Chatwoot, and a re-delivery of the same message (same id) is ignored. |
+| Public reply from an agent (`message_created` webhook) | `bot.handoff()` if `autoHandoff` and the chat is not already handed off; then `bot.send()` (attachments by URL). It is not mirrored back into Chatwoot, and a re-delivery of the same message (same id) is ignored. |
 | Conversation resolved (`conversation_status_changed` webhook, or `conversation_updated` only when `changed_attributes` carries the `status` change) | `bot.resume(chatId, { reason: 'chatwoot:resolved' })`. |
 | `bot.resume()` for another reason | `resolved` conversation (`resolveOnResume`), removes `labels.handoff`, adds `labels.resume`. |
 

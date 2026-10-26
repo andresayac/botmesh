@@ -8,7 +8,7 @@ un delay. Cada método devuelve un `ScheduledTask` que puedes cancelar.
 ```ts
 bot.every('30 seconds', () => console.log('💓 heartbeat'))
 bot.every('5 minutes', async () => {
-  await bot.sendText('57300XXXXXXX@s.whatsapp.net', '⏰ reminder')
+  await bot.send('57300XXXXXXX@s.whatsapp.net', '⏰ reminder')
 })
 bot.every('2 hours', async () => { /* cleanup */ })
 bot.every(60000, () => console.log('1 minute'))  // ms
@@ -28,12 +28,12 @@ bot.every(60000, () => console.log('1 minute'))  // ms
 ```ts
 // Cada día a las 9:00 AM
 bot.schedule('0 9 * * *', async () => {
-  await bot.sendText('57300XXXXXXX@s.whatsapp.net', '🌅 Good morning!')
+  await bot.send('57300XXXXXXX@s.whatsapp.net', '🌅 Good morning!')
 })
 
 // Días laborables a las 9:00 AM
 bot.schedule('0 9 * * 1-5', async () => {
-  await bot.sendText('57300XXXXXXX@s.whatsapp.net', '💼 Time to work')
+  await bot.send('57300XXXXXXX@s.whatsapp.net', '💼 Time to work')
 })
 
 // Cada 15 minutos
@@ -112,7 +112,7 @@ siempre funciona).
 ```ts
 bot.delay('10 seconds', () => console.log('⏰ 10s elapsed'))
 bot.delay('5 minutes', async () => {
-  await bot.sendText('57300XXXXXXX@s.whatsapp.net', 'All good?')
+  await bot.send('57300XXXXXXX@s.whatsapp.net', 'All good?')
 })
 ```
 
@@ -294,8 +294,8 @@ cuando ningún ejecutor pueda seguir teniendo su token (por ejemplo
 `DELETE FROM schedules WHERE deleted AND updated_at < <hace un día>`).
 
 Sirve cualquier objeto que implemente `ScheduleStore` (exportado desde
-`@botmesh/core`, con `MemoryScheduleStore` como referencia y la suite compartida
-`test-utils/schedule-store-conformance.ts` para comprobarlo).
+`@botmesh/core`). `@botmesh/core/spi` trae `MemoryScheduleStore` como referencia y los tipos
+de registro, y la suite compartida `test-utils/schedule-store-conformance.ts` lo comprueba.
 
 ### Garantías y límites
 

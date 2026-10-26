@@ -1,0 +1,16 @@
+---
+'@botmesh/core': major
+---
+
+Public surface ready to freeze for 2.0. **Breaking changes** (see the guide "Migrating to the stable API", `docs/guide/stable-migration.md`):
+
+- **Main entry trimmed (512 → 365 names).** `@botmesh/core` exports only what an application needs. Engine classes and helpers moved to `@botmesh/core/internal` (no semver): `Dispatcher`, `ConversationRuntime`, `HookSystem`, `Scheduler`, `InboundDeduper`, `createInboundDeduper`, `inboundDedupeKey`, `SentRefRing`, `createEchoFilter`, `UserDataService`, `checkAccess`, `validateHandoffConfig`, `HANDOFF_INDEX_KEY`, `messagingSupport`, `DEFAULT_TYPING`, `cronNextRun`, `sleep`, `withTimeout`, `humanTypingDelay`, `randomId`, `isSchemaLike`, `resolveStreamStrategy`, `findSplitPoint`, `withFormDefaults`, `providerLanguageOf` and their option types.
+- **New `@botmesh/core/spi` subpath** (covered by semver) for authors of stores, durability backends, schedule stores, coordinators, tracer integrations and transports. Moved there from the main entry: `KvDurability`, `KvInbox`, `KvOutbox`, `MemoryKv`, `StaleLeaseError`, `computeBackoff`, `DEFAULT_BACKOFF`, the inbox/outbox record types, `MemoryScheduleStore`, `isScheduleClaimable`, `applyScheduleComplete`, the schedule record types, `MemoryLeaseProvider`, `LeaseGrant`, the coordinator turn types, `messageKey`, `legacyMessageKey`, `CheckpointAnswer`, `CheckpointHandover`, `UserDataEntry`, `UserDataStore`, `supportsUserData`, `toInboundLocation`, the native-form helpers (`formReplyBody`, `parseFormReply`, `assertFormDefinition`, `validateFormValues`, …), `I18n`, `normalizeLocale`, `noopTracer`, `NOOP_TRACING`, `errorTypeOf`, `formatTraceparent`, `parseTraceparent`. New there: `assertKvMutation`.
+- `MemoryCoordinator` and `MemoryCoordinationHub` moved to `@botmesh/core/testing`.
+- The `@deprecated` main-entry re-exports of the engine internals (`createPacer`, `MetricsCollector`, `buildMessageContext`, `runBroadcast`, …) were removed: import them from `@botmesh/core/internal`.
+- `bot.plug()` throws when a plugin with the same `name` is already plugged. A plugin meant to run several times sets `PluginSpec.multiple: true`.
+- `new Bot()` parses every duration option of `BotConfig` and throws a `ConfigValidationError` naming the option (`err.field`) when one cannot be read.
+
+Deprecated (still working, with the replacement in the TSDoc): `ctx.say`/`answer`/`text` (`ctx.reply`), `addKeyword` (`flow`), `bot.sendText`/`sendTo` (`bot.send`), `bot.use(plugin)` (`bot.plug`), `bot.useFlow` (`bot.use`/`registerFlow`), `bot.triggerFlow` and `bot.enterConversation(name, ctx)` (`bot.trigger`), `bot.onImage`/`onAudio`/… (`onType`/`when(IMAGE)`), `Config` (`BotConfig`), `Whitelist` (`bot.whitelist`, concept `AccessList`), `ConversationFn` (`ConversationHandler`), `durability.journal` (`durability.backend`), `BotConfig.storeConfig` (`store: new MemoryStore({ ... })`, now typed and logged as deprecated), and the golden-transcript helpers on the main entry (import them from `@botmesh/core/testing`).
+
+Also: every `*Ms` option accepts a duration string (`typing.minMs`/`maxMs` and the durability `backoff.baseMs`/`capMs` now do too); `ConfigValidationError` never throws while rendering a circular value; `LoggerLike` documents the pino `(obj, msg)` calling convention.

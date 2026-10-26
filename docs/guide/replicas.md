@@ -318,7 +318,7 @@ volume): only the leader opens them, but any replica can become the leader.
 
 ## Testing
 
-`MemoryCoordinator` is the in-process reference implementation. Bots that
+`MemoryCoordinator` (from `@botmesh/core/testing`) is the in-process reference implementation. Bots that
 share one `MemoryCoordinationHub` coordinate like replicas sharing Redis, and
 `coordinator.crash()` simulates a replica dying:
 

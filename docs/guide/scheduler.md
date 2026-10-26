@@ -8,7 +8,7 @@ method returns a `ScheduledTask` you can cancel.
 ```ts
 bot.every('30 seconds', () => console.log('💓 heartbeat'))
 bot.every('5 minutes', async () => {
-  await bot.sendText('57300XXXXXXX@s.whatsapp.net', '⏰ reminder')
+  await bot.send('57300XXXXXXX@s.whatsapp.net', '⏰ reminder')
 })
 bot.every('2 hours', async () => { /* cleanup */ })
 bot.every(60000, () => console.log('1 minute'))  // ms
@@ -28,12 +28,12 @@ bot.every(60000, () => console.log('1 minute'))  // ms
 ```ts
 // Every day at 9:00 AM
 bot.schedule('0 9 * * *', async () => {
-  await bot.sendText('57300XXXXXXX@s.whatsapp.net', '🌅 Good morning!')
+  await bot.send('57300XXXXXXX@s.whatsapp.net', '🌅 Good morning!')
 })
 
 // Weekdays at 9:00 AM
 bot.schedule('0 9 * * 1-5', async () => {
-  await bot.sendText('57300XXXXXXX@s.whatsapp.net', '💼 Time to work')
+  await bot.send('57300XXXXXXX@s.whatsapp.net', '💼 Time to work')
 })
 
 // Every 15 minutes
@@ -108,7 +108,7 @@ transition. The search looks up to four years ahead, with or without a zone (so
 ```ts
 bot.delay('10 seconds', () => console.log('⏰ 10s elapsed'))
 bot.delay('5 minutes', async () => {
-  await bot.sendText('57300XXXXXXX@s.whatsapp.net', 'All good?')
+  await bot.send('57300XXXXXXX@s.whatsapp.net', 'All good?')
 })
 ```
 
@@ -285,8 +285,8 @@ still hold their token (for example `DELETE FROM schedules WHERE deleted AND
 updated_at < <a day ago>`).
 
 Any object implementing `ScheduleStore` works (exported from
-`@botmesh/core`, with `MemoryScheduleStore` as the reference and the shared
-suite `test-utils/schedule-store-conformance.ts` to check it).
+`@botmesh/core`). `@botmesh/core/spi` has `MemoryScheduleStore` as the reference and the
+record types, and the shared suite `test-utils/schedule-store-conformance.ts` checks it.
 
 ### Guarantees and limits
 

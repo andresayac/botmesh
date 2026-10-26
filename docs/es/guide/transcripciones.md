@@ -17,11 +17,14 @@ El flujo de trabajo:
 
 | Función | Se importa de | Para qué |
 | --- | --- | --- |
-| `recordTranscript`, `RecordingProvider` | `@botmesh/core` o `@botmesh/core/testing` | Grabar tráfico real con un wrapper del provider |
-| `transcriptFromStore`, `transcriptFromMessages` | `@botmesh/core` o `@botmesh/core/testing` | Construir una transcripción desde el log de mensajes del store |
-| `redactTranscript`, `createRedactionMap` | `@botmesh/core` o `@botmesh/core/testing` | Sustituir datos personales por marcadores estables |
-| `parseTranscript`, `serializeTranscript`, `createTranscript` | `@botmesh/core` o `@botmesh/core/testing` | Leer, escribir y escribir a mano transcripciones |
-| `replayTranscript`, `assertTranscript`, `REPLAY_MASKS` | solo `@botmesh/core/testing` | Reproducir y comparar |
+| `recordTranscript`, `RecordingProvider` | `@botmesh/core/testing` | Grabar tráfico real con un wrapper del provider |
+| `transcriptFromStore`, `transcriptFromMessages` | `@botmesh/core/testing` | Construir una transcripción desde el log de mensajes del store |
+| `redactTranscript`, `createRedactionMap` | `@botmesh/core/testing` | Sustituir datos personales por marcadores estables |
+| `parseTranscript`, `serializeTranscript`, `createTranscript` | `@botmesh/core/testing` | Leer, escribir y escribir a mano transcripciones |
+| `replayTranscript`, `assertTranscript`, `REPLAY_MASKS` | `@botmesh/core/testing` | Reproducir y comparar |
+
+`@botmesh/core` también reexporta las funciones de grabación, redacción y formato, marcadas como
+`@deprecated`: impórtalas de `@botmesh/core/testing` (la grabación también sirve en producción).
 
 ## Grabar una conversación
 

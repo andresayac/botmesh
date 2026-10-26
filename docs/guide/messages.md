@@ -4,14 +4,11 @@ Everything you can send and receive.
 
 ## Reply helpers (inside a handler)
 
-All of these target `ctx.from` and return `Promise<SentMessage>`. `reply`,
-`say`, `answer` and `text` are all equivalent aliases:
+All of these target `ctx.from` and return `Promise<SentMessage>`. `ctx.reply` is
+the text reply (`say`, `answer` and `text` are deprecated aliases of it):
 
 ```ts
 await ctx.reply('👋 Hello!')
-await ctx.say('How are you?')          // alias
-await ctx.answer('👍')                  // alias
-await ctx.text('plain text')            // alias
 await ctx.quote('replying to your message')     // quotes the inbound message
 await ctx.reply('typing this out...', { typing: true }) // shows "typing…" before sending
 ```
@@ -147,7 +144,7 @@ await ctx.edit('Done ✅', { fallback: 'skip' }) // never sends a new message
 `ctx.edit(content)` only targets the last reply sent by **this same context**
 (this handler run, or this flow) and only when it has the same content kind.
 It never edits replies to an earlier message, replies of another participant's
-flow in a group, or a reply followed by a `bot.send`/`bot.sendTo` to the chat.
+flow in a group, or a reply followed by a `bot.send` to the chat.
 The result has `edited: true` when the provider edited in place.
 
 When the provider cannot edit (no `capabilities.edit`, a content kind it cannot
@@ -199,14 +196,14 @@ handler continues, so a failing indicator never costs the reply after it.
 ## Receive media
 
 ```ts
-bot.onImage(async (ctx) => { await ctx.reply('📸 Got your image!') })
-bot.onAudio(async (ctx) => { await ctx.reply('🎵 Got your audio') })
-bot.onVideo(async (ctx) => { await ctx.reply('🎬 Got your video') })
-bot.onSticker(async (ctx) => { await ctx.reply('🎨 Got your sticker!') })
-bot.onDocument(async (ctx) => { await ctx.reply('📄 Got your file') })
-bot.onLocation(async (ctx) => { await ctx.reply('📍 Got your location') })
-bot.onContact(async (ctx) => { await ctx.reply('👤 Got your contact') })
-bot.onPoll(async (ctx) => { await ctx.reply('📊 Got your poll') })
+bot.onType('image', async (ctx) => { await ctx.reply('📸 Got your image!') })
+bot.onType('audio', async (ctx) => { await ctx.reply('🎵 Got your audio') })
+bot.onType('video', async (ctx) => { await ctx.reply('🎬 Got your video') })
+bot.onType('sticker', async (ctx) => { await ctx.reply('🎨 Got your sticker!') })
+bot.onType('document', async (ctx) => { await ctx.reply('📄 Got your file') })
+bot.onType('location', async (ctx) => { await ctx.reply('📍 Got your location') })
+bot.onType('contact', async (ctx) => { await ctx.reply('👤 Got your contact') })
+bot.onType('poll', async (ctx) => { await ctx.reply('📊 Got your poll') })
 ```
 
 `onImage`/`onAudio`/etc. are low-specificity matchers: a more specific
@@ -221,7 +218,7 @@ normalized on `ctx.sharedLocation` (it is not `ctx.location`, which **sends**
 one):
 
 ```ts
-bot.onLocation(async (ctx) => {
+bot.onType('location', async (ctx) => {
   const loc = ctx.sharedLocation
   if (!loc) return ctx.reply('I could not read that location')
   await ctx.reply(`📍 ${loc.latitude}, ${loc.longitude}${loc.name ? ` (${loc.name})` : ''}`)
@@ -239,7 +236,7 @@ HighLevel have no inbound locations. On other channels, or when the transport se
 no coordinates, `ctx.type` is still `'location'` but `sharedLocation` is
 `undefined`. Provider authors map their payload with
 `toInboundLocation({ latitude, longitude, name, address, live })` from
-`@botmesh/core`, which drops missing or out-of-range coordinates.
+`@botmesh/core/spi`, which drops missing or out-of-range coordinates.
 
 Inside a conversation, `c.waitLocation(opts?)` waits for one and resolves with
 the `InboundLocation`; anything else re-prompts with `otherwise` (default: the
@@ -280,7 +277,7 @@ each person's latest vote, and counts each vote message once (Baileys'
 offline redelivery is not re-emitted). Limits: only polls seen by **this
 process** can be decrypted (after a restart, votes on older polls are
 dropped with a `debug` log), and the bot cannot vote. A poll someone else
-creates still arrives as a `poll` message (`bot.onPoll`, the
+creates still arrives as a `poll` message (`bot.onType('poll')`, the
 [`POLL` trigger](./triggers#message-type-triggers)); the encrypted vote no
 longer does. Details in the `@botmesh/baileys` README.
 
@@ -293,7 +290,7 @@ the provider and caches the result on `ctx.media`:
 ```ts
 import { loadMediaOf, MediaTooLargeError } from '@botmesh/core'
 
-bot.onImage(async (ctx) => {
+bot.onType('image', async (ctx) => {
   try {
     const media = await loadMediaOf(ctx, { maxBytes: 5 * 1024 * 1024 })
     if (!media) return                 // no media, or the download failed
@@ -362,13 +359,13 @@ To message someone without waiting for them to write first — e.g. from a
 the transport-neutral tagged union (`{ kind, ... }`):
 
 ```ts
-await bot.sendText('573001234567@s.whatsapp.net', '🌅 Good morning!')
+await bot.send('573001234567@s.whatsapp.net', '🌅 Good morning!')
 await bot.send('573001234567@s.whatsapp.net', {
   kind: 'image',
   media: { url },
   caption: 'hi',
 })
-await bot.sendTo(chatId, 'Hi, I am Ana from support')  // same path; a string is sent as text
+await bot.send(chatId, 'Hi, I am Ana from support')  // same path; a string is sent as text
 ```
 
 ## Broadcasts
@@ -426,9 +423,9 @@ It is safe to `await bot.trigger(...)` from a handler or command of the same cha
   `body` sets the synthetic message's `ctx.body` (default `''`).
 - No `before('message')` hooks, matchers or `'message'` event run, and nothing is
   persisted for the synthetic message (`ctx.raw` is `{ synthetic: 'trigger', name }`).
-- `bot.triggerFlow(id, { chatId, userId?, isGroup? }, { data?, body? })` is a thin
-  wrapper with `ifActive: 'replace'` that resolves `true`/`false` and rejects while
-  the bot is stopped (`state` is a deprecated alias of `data`).
+- `bot.triggerFlow(id, { chatId, userId?, isGroup? }, { data?, body? })` is deprecated:
+  it is `bot.trigger(id, { chatId, userId, isGroup, data, body, ifActive: 'replace' })`
+  resolving `result.started`.
 
 ## Runtime metrics
 

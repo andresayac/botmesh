@@ -68,7 +68,7 @@ enqueueing `reminder:1` each send their own. A custom backend that has no `scope
 must not be shared between bots. Every backend passes the same
 conformance suite (`test-utils/durability-conformance.ts`), and you can write your
 own by implementing the small `DurableKv` interface (versioned compare-and-set plus
-two sorted indexes) and wrapping it in `KvDurability`.
+two sorted indexes) and wrapping it in `KvDurability` (both from `@botmesh/core/spi`).
 
 The bot starts and stops the backend itself. Use a persistent **store** too: a
 `.persistent()` flow's checkpoints live in the store, and replay relies on them.
