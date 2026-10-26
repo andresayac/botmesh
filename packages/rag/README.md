@@ -85,13 +85,13 @@ await rag.save()
 | `'local'` (default) | `HashEmbedder` (512 dims): lexical, deterministic, no network. |
 | `'openai'` / `{ provider: 'openai', apiKey, model, baseUrl, dimensions, batchSize }` | `POST {baseUrl}/embeddings`. `text-embedding-3-small` and `OPENAI_API_KEY` by default. Any compatible API works. |
 | `'ollama'` / `{ provider: 'ollama', model, baseUrl }` | `POST {baseUrl}/api/embed`, `nomic-embed-text` on `http://localhost:11434` by default. |
-| Custom `Embedder` | `{ id, embed(texts) }`. |
+| Custom `Embedder` | `{ id, embed(texts) }`. `id` (a non-empty string such as `'my-model:768'`) names the vector space in the persisted index. |
 
 Requests go through [`@botmesh/http`](https://www.npmjs.com/package/@botmesh/http)'s `secureFetch` (anti-SSRF): HTTPS and public hosts by default. Ollama allows `http` and private hosts by default; for other internal endpoints use `http: { allowHttp: true, allowPrivateHosts: true }`.
 
 ## Persistence
 
-With `persistPath`, the index is saved (atomic write) after every change. On startup, vectors are reused for chunks whose text did not change and that were computed with the same embedder (`Embedder.id`); if you change the model, it is rebuilt. Without `documents`, the saved index is served as-is (a precompiled index).
+With `persistPath`, the index is saved (atomic write) after every change. On startup, vectors are reused for chunks whose text did not change and that were computed with the same embedder (`Embedder.id`); if you change the model, it is rebuilt: the configured documents, the documents added at runtime and, without `documents`, the chunks of a precompiled index are all embedded again with the new embedder. Without `documents`, the saved index is served as-is (a precompiled index).
 
 Documents added at runtime (`addText`, `addDocuments`, `addFiles`) survive restarts; if one shares an id with a configured document, the configured one wins. If the file is corrupt and `documents` is set, it is moved aside as `<persistPath>.corrupt`, `onError` is notified and the index is rebuilt; without `documents` there is nothing to rebuild from and `ready()` fails with `INVALID_INDEX`.
 
@@ -107,7 +107,7 @@ Without the package, loading a PDF fails with `RagError('MISSING_DEPENDENCY')`. 
 
 ## Errors
 
-Everything fails with `RagError` and a `code`: `INVALID_OPTIONS`, `UNSUPPORTED_FORMAT`, `LOAD_FAILED`, `MISSING_DEPENDENCY`, `EMBEDDING_FAILED`, `INVALID_INDEX`. Messages never include the embedding provider's response body.
+Everything fails with `RagError` and a `code`: `INVALID_OPTIONS`, `UNSUPPORTED_FORMAT`, `LOAD_FAILED`, `MISSING_DEPENDENCY`, `EMBEDDING_FAILED`, `INVALID_INDEX`. Messages never include the embedding provider's response body, the API key or the endpoint's path and query string: a failed request names only the endpoint's origin (`https://api.openai.com`) and the network error code (`ECONNREFUSED`, `TIMEOUT`...). A JSON file nested deeper than 64 levels fails with `LOAD_FAILED`.
 
 ## Limits
 
@@ -118,6 +118,7 @@ The index is brute force: it is meant for thousands of chunks (a FAQ, a catalogu
 | Symptom | Cause and fix |
 | --- | --- |
 | `RagError` `MISSING_DEPENDENCY` when loading a PDF | The optional `pdf-parse` peer is not installed: `pnpm add pdf-parse`, or pass your own extractor in `pdf`. |
+| `RagError` `EMBEDDING_FAILED` with `ECONNREFUSED` | Nothing listens on the endpoint: start Ollama (`ollama serve`) or fix `baseUrl`. |
 | `RagError` `EMBEDDING_FAILED` with `HTTP 401` | Wrong or missing API key: set `OPENAI_API_KEY` or `embeddings: { provider: 'openai', apiKey }`. |
 | `EMBEDDING_FAILED` against a local or internal endpoint | `secureFetch` blocks plain `http` and private addresses by default. For a self-hosted OpenAI-compatible server pass `http: { allowHttp: true, allowPrivateHosts: true }` (Ollama already allows them). |
 | Every query fails right after a failed start | `retrieve()` fails fast with the last ingest error for `retryDelayMs`; fix the cause and call `rag.ready()` to retry at once. |

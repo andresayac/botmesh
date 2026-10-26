@@ -4,6 +4,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### `@botmesh/rag`: endurecimiento antes de la 1.0 (2026-10)
+- **ReDoS corregido:** un encabezado Markdown relleno de espacios (`# Título` + 8 000 espacios + `x`) bloqueaba el proceso durante minutos (la regex del encabezado retrocedía de forma cúbica). Ahora se analiza en tiempo lineal y una `#` final que forma parte del título se conserva (`## C#` sigue siendo `C#`; solo se quita una secuencia de cierre precedida de espacio).
+- **Cambio de embedder sin pérdida de datos:** los documentos añadidos en tiempo de ejecución y, sin `documents`, un índice precompilado se vuelven a embeber con el embedder nuevo en lugar de descartarse (el índice precompilado se servía vacío sin avisar).
+- **Entradas extremas:** un JSON anidado a más de 64 niveles falla con `RagError('LOAD_FAILED')` en vez de un desbordamiento de pila, y el chunker ya no parte un emoji (par sustituto) al cortar una palabra larga.
+- **Errores accionables:** `documents` que no es un array, `minScore` no finito, `maxFileBytes` inválido, `topK`/`minScore` por llamada inválidos, `addText()` sin `text` o `source`, un `Embedder` propio sin `id` y un proveedor de embeddings desconocido fallan con `INVALID_OPTIONS` y explican qué pasar. Una petición de embeddings fallida nombra el origen del endpoint (nunca su ruta ni su query) y el código de red (`ECONNREFUSED`, `TIMEOUT`...).
+- `retrieve()` devuelve copias de los metadatos (mutar un resultado ya no cambia el índice) y un índice sin campos `hash` se repara al cargarlo. Tests en `packages/rag/tests/hardening.test.ts`; changeset `rag-hardening.md`.
+
 ### Integración de los 26 paquetes promovidos en `main` (2026-10)
 - Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
 - Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).

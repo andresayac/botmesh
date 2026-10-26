@@ -215,7 +215,9 @@ in-memory cosine index with optional JSON persistence.
   `@botmesh/http`.
 - **Index**: `topK`, `minScore` and filters. With `persistPath` it is saved as
   JSON after each change and, on restart, only the chunks whose text changed
-  are embedded again.
+  are embedded again. If you switch to another embedder (a different `id`),
+  the documents added at runtime and a prebuilt index are embedded again with
+  it instead of being dropped.
 
 | Option | Default | Description |
 |---|---|---|

@@ -220,7 +220,9 @@ Durante la beta, añade el dist-tag `@beta` (`pnpm add @botmesh/rag@beta`). No d
   de `@botmesh/http`.
 - **Índice**: `topK`, `minScore` y filtros. Con `persistPath` se guarda en JSON
   tras cada cambio y, al reiniciar, solo se vuelven a embeber los fragmentos
-  cuyo texto cambió.
+  cuyo texto cambió. Si cambias de embedder (otro `id`), los documentos
+  añadidos en tiempo de ejecución y un índice precompilado se vuelven a
+  embeber con él en lugar de perderse.
 
 | Opción | Por defecto | Descripción |
 |---|---|---|
