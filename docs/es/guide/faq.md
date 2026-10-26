@@ -79,17 +79,17 @@ que el store tenga un archivo detrás:
 ```ts
 const bot = new Bot({
   provider: new BaileysProvider({ session: 'my-bot' }),
-  storeConfig: { file: './store.json' }, // o usa @botmesh/sqlite-store
+  store: new MemoryStore({ file: './store.json' }), // o usa @botmesh/sqlite-store
 })
 ```
 
 ## ¿Puedo enviar mensajes sin que alguien me escriba primero?
 
-Sí, con `bot.sendText`:
+Sí, con `bot.send`:
 
 ```ts
 bot.schedule('0 9 * * *', async () => {
-  await bot.sendText('57300XXXXXXX@s.whatsapp.net', '🌅 Good morning!')
+  await bot.send('57300XXXXXXX@s.whatsapp.net', '🌅 Good morning!')
 })
 ```
 

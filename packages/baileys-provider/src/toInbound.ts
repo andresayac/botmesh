@@ -6,7 +6,8 @@
  */
 
 import { normalizeMessageContent, toNumber, type WAMessage, type WAMessageKey, type proto } from '@whiskeysockets/baileys'
-import { toInboundLocation, type ChatInfo, type ChatKind, type InboundLocation, type InboundMessage, type MediaRef, type MessageType, type QuotedRef, type SenderInfo } from '@botmesh/core'
+import { type ChatInfo, type ChatKind, type InboundLocation, type InboundMessage, type MediaRef, type MessageType, type QuotedRef, type SenderInfo } from '@botmesh/core'
+import { toInboundLocation } from '@botmesh/core/spi'
 import { isPnUser, isLidUser, normalize } from './jid.js'
 import { canonicalKey, type IdentityStore } from './identity.js'
 

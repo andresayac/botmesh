@@ -237,11 +237,19 @@ export class DurableEngine implements DurabilityControl {
   /** @throws {ConfigValidationError} on an invalid configuration. */
   constructor(config: DurabilityConfig, private readonly deps: DurableEngineDeps) {
     if (typeof config !== 'object' || config === null || Array.isArray(config)) {
-      throw new ConfigValidationError('durability', '{ journal?, inbox?, outbox?, … }', config)
+      throw new ConfigValidationError('durability', '{ backend?, inbox?, outbox?, … }', config)
     }
-    const journal = config.journal ?? new MemoryDurability()
+    // `journal` is the deprecated name of `backend`.
+    if (config.backend !== undefined && config.journal !== undefined && config.backend !== config.journal) {
+      throw new ConfigValidationError(
+        'durability.backend', 'one backend (durability.journal is the deprecated name of durability.backend: set only one)',
+        'two different backends',
+      )
+    }
+    const field = config.backend !== undefined ? 'durability.backend' : 'durability.journal'
+    const journal = config.backend ?? config.journal ?? new MemoryDurability()
     if (typeof journal !== 'object' || journal === null || typeof journal.inbox?.append !== 'function' || typeof journal.outbox?.put !== 'function') {
-      throw new ConfigValidationError('durability.journal', 'a DurabilityBackend ({ inbox, outbox })', journal)
+      throw new ConfigValidationError(field, 'a DurabilityBackend ({ inbox, outbox })', journal)
     }
     const ns = deps.namespace
     // Several bots may share one backend: each works in the view of its own namespace.

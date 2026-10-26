@@ -19,7 +19,7 @@ const bot = new Bot({
   store,
   logger,
   coordination: { coordinator: new RedisCoordinator({ url, prefix, replicaId: 'dying', leaseMs: 1_000, maxPollMs: 20 }) },
-  durability: { journal: new RedisDurability({ url, prefix }), instanceId: 'dying', pollMs: 50, inbox: { leaseMs: 1_000 } },
+  durability: { backend: new RedisDurability({ url, prefix }), instanceId: 'dying', pollMs: 50, inbox: { leaseMs: 1_000 } },
 })
 bot.use(flow('signup').persistent()
   .say('hi')

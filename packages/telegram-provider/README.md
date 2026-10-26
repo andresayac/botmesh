@@ -126,7 +126,7 @@ await ctx.file('/tmp/report.pdf')                        // local path → uploa
 
 // Inbound media is lazy: download it on demand
 import { loadMediaOf } from '@botmesh/core'
-bot.onImage(async (ctx) => {
+bot.onType('image', async (ctx) => {
   const media = await loadMediaOf(ctx, { maxBytes: 10 * 1024 * 1024 }) // undefined if the download fails
   if (media) await ctx.reply(`Got ${media.buffer.length} bytes (${media.mimetype})`)
 })

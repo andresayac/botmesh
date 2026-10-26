@@ -28,11 +28,11 @@ Si no pasas un `store`, el bot crea un `MemoryStore`. Todo vive en RAM; un archi
 const bot = new Bot({
   provider: new BaileysProvider({ session: 'mi-bot' }),
   // Opcional: persistir chats + estado de flujo a un archivo JSON
-  storeConfig: {
+  store: new MemoryStore({
     file: './store.json',
     autoSaveInterval: '1m', // duración o ms (0 = desactivar)
     maxMessagesPerChat: 1000, // el valor por defecto; Infinity quita el tope
-  },
+  }),
 })
 ```
 
@@ -199,7 +199,7 @@ Semántica que todo store debe respetar:
   mensajes por chat por defecto porque su log vive en RAM (`Infinity` quita el
   tope). Todos los stores incluidos rechazan un tope negativo o con decimales
   con un `RangeError`.
-- Los mensajes se guardan con la clave `messageKey(ref)`: `{chatId}:{id}` con `%`
+- Los mensajes se guardan con la clave `messageKey(ref)` (de `@botmesh/core/spi`): `{chatId}:{id}` con `%`
   y `:` escapados en cada parte (`%25`, `%3A`), así que los ids que contienen `:`
   (los chat ids `whatsapp:+1…` de Twilio) ya no colisionan. Los ids sin `:` ni `%`
   conservan la clave que escribían las versiones anteriores; las filas guardadas

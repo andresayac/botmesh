@@ -26,16 +26,21 @@ import type { ChatId, IProvider, MessageRef, OutboundContent } from './provider.
 export interface TypingConfig {
   /** Show the indicator before text replies. Defaults to `false` globally, `true` when set per reply. */
   enabled?: boolean
-  /** Shortest time the indicator is shown before the text is sent (ms). Default 800. */
-  minMs?: number
-  /** Longest time the indicator is shown before the text is sent (ms). Default 3000. */
-  maxMs?: number
+  /** Shortest time the indicator is shown before the text is sent: a duration (`'800ms'`) or ms. Default 800. */
+  minMs?: number | string
+  /** Longest time the indicator is shown before the text is sent: a duration (`'3s'`) or ms. Default 3000. */
+  maxMs?: number | string
   /** Simulated typing speed used to size the wait between `minMs` and `maxMs`. Default 20. */
   charsPerSecond?: number
 }
 
-/** A fully-resolved {@link TypingConfig}. */
-export type ResolvedTypingConfig = Required<TypingConfig>
+/** A fully-resolved {@link TypingConfig} (timings in ms). */
+export interface ResolvedTypingConfig {
+  enabled: boolean
+  minMs: number
+  maxMs: number
+  charsPerSecond: number
+}
 
 /** Defaults applied to every missing {@link TypingConfig} field. */
 export const DEFAULT_TYPING: Readonly<ResolvedTypingConfig> = Object.freeze({
@@ -113,11 +118,18 @@ export function messagingSupport(provider: Pick<IProvider, 'capabilities' | 'typ
   }
 }
 
-function checkMs(value: unknown, name: string): void {
-  if (value === undefined) return
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > MAX_TIMER_MS) {
-    throw new RangeError(`${name} must be a finite number between 0 and ${MAX_TIMER_MS} — got ${String(value)}`)
+/** A typing timing (a duration string or ms) in ms; `RangeError` naming the option when invalid. */
+function checkMs(value: unknown, name: string): number | undefined {
+  if (value === undefined) return undefined
+  let ms = Number.NaN
+  if (typeof value === 'number') ms = value
+  else if (typeof value === 'string') {
+    try { ms = parseDuration(value) } catch { /* reported below */ }
   }
+  if (!Number.isFinite(ms) || ms < 0 || ms > MAX_TIMER_MS) {
+    throw new RangeError(`${name} must be a duration ('800ms', '2s') or ms between 0 and ${MAX_TIMER_MS} — got ${String(value)}`)
+  }
+  return ms
 }
 
 /**
@@ -127,15 +139,15 @@ function checkMs(value: unknown, name: string): void {
 export function normalizeTypingConfig(input: boolean | TypingConfig | undefined, base: ResolvedTypingConfig = DEFAULT_TYPING): ResolvedTypingConfig {
   if (input === undefined) return { ...base }
   if (typeof input === 'boolean') return { ...base, enabled: input }
-  checkMs(input.minMs, 'typing.minMs')
-  checkMs(input.maxMs, 'typing.maxMs')
+  const minMs = checkMs(input.minMs, 'typing.minMs')
+  const maxMs = checkMs(input.maxMs, 'typing.maxMs')
   if (input.charsPerSecond !== undefined && (!Number.isFinite(input.charsPerSecond) || input.charsPerSecond <= 0)) {
     throw new RangeError(`typing.charsPerSecond must be a positive number — got ${String(input.charsPerSecond)}`)
   }
   const out: ResolvedTypingConfig = {
     enabled: input.enabled ?? base.enabled,
-    minMs: input.minMs ?? base.minMs,
-    maxMs: input.maxMs ?? base.maxMs,
+    minMs: minMs ?? base.minMs,
+    maxMs: maxMs ?? base.maxMs,
     charsPerSecond: input.charsPerSecond ?? base.charsPerSecond,
   }
   if (out.minMs > out.maxMs) {

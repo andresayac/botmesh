@@ -1,9 +1,11 @@
 /**
- * Guard: inside the monorepo, engine internals are imported from `@botmesh/core/internal`,
- * never through the deprecated main-entry re-exports (kept only for users until v3).
- * The names come from `internal.ts` itself, and the whole repo is scanned (packages,
- * examples, scripts, test utilities, READMEs and guides; see `isSkipped`) for named,
- * star re-export, namespace, dynamic and `require` imports of them. `packages/core/tests` is exempt: its
+ * Guard: inside the monorepo, engine internals are imported from `@botmesh/core/internal`
+ * and the backend/transport SPI from `@botmesh/core/spi`, never from the main entry (which
+ * no longer exports them), and the deprecated main-entry re-exports (golden transcripts,
+ * `Whitelist`, `ConversationFn`, `Config`) are not used either. The names come from
+ * `internal.ts` and `spi.ts` themselves, and the whole repo is scanned (packages, examples,
+ * scripts, test utilities, READMEs and guides; see `isSkipped`) for named, star re-export,
+ * namespace, dynamic and `require` imports of them. `packages/core/tests` is exempt: its
  * compatibility tests import the deprecated aliases on purpose (see internal-entry.test.ts).
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
@@ -18,6 +20,7 @@ const coreSrc = resolve(here, '../src')
 /** Every name re-exported by `source` (`export { a, type B } from '...'`). */
 export function exportedNames(source: string): string[] {
   const names: string[] = []
+  source = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
   for (const m of source.matchAll(/export\s+(?:type\s+)?\{([^}]*)\}\s*from/g)) {
     for (const part of m[1].split(',')) {
       const name = part.trim().replace(/^type\s+/, '').split(/\s+as\s+/).pop()!.trim()
@@ -27,11 +30,29 @@ export function exportedNames(source: string): string[] {
   return names
 }
 
-/** Every name `internal.ts` exports, re-exported (deprecated) by the main entry. */
-const DEPRECATED = exportedNames(readFileSync(join(coreSrc, 'internal.ts'), 'utf8'))
+/** Every name the main entry exports through an `export { … } from` list. */
+const MAIN_NAMES = new Set(exportedNames(readFileSync(join(coreSrc, 'index.ts'), 'utf8')))
 
-/** Internals added after the move: never on the main entry (see internal-entry.test.ts). */
-const INTERNAL_ONLY = new Set(['pauseControls'])
+/** Deprecated re-exports the main entry keeps for users; the monorepo imports them from their home. */
+const DEPRECATED_MAIN = [
+  'TRANSCRIPT_FORMAT', 'TRANSCRIPT_VERSION', 'TranscriptFormatError', 'createTranscript', 'parseTranscript',
+  'serializeTranscript', 'transcriptFromMessages', 'transcriptFromStore', 'recordTranscript', 'RecordingProvider',
+  'DEFAULT_MAX_TURNS', 'redactTranscript', 'createRedactionMap', 'Transcript', 'TranscriptTurn', 'TranscriptInbound',
+  'TranscriptOutbound', 'FromMessagesOptions', 'TranscriptMessageSource', 'TranscriptStoreOwner',
+  'RecordTranscriptOptions', 'TranscriptRecorder', 'RedactOptions', 'RedactionRule', 'RedactionMap',
+  'Whitelist', 'ConversationFn', 'Config',
+]
+
+/**
+ * Names that must never be imported from `@botmesh/core`: everything `internal.ts` and `spi.ts`
+ * export that the main entry does not (the SPI repeats a few contract types the main entry
+ * also exports, such as `IStore`), plus the deprecated main re-exports.
+ */
+const DEPRECATED = [...new Set([
+  ...[...exportedNames(readFileSync(join(coreSrc, 'internal.ts'), 'utf8')), ...exportedNames(readFileSync(join(coreSrc, 'spi.ts'), 'utf8'))]
+    .filter((name) => !MAIN_NAMES.has(name) || DEPRECATED_MAIN.includes(name)),
+  ...DEPRECATED_MAIN,
+])]
 
 /**
  * Not scanned (AGENTS.md lists the same): `packages/core/tests` (its compatibility tests
@@ -156,7 +177,7 @@ function scannedFiles(): string[] {
   return (scanned ??= walk(repo))
 }
 
-describe('deprecated main-entry re-exports', { timeout: 60_000 }, () => {
+describe('internal, SPI and deprecated names are not imported from the main entry', { timeout: 60_000 }, () => {
   it('the matcher sees named, aliased, type and multi-line imports from the main entry only', () => {
     const src = [
       "import { Bot, MetricsCollector as M } from '@botmesh/core'",
@@ -213,9 +234,15 @@ describe('deprecated main-entry re-exports', { timeout: 60_000 }, () => {
     ]) expect(isSkipped(rel), rel).toBe(false)
   })
 
-  it('takes the deprecated names from internal.ts', () => {
-    expect(DEPRECATED).toEqual(expect.arrayContaining(['createPacer', 'MetricsCollector', 'TYPING_REFRESH_MS', 'newFormToken', 'buildMessageContext']))
-    expect(DEPRECATED.length).toBeGreaterThanOrEqual(15)
+  it('takes the guarded names from internal.ts and spi.ts, minus the contract types the main entry shares', () => {
+    expect(DEPRECATED).toEqual(expect.arrayContaining([
+      'createPacer', 'MetricsCollector', 'TYPING_REFRESH_MS', 'newFormToken', 'buildMessageContext', 'Dispatcher',
+      'ConversationRuntime', 'MemoryKv', 'KvDurability', 'messageKey', 'toInboundLocation', 'recordTranscript', 'Whitelist',
+    ]))
+    for (const shared of ['IStore', 'DurableKv', 'ScheduleStore', 'Coordinator', 'BotTracer', 'Bot', 'flow']) {
+      expect(DEPRECATED, shared).not.toContain(shared)
+    }
+    expect(DEPRECATED.length).toBeGreaterThanOrEqual(100)
   })
 
   it('scans every package, example, script, test utility, README and guide', () => {
@@ -231,7 +258,7 @@ describe('deprecated main-entry re-exports', { timeout: 60_000 }, () => {
     expect(files.some((f) => /(^|\/)(node_modules|lib|terceros)\//.test(f))).toBe(false)
   })
 
-  it('are not imported from @botmesh/core anywhere in the monorepo (use @botmesh/core/internal)', () => {
+  it('are not imported from @botmesh/core anywhere in the monorepo (use /internal, /spi or /testing)', () => {
     const offenders: string[] = []
     const files = scannedFiles()
     expect(files.length).toBeGreaterThan(100)
@@ -268,16 +295,14 @@ describe('deprecated main-entry re-exports', { timeout: 60_000 }, () => {
     expect(offenders).toEqual([])
   })
 
-  it('stay re-exported (marked @deprecated) by the main entry for users', () => {
+  it('internal and SPI names are not exported by the main entry (deprecated ones stay, tagged)', () => {
     const index = readFileSync(join(coreSrc, 'index.ts'), 'utf8')
     for (const name of DEPRECATED) {
-      if (INTERNAL_ONLY.has(name)) {
-        expect(index, name).not.toContain(name)
-        continue
-      }
-      expect(index, name).toMatch(new RegExp(`@deprecated[^\\n]*\\n\\s*${name},`))
+      if (!DEPRECATED_MAIN.includes(name)) expect(MAIN_NAMES.has(name), name).toBe(false)
     }
-    const internal = readFileSync(join(coreSrc, 'internal.ts'), 'utf8')
-    for (const name of DEPRECATED) expect(internal, name).toContain(name)
+    // The comment right before the name (an export-list entry or an alias declaration) is tagged.
+    for (const name of DEPRECATED_MAIN) {
+      expect(index, name).toMatch(new RegExp(String.raw`@deprecated(?:(?!\*\/)[\s\S])*\*\/\s*(?:export\s+(?:type|const)\s+)?${name}\b`))
+    }
   })
 })

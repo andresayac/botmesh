@@ -3,7 +3,8 @@
  * legacy-layout APIs, migrated, then read back through the cluster-layout APIs.
  */
 import { describe, expect, it } from 'vitest'
-import { legacyMessageKey, type StoredMessage } from '@botmesh/core'
+import { type StoredMessage } from '@botmesh/core'
+import { legacyMessageKey } from '@botmesh/core/spi'
 import {
   RedisDurability, RedisStore, inspectKeyspace, migrateToClusterLayout,
 } from '../src/index.js'

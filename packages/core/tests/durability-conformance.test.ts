@@ -3,7 +3,8 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { FileDurability, MemoryDurability, MemoryKv } from '../src/index.js'
+import { FileDurability, MemoryDurability } from '../src/index.js'
+import { MemoryKv } from '../src/spi.js'
 import { runDurabilityConformance, runDurableKvConformance } from '../../../test-utils/durability-conformance.js'
 
 runDurableKvConformance('MemoryKv', {

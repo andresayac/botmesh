@@ -125,7 +125,7 @@ llamadas. Ver [Handoff y listas de acceso](./handoff#blacklist-y-whitelist).
 ## Transformar o bloquear mensajes salientes
 
 `'send'` se dispara en **cada** envío saliente, ya sea que venga de
-`ctx.reply`/`ctx.photo`/... o de `bot.send`/`bot.sendText`. El payload es
+`ctx.reply`/`ctx.photo`/... o de `bot.send`. El payload es
 `{ chatId, content, options }` — `content` es el `OutboundContent` neutral
 de transporte (`{ kind: 'text', text }`, `{ kind: 'image', media,
 caption }`, ...); mútalo para transformar un mensaje, o aborta para

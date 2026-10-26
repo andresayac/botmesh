@@ -24,10 +24,12 @@ import type {
   StoredChat,
   StoredContact,
   StoredMessage,
-  UserDataEntry,
   UserId,
 } from '@botmesh/core'
-import { legacyMessageKey, messageKey } from '@botmesh/core'
+import type {
+  UserDataEntry,
+} from '@botmesh/core/spi'
+import { legacyMessageKey, messageKey } from '@botmesh/core/spi'
 import { SqliteUserData } from './userData.js'
 import { SQLiteScheduleStore, rebindScheduleStore } from './schedules.js'
 import { SQLiteDurability, rebindDurableKv } from './durability.js'
@@ -469,7 +471,7 @@ export class SQLiteStore implements IStore {
 
   /**
    * The durability backend on this database (table `durable`), sharing this store's
-   * connection: `new Bot({ store, durability: { journal: store.durability() } })`. Its
+   * connection: `new Bot({ store, durability: { backend: store.durability() } })`. Its
    * `kv` is a `DurableKv` the product packages (`@botmesh/inbox`…) can persist to as well.
    * Always the same instance.
    */

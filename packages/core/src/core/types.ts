@@ -59,6 +59,7 @@ export type {
   DefaultTools,
   BuildContextDeps,
   StoreKind,
+  BuiltinStoreConfig,
   BotConfig,
   LoggerLike,
   StoredMessage,
@@ -195,6 +196,13 @@ export interface PluginSpec<TConfig = Record<string, unknown>> {
    * error before `install()` runs otherwise). Checked at plug time only.
    */
   requires?: string[]
+  /**
+   * Allow several instances of this plugin (same {@link name}) on one bot at a time, each
+   * with its own config and unplugged on its own. Default `false`: plugging a name that is
+   * already plugged throws, so a plugin registered twice by mistake never runs its handlers
+   * twice. Every instance must set it.
+   */
+  multiple?: boolean
   /**
    * Register the plugin's handlers, hooks and tools. It must be **synchronous and return
    * nothing**: `bot.plug()` does not await it. An `async install` (or one that returns a

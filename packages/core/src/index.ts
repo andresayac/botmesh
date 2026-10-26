@@ -5,6 +5,17 @@
  * transport provider (`@botmesh/baileys` for WhatsApp) and, optionally, a store
  * (`@botmesh/sqlite-store`, `@botmesh/redis-store`) and the `@botmesh/ai` plugin.
  *
+ * This entry exports what an application needs: the `Bot`, the flow DSL, the message
+ * vocabulary, the option types and the errors an app can catch. The other entries:
+ *
+ * - `@botmesh/core/testing`: test kit (`createTestBot`, `MockProvider`, chaos kit, golden
+ *   transcripts, crash simulation, in-memory coordinators).
+ * - `@botmesh/core/spi`: for authors of stores, durability backends, schedule stores,
+ *   coordinators, tracer integrations and transports (reference backends, record types,
+ *   key and form helpers).
+ * - `@botmesh/core/dev`: the `botmesh dev` terminal simulator.
+ * - `@botmesh/core/internal`: engine building blocks, with no semver guarantee.
+ *
  * @example
  * ```ts
  * import { Bot, flow } from '@botmesh/core'
@@ -28,18 +39,6 @@ export type {
   StopOptions,
   ConversationTarget,
 } from './core/Bot.js'
-export {
-  /** @deprecated Import from '@botmesh/core/internal' (engine internal; removed from the main entry in v3). */
-  buildMessageContext,
-} from './internal.js'
-export { Dispatcher } from './core/Dispatcher.js'
-export type {
-  DispatchContext,
-  DispatcherDeps,
-  HooksLike,
-  MessageHandler as DispatcherMessageHandler,
-  CommandHandler as DispatcherCommandHandler,
-} from './core/Dispatcher.js'
 
 // Transport-agnostic contract + core vocabulary
 import type { BotConfig as BotConfigForAlias } from './core/types.js'
@@ -47,6 +46,7 @@ import type { BotConfig as BotConfigForAlias } from './core/types.js'
 export type Config = BotConfigForAlias
 export type {
   BotConfig,
+  BuiltinStoreConfig,
   IProvider,
   ProviderCapabilities,
   ConnectionState,
@@ -82,7 +82,6 @@ export type {
   MessageContext,
   MessageType,
   SentMessage,
-  BuildContextDeps,
   StoreKind,
   LoggerLike,
   // Hooks / plugins / triggers / scheduler / conversations
@@ -117,28 +116,57 @@ export {
   MediaTooLargeError,
   OutsideSessionWindowError,
 } from './core/types.js'
+export { MediaUnavailableError } from './core/mediaRefs.js'
+export type { SerializedMediaRef, MediaUnavailableReason } from './core/mediaRefs.js'
+export type { ContextI18n, InboundListener, StreamingMode, TextFormat, DraftOptions } from './core/provider.js'
 
 // Flows DSL
 export { flow, addKeyword, FlowBuilder, isCompiledFlow } from './flows/FlowBuilder.js'
 export type { CompiledFlow, CompiledStep, DynamicText, FlowAction } from './flows/FlowBuilder.js'
+export type {
+  EmptyFlowState,
+  FlowControls,
+  FlowStateWith,
+  FlowStateMerge,
+  FlowStateOf,
+  FlowGuard,
+  FlowDelay,
+  SayStepOptions,
+  AskStepOptions,
+  ChooseStepOptions,
+  ChooseOption,
+  GuardFailure,
+  CompiledAskOptions,
+  CompiledChooseOption,
+} from './flows/FlowBuilder.js'
+export { FLOW_MEDIA_KINDS, isFlowMediaKind } from './flows/media.js'
+export type { FlowMediaKind, FlowFileMediaKind, FlowLocation, FlowMediaOptions, FlowMediaSource, DynamicMediaSource } from './flows/media.js'
+export type { SchemaLike, SchemaParseResult, SchemaIssueLike, InferSchema } from './flows/schema.js'
+export type { SchemaWaitOptions } from './conversations/controls.js'
 
-// Conversations (async runtime)
-export { ConversationRuntime } from './conversations/ConversationRuntime.js'
+// Conversations
+export type { ConversationHandler } from './conversations/handler.js'
+export type {
+  /**
+   * @deprecated Use {@link ConversationHandler}, the handler type of `bot.conversation()` (its
+   * `ctx` is the full `MessageContext`). This is the runtime's narrower function type (the one
+   * `ConversationRegistration.fn` records), kept so code typed with it still compiles.
+   */
+  ConversationFn,
+} from './conversations/ConversationRuntime.js'
 export type {
   RuntimeMessage,
-  ConversationFn,
   ConversationControlsBase,
-  RuntimeConfig,
   ResolvedWaitOptions,
-  ConversationHandle,
-  CheckpointStore,
+  ConversationRegistration,
+  ConversationObserver,
+  ConversationSnapshot,
+  WaitAccepts,
+  ConversationOutcome,
+  EnterOptions,
+  ConversationStartInfo,
+  ConversationEndInfo,
 } from './conversations/ConversationRuntime.js'
-// Referenced by RuntimeConfig.answers / RuntimeConfig.handover (multi-replica hand-over).
-export type { AnswerCodec, RuntimeHandover, RuntimeHandoverFallback } from './conversations/handover.js'
-export {
-  /** @deprecated Import from '@botmesh/core/internal' (engine internal; removed from the main entry in v3). */
-  createControls,
-} from './internal.js'
 export type { ConversationControls, WaitMediaType } from './conversations/controls.js'
 export {
   ConversationError,
@@ -149,58 +177,34 @@ export {
   RetriesExceeded,
   ConcurrentWaitError,
 } from './conversations/errors.js'
+export { ConversationRetry, RetryUnavailableError } from './conversations/retry.js'
+export type { IdleCallback } from './conversations/idle.js'
+export type { IdleHandler, IdleEvent } from './core/idle.js'
 
-// Hooks & plugins
-export { HookSystem } from './hooks/HookSystem.js'
-export type { RegisteredHook, HookLogger } from './hooks/HookSystem.js'
+// Plugins
 export { definePlugin, isPlugin } from './plugins/definePlugin.js'
 export { slashCommandsPlugin } from './plugins/slashCommands.js'
 export type { SlashCommandsConfig } from './plugins/slashCommands.js'
 
-// Store
+// Store: the IStore contract an app passes as `BotConfig.store` (store authors: '@botmesh/core/spi')
 export { MemoryStore } from './store/MemoryStore.js'
 export type { IStore, AIMessage, StoredMessage, StoredChat, StoredContact, FlowCheckpoint } from './store/IStore.js'
-export type { CheckpointAnswer, CheckpointHandover } from './core/provider.js'
 export type { MemoryStoreOptions, MemoryStoreLogger } from './store/MemoryStore.js'
-export { messageKey, legacyMessageKey } from './store/IStore.js'
 export { NamespacedStore } from './store/NamespacedStore.js'
 export type { StoreNamespace } from './store/NamespacedStore.js'
 
 // Config validation
 export { validateConfig, ConfigValidationError } from './utils/validateConfig.js'
 
-// Utils (advanced)
-export { sleep, parseDuration, humanTypingDelay, withTimeout, TimeoutError, randomId } from './utils/timers.js'
+// Durations and timeouts
+export { parseDuration, TimeoutError } from './utils/timers.js'
 
-// Scheduler
-export { Scheduler } from './scheduler/Scheduler.js'
-// Scheduler: durable tasks (persistent schedule store + fenced leases)
-export type { DurableTaskOptions, DurableTaskHandler, ScheduledRun, MissedRunPolicy } from './core/types.js'
-// Scheduler: cron in an IANA time zone (plain tasks; durable tasks take DurableTaskOptions.timeZone)
-export type { CronTaskOptions } from './core/types.js'
-export { MemoryScheduleStore, isScheduleClaimable, applyScheduleComplete } from './scheduler/ScheduleStore.js'
-export type {
-  ScheduleStore,
-  ScheduleRecord,
-  ScheduleKind,
-  ClaimResult,
-  CompletePatch,
-  SchedulerOptions,
-} from './scheduler/ScheduleStore.js'
-export { cronNextRun } from './scheduler/cron.js'
-// Scheduler leadership: a low-level fenced LeaseProvider, or the multi-replica Coordinator
-// (`SchedulerLease`; a bot with `coordination` uses its coordinator by default).
-export { MemoryLeaseProvider } from './coordination/lease.js'
-export type { LeaseProvider, LeaseGrant, SchedulerLease } from './coordination/lease.js'
+// Scheduler (bot.schedule / every / delay; BotConfig.scheduler)
+export type { DurableTaskOptions, DurableTaskHandler, ScheduledRun, MissedRunPolicy, CronTaskOptions } from './core/types.js'
+export type { ScheduleStore, SchedulerOptions } from './scheduler/ScheduleStore.js'
+export type { LeaseProvider, SchedulerLease } from './coordination/lease.js'
 
-// Engine internals (buildMessageContext, createPacer, runBroadcast, MetricsCollector, …) live
-// under the "./internal" subpath (import from '@botmesh/core/internal'). The main entry still
-// re-exports them, marked @deprecated, until v3.
-
-// Testing helpers live under the "./testing" subpath export
-// (import from '@botmesh/core/testing') — not re-exported here to keep the entry lean.
-
-// describe-lint
+// Flow inspection (bot.describe / bot.lint / bot.flowInventory)
 export { describeFlows } from './flows/describe.js'
 export type {
   DescribeOptions,
@@ -213,6 +217,7 @@ export type {
   FlowGraphGroup,
   FlowGraphOption,
   FlowGraphTimeoutSource,
+  FlowGraphFormInfo,
 } from './flows/describe.js'
 export { lintFlows } from './flows/lint.js'
 export type { LintCode, LintDiagnostic, LintOptions, LintSeverity } from './flows/lint.js'
@@ -225,17 +230,17 @@ export type {
   TriggerInfo,
   TriggerPatternInfo,
 } from './flows/inventory.js'
-export type { ConversationRegistration } from './conversations/ConversationRuntime.js'
 
-// conversations
-export { ConversationRetry, RetryUnavailableError } from './conversations/retry.js'
-export type { ConversationHandler } from './conversations/handler.js'
-export type { IdleCallback } from './conversations/idle.js'
-export type { ConversationObserver } from './conversations/ConversationRuntime.js'
-export type { IdleHandler, IdleEvent } from './core/idle.js'
-
-// handoff-gates
-export { AccessList, Whitelist, checkAccess } from './gates/accessList.js'
+// Access lists and human handoff
+export { AccessList } from './gates/accessList.js'
+export {
+  /**
+   * @deprecated The class of `bot.whitelist` (an {@link AccessList} with an on/off mode). Use the
+   * instance on the bot (`bot.whitelist`) and never construct one; to name its type, write
+   * `Bot['whitelist']`.
+   */
+  Whitelist,
+} from './gates/accessList.js'
 export type {
   AccessDecision,
   AccessListAction,
@@ -245,7 +250,6 @@ export type {
   AccessListsSnapshot,
   WhitelistSnapshot,
 } from './gates/accessList.js'
-export { HANDOFF_INDEX_KEY, validateHandoffConfig } from './gates/handoff.js'
 export type {
   HandoffConfig,
   HandoffEvent,
@@ -256,7 +260,7 @@ export type {
   StoredHandoff,
 } from './gates/handoff.js'
 
-// triggers
+// Type triggers
 export {
   WELCOME,
   MEDIA,
@@ -276,141 +280,33 @@ export {
 } from './core/triggers.js'
 export type { TypeTrigger, WelcomeTrigger } from './core/triggers.js'
 
-// dev-simulator
-// Bot factory pattern shared by `npm start` and the `botmesh dev` terminal simulator.
-// The simulator itself (DevSession, DevProvider, runCli, ...) lives under the
-// "./dev" subpath export (import from '@botmesh/core/dev').
+// Bot factory pattern shared by `npm start` and the `botmesh dev` simulator ('@botmesh/core/dev').
 export { defineBot, isBotFactory, isMainModule } from './dev/defineBot.js'
 export type { BotFactory } from './dev/defineBot.js'
-export type { ConversationSnapshot, WaitAccepts } from './conversations/ConversationRuntime.js'
 
-// chaos-mock
-// Inbound idempotency (BotConfig.dedupe). The chaos kit and the identity
-// contract helpers live under '@botmesh/core/testing'.
-export { InboundDeduper, createInboundDeduper, inboundDedupeKey, DEFAULT_DEDUPE_SIZE } from './core/dedupe.js'
-export type { InboundDedupeOptions, InboundDeduperOptions, InboundDedupeKey } from './core/dedupe.js'
-// Echo filter (BotConfig.echoFilter): the bot's own sends coming back as inbound are dropped.
-export { SentRefRing, createEchoFilter, DEFAULT_ECHO_FILTER_SIZE } from './core/echo.js'
-export type { EchoFilterOptions, SentRefRingOptions } from './core/echo.js'
-export { toInboundLocation } from './core/location.js'
-export type { InboundLocationInput } from './core/location.js'
+// Inbound idempotency and echo filter options (BotConfig.dedupe / BotConfig.echoFilter)
+export type { InboundDedupeOptions } from './core/dedupe.js'
+export type { EchoFilterOptions } from './core/echo.js'
 
-// ctx-user
-export { UserDataService, userOf, supportsUserData, DEFAULT_USER_NAMESPACE } from './user/UserDataService.js'
-export type { UserDataServiceOptions, UserDataStore } from './user/UserDataService.js'
+// ctx.user: per-user data
+export { userOf } from './user/UserDataService.js'
 export { UserDataError } from './user/errors.js'
 export type { UserDataErrorCode } from './user/errors.js'
 export type { UserData, UserSetOptions } from './user/types.js'
-export type { UserDataEntry } from './core/provider.js'
 
-// golden-transcripts
-// Recording + redaction are usable in production (wrap the real provider; the recorder
-// keeps a bounded, unredacted buffer in RAM, see `maxTurns`, so clear() it after use); the
-// replay/diff helpers (replayTranscript, assertTranscript) live under '@botmesh/core/testing'.
-export {
-  TRANSCRIPT_FORMAT,
-  TRANSCRIPT_VERSION,
-  TranscriptFormatError,
-  createTranscript,
-  parseTranscript,
-  serializeTranscript,
-  transcriptFromMessages,
-  transcriptFromStore,
-} from './testing/transcripts/format.js'
-export type {
-  Transcript,
-  TranscriptTurn,
-  TranscriptInbound,
-  TranscriptOutbound,
-  JsonValue,
-  FromMessagesOptions,
-  TranscriptMessageSource,
-  TranscriptStoreOwner,
-} from './testing/transcripts/format.js'
-export { recordTranscript, RecordingProvider, DEFAULT_MAX_TURNS } from './testing/transcripts/record.js'
-export type { RecordTranscriptOptions, TranscriptRecorder } from './testing/transcripts/record.js'
-export { redactTranscript, createRedactionMap } from './testing/transcripts/redact.js'
-export type { RedactOptions, RedactionRule, RedactionMap } from './testing/transcripts/redact.js'
-// flow-dsl
-// Flow composition (.use), guards, schema validation, full .media(), per-step delays and typed state.
-export type {
-  EmptyFlowState,
-  FlowControls,
-  FlowStateWith,
-  FlowStateMerge,
-  FlowStateOf,
-  FlowGuard,
-  FlowDelay,
-  SayStepOptions,
-  AskStepOptions,
-  ChooseStepOptions,
-  ChooseOption,
-  GuardFailure,
-  CompiledAskOptions,
-  CompiledChooseOption,
-} from './flows/FlowBuilder.js'
-export { FLOW_MEDIA_KINDS, isFlowMediaKind } from './flows/media.js'
-export type { FlowMediaKind, FlowFileMediaKind, FlowLocation, FlowMediaOptions, FlowMediaSource, DynamicMediaSource } from './flows/media.js'
-export { isSchemaLike, DEFAULT_SCHEMA_MESSAGE } from './flows/schema.js'
-export type { SchemaLike, SchemaParseResult, SchemaIssueLike, InferSchema } from './flows/schema.js'
-export type { SchemaWaitOptions } from './conversations/controls.js'
-// messaging
-// Automatic typing indicator (BotConfig.typing), reply delays, ctx.edit / ctx.react
-// capability resolution (native / degraded / unsupported).
-export { DEFAULT_TYPING, messagingSupport, PacedSendCancelled } from './core/messaging.js'
-export {
-  /** @deprecated Import from '@botmesh/core/internal' (engine internal; removed from the main entry in v3). */
-  TYPING_REFRESH_MS,
-  /** @deprecated Import from '@botmesh/core/internal' (engine internal; removed from the main entry in v3). */
-  ExternalSendClock,
-  /** @deprecated Import from '@botmesh/core/internal' (engine internal; removed from the main entry in v3). */
-  createPacer,
-  /** @deprecated Import from '@botmesh/core/internal' (engine internal; removed from the main entry in v3). */
-  normalizeTypingConfig,
-  /** @deprecated Import from '@botmesh/core/internal' (engine internal; removed from the main entry in v3). */
-  resolveReplyTyping,
-  /** @deprecated Import from '@botmesh/core/internal' (engine internal; removed from the main entry in v3). */
-  typingDuration,
-  /** @deprecated Import from '@botmesh/core/internal' (engine internal; removed from the main entry in v3). */
-  parseReplyDelay,
-} from './internal.js'
-export type {
-  TypingConfig,
-  ResolvedTypingConfig,
-  ReplyOptions,
-  EditOptions,
-  EditResult,
-  MessagingFeature,
-  MessagingSupport,
-  Pacer,
-  PacerOptions,
-  PaceGuard,
-  PacerLogger,
-} from './core/messaging.js'
-// bot-ops
-// bot.broadcast() engine, bot.trigger() types, bot.metrics() snapshot + Prometheus exporter,
-// and the conversation lifecycle types behind the 'conversation:started'/'conversation:ended' events.
-export {
-  /** @deprecated Import from '@botmesh/core/internal' (engine internal; removed from the main entry in v3). */
-  runBroadcast,
-} from './internal.js'
-export type { BroadcastOptions, BroadcastFailure, BroadcastProgress, BroadcastDeps } from './ops/broadcast.js'
+// Messaging: typing indicator (BotConfig.typing), reply options, ctx.edit / ctx.react
+export { PacedSendCancelled } from './core/messaging.js'
+export type { TypingConfig, ReplyOptions, EditOptions, EditResult, MessagingFeature, MessagingSupport } from './core/messaging.js'
+export type { JsonValue } from './core/json.js'
+
+// Operations: bot.broadcast(), bot.trigger(), bot.metrics() + Prometheus exporter
+export type { BroadcastOptions, BroadcastFailure, BroadcastProgress } from './ops/broadcast.js'
 export type { TriggerOptions, TriggerResult, TriggerSkipReason, TriggerRaw } from './ops/trigger.js'
-export {
-  /** @deprecated Import from '@botmesh/core/internal' (engine internal; removed from the main entry in v3). */
-  MetricsCollector,
-  /** @deprecated Import from '@botmesh/core/internal' (engine internal; removed from the main entry in v3). */
-  formatUptime,
-} from './internal.js'
 export type { BotMetricsSnapshot, ConversationCounters, ConversationStartedEvent, ConversationEndedEvent } from './ops/metrics.js'
 export { toPrometheus, PROMETHEUS_CONTENT_TYPE } from './ops/prometheus.js'
 export type { PrometheusOptions } from './ops/prometheus.js'
-export type { ConversationOutcome, EnterOptions, ConversationStartInfo, ConversationEndInfo } from './conversations/ConversationRuntime.js'
-// i18n
-// Native i18n: `bot.locale()`, `ctx.t()` / `c.t()`, `ctx.setLang()` and the
-// localizable built-in core messages (`core.*`, `es` + `en`).
-export { I18n, normalizeLocale, providerLanguageOf } from './i18n/I18n.js'
-export type { I18nOptions, I18nLogger } from './i18n/I18n.js'
+
+// i18n: bot.locale(), ctx.t() / c.t(), ctx.setLang() and the built-in core messages
 export { CORE_MESSAGES, BUILTIN_LOCALES } from './i18n/builtins.js'
 export type { CoreMessageKey } from './i18n/builtins.js'
 export type {
@@ -423,95 +319,112 @@ export type {
   Translate,
   TranslateParams,
 } from './i18n/types.js'
-export type { ContextI18n, InboundListener } from './core/provider.js'
-// manager
-// Dynamic flow registry: bot.registerFlow/unregisterFlow/replaceFlow/listFlows/triggerFlow.
+
+// Dynamic flow registry: bot.registerFlow / unregisterFlow / replaceFlow / listFlows
 export type { FlowTriggerOptions, FlowTriggerTarget, RegisteredFlowInfo } from './core/flowRegistry.js'
-// streaming
-// ctx.stream(): live replies (native drafts / throttled edits / sentence chunks).
-export { streamText, resolveStreamStrategy } from './streaming/streamText.js'
-export { splitMessage, findSplitPoint } from './streaming/split.js'
+
+// Streaming: ctx.stream() and the text helpers behind it
+export { streamText } from './streaming/streamText.js'
+export { splitMessage } from './streaming/split.js'
 export type { StreamSource, StreamStrategy, StreamOptions, StreamResult, StreamTarget } from './streaming/types.js'
-export type { StreamingMode, TextFormat, DraftOptions } from './core/provider.js'
-// wa-flows
-// Native forms: `flow().form(definition)` renders a WhatsApp Flow on providers with
-// `capabilities.forms === 'native'` (@botmesh/meta) and asks field by field elsewhere.
-export {
-  /** @deprecated Import from '@botmesh/core/internal' (engine internal; removed from the main entry in v3). */
-  runFormStep,
-  /** @deprecated Import from '@botmesh/core/internal' (engine internal; removed from the main entry in v3). */
-  resolveFormMode,
-  /** @deprecated Import from '@botmesh/core/internal' (engine internal; removed from the main entry in v3). */
-  newFormToken,
-} from './internal.js'
-export { formReplyBody, parseFormReply } from './forms/reply.js'
-export { withFormDefaults } from './forms/defaults.js'
-export {
-  assertFormDefinition, validateFormValues, parseFieldAnswer, parseFormDate,
-  formOptionEntries, isFieldRequired, selectionBounds,
-} from './forms/validate.js'
-export type { FieldCheck, FormFieldError, FormValidation } from './forms/validate.js'
+
+// Native forms: flow().form(definition) (provider renderers: '@botmesh/core/spi')
 export type {
   FormDefinition, FormField, FormFieldType, FormOptions, FormValue, FormValues, FormReply,
   FormMode, FormStepOptions, FormContent, FormFieldBase,
   TextFormField, NumberFormField, EmailFormField, DateFormField, SelectFormField,
   MultiSelectFormField, OptInFormField,
 } from './forms/types.js'
-export type { FlowGraphFormInfo } from './flows/describe.js'
-// voice
-// Lazily download an inbound message's media (populates `ctx.media`); used by
-// plugins such as @botmesh/voice that need the bytes before routing.
+
+// Media: lazily download an inbound message's media (populates ctx.media)
 export { loadMediaOf } from './core/context.js'
 export type { LoadMediaOptions } from './core/context.js'
-// multi-replica coordination
-// `BotConfig.coordination`: per-chat turns (cross-replica FIFO) and leader-elected
-// provider sessions. Backends: MemoryCoordinator here, RedisCoordinator in @botmesh/redis-store.
-export {
-  LeaseLostError, CoordinationUnavailableError, MemoryCoordinator, MemoryCoordinationHub, ProviderNotLeaderError,
-} from './coordination/index.js'
+
+// Multi-replica coordination (BotConfig.coordination). Backends: RedisCoordinator in
+// @botmesh/redis-store; the in-memory ones live in '@botmesh/core/testing'.
+export { LeaseLostError, CoordinationUnavailableError, ProviderNotLeaderError } from './coordination/index.js'
 export type {
-  Fence, LeaseLossReason, LeaseInfo, Ticket, ChatTurn, Leadership, Coordinator, CoordinatorEvents,
-  AcquireTurnOptions, CoordinationConfig, MemoryCoordinatorOptions,
+  Coordinator, CoordinationConfig, Fence, LeaseLossReason, CoordinatorEvents,
   ConversationHandoverConfig, ConversationHandoverEvent, HandoverFallback, HandoverContext, InterruptedConversation,
 } from './coordination/index.js'
 
-// durability
-// Durable message processing (BotConfig.durability): inbox/outbox journal contract,
-// the in-memory + file backends, the KV seam store packages implement, and errors.
+// Durable message processing (BotConfig.durability). Backend authors: '@botmesh/core/spi'.
 export { MemoryDurability } from './durability/memory.js'
 export { FileDurability } from './durability/file.js'
 export type { FileDurabilityOptions } from './durability/file.js'
-export { KvDurability, KvInbox, KvOutbox } from './durability/journal.js'
-export type { KvDurabilityOptions } from './durability/journal.js'
-export { MemoryKv } from './durability/kv.js'
-export type { DurableKv, DurableKvEntry, DurableKvIndex, DurableTable, KvMutation, MemoryKvSnapshot } from './durability/kv.js'
-export { StaleLeaseError, SendDeferredError } from './durability/errors.js'
-export { computeBackoff, DEFAULT_BACKOFF } from './durability/backoff.js'
+export type { DurableKv } from './durability/kv.js'
+export { SendDeferredError } from './durability/errors.js'
 export type { DurabilityControl, DurabilityMetrics } from './durability/engine.js'
-export type {
-  DurabilityConfig, DurabilityBackend, RetryBackoff,
-  InboxJournal, InboxRecord, InboxState, InboxAppend,
-  OutboxJournal, OutboxRecord, OutboxState, OutboxPut, OutboxError, ClaimedSend,
-  ClaimOptions, LeaseOptions,
-} from './durability/types.js'
+export type { DurabilityConfig, DurabilityBackend, RetryBackoff } from './durability/types.js'
 
-// Durable media references (durability.inbox.mediaRefs): the provider hooks' value type and
-// the error a replayed message's media download rejects with when it cannot be rebuilt.
-export { MediaUnavailableError } from './core/mediaRefs.js'
-export type { SerializedMediaRef, MediaUnavailableReason } from './core/mediaRefs.js'
-
-// Telemetry
-// Tracing hooks (BotConfig.telemetry, bot.tracing): the minimal BotTracer contract an
-// integration implements (OpenTelemetry: @botmesh/otel) and the attribute names.
-export { noopTracer, NOOP_TRACING, errorTypeOf } from './telemetry/tracing.js'
+// Telemetry (BotConfig.telemetry, bot.tracing): the BotTracer contract an integration
+// implements (OpenTelemetry: @botmesh/otel) and the attribute names.
 export { TRACE_ATTR, SPAN_NAMES } from './telemetry/attributes.js'
 export type {
   BotTracer, BotTracing, BotSpan, SpanOptions, SpanKind, SpanStatus, SpanLink, SpanContextRef, SpanException,
   TraceAttributes, TraceAttributeValue, TelemetryConfig,
 } from './telemetry/types.js'
-export type { ConversationTraceHooks, ConversationTurnTrace } from './conversations/ConversationRuntime.js'
-// W3C trace context carried by checkpoints (FlowCheckpoint.trace) across replicas/restarts.
-export { formatTraceparent, parseTraceparent } from './telemetry/w3c.js'
-export type { CheckpointTrace } from './telemetry/w3c.js'
-// Scheduled task spans (bot.task): the hook the scheduler calls around each run.
-export type { TaskTraceHooks, TaskRunInfo } from './scheduler/tracing.js'
+
+// Golden transcripts: deprecated here; they live in '@botmesh/core/testing'.
+export {
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  TRANSCRIPT_FORMAT,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  TRANSCRIPT_VERSION,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  TranscriptFormatError,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  createTranscript,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  parseTranscript,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  serializeTranscript,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  transcriptFromMessages,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  transcriptFromStore,
+} from './testing/transcripts/format.js'
+export type {
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  Transcript,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  TranscriptTurn,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  TranscriptInbound,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  TranscriptOutbound,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  FromMessagesOptions,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  TranscriptMessageSource,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  TranscriptStoreOwner,
+} from './testing/transcripts/format.js'
+export {
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  recordTranscript,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  RecordingProvider,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  DEFAULT_MAX_TURNS,
+} from './testing/transcripts/record.js'
+export type {
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  RecordTranscriptOptions,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  TranscriptRecorder,
+} from './testing/transcripts/record.js'
+export {
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  redactTranscript,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  createRedactionMap,
+} from './testing/transcripts/redact.js'
+export type {
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  RedactOptions,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  RedactionRule,
+  /** @deprecated Import from '@botmesh/core/testing'. */
+  RedactionMap,
+} from './testing/transcripts/redact.js'

@@ -15,11 +15,14 @@ The workflow:
 
 | Function | Import from | Purpose |
 | --- | --- | --- |
-| `recordTranscript`, `RecordingProvider` | `@botmesh/core` or `@botmesh/core/testing` | Record live traffic through a provider wrapper |
-| `transcriptFromStore`, `transcriptFromMessages` | `@botmesh/core` or `@botmesh/core/testing` | Build a transcript from the store message log |
-| `redactTranscript`, `createRedactionMap` | `@botmesh/core` or `@botmesh/core/testing` | Replace PII with stable placeholders |
-| `parseTranscript`, `serializeTranscript`, `createTranscript` | `@botmesh/core` or `@botmesh/core/testing` | Read, write and hand-write transcripts |
-| `replayTranscript`, `assertTranscript`, `REPLAY_MASKS` | `@botmesh/core/testing` only | Replay and diff |
+| `recordTranscript`, `RecordingProvider` | `@botmesh/core/testing` | Record live traffic through a provider wrapper |
+| `transcriptFromStore`, `transcriptFromMessages` | `@botmesh/core/testing` | Build a transcript from the store message log |
+| `redactTranscript`, `createRedactionMap` | `@botmesh/core/testing` | Replace PII with stable placeholders |
+| `parseTranscript`, `serializeTranscript`, `createTranscript` | `@botmesh/core/testing` | Read, write and hand-write transcripts |
+| `replayTranscript`, `assertTranscript`, `REPLAY_MASKS` | `@botmesh/core/testing` | Replay and diff |
+
+The recording, redaction and format helpers are also re-exported by `@botmesh/core`, marked
+`@deprecated`: import them from `@botmesh/core/testing` (recording works in production too).
 
 ## Record a conversation
 
@@ -66,7 +69,7 @@ the store you give it, so the raw store finds nothing under the plain chat
 ids.
 
 ```ts
-import { transcriptFromStore } from '@botmesh/core'
+import { transcriptFromStore } from '@botmesh/core/testing'
 
 const transcript = await transcriptFromStore(bot, [chatId], { name: 'support-123', limit: 500 })
 ```
@@ -240,7 +243,7 @@ fresh bot.
 
 ```ts
 import { readFileSync } from 'node:fs'
-import { MemoryKv } from '@botmesh/core'
+import { MemoryKv } from '@botmesh/core/spi'
 import { parseTranscript, REPLAY_MASKS } from '@botmesh/core/testing'
 import { DeploymentGateError, DeploymentRegistry, KvDeploymentStore, goldenTranscriptGate } from '@botmesh/deployments'
 

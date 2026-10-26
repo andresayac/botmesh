@@ -19,7 +19,7 @@
  * by `gsId` when present.
  */
 
-import { toInboundLocation } from '@botmesh/core'
+import { toInboundLocation } from '@botmesh/core/spi'
 import type { InboundEvent, InboundLocation, MediaRef, MessageType } from '@botmesh/core'
 import type { GupshupCallback, GupshupEventPayload, GupshupMessagePayload } from './types.js'
 

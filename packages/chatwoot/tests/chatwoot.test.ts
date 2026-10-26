@@ -193,7 +193,7 @@ describe('chatwootPlugin — bot → Chatwoot sync', () => {
 })
 
 describe('chatwootPlugin — handoff integration', () => {
-  it('an agent reply is delivered with bot.sendTo and auto-hands the chat off', async () => {
+  it('an agent reply is delivered with bot.send and auto-hands the chat off', async () => {
     const { bot, chat } = await createTestBot()
     const { fake, plugin } = setup()
     bot.plug(plugin)

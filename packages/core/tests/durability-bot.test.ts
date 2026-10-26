@@ -230,7 +230,7 @@ describe('durability on', () => {
     for (const failOpen of [false, true]) {
       const inner = new MemoryDurability()
       const journal = { inbox: Object.create(inner.inbox, { append: { value: async () => { throw new Error('journal down') } } }), outbox: inner.outbox }
-      const { bot, provider } = await makeBot({ durability: { journal, failOpen } })
+      const { bot, provider } = await makeBot({ durability: { backend: journal, failOpen } })
       const errors = vi.fn()
       bot.on('error', errors)
       const seen: string[] = []
@@ -244,7 +244,7 @@ describe('durability on', () => {
 
   it('stop() during a running step releases its event (replayed on the next start)', async () => {
     const journal = new MemoryDurability()
-    const { bot, provider } = await makeBot({ durability: { journal } })
+    const { bot, provider } = await makeBot({ durability: { backend: journal } })
     let started!: () => void
     const running = new Promise<void>((r) => { started = r })
     bot.when('go', flow('go').do(async () => { started(); await new Promise(() => {}) }))
@@ -258,7 +258,7 @@ describe('durability on', () => {
     const provider = new MockProvider()
     expect(() => new Bot({ provider, durability: { outbox: { onAmbiguous: 'maybe' as never } } })).toThrow(/onAmbiguous/)
     expect(() => new Bot({ provider, durability: { inbox: { maxAttempts: 0 } } })).toThrow(/maxAttempts/)
-    expect(() => new Bot({ provider, durability: { journal: {} as never } })).toThrow(/journal/)
+    expect(() => new Bot({ provider, durability: { backend: {} as never } })).toThrow(/durability.backend/)
     expect(() => new Bot({ provider, durability: { pollMs: 'soon' } })).toThrow(/pollMs/)
   })
 })

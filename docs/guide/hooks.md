@@ -124,7 +124,7 @@ taps and calls. See [Handoff & access lists](./handoff#blacklist-and-whitelist).
 ## Transform or block outgoing messages
 
 `'send'` fires on **every** outbound send, whether it comes from
-`ctx.reply`/`ctx.photo`/... or from `bot.send`/`bot.sendText`. The payload
+`ctx.reply`/`ctx.photo`/... or from `bot.send`. The payload
 is `{ chatId, content, options }` — `content` is the transport-neutral
 `OutboundContent` (`{ kind: 'text', text }`, `{ kind: 'image', media,
 caption }`, ...); mutate it to transform a message, or abort to skip the

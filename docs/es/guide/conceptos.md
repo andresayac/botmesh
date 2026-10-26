@@ -107,7 +107,7 @@ del idioma y solo los [triggers `CALL`](./triggers#call). Sin hooks de
 mensaje, comandos ni evento `'message'`.
 
 `bot.trigger(name, { chatId })` (arrancar un flujo sin mensaje entrante;
-`bot.triggerFlow()` es un wrapper fino sobre él con `ifActive: 'replace'`)
+el obsoleto `bot.triggerFlow()` es un wrapper fino sobre él con `ifActive: 'replace'`)
 también va por su propio camino: las listas de acceso, después el turno de
 la cola FIFO del chat, el gate de handoff, la resolución del idioma y el
 inicio de la conversación. Sin dedupe, persistencia, hooks de mensaje,
@@ -129,7 +129,7 @@ bot.when(/.+/, async (ctx) => {
   await ctx.reply('text received')
 })
 
-bot.onImage(async (ctx) => {
+bot.onType('image', async (ctx) => {
   await ctx.reply('image received') // ahora se alcanza, porque el handler de arriba hizo pass
 })
 ```
@@ -224,6 +224,10 @@ registró vía `ctx.bot` (handlers, hooks, plugins anidados, flows en caliente y
 callbacks de `onDispose`; listeners, herramientas, idiomas y tareas programadas
 necesitan un `onDispose`, ver [Plugins](./plugins.md)).
 
+Un plugin se enchufa una vez por bot: enchufar un plugin cuyo `name` ya está
+enchufado lanza un error, salvo que todas las instancias pongan
+`multiple: true` en su spec.
+
 ## Dedupe de entrada
 
 Los transportes por webhook (Cloud API, Messenger, Instagram, Telegram en
@@ -286,9 +290,8 @@ re-entrega posterior es cosa del dedupe.
 Los providers deben dar a cada evento entrante un id que nombre exactamente
 un evento lógico, que no cambie cuando se re-entrega y que sea `''` cuando
 el transporte no pueda garantizarlo. Es el **contrato de ids de entrada**,
-documentado en `IProvider`. Avanzado: `@botmesh/core` exporta
-`InboundDeduper`, `createInboundDeduper`, `inboundDedupeKey` y
-`DEFAULT_DEDUPE_SIZE`.
+documentado en `IProvider`. El deduper en sí (`InboundDeduper`,
+`inboundDedupeKey`…) es un interno del motor (`@botmesh/core/internal`).
 
 ## El evento `'message'` vs `onMessage()`
 
@@ -350,6 +353,57 @@ No necesitas memorizar esto — `ctx.from` te da el id correcto en cualquier
 transporte. Si necesitas la clave nativa del mensaje entrante (para
 citarlo/editarlo/borrarlo con llamadas del provider), usa `ctx.ref`
 (`{ id, chatId, native? }`).
+
+## Duraciones
+
+Toda opción de duración acepta un texto de duración (`'500ms'`, `'30s'`,
+`'2m'`, `'1h'`, `'1d'`, `'1w'`, `'5 minutes'`) o un número de milisegundos.
+Eso incluye **todas las opciones cuyo nombre termina en `Ms`**:
+`typing.minMs`, `durability.inbox.backoff.baseMs`,
+`coordination.turnWaitMs`, `scheduler.tickMs` y el resto.
+
+```ts
+const bot = new Bot({
+  provider,
+  typing: { minMs: '800ms', maxMs: '3s' },
+  durability: { pollMs: '1s', outbox: { inlineMaxMs: '15s', backoff: { baseMs: '1s', capMs: '1m' } } },
+})
+```
+
+`new Bot()` revisa todas las opciones de duración de `BotConfig`. Un valor
+inválido lanza un `ConfigValidationError` cuyo `field` es la ruta de la
+opción, así que el mensaje dice cuál corregir:
+
+```text
+ConfigValidationError: Invalid config.durability.pollMs: expected a duration ('500ms', '30s', '10m', '1h') or milliseconds, got string ("soon")
+```
+
+`parseDuration()` expone la misma gramática.
+
+## Logger
+
+`BotConfig.logger` (y la opción `logger` de cada provider y store) acepta un
+`LoggerLike`: pino, `console` o cualquier objeto con `debug`, `info`, `warn`
+y `error`. Los paquetes siempre lo llaman al estilo pino, así que un logger
+propio solo tiene que manejar dos formas:
+
+```ts
+logger.warn('provider reconnected')                  // un mensaje
+logger.error({ err, chatId }, 'dispatch error')      // primero el objeto de contexto, luego el mensaje
+```
+
+Un error va siempre bajo la clave `err`. Los paquetes nunca ponen un objeto
+después del mensaje (pino lo descartaría), y `child(bindings)` es opcional.
+
+## Entradas del paquete
+
+| Importa de | Para |
+| --- | --- |
+| `@botmesh/core` | Aplicaciones: el `Bot`, el DSL de flujos, los tipos de mensaje, las opciones y los errores que puedes capturar. |
+| `@botmesh/core/testing` | Tests: `createTestBot`, `MockProvider`, el kit de caos, las transcripciones doradas, la simulación de caídas y `MemoryCoordinator`. |
+| `@botmesh/core/spi` | Autores de stores, backends de durabilidad, schedule stores, coordinadores, integraciones de trazas y transportes: `KvDurability`, `MemoryKv`, `MemoryScheduleStore`, `messageKey`, `toInboundLocation`, los tipos de registro… Con garantía semver. |
+| `@botmesh/core/dev` | El simulador de terminal `botmesh dev`. |
+| `@botmesh/core/internal` | Clases del motor (`Dispatcher`, `ConversationRuntime`, `HookSystem`…). Sin garantía semver: no lo uses desde una aplicación. |
 
 ## Siguientes pasos
 

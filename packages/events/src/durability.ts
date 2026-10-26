@@ -19,15 +19,31 @@
  * import { eventsDurability } from '@botmesh/events/durability'
  *
  * const journal = await FileEventJournal.open('./data/events.json', { lock: true })
- * const bot = new Bot({ provider, durability: { journal: eventsDurability({ journal }) } })
+ * const bot = new Bot({ provider, durability: { backend: eventsDurability({ journal }) } })
  * ```
  */
 
 import {
-  KvOutbox, MemoryKv, StaleLeaseError,
-  type ClaimOptions, type DurabilityBackend, type DurableKv, type DurableKvEntry, type DurableKvIndex, type DurableTable, type InboxAppend, type InboxJournal, type InboxRecord,
-  type InboxState, type JsonValue, type LeaseOptions, type MemoryKvSnapshot, type OutboxJournal,
+  type DurabilityBackend,
+  type DurableKv,
 } from '@botmesh/core'
+import {
+  KvOutbox,
+  MemoryKv,
+  StaleLeaseError,
+  type ClaimOptions,
+  type DurableKvEntry,
+  type DurableKvIndex,
+  type DurableTable,
+  type InboxAppend,
+  type InboxJournal,
+  type InboxRecord,
+  type InboxState,
+  type LeaseOptions,
+  type MemoryKvSnapshot,
+  type OutboxJournal,
+  type JsonValue,
+} from '@botmesh/core/spi'
 import {
   EventNotFoundError, FileEventJournal, StaleLeaseError as EventStaleLeaseError,
   type EventContext, type EventEnvelope, type EventRecord, type LeasedEventJournal, type SidecarHandle,

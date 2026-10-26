@@ -5,7 +5,7 @@
  * wildcard-hour slots follow the real clock (dropped in a gap, both passes in an overlap).
  */
 import { describe, expect, it } from 'vitest'
-import { cronNextRun } from '../src/index.js'
+import { cronNextRun } from '../src/internal.js'
 
 const iso = (s: string) => new Date(s)
 /** The next `n` run instants after `from`, as ISO strings. */

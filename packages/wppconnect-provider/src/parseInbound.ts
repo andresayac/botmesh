@@ -7,7 +7,7 @@
  * BEFORE calling this mapper (see `WPPConnectProvider.ingest`).
  */
 
-import { toInboundLocation } from '@botmesh/core'
+import { toInboundLocation } from '@botmesh/core/spi'
 import type {
   ChatInfo,
   DisconnectReason,

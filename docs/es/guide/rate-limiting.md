@@ -1,6 +1,6 @@
 # Rate Limiting (Anti-Ban)
 
-WhatsApp **banea cuentas** que envían demasiados mensajes en poco tiempo. El rate limiter integrado del provider Baileys protege tu bot automáticamente — está **activo por defecto** y se sitúa dentro del pipeline de envío saliente del provider, así que cada `ctx.reply()`, `bot.sendText()`, `bot.broadcast()` y envío de media pasa por él.
+WhatsApp **banea cuentas** que envían demasiados mensajes en poco tiempo. El rate limiter integrado del provider Baileys protege tu bot automáticamente — está **activo por defecto** y se sitúa dentro del pipeline de envío saliente del provider, así que cada `ctx.reply()`, `bot.send()`, `bot.broadcast()` y envío de media pasa por él.
 
 ::: tip Pacing propio de cada transporte
 En v2 la política de pacing vive en el **provider**, no en el core: cada

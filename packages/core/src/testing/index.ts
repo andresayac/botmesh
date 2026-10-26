@@ -1,7 +1,7 @@
 /**
  * `@botmesh/core/testing` — test kit for bots: `MockProvider`, `createTestBot`, the chaos kit
- * (`ChaosProvider`, `withChaos`), identity-contract checks, crash simulation and golden
- * transcripts. Never imported by the engine itself.
+ * (`ChaosProvider`, `withChaos`), identity-contract checks, crash simulation, golden
+ * transcripts and in-memory coordinators. Never imported by the engine itself.
  *
  * @packageDocumentation
  */
@@ -110,6 +110,10 @@ export type {
 // Crash simulation for durability (BotConfig.durability) tests.
 export { crashable, CrashableProvider } from './crash.js'
 export type { CrashableBackend, JournalOp } from './crash.js'
+// Multi-replica coordination (BotConfig.coordination) in one process: bots sharing a
+// MemoryCoordinationHub coordinate like replicas sharing Redis (`crash()` simulates a dead replica).
+export { MemoryCoordinator, MemoryCoordinationHub } from '../coordination/MemoryCoordinator.js'
+export type { MemoryCoordinatorOptions } from '../coordination/MemoryCoordinator.js'
 // Tracing (BotConfig.telemetry): an in-memory tracer to assert on the spans a bot produced.
 export { createRecordingTracer } from './recordingTracer.js'
 export type { RecordingTracer, RecordingTracerOptions, RecordedSpan } from './recordingTracer.js'

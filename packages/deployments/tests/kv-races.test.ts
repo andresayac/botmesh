@@ -4,7 +4,8 @@
  * the version document is stored.
  */
 import { describe, expect, it } from 'vitest'
-import { MemoryKv, type DurableKv } from '@botmesh/core'
+import { type DurableKv } from '@botmesh/core'
+import { MemoryKv } from '@botmesh/core/spi'
 import { DeploymentExistsError, DeploymentRegistry, KvDeploymentStore } from '../src/index.js'
 
 type Hook = (method: string, table: string, id: string, value: string) => Promise<void> | void

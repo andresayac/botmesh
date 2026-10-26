@@ -18,7 +18,7 @@
  * per channel; WhatsApp and SMS are deliberately different chats.
  */
 
-import { toInboundLocation } from '@botmesh/core'
+import { toInboundLocation } from '@botmesh/core/spi'
 import type { InboundEvent, InboundLocation, MediaRef, MessageType } from '@botmesh/core'
 import type { TwilioWebhookParams } from './types.js'
 

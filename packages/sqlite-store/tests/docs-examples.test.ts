@@ -48,7 +48,7 @@ describe('README / guide examples', () => {
 
   it('Durable message processing: store.durability() journals inbound messages', async () => {
     const store = new SQLiteStore({ file: dataFile() })
-    const { bot, chat } = await createTestBot({ store, durability: { journal: store.durability() } })
+    const { bot, chat } = await createTestBot({ store, durability: { backend: store.durability() } })
     bot.when('hi', (ctx) => ctx.reply('hello'))
     await chat.send('hi')
     await chat.expectReply('hello')

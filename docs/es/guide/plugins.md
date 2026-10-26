@@ -28,7 +28,7 @@ a lo más antiguo, lo que el plugin registró vía `ctx.bot`:
 - comandos (`command()`), matchers (`when()`, `onMessage()`, `onType()`),
   conversaciones y disparadores de flows (`conversation()`, `use(flow)`);
 - hooks (`before()`, `after()`, `onError()`, `hook()`);
-- plugins anidados (`ctx.bot.plug()` / `ctx.bot.use(plugin)`);
+- plugins anidados (`ctx.bot.plug()`, o el obsoleto `ctx.bot.use(plugin)`);
 - flows registrados en caliente con `ctx.bot.registerFlow()`, o creados (no
   reemplazados) con `ctx.bot.replaceFlow()`;
 - cada callback de `ctx.onDispose(fn)`.
@@ -63,6 +63,22 @@ const unplugCrm = bot.plug(crm)      // ...y después el plugin que la requiere
 La comprobación solo ocurre al enchufar: desenchufar `inbox` después no
 desenchufa `crm`. Un plugin anidado dentro de otro (`ctx.bot.plug()` desde
 `install()`) puede requerir a su padre.
+
+### Una instancia por nombre (`multiple`)
+
+`bot.plug()` rechaza un plugin cuyo `name` ya está enchufado en el bot, así un
+plugin registrado dos veces por error nunca ejecuta sus handlers dos veces:
+
+```ts
+const unplug = bot.plug(inbox)
+bot.plug(inbox)   // Error: Plugin "inbox" is already plugged on this bot…
+unplug()
+bot.plug(inbox, { tenant: 'b' })  // vale otra vez: la primera instancia ya no está
+```
+
+Un plugin pensado para correr varias veces con configuraciones distintas pone
+`multiple: true` en su spec (todas las instancias deben ponerlo). Cada
+instancia se desenchufa por separado y cualquiera de ellas cumple `requires`.
 
 ### Incluido: slashCommands
 
@@ -156,6 +172,7 @@ definePlugin({
   version: string,          // semver (obligatorio)
   description?: string,     // descripción para humanos
   requires?: string[],      // plugins que deben estar enchufados antes
+  multiple?: boolean,       // varias instancias en un bot (por defecto, enchufar el nombre dos veces lanza)
   install(ctx, config) {    // se ejecuta al instalar (obligatorio)
     // ctx: { bot, logger, tools, config, onDispose(fn) }
     // regístralo vía ctx.bot.when/command/before/... y usa

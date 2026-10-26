@@ -2,7 +2,8 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { FileDurability, MemoryKv } from '@botmesh/core'
+import { FileDurability } from '@botmesh/core'
+import { MemoryKv } from '@botmesh/core/spi'
 import { CorruptDocumentError, TenantDocs } from '../src/index.js'
 import { runTenantDocsConformance } from '../../../test-utils/tenant-docs-conformance.js'
 

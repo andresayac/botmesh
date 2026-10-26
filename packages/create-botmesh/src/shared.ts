@@ -55,7 +55,7 @@ export const HANDLERS = [
   "bot.when('hola', async (ctx) => await ctx.reply('¡Hola! 👋'))",
   '',
   '// A small conversational flow: ask a question, capture the answer, reply.',
-  'bot.useFlow(',
+  'bot.use(',
   "  flow('menu')",
   "    .say('📋 *Menú*\\n1️⃣ Info\\n2️⃣ Ping')",
   "    .ask('Responde 1 o 2:', 'choice')",

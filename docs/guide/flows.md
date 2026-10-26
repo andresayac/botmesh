@@ -214,7 +214,7 @@ flow('registrar').persistent().ask('Name?', 'name').say('Done')
 ```ts
 const bot = new Bot({
   provider: new BaileysProvider({ session: 'my-bot' }),
-  storeConfig: { file: './store.json' }, // or a real store — see the Store guide
+  store: new MemoryStore({ file: './store.json' }), // or a real store — see the Store guide
 })
 ```
 
@@ -318,7 +318,7 @@ bot.conversation('photo', async (c, ctx) => {
 ```
 
 The public type is `ConversationHandler<TTools = DefaultTools>`; handlers
-typed with the older `ConversationFn<ConversationControls>` still compile.
+typed with the deprecated `ConversationFn<ConversationControls>` still compile.
 In the DSL (`flow().do((ctx, c) => ...)`) `ctx` is still a `RuntimeMessage`;
 use `userOf(ctx)` and `bot.handoff(ctx.from)` there.
 
@@ -416,7 +416,7 @@ bot.conversation('game', async (c, ctx) => {
 bot.onIdle('10m', async (ctx, { chatId, idleMs, lastActivityAt }) => {
   await ctx.reply('Still there? 👀')        // ctx = the chat's last processed message
 })
-const off = bot.onIdle('1h', (ctx) => bot.sendText(ctx.from, 'Closing your session for inactivity'))
+const off = bot.onIdle('1h', (ctx) => bot.send(ctx.from, 'Closing your session for inactivity'))
 off()                                        // stop watching and cancel its timers
 bot.clearIdle(chatId)                        // cancel a chat's pending timers (all chats without an argument)
 ```

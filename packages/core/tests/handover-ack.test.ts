@@ -6,9 +6,17 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  Bot, MemoryCoordinationHub, MemoryCoordinator, MemoryDurability, flow,
-  type BotConfig, type DurabilityBackend, type MessageContext,
+  Bot,
+  MemoryDurability,
+  flow,
+  type BotConfig,
+  type DurabilityBackend,
+  type MessageContext,
 } from '../src/index.js'
+import {
+  MemoryCoordinationHub,
+  MemoryCoordinator,
+} from '../src/testing/index.js'
 import { CrashableProvider, crashable } from '../src/testing/index.js'
 import { GatedCheckpointStore } from './support/gatedCheckpointStore.js'
 
@@ -47,7 +55,7 @@ function replica(s: Shared, id: string, o: ReplicaOpts = {}) {
     logger: silent(),
     coordination: { coordinator, ...(o.settleMs !== undefined ? { settleMs: o.settleMs } : {}) },
     ...(o.durable === false ? {} : {
-      durability: { journal: o.journal ?? s.journal, instanceId: id, pollMs: 10, inbox: { leaseMs: 300 } },
+      durability: { backend: o.journal ?? s.journal, instanceId: id, pollMs: 10, inbox: { leaseMs: 300 } },
     }),
     ...o.extra,
   })

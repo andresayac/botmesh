@@ -104,7 +104,7 @@ app.post('/chatwoot', express.raw({ type: '*/*' }), async (req, res) => {
 | Inbound message (also during handoff) | Posted as `incoming` in the chat's conversation (created on first use). In groups the text is prefixed with the participant's name |
 | The bot sends | Posted as `outgoing`. Media is mirrored as text (`[image] caption`…) |
 | `ctx.handoff()` / `bot.handoff()` | Conversation set to `open`, private note (`handoffNote`), `labels.handoff` added. When the handoff came from Chatwoot itself (`reason` starting with `chatwoot:`), only the labels are added |
-| Public agent reply (`message_created`) | `bot.handoff(chatId, { reason: 'chatwoot:agent' })` if `autoHandoff` and the chat is not handed off; then `bot.sendTo()` (attachments by URL). Never mirrored back; a redelivery of the same message id is ignored |
+| Public agent reply (`message_created`) | `bot.handoff(chatId, { reason: 'chatwoot:agent' })` if `autoHandoff` and the chat is not handed off; then `bot.send()` (attachments by URL). Never mirrored back; a redelivery of the same message id is ignored |
 | Conversation resolved (`conversation_status_changed`, `conversation_resolved`, or `conversation_updated` with a `status` change) | `bot.resume(chatId, { reason: 'chatwoot:resolved' })` when the chat is handed off (`resumeOnResolve`). It only ends the handoff: it does not close any ticket |
 | `bot.resume()` for any other reason | Conversation `resolved` (`resolveOnResume`), `labels.handoff` removed, `labels.resume` added |
 

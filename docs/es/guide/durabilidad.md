@@ -13,7 +13,7 @@ const bot = new Bot({
   provider,
   store: new PostgresStore({ pool }),
   durability: {
-    journal: new PostgresDurability({ pool }),
+    backend: new PostgresDurability({ pool }),
     instanceId: 'bot-1',               // estable entre reinicios de este despliegue
     outbox: { retries: 5, backoff: { baseMs: 1000, capMs: 60_000 } },
   },
@@ -69,7 +69,7 @@ sin `scope()` no debe compartirse entre bots.
 Todos los backends pasan la misma suite de conformidad
 (`test-utils/durability-conformance.ts`), y puedes escribir el tuyo implementando la
 pequeña interfaz `DurableKv` (compare-and-set con versión más dos índices
-ordenados) y envolviéndola en `KvDurability`.
+ordenados) y envolviéndola en `KvDurability` (las dos en `@botmesh/core/spi`).
 
 El bot arranca y detiene el backend por su cuenta. Usa también un **store**
 persistente: los checkpoints de un flow `.persistent()` viven en el store y el
@@ -85,7 +85,7 @@ import { FileEventJournal } from '@botmesh/events'
 import { eventsDurability } from '@botmesh/events/durability'
 
 const journal = await FileEventJournal.open('./data/events.json', { lock: true })
-const bot = new Bot({ provider, durability: { journal: eventsDurability({ journal }) } })
+const bot = new Bot({ provider, durability: { backend: eventsDurability({ journal }) } })
 // después de bot.stop(): await journal.close()
 ```
 
@@ -116,7 +116,7 @@ const bot = new Bot({ provider, durability: { journal: eventsDurability({ journa
   import { SharedFileEventJournal } from '@botmesh/events'
 
   const journal = await SharedFileEventJournal.open('./data/events.json')
-  const bot = new Bot({ provider, durability: { journal: eventsDurability({ journal }) } })
+  const bot = new Bot({ provider, durability: { backend: eventsDurability({ journal }) } })
   ```
 
   Está pensado para pocos procesos en un mismo host (o un sistema de archivos con rename
@@ -383,9 +383,9 @@ import { crashable, CrashableProvider, MockProvider } from '@botmesh/core/testin
 const shared = new MemoryDurability()
 const a = crashable(shared)
 a.crashBefore('outbox.markSent')    // se llamó al provider, el resultado nunca se anota
-const botA = new Bot({ provider: new CrashableProvider(a), store, durability: { journal: a, instanceId: 'i1' } })
+const botA = new Bot({ provider: new CrashableProvider(a), store, durability: { backend: a, instanceId: 'i1' } })
 // … mueve botA hasta que a.crashed …
-const botB = new Bot({ provider: new MockProvider(), store, durability: { journal: shared, instanceId: 'i1' } })
+const botB = new Bot({ provider: new MockProvider(), store, durability: { backend: shared, instanceId: 'i1' } })
 ```
 
 El repositorio corre una matriz de caídas (`test-utils/durability-crash.ts`) contra

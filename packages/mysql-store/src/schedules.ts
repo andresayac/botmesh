@@ -23,13 +23,15 @@
  */
 
 import {
+  type ScheduleStore,
+} from '@botmesh/core'
+import {
   isScheduleClaimable,
   type ClaimResult,
   type CompletePatch,
   type ScheduleKind,
   type ScheduleRecord,
-  type ScheduleStore,
-} from '@botmesh/core'
+} from '@botmesh/core/spi'
 import type { ConnectionLike, MysqlQueryResult, NativeMysqlPool } from './MysqlStore.js'
 
 /** What {@link MysqlScheduleStore} needs from a pool. */

@@ -14,7 +14,8 @@
  * and namespace/user deletes.
  */
 
-import type { UserDataEntry, UserId } from '@botmesh/core'
+import type { UserId } from '@botmesh/core'
+import type { UserDataEntry } from '@botmesh/core/spi'
 import type { MongoLikeCollection } from './MongoStore.js'
 import { idString } from './ids.js'
 

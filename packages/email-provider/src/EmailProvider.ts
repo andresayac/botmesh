@@ -45,7 +45,6 @@ import {
   type IProvider,
   type InboundEvent,
   type InboundMessage,
-  type JsonValue,
   type LoggerLike,
   type MediaRef,
   type MediaSource,
@@ -56,6 +55,7 @@ import {
   type SendResult,
   type SerializedMediaRef,
   type UserId,
+  type JsonValue,
 } from '@botmesh/core'
 import { domainOf, looksLikeAddress, normalizeAddress, type EmailAddress } from './address.js'
 import { isAuthenticated } from './auth.js'

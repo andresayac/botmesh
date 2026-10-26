@@ -3,7 +3,8 @@
  * against a real server in schedules.integration.test.ts.
  */
 import { describe, expect, it } from 'vitest'
-import { Scheduler, type ScheduledRun } from '@botmesh/core'
+import { type ScheduledRun } from '@botmesh/core'
+import { Scheduler } from '@botmesh/core/internal'
 import { MysqlStore } from '../src/MysqlStore.js'
 import { MysqlScheduleStore } from '../src/schedules.js'
 import { runScheduleStoreConformance } from '../../../test-utils/schedule-store-conformance.js'

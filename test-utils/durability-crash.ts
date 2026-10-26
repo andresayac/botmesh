@@ -128,7 +128,7 @@ export async function runCrashScenario(
   const waitMs = harness.waitMs ?? 5_000
   const store = new deps.MemoryStore()
   const durability = (journal: Backend) => ({
-    journal, instanceId: 'replica-1', pollMs: 20,
+    backend: journal, instanceId: 'replica-1', pollMs: 20,
     outbox: { onAmbiguous: policy, backoff: () => 5 },
     inbox: { backoff: () => 5 },
   })

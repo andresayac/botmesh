@@ -18,7 +18,7 @@ import type {
   SenderInfo,
   FormReply,
 } from '@botmesh/core'
-import { formReplyBody, toInboundLocation } from '@botmesh/core'
+import { formReplyBody, toInboundLocation } from '@botmesh/core/spi'
 import {
   IdentityResolver,
   MemoryIdentityMap,

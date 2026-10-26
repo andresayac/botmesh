@@ -13,12 +13,13 @@
  * @example
  * ```ts
  * const store = new SQLiteStore({ file: './data/bot.db' })
- * const bot = new Bot({ provider, store, durability: { journal: store.durability() } })
+ * const bot = new Bot({ provider, store, durability: { backend: store.durability() } })
  * ```
  */
 
 import type BetterSqlite3 from 'better-sqlite3'
-import { KvDurability, type DurableKv, type DurableKvEntry, type DurableKvIndex, type DurableTable } from '@botmesh/core'
+import { type DurableKv } from '@botmesh/core'
+import { KvDurability, type DurableKvEntry, type DurableKvIndex, type DurableTable } from '@botmesh/core/spi'
 import type { SQLiteDatabaseLike } from './schedules.js'
 
 /** Idempotent schema of the durable-document table and its two partial indexes. */

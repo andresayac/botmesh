@@ -5,7 +5,7 @@
 Tenant-isolated JSON documents with compare-and-set over any `@botmesh/core` `DurableKv`: `MemoryKv`, the `FileDurability` kv, `SQLiteDurableKv` (`@botmesh/sqlite-store`), `PostgresDurableKv` (`@botmesh/postgres-store`) and `RedisDurableKv` (`@botmesh/redis-store`, single node or cluster). It is the storage glue shared by `@botmesh/inbox`, `@botmesh/crm`, `@botmesh/campaigns`, `@botmesh/deployments` and `@botmesh/hub`; it is not meant to be used directly from a bot.
 
 ```ts
-import { MemoryKv } from '@botmesh/core'
+import { MemoryKv } from '@botmesh/core/spi'
 import { TenantDocs } from '@botmesh/tenant-kv'
 
 const docs = new TenantDocs<{ n: number; updatedAt: number }>(new MemoryKv(), {

@@ -6,7 +6,8 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { Bot, MemoryStore, StaleLeaseError, flow } from '@botmesh/core'
+import { Bot, MemoryStore, flow } from '@botmesh/core'
+import { StaleLeaseError } from '@botmesh/core/spi'
 import { CrashableProvider, MockProvider, crashable } from '@botmesh/core/testing'
 import { runDurabilityConformance } from '../../../test-utils/durability-conformance.js'
 import { runCrashRecoveryMatrix, type CrashMatrixDeps } from '../../../test-utils/durability-crash.js'
@@ -77,7 +78,7 @@ describe('eventsDurability with a bot', () => {
       const journalA = await FileEventJournal.open(file, { lock: true })
       const a = crashable(eventsDurability({ journal: journalA }))
       const pa = new CrashableProvider(a)
-      const botA = new Bot({ provider: pa, store, logger: silentLogger(), durability: { journal: a, instanceId: 'r1', pollMs: 20 } })
+      const botA = new Bot({ provider: pa, store, logger: silentLogger(), durability: { backend: a, instanceId: 'r1', pollMs: 20 } })
       botA.on('error', () => {})
       botA.when('hola', async (ctx) => {
         await ctx.reply('uno')
@@ -95,7 +96,7 @@ describe('eventsDurability with a bot', () => {
       const journalB = await FileEventJournal.open(file, { lock: true })
       const backendB = eventsDurability({ journal: journalB })
       const pb = new MockProvider()
-      const botB = new Bot({ provider: pb, store, logger: silentLogger(), durability: { journal: backendB, instanceId: 'r1', pollMs: 20 } })
+      const botB = new Bot({ provider: pb, store, logger: silentLogger(), durability: { backend: backendB, instanceId: 'r1', pollMs: 20 } })
       let runs = 0
       botB.when('hola', async (ctx) => {
         runs++
@@ -118,7 +119,7 @@ describe('eventsDurability with a bot', () => {
   it('an operator replay from the events side is picked up by the bot sweeper; an EventWorker never sees bot records', async () => {
     const journal = new MemoryEventJournal()
     const p = new MockProvider()
-    const bot = new Bot({ provider: p, logger: silentLogger(), durability: { journal: eventsDurability({ journal }), pollMs: 20 } })
+    const bot = new Bot({ provider: p, logger: silentLogger(), durability: { backend: eventsDurability({ journal }), pollMs: 20 } })
     let runs = 0
     bot.when('hola', async (ctx) => { runs++; await ctx.reply('hi') })
     await bot.start()

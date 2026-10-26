@@ -4,7 +4,7 @@
  * outcome for every call, same final state.
  */
 import { describe, expect, it } from 'vitest'
-import { MemoryKv } from '@botmesh/core'
+import { MemoryKv } from '@botmesh/core/spi'
 import { KvContactStore, MemoryContactStore, type ContactStore } from '../src/index.js'
 import { outcome, rng } from '../../../test-utils/prng.js'
 

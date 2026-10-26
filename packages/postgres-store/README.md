@@ -105,7 +105,7 @@ An index on `(chat_id, timestamp)` backs `getMessagesByChat`. All writes are par
 const bot = new Bot({
   provider,
   store: new PostgresStore({ pool }),
-  durability: { journal: new PostgresDurability({ pool }), instanceId: process.env.HOSTNAME },
+  durability: { backend: new PostgresDurability({ pool }), instanceId: process.env.HOSTNAME },
 })
 ```
 

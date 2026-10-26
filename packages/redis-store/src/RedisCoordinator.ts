@@ -53,14 +53,16 @@ import {
   CoordinationUnavailableError,
   LeaseLostError,
   parseDuration,
-  type AcquireTurnOptions,
-  type ChatTurn,
   type Coordinator,
   type CoordinatorEvents,
-  type Leadership,
   type LeaseLossReason,
-  type Ticket,
 } from '@botmesh/core'
+import {
+  type AcquireTurnOptions,
+  type ChatTurn,
+  type Leadership,
+  type Ticket,
+} from '@botmesh/core/spi'
 import type { NativeRedisClient, RedisLikeClient } from './RedisStore.js'
 import { PROBE_EXISTS_SCRIPT, TURN_CLUSTER_SCRIPT } from './clusterScripts.js'
 import { coordKeys, type CoordKeys, type RedisKeyLayout } from './layout.js'

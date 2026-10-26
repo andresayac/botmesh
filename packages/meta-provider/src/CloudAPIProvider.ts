@@ -36,7 +36,8 @@ import type {
   SerializedMediaRef,
   UserId,
 } from '@botmesh/core'
-import { ProviderError, UnsupportedContentError, assertFormDefinition, type FormDefinition } from '@botmesh/core'
+import { ProviderError, UnsupportedContentError, type FormDefinition } from '@botmesh/core'
+import { assertFormDefinition } from '@botmesh/core/spi'
 import { flowRefOf, toFlowJson, toFlowMessage, type FlowJsonOptions, type FlowRef } from './flows.js'
 import type { CloudAPIProviderConfig } from './types.js'
 import { GraphClient } from './graphClient.js'

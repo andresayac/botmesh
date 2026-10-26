@@ -9,9 +9,16 @@ import { randomBytes } from 'node:crypto'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import pg from 'pg'
 import {
-  Bot, MemoryCoordinationHub, MemoryCoordinator, flow,
-  type BotConfig, type ConversationHandoverConfig, type DurabilityBackend,
+  Bot,
+  flow,
+  type BotConfig,
+  type ConversationHandoverConfig,
+  type DurabilityBackend,
 } from '@botmesh/core'
+import {
+  MemoryCoordinationHub,
+  MemoryCoordinator,
+} from '@botmesh/core/testing'
 import { CrashableProvider, crashable } from '@botmesh/core/testing'
 import { PostgresDurability, PostgresStore } from '../src/index.js'
 
@@ -57,7 +64,7 @@ describe.skipIf(!URL)('conversation hand-over — real PostgreSQL', { timeout: 3
     const bot = new Bot({
       provider, store: s.store, logger: silent(),
       coordination: { coordinator, ...(o.settleMs !== undefined ? { settleMs: o.settleMs } : {}), ...(o.handover ? { handover: o.handover } : {}) },
-      durability: { journal: o.journal ?? s.journal, instanceId: id, pollMs: 20, inbox: { leaseMs: 500 } },
+      durability: { backend: o.journal ?? s.journal, instanceId: id, pollMs: 20, inbox: { leaseMs: 500 } },
     })
     bots.push(bot)
     return { bot, provider, coordinator }

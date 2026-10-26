@@ -212,7 +212,7 @@ WhatsApp encrypts every vote end to end with a key derived from the poll secret 
 - **It decrypts by trying the LID and PN forms** of the creator and the voter. In a group addressed by LID the vote is signed with the LIDs; in a chat by PN, with the numbers. A wrong pair does not pass the AES-GCM authentication, so trying them produces no false positives.
 - **It keeps each person's last vote:** a new vote replaces the previous one, an empty selection withdraws it and a vote older than the stored one is dropped. A person counts once even if they vote first as a LID and later show up with their PN.
 - **Every vote counts once:** Baileys redelivers offline messages as `append`, so the provider remembers the ids of the last 5000 counted votes and does not emit a repeated one. A different vote from the same person with the same timestamp does update the tally.
-- The encrypted vote no longer arrives as a `poll`-type message. `bot.onPoll` only fires for polls created by someone else, with the question in `body`.
+- The encrypted vote no longer arrives as a `poll`-type message. `bot.onType('poll')` only fires for polls created by someone else, with the question in `body`.
 
 Limitations:
 

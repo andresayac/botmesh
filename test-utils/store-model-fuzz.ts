@@ -21,7 +21,8 @@
  * pass their own `seeds` keep them).
  */
 import { describe, it, expect } from 'vitest'
-import { MemoryStore, type FlowCheckpoint, type IStore, type StoredMessage, type UserDataEntry } from '@botmesh/core'
+import { MemoryStore, type FlowCheckpoint, type IStore, type StoredMessage } from '@botmesh/core'
+import { type UserDataEntry } from '@botmesh/core/spi'
 
 export interface StoreModelFuzzHarness {
   /** Build a fresh, started, EMPTY store and a teardown that releases it. */

@@ -5,7 +5,7 @@
  * hold: exactly one active version once anything is published, versions are immutable.
  */
 import { describe, expect, it } from 'vitest'
-import { MemoryKv } from '@botmesh/core'
+import { MemoryKv } from '@botmesh/core/spi'
 import { DeploymentRegistry, KvDeploymentStore, MemoryDeploymentStore, type GateRun } from '../src/index.js'
 import { outcome, rng } from '../../../test-utils/prng.js'
 

@@ -13,7 +13,7 @@ const bot = new Bot({
   provider,
   store: new PostgresStore({ pool }),
   durability: {
-    journal: new PostgresDurability({ pool }),
+    backend: new PostgresDurability({ pool }),
     instanceId: 'bot-1',               // stable across restarts of this deployment
     outbox: { retries: 5, backoff: { baseMs: 1000, capMs: 60_000 } },
   },
@@ -68,7 +68,7 @@ enqueueing `reminder:1` each send their own. A custom backend that has no `scope
 must not be shared between bots. Every backend passes the same
 conformance suite (`test-utils/durability-conformance.ts`), and you can write your
 own by implementing the small `DurableKv` interface (versioned compare-and-set plus
-two sorted indexes) and wrapping it in `KvDurability`.
+two sorted indexes) and wrapping it in `KvDurability` (both from `@botmesh/core/spi`).
 
 The bot starts and stops the backend itself. Use a persistent **store** too: a
 `.persistent()` flow's checkpoints live in the store, and replay relies on them.
@@ -83,7 +83,7 @@ import { FileEventJournal } from '@botmesh/events'
 import { eventsDurability } from '@botmesh/events/durability'
 
 const journal = await FileEventJournal.open('./data/events.json', { lock: true })
-const bot = new Bot({ provider, durability: { journal: eventsDurability({ journal }) } })
+const bot = new Bot({ provider, durability: { backend: eventsDurability({ journal }) } })
 // after bot.stop(): await journal.close()
 ```
 
@@ -114,7 +114,7 @@ const bot = new Bot({ provider, durability: { journal: eventsDurability({ journa
   import { SharedFileEventJournal } from '@botmesh/events'
 
   const journal = await SharedFileEventJournal.open('./data/events.json')
-  const bot = new Bot({ provider, durability: { journal: eventsDurability({ journal }) } })
+  const bot = new Bot({ provider, durability: { backend: eventsDurability({ journal }) } })
   ```
 
   It is meant for a few processes on one host (or a filesystem with atomic rename and
@@ -370,9 +370,9 @@ import { crashable, CrashableProvider, MockProvider } from '@botmesh/core/testin
 const shared = new MemoryDurability()
 const a = crashable(shared)
 a.crashBefore('outbox.markSent')    // the provider was called, the result is never recorded
-const botA = new Bot({ provider: new CrashableProvider(a), store, durability: { journal: a, instanceId: 'i1' } })
+const botA = new Bot({ provider: new CrashableProvider(a), store, durability: { backend: a, instanceId: 'i1' } })
 // … drive botA until a.crashed …
-const botB = new Bot({ provider: new MockProvider(), store, durability: { journal: shared, instanceId: 'i1' } })
+const botB = new Bot({ provider: new MockProvider(), store, durability: { backend: shared, instanceId: 'i1' } })
 ```
 
 The repository runs a crash matrix (`test-utils/durability-crash.ts`) against every

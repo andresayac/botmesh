@@ -26,10 +26,10 @@ and you decide what to do:
 import { OutsideSessionWindowError } from '@botmesh/core'
 
 try {
-  await bot.sendTo(chatId, 'Your order shipped')
+  await bot.send(chatId, 'Your order shipped')
 } catch (err) {
   if (!(err instanceof OutsideSessionWindowError)) throw err
-  await bot.sendTo(chatId, {
+  await bot.send(chatId, {
     kind: 'template',
     name: 'order_update',
     language: 'en',
@@ -61,7 +61,7 @@ const provider = new CloudAPIProvider({
 ```
 
 With `sessionWindow` set, `provider.send()` (and so `ctx.reply`,
-`bot.sendTo`...) goes through a `SessionWindowManager`:
+`bot.send`...) goes through a `SessionWindowManager`:
 
 1. Every inbound **message** or **interaction** (button or list tap) records
    the chat's last inbound time. Reactions and statuses do not open the
@@ -99,7 +99,7 @@ directly.
 import { SessionWindowReopenedError } from '@botmesh/meta'
 
 try {
-  await bot.sendTo(chatId, 'Your invoice is attached')
+  await bot.send(chatId, 'Your invoice is attached')
 } catch (err) {
   if (err instanceof SessionWindowReopenedError) {
     // err.template went out; err.queued === true → delivered when the user replies

@@ -11,7 +11,7 @@
  * The core never reads the provider's data: it is an opaque, versioned JSON value.
  */
 
-import type { JsonValue } from '../testing/transcripts/format.js'
+import type { JsonValue } from './json.js'
 import { ProviderError, type MediaRef } from './provider.js'
 
 /**

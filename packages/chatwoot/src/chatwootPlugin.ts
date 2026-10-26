@@ -12,7 +12,7 @@
  *    `labels.handoff` removed and `labels.resume` added.
  *
  * Chatwoot → bot (webhook, authenticated with a token and/or HMAC):
- *  - an agent's public reply → `bot.sendTo(chatId, …)` (attachments by URL), after
+ *  - an agent's public reply → `bot.send(chatId, …)` (attachments by URL), after
  *    `bot.handoff(chatId)` when `autoHandoff` (default) and the chat is not handed off;
  *  - conversation resolved → `bot.resume(chatId)` (`resumeOnResolve`, default).
  *
@@ -148,7 +148,7 @@ export type ChatwootPlugin = PluginSpec & ChatwootApi
 
 /** Minimal bot surface the bridge needs (the scoped plugin bot satisfies it). */
 interface BotLike {
-  sendTo(chatId: ChatId, content: string | OutboundContent): Promise<unknown>
+  send(chatId: ChatId, content: string | OutboundContent): Promise<unknown>
   handoff(chatId: ChatId, opts?: { reason?: string; meta?: Record<string, unknown> }): Promise<boolean>
   resume(chatId: ChatId, opts?: { reason?: string }): Promise<boolean>
   isHandedOff(chatId: ChatId): boolean
@@ -445,7 +445,7 @@ export function chatwootPlugin(config: ChatwootPluginConfig): ChatwootPlugin {
     }
     for (const c of contents) {
       agentContents.add(c)
-      await bot.sendTo(chatId, c)
+      await bot.send(chatId, c)
     }
   }
 

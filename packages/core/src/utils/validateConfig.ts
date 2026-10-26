@@ -6,14 +6,27 @@
  */
 
 import type { BotConfig } from '../core/types.js'
+import { parseDuration } from './duration.js'
 
+/** A short, never-throwing rendering of a rejected value (objects may be circular or huge). */
+function describeValue(value: unknown): string {
+  try {
+    const json = JSON.stringify(value)
+    if (json === undefined) return String(value)
+    return json.length > 200 ? `${json.slice(0, 200)}…` : json
+  } catch {
+    return Object.prototype.toString.call(value)
+  }
+}
+
+/** A `BotConfig` option with an invalid value; `field` is the option's dotted path (`'durability.pollMs'`). */
 export class ConfigValidationError extends Error {
   constructor(
     public readonly field: string,
     public readonly expected: string,
     public readonly received: unknown,
   ) {
-    super(`Invalid config.${field}: expected ${expected}, got ${typeof received} (${JSON.stringify(received)})`)
+    super(`Invalid config.${field}: expected ${expected}, got ${typeof received} (${describeValue(received)})`)
     this.name = 'ConfigValidationError'
   }
 }
@@ -25,11 +38,59 @@ function assertType(field: string, value: unknown, type: string): void {
   }
 }
 
-function assertStringOrNumber(field: string, value: unknown): void {
-  if (value === undefined || value === null) return
-  if (typeof value !== 'string' && typeof value !== 'number') {
-    throw new ConfigValidationError(field, 'string | number', value)
+/** What a duration option accepts, as the error states it. */
+const DURATION = "a duration ('500ms', '30s', '10m', '1h') or milliseconds"
+
+/**
+ * A duration option: a string `parseDuration` reads or a number of ms. Range rules (minimums,
+ * `0` meaning "off") stay with the module that owns the option; this only guarantees that a
+ * typo fails at construction with an error naming the option.
+ */
+function assertDuration(field: string, value: unknown): void {
+  if (value === undefined) return
+  let ms = Number.NaN
+  if (typeof value === 'number') ms = value
+  else if (typeof value === 'string') {
+    try { ms = parseDuration(value) } catch { /* reported below */ }
   }
+  if (Number.isNaN(ms)) throw new ConfigValidationError(field, DURATION, value)
+}
+
+/** Reads `obj[key]` when `obj` is an object (a wrong-typed parent is reported by its own check). */
+function at(obj: unknown, key: string): unknown {
+  return typeof obj === 'object' && obj !== null ? (obj as Record<string, unknown>)[key] : undefined
+}
+
+/**
+ * Every duration option of `BotConfig` (every `*Ms` option among them) accepts a duration
+ * string or ms; each is checked here so an invalid value names its option.
+ */
+function assertDurations(config: Partial<BotConfig>): void {
+  const c = config as Record<string, unknown>
+  assertDuration('conversation.timeout', at(c.conversation, 'timeout'))
+  assertDuration('dedupe.ttl', at(c.dedupe, 'ttl'))
+  assertDuration('echoFilter.ttl', at(c.echoFilter, 'ttl'))
+  assertDuration('typing.minMs', at(c.typing, 'minMs'))
+  assertDuration('typing.maxMs', at(c.typing, 'maxMs'))
+  assertDuration('storeConfig.autoSaveInterval', at(c.storeConfig, 'autoSaveInterval'))
+  const d = c.durability
+  assertDuration('durability.pollMs', at(d, 'pollMs'))
+  assertDuration('durability.retention', at(d, 'retention'))
+  for (const side of ['inbox', 'outbox'] as const) {
+    const s = at(d, side)
+    assertDuration(`durability.${side}.leaseMs`, at(s, 'leaseMs'))
+    const backoff = at(s, 'backoff')
+    assertDuration(`durability.${side}.backoff.baseMs`, at(backoff, 'baseMs'))
+    assertDuration(`durability.${side}.backoff.capMs`, at(backoff, 'capMs'))
+  }
+  assertDuration('durability.outbox.inlineMaxMs', at(at(d, 'outbox'), 'inlineMaxMs'))
+  const co = c.coordination
+  assertDuration('coordination.turnWaitMs', at(co, 'turnWaitMs'))
+  assertDuration('coordination.settleMs', at(co, 'settleMs'))
+  assertDuration('coordination.providerDownMs', at(co, 'providerDownMs'))
+  assertDuration('coordination.handover.ttl', at(at(co, 'handover'), 'ttl'))
+  assertDuration('scheduler.tickMs', at(c.scheduler, 'tickMs'))
+  assertDuration('scheduler.leaderTtlMs', at(c.scheduler, 'leaderTtlMs'))
 }
 
 /**
@@ -50,6 +111,8 @@ export function validateConfig<T extends Partial<BotConfig>>(config: T): T {
       throw new ConfigValidationError('echoFilter', 'true | { size?, ttl? }', config.echoFilter)
     }
   }
+
+  assertDurations(config)
 
   if (config.commandPrefix === '') {
     throw new ConfigValidationError('commandPrefix', 'a non-empty string', '')
@@ -82,9 +145,6 @@ export function validateConfig<T extends Partial<BotConfig>>(config: T): T {
         typeof coordinator.lead !== 'function') {
       throw new ConfigValidationError('coordination.coordinator', 'a Coordinator (e.g. new RedisCoordinator(...))', c?.coordinator)
     }
-    assertStringOrNumber('coordination.turnWaitMs', c.turnWaitMs)
-    assertStringOrNumber('coordination.settleMs', c.settleMs)
-    assertStringOrNumber('coordination.providerDownMs', c.providerDownMs)
     if (c.providerSession !== undefined && !['leader', 'shared', 'auto'].includes(c.providerSession as string)) {
       throw new ConfigValidationError('coordination.providerSession', "'leader' | 'shared' | 'auto'", c.providerSession)
     }
@@ -98,7 +158,6 @@ export function validateConfig<T extends Partial<BotConfig>>(config: T): T {
         throw new ConfigValidationError('coordination.handover.fallback', "'notify' | 'restart' | 'drop' | function", h.fallback)
       }
       assertType('coordination.handover.notifyMessage', h.notifyMessage, 'string')
-      assertStringOrNumber('coordination.handover.ttl', h.ttl)
       if (h.maxAnswerBytes !== undefined && (typeof h.maxAnswerBytes !== 'number' || !(h.maxAnswerBytes >= 0))) {
         throw new ConfigValidationError('coordination.handover.maxAnswerBytes', 'number >= 0', h.maxAnswerBytes)
       }
@@ -124,7 +183,6 @@ export function validateConfig<T extends Partial<BotConfig>>(config: T): T {
   }
 
   if (config.conversation) {
-    assertStringOrNumber('conversation.timeout', config.conversation.timeout)
     assertType('conversation.timeoutMessage', config.conversation.timeoutMessage, 'string')
     assertType('conversation.retriesMessage', config.conversation.retriesMessage, 'string')
     assertType('conversation.errorMessage', config.conversation.errorMessage, 'string')

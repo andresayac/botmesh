@@ -32,7 +32,6 @@ import type {
   DisconnectReason,
   IProvider,
   InboundEvent,
-  JsonValue,
   MediaRef,
   MessageRef,
   OutboundContent,
@@ -41,6 +40,7 @@ import type {
   SendResult,
   SerializedMediaRef,
   UserId,
+  JsonValue,
 } from '@botmesh/core'
 import {
   PayloadTooLargeError,

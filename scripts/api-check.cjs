@@ -4,8 +4,10 @@
  * public packages (run `pnpm build` first). Uses the root TypeScript (5.9, the one
  * TypeDoc uses) only to read declarations; it never compiles anything.
  *
- *   node scripts/api-check.cjs missing    # types referenced by public signatures but exported from no entry,
- *                                         # and DANGLING references (a type stripped by stripInternal but still named by a kept signature)
+ *   node scripts/api-check.cjs missing    # types referenced by public signatures but exported from no semver entry,
+ *                                         # and DANGLING references (a type stripped by stripInternal but still named by a kept signature).
+ *                                         # `./internal` (no semver) is neither checked nor counted as a home: a type that a
+ *                                         # semver entry needs must be nameable from a semver entry.
  *   node scripts/api-check.cjs surface    # sorted list of every exported name per entry (diff it before/after)
  *   node scripts/api-check.cjs any        # `any` in exported declarations
  *   node scripts/api-check.cjs internal   # exported symbols, and members of exported declarations, tagged @internal
@@ -24,6 +26,8 @@ const ts = require(path.join(root, 'node_modules/typescript'))
 const PUBLIC = ['core', 'baileys-provider', 'meta-provider', 'telegram-provider', 'sqlite-store', 'redis-store', 'ai', 'http', 'graph-core']
 /** Reviewed and accepted (see docs/api-review.md): the EventEmitter-compatible overloads of Bot.on/once/off/emit. */
 const ALLOWED_ANY = new Set(['Bot'])
+/** Entries without a semver promise: `missing` skips their signatures, and a type exported only there counts as missing. */
+const UNSTABLE_ENTRIES = new Set(['./internal'])
 
 let problems = 0
 for (const dir of PUBLIC) {
@@ -47,7 +51,7 @@ for (const dir of PUBLIC) {
     if (!sf) throw new Error(`${pj.name}: missing ${file} — run pnpm build first`)
     for (const s of checker.getExportsOfModule(checker.getSymbolAtLocation(sf))) {
       const target = s.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(s) : s
-      exported.add(target)
+      if (!UNSTABLE_ENTRIES.has(k)) exported.add(target)
       names.push(`${pj.name}${k === '.' ? '' : k.slice(1)}#${s.name}`)
       exportSyms.push([k, s.name, target, s])
     }
@@ -107,6 +111,7 @@ for (const dir of PUBLIC) {
   const hasTag = (decls, tag) => (decls ?? []).some((d) => ts.getJSDocTags(d).some((t) => t.tagName.text === tag))
   for (const [k, name, sym, alias] of exportSyms) {
     if (hasTag(alias.declarations, 'deprecated') || hasTag(sym.declarations, 'deprecated')) deprecated.push(`${k} ${name}`)
+    if (mode === 'missing' && UNSTABLE_ENTRIES.has(k)) continue
     for (const d of sym.declarations ?? []) {
       if (ts.getJSDocTags(d).some((t) => t.tagName.text === 'internal')) internals.push(`${k} ${name}`)
       visit(d, name)

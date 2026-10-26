@@ -4,7 +4,8 @@
  * the replica that took the chat wrote since.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Bot, MemoryCoordinationHub, MemoryCoordinator, flow, type BotConfig } from '../src/index.js'
+import { Bot, flow, type BotConfig } from '../src/index.js'
+import { MemoryCoordinationHub, MemoryCoordinator } from '../src/testing/index.js'
 import { MockProvider } from '../src/testing/index.js'
 import { GatedCheckpointStore } from './support/gatedCheckpointStore.js'
 

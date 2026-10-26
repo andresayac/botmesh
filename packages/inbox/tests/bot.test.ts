@@ -1,6 +1,6 @@
 /** attachInbox end to end: a real Bot over MockProvider projecting its traffic into an Inbox. */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { MemoryKv } from '@botmesh/core'
+import { MemoryKv } from '@botmesh/core/spi'
 import { createTestBot, type TestBot } from '@botmesh/core/testing'
 import { Inbox, KvInboxStore, MemoryInboxStore, attachInbox, type InboxStore } from '../src/index.js'
 

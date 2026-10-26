@@ -110,7 +110,7 @@ once and leaves them on `ctx.media` (see
 ```ts
 import { loadMediaOf } from '@botmesh/core'
 
-bot.onImage(async (ctx) => {
+bot.onType('image', async (ctx) => {
   await ctx.reply('📸 Got your image. Converting to sticker...')
   const media = await loadMediaOf(ctx, { maxBytes: 5 * 1024 * 1024 })
   if (media) {

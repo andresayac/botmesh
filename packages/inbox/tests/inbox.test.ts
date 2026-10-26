@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { MemoryKv, type StoredMessage } from '@botmesh/core'
+import { type StoredMessage } from '@botmesh/core'
+import { MemoryKv } from '@botmesh/core/spi'
 
 import { Inbox, InboxConflictError, InboxNotFoundError, KvInboxStore, MemoryInboxStore } from '../src/index.js'
 

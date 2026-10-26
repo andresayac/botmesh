@@ -22,7 +22,8 @@
  * ```
  */
 
-import type { ClaimResult, CompletePatch, ScheduleKind, ScheduleRecord, ScheduleStore } from '@botmesh/core'
+import type { ScheduleStore } from '@botmesh/core'
+import type { ClaimResult, CompletePatch, ScheduleKind, ScheduleRecord } from '@botmesh/core/spi'
 import { idString } from './ids.js'
 
 /** Task ids and owners enter MongoDB filters: strings only (see {@link idString}). */

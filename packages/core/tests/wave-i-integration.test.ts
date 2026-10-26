@@ -4,9 +4,19 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  Bot, MemoryCoordinationHub, MemoryCoordinator, MemoryDurability, MemoryScheduleStore, MemoryStore, ProviderNotLeaderError,
+  Bot,
+  MemoryDurability,
+  MemoryStore,
+  ProviderNotLeaderError,
   type BotConfig,
 } from '../src/index.js'
+import {
+  MemoryScheduleStore,
+} from '../src/spi.js'
+import {
+  MemoryCoordinationHub,
+  MemoryCoordinator,
+} from '../src/testing/index.js'
 import { MockProvider } from '../src/testing/index.js'
 
 const bots: Bot[] = []
@@ -37,7 +47,7 @@ function replica(
     botId: 'shop',
     logger: silent(),
     coordination: { coordinator },
-    durability: { journal: shared.journal, instanceId: id, pollMs: 10, outbox: { backoff: { baseMs: 5, capMs: 20, jitter: 0 } } },
+    durability: { backend: shared.journal, instanceId: id, pollMs: 10, outbox: { backoff: { baseMs: 5, capMs: 20, jitter: 0 } } },
     scheduler: { store: shared.schedules, tickMs: 20 },
     ...extra,
   })

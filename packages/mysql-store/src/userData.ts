@@ -23,7 +23,8 @@
  * `purge()`, which reports mysql2's `affectedRows`.
  */
 
-import type { UserDataEntry, UserId } from '@botmesh/core'
+import type { UserId } from '@botmesh/core'
+import type { UserDataEntry } from '@botmesh/core/spi'
 import type { MysqlQueryResult } from './MysqlStore.js'
 import { toJson } from './json.js'
 

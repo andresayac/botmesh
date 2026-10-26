@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MemoryKv } from '@botmesh/core'
+import { MemoryKv } from '@botmesh/core/spi'
 
 import { KvPluginStore, MemoryPluginStore, PluginManifestError, PluginRegistry, validateManifest } from '../src/index.js'
 

@@ -75,17 +75,17 @@ loses those checkpoints unless the store is file-backed:
 ```ts
 const bot = new Bot({
   provider: new BaileysProvider({ session: 'my-bot' }),
-  storeConfig: { file: './store.json' }, // or use @botmesh/sqlite-store
+  store: new MemoryStore({ file: './store.json' }), // or use @botmesh/sqlite-store
 })
 ```
 
 ## Can I send messages without someone writing first?
 
-Yes, with `bot.sendText`:
+Yes, with `bot.send`:
 
 ```ts
 bot.schedule('0 9 * * *', async () => {
-  await bot.sendText('57300XXXXXXX@s.whatsapp.net', '🌅 Good morning!')
+  await bot.send('57300XXXXXXX@s.whatsapp.net', '🌅 Good morning!')
 })
 ```
 

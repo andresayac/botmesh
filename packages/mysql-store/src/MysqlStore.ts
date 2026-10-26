@@ -37,10 +37,12 @@ import type {
   StoredChat,
   StoredContact,
   StoredMessage,
-  UserDataEntry,
   UserId,
 } from '@botmesh/core'
-import { legacyMessageKey, messageKey } from '@botmesh/core'
+import type {
+  UserDataEntry,
+} from '@botmesh/core/spi'
+import { legacyMessageKey, messageKey } from '@botmesh/core/spi'
 import { MysqlUserData } from './userData.js'
 import { toJson } from './json.js'
 import { MysqlScheduleStore } from './schedules.js'

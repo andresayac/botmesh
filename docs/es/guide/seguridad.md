@@ -143,7 +143,7 @@ siga en la ventana de dedupe.
   invitación de `moderation` aceptan `RegExp` y se ejecutan con cada mensaje:
   un patrón con backtracking catastrófico es un ReDoS. Usa strings, o solo
   patrones lineales.
-- **Las fuentes de media string son rutas locales.** En `ctx.send`/`bot.sendTo`
+- **Las fuentes de media string son rutas locales.** En `ctx.send`/`bot.send`
   una fuente string o `{ path }` se lee de disco, y Baileys también lee de disco
   un `{ url }` que no sea `http`. Nunca pases texto del usuario como fuente de
   media; la API REST y Chatwoot ya lo limitan a URLs `http(s)`.

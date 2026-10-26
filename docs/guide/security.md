@@ -134,7 +134,7 @@ is in the dedupe window.
 - **Operator-written regexes.** `moderation` word filters and invite patterns
   accept `RegExp`s and run them on every message: a catastrophic-backtracking
   pattern is a ReDoS. Use plain strings, or linear patterns only.
-- **String media sources are local paths.** In `ctx.send`/`bot.sendTo`, a
+- **String media sources are local paths.** In `ctx.send`/`bot.send`, a
   string or `{ path }` media source is read from disk, and Baileys reads a
   non-`http` `{ url }` from disk too. Never pass user-controlled text as a media
   source; the REST API and Chatwoot already restrict it to `http(s)` URLs.

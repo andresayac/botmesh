@@ -96,13 +96,14 @@ describe('nluPlugin', () => {
 
   it('works with no config (empty engine) and honors a custom threshold', async () => {
     const { bot } = await createTestBot()
-    bot.plug(nluPlugin)
+    const unplug = bot.plug(nluPlugin)
     const nlu = bot.injectTools.nlu
     expect(nlu).toBeInstanceOf(IntentEngine)
     expect(nlu?.intents()).toEqual([])
     expect(nlu?.match('hola')).toBeNull()
 
-    // Re-plugging replaces the provided engine.
+    // Plugging it again (after unplugging: one instance per name) replaces the provided engine.
+    unplug()
     bot.plug(nluPlugin, { threshold: 0.9, intents: { g: ['hola'] } })
     expect(bot.injectTools.nlu?.threshold).toBe(0.9)
     expect(bot.injectTools.nlu?.match('hola')?.confidence).toBe(1)

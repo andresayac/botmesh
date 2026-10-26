@@ -4,7 +4,8 @@
  * of a webhook), and `withSpan` makes bot spans the active OTel context so the SDK's
  * auto-instrumentations (http, undici, pg, …) nest under them.
  */
-import { noopTracer, type BotSpan, type BotTracer, type SpanContextRef, type SpanException, type SpanKind, type SpanOptions, type SpanStatus, type TraceAttributeValue, type TraceAttributes } from '@botmesh/core'
+import { type BotSpan, type BotTracer, type SpanContextRef, type SpanException, type SpanKind, type SpanOptions, type SpanStatus, type TraceAttributeValue, type TraceAttributes } from '@botmesh/core'
+import { noopTracer } from '@botmesh/core/spi'
 import type { Attributes, Context, Link, MeterProvider, Span, TracerProvider } from '@opentelemetry/api'
 
 import { loadOtelApi, type OtelApi } from './load.js'

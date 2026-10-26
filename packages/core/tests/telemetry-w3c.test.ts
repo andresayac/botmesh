@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatTraceparent, parseTraceparent } from '../src/index.js'
+import { formatTraceparent, parseTraceparent } from '../src/spi.js'
 import { createRecordingTracer } from '../src/testing/index.js'
 
 const TRACE = '4bf92f3577b34da6a3ce929d0e0e4736'

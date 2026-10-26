@@ -3,7 +3,7 @@ import { createTestBot } from '../src/testing/createTestBot.js'
 import { MockProvider } from '../src/testing/MockProvider.js'
 import { Bot } from '../src/core/Bot.js'
 import { LOCATION } from '../src/core/triggers.js'
-import { toInboundLocation } from '../src/index.js'
+import { toInboundLocation } from '../src/spi.js'
 import type { InboundLocation, MessageContext } from '../src/index.js'
 
 const tick = (ms = 5) => new Promise((r) => setTimeout(r, ms))

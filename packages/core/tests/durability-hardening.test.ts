@@ -6,9 +6,20 @@
 import { hostname } from 'node:os'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  Bot, KvDurability, MemoryDurability, MemoryKv, MemoryStore, flow,
-  type BotConfig, type DurabilityBackend, type OutboundContent, type SendOptions, type SendResult,
+  Bot,
+  MemoryDurability,
+  MemoryStore,
+  flow,
+  type BotConfig,
+  type DurabilityBackend,
+  type OutboundContent,
+  type SendOptions,
+  type SendResult,
 } from '../src/index.js'
+import {
+  KvDurability,
+  MemoryKv,
+} from '../src/spi.js'
 import { CrashableProvider, MockProvider, crashable } from '../src/testing/index.js'
 
 const bots: Bot[] = []
@@ -47,8 +58,8 @@ describe('several bots on one backend', () => {
     const store = new MemoryStore()
     const pa = new MockProvider()
     const pb = new MockProvider()
-    const a = bot({ provider: pa, store, botId: 'bot-a', durability: { journal: shared, pollMs: 10 } })
-    const b = bot({ provider: pb, store, botId: 'bot-b', durability: { journal: shared, pollMs: 10 } })
+    const a = bot({ provider: pa, store, botId: 'bot-a', durability: { backend: shared, pollMs: 10 } })
+    const b = bot({ provider: pb, store, botId: 'bot-b', durability: { backend: shared, pollMs: 10 } })
     a.when('hang', flow('hang').do(async () => { await never() }))
     const seenByB: string[] = []
     b.onMessage(async (ctx) => { seenByB.push(ctx.body) })
@@ -77,21 +88,21 @@ describe('default instanceId', () => {
   it('is stable on a single-process backend and unique per boot on a shared one', () => {
     const provider = new MockProvider()
     const host = hostname()
-    const stable = bot({ provider, botId: 'x', durability: { journal: new MemoryDurability() } }, false)
+    const stable = bot({ provider, botId: 'x', durability: { backend: new MemoryDurability() } }, false)
     expect(stable.durability!.instanceId).toBe(`${host}/x/default`)
     const kv = new MemoryKv()
-    const one = bot({ provider, botId: 'x', durability: { journal: new KvDurability(kv) } }, false)
-    const two = bot({ provider, botId: 'x', durability: { journal: new KvDurability(kv) } }, false)
+    const one = bot({ provider, botId: 'x', durability: { backend: new KvDurability(kv) } }, false)
+    const two = bot({ provider, botId: 'x', durability: { backend: new KvDurability(kv) } }, false)
     expect(one.durability!.instanceId).toMatch(new RegExp(`^${host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/x/default/${process.pid}-`))
     expect(one.durability!.instanceId).not.toBe(two.durability!.instanceId)
-    expect(bot({ provider, durability: { journal: new KvDurability(kv), instanceId: 'pod-0' } }, false).durability!.instanceId).toBe('pod-0')
+    expect(bot({ provider, durability: { backend: new KvDurability(kv), instanceId: 'pod-0' } }, false).durability!.instanceId).toBe('pod-0')
   })
 
   it('a second process on the same host does not take a live process’s leases', async () => {
     const kv = new MemoryKv() // shared storage, not exclusive (like Postgres/Redis)
     const store = new MemoryStore()
     const pa = new MockProvider()
-    const a = bot({ provider: pa, store, botId: 'x', durability: { journal: new KvDurability(kv), inbox: { leaseMs: 10_000 } } })
+    const a = bot({ provider: pa, store, botId: 'x', durability: { backend: new KvDurability(kv), inbox: { leaseMs: 10_000 } } })
     let release!: () => void
     const gate = new Promise<void>((r) => { release = r })
     const runsA: string[] = []
@@ -101,7 +112,7 @@ describe('default instanceId', () => {
     await vi.waitFor(() => expect(runsA).toEqual(['go']))
 
     const pb = new MockProvider()
-    const b = bot({ provider: pb, store, botId: 'x', durability: { journal: new KvDurability(kv), pollMs: 10, inbox: { leaseMs: 10_000 } } })
+    const b = bot({ provider: pb, store, botId: 'x', durability: { backend: new KvDurability(kv), pollMs: 10, inbox: { leaseMs: 10_000 } } })
     const runsB: string[] = []
     b.when('go', async (ctx) => { runsB.push(ctx.body); await ctx.reply('done') })
     await b.start()
@@ -124,7 +135,7 @@ describe('poison messages', () => {
     for (let incarnation = 0; incarnation < 3; incarnation++) {
       const view = crashable(shared)
       const provider = new CrashableProvider(view)
-      const b = bot({ provider, store, durability: { journal: view, instanceId: 'r1', inbox: { maxAttempts: 2 } } }, false)
+      const b = bot({ provider, store, durability: { backend: view, instanceId: 'r1', inbox: { maxAttempts: 2 } } }, false)
       b.on('durability:dead', dead)
       b.onMessage(async () => { runs++; view.crash(); await never() }) // the process dies on this message
       await b.start()
@@ -170,7 +181,7 @@ describe('diverged replays', () => {
     const a = crashable(shared)
     a.crashBefore('inbox.ack', 2) // 'Ana' answered by the flow, the process dies before acking it
     const pa = new CrashableProvider(a)
-    const botA = bot({ provider: pa, store, durability: { journal: a, instanceId: 'r1', outbox } }, false)
+    const botA = bot({ provider: pa, store, durability: { backend: a, instanceId: 'r1', outbox } }, false)
     define(botA)
     await botA.start()
     pa.incoming('pedido', { from: 'u1', id: 'm1' })
@@ -180,7 +191,7 @@ describe('diverged replays', () => {
     expect(texts(pa)).toEqual(['¿Nombre?', 'Gracias Ana'])
 
     const pb = new MockProvider()
-    const botB = bot({ provider: pb, store, durability: { journal: shared, instanceId: 'r1', outbox } })
+    const botB = bot({ provider: pb, store, durability: { backend: shared, instanceId: 'r1', outbox } })
     define(botB)
     await botB.start()
     await vi.waitFor(async () => expect((await botB.durability!.inbox.list()).every((r) => r.state === 'done')).toBe(true))
@@ -207,13 +218,13 @@ describe('diverged replays', () => {
     const a = crashable(shared)
     a.crashBefore('inbox.ack', 1)
     const pa = new CrashableProvider(a)
-    const botA = bot({ provider: pa, store, durability: { journal: a, instanceId: 'r1' } }, false)
+    const botA = bot({ provider: pa, store, durability: { backend: a, instanceId: 'r1' } }, false)
     botA.onMessage(async (ctx) => { await ctx.reply(`eco ${ctx.body}`) })
     await botA.start()
     pa.incoming('hola', { from: 'u1', id: 'm1' })
     await a.whenCrashed
     const pb = new MockProvider()
-    const botB = bot({ provider: pb, store, durability: { journal: shared, instanceId: 'r1' } })
+    const botB = bot({ provider: pb, store, durability: { backend: shared, instanceId: 'r1' } })
     botB.onMessage(async (ctx) => { await ctx.reply(`eco ${ctx.body}`) })
     await botB.start()
     await vi.waitFor(async () => expect((await botB.durability!.inbox.list())[0]?.state).toBe('done'))
@@ -234,7 +245,7 @@ describe('per-chat FIFO with a slow journal', () => {
       outbox: inner.outbox,
     }
     const provider = new MockProvider()
-    const b = bot({ provider, durability: { journal } })
+    const b = bot({ provider, durability: { backend: journal } })
     const seen: string[] = []
     b.onMessage(async (ctx) => { seen.push(ctx.body) })
     await b.start()
@@ -254,9 +265,9 @@ describe('two live replicas', () => {
     const cfg = { pollMs: 10, inbox: { leaseMs: 300 } }
     const a = crashable(shared)
     const pa = new CrashableProvider(a)
-    const botA = bot({ provider: pa, store, durability: { journal: a, instanceId: 'replica-a', ...cfg } }, false)
+    const botA = bot({ provider: pa, store, durability: { backend: a, instanceId: 'replica-a', ...cfg } }, false)
     const pb = new MockProvider()
-    const botB = bot({ provider: pb, store, durability: { journal: shared, instanceId: 'replica-b', ...cfg } })
+    const botB = bot({ provider: pb, store, durability: { backend: shared, instanceId: 'replica-b', ...cfg } })
     const runs: string[] = []
     botA.when('slow', async (ctx) => { runs.push('A:slow'); await sleep(1_000); await ctx.reply('slow done') })
     botA.when('freeze', async () => { runs.push('A:freeze'); a.crash(); await never() })
@@ -304,7 +315,7 @@ describe('live send racing its own sweeper', () => {
       }
     }
     const provider = new FailOnce()
-    const b = bot({ provider, durability: { journal: new RacingDurability(), pollMs: '1h', outbox: { inlineMaxMs: 0, backoff: () => 1 } } })
+    const b = bot({ provider, durability: { backend: new RacingDurability(), pollMs: '1h', outbox: { inlineMaxMs: 0, backoff: () => 1 } } })
     await b.start()
     // First attempt fails and is deferred: the record is `failed`, due again almost at once.
     await expect(b.send('u1', 'x', { idempotencyKey: 'k1' })).rejects.toThrow(/deferred/)

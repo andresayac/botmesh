@@ -32,7 +32,8 @@
  * The source is never modified unless `deleteSource` (a separate, explicit pass), except
  * the layout marker, which a complete rollback removes.
  */
-import { legacyMessageKey, messageKey, type StoredMessage } from '@botmesh/core'
+import { type StoredMessage } from '@botmesh/core'
+import { legacyMessageKey, messageKey } from '@botmesh/core/spi'
 import type { RedisLikeClient } from './RedisStore.js'
 import {
   CAS_INDEXED_SCRIPT, MAX_COUNTER_SCRIPT, READ_WITH_TTL_SCRIPT, ZRANGE_RAW_SCRIPT,

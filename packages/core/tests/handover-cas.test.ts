@@ -7,7 +7,8 @@
  * writes (one warning on start).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Bot, MemoryCoordinationHub, MemoryCoordinator, MemoryStore, flow, type BotConfig, type FlowCheckpoint } from '../src/index.js'
+import { Bot, MemoryStore, flow, type BotConfig, type FlowCheckpoint } from '../src/index.js'
+import { MemoryCoordinationHub, MemoryCoordinator } from '../src/testing/index.js'
 import { MockProvider } from '../src/testing/index.js'
 import { NamespacedStore } from '../src/store/NamespacedStore.js'
 import { GatedCheckpointStore } from './support/gatedCheckpointStore.js'

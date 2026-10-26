@@ -4,7 +4,8 @@
  * not outlive the bot.
  */
 import { describe, expect, it } from 'vitest'
-import { validateFormValues, type FormDefinition } from '@botmesh/core'
+import { type FormDefinition } from '@botmesh/core'
+import { validateFormValues } from '@botmesh/core/spi'
 import { createTestBot } from '@botmesh/core/testing'
 import { ExpressionError, FlowDocumentError, compileFlowDocument, evaluateExpression, exportFlowDocument, flowDigest, parseExpression, renderTemplate, sameFlow, validateFlowDocument, type FlowDocument } from '../src/index.js'
 

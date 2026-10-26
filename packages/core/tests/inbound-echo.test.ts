@@ -4,7 +4,8 @@
  * (counted in `metrics().dropped.echo`); without the option every path is as before.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { Bot, ConfigValidationError, MemoryDurability, MemoryStore, SentRefRing, createEchoFilter, type BotConfig } from '../src/index.js'
+import { Bot, ConfigValidationError, MemoryDurability, MemoryStore, type BotConfig } from '../src/index.js'
+import { SentRefRing, createEchoFilter } from '../src/internal.js'
 import { MockProvider } from '../src/testing/index.js'
 
 const tick = (ms = 20) => new Promise((r) => setTimeout(r, ms))

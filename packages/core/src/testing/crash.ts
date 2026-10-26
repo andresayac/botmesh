@@ -16,9 +16,9 @@
  * const shared = new MemoryDurability()
  * const a = crashable(shared)
  * a.crashBefore('outbox.markSent')          // the provider was called, the result is never recorded
- * const botA = new Bot({ provider: pa, store, durability: { journal: a, instanceId: 'i1' } })
+ * const botA = new Bot({ provider: pa, store, durability: { backend: a, instanceId: 'i1' } })
  * // … drive botA until a.crashed …
- * const botB = new Bot({ provider: pb, store, durability: { journal: shared, instanceId: 'i1' } })
+ * const botB = new Bot({ provider: pb, store, durability: { backend: shared, instanceId: 'i1' } })
  * ```
  */
 

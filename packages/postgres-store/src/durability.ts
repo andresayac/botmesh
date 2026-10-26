@@ -15,13 +15,14 @@
  * const bot = new Bot({
  *   provider,
  *   store: new PostgresStore({ pool }),
- *   durability: { journal: new PostgresDurability({ pool }), instanceId: process.env.HOSTNAME },
+ *   durability: { backend: new PostgresDurability({ pool }), instanceId: process.env.HOSTNAME },
  * })
  * ```
  */
 
 import { Pool } from 'pg'
-import { KvDurability, type DurableKv, type DurableKvEntry, type DurableKvIndex, type DurableTable } from '@botmesh/core'
+import { type DurableKv } from '@botmesh/core'
+import { KvDurability, type DurableKvEntry, type DurableKvIndex, type DurableTable } from '@botmesh/core/spi'
 import type { NativePostgresPool, PostgresPoolLike } from './PostgresStore.js'
 
 export interface PostgresDurabilityOptions {

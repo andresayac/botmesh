@@ -27,11 +27,11 @@ If you don't pass a `store`, the bot creates a `MemoryStore`. Everything lives i
 const bot = new Bot({
   provider: new BaileysProvider({ session: 'my-bot' }),
   // Optional: persist chats + flow state to a JSON file
-  storeConfig: {
+  store: new MemoryStore({
     file: './store.json',
     autoSaveInterval: '1m', // duration or ms (0 = disable)
     maxMessagesPerChat: 1000, // the default; Infinity disables the cap
-  },
+  }),
 })
 ```
 
@@ -198,7 +198,7 @@ Semantics every store must keep:
   messages per chat by default because its log lives in RAM (`Infinity`
   disables the cap). Every built-in store rejects a negative or fractional cap
   with a `RangeError`.
-- Message rows are keyed by `messageKey(ref)`: `{chatId}:{id}` with `%` and `:`
+- Message rows are keyed by `messageKey(ref)` (from `@botmesh/core/spi`): `{chatId}:{id}` with `%` and `:`
   escaped in each part (`%25`, `%3A`), so ids that contain `:` (Twilio's
   `whatsapp:+1…` chat ids) never collide. Ids without `:` or `%` keep the key
   earlier versions wrote; rows stored under the old unescaped key

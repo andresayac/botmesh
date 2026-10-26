@@ -104,7 +104,7 @@ function flakyStore(n = 1): MemoryStore {
 }
 const texts = (p: CrashableProvider) => p.outbox.map((m) => (m.content as { text?: string }).text ?? m.content.kind)
 const durability = (journal: DurabilityBackend, extra: Record<string, unknown> = {}) => ({
-  journal, instanceId: 'replica-1', pollMs: 20,
+  backend: journal, instanceId: 'replica-1', pollMs: 20,
   inbox: { backoff: () => 5, ...(extra.inbox as object | undefined) },
   outbox: { backoff: () => 5 },
 })

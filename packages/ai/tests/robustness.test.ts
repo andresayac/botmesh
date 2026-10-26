@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { MemoryStore, UserDataService } from '@botmesh/core'
+import { MemoryStore } from '@botmesh/core'
+import { UserDataService } from '@botmesh/core/internal'
 import { createTestBot } from '@botmesh/core/testing'
 import { ContextManager } from '../src/ContextManager.js'
 import { AIClient } from '../src/AIClient.js'

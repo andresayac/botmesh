@@ -54,6 +54,7 @@ import type { IProvider, MessageContext } from '@botmesh/core'
 import { createTestBot, MockProvider } from '@botmesh/core/testing'
 import { runCli } from '@botmesh/core/dev'
 import { createPacer } from '@botmesh/core/internal'
+import { KvDurability, MemoryKv, messageKey, type DurableKvEntry } from '@botmesh/core/spi'
 import { aiPlugin, MockAIProvider, type AIClient } from '@botmesh/ai'
 import { TelegramProvider } from '@botmesh/telegram'
 import { CloudAPIProvider } from '@botmesh/meta'
@@ -71,7 +72,10 @@ export const providers: IProvider[] = [
   new BaileysProvider({ session: 'demo', logger: console }),
 ]
 export const store = new SQLiteStore({ file: ':memory:' })
-export const refs = [RedisStore, secureFetch, verifySignature, scaffold, runCli, createPacer]
+export const refs = [RedisStore, secureFetch, verifySignature, scaffold, runCli, createPacer, messageKey]
+// The backend SPI (@botmesh/core/spi): a durability backend over the reference KV.
+export const durable = new KvDurability(new MemoryKv())
+export const kvRow: DurableKvEntry | undefined = undefined
 
 const createBot = defineBot((provider) => {
   const bot = new Bot({ provider })

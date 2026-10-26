@@ -23,9 +23,9 @@
 
 import type { MessageRef } from '../core/provider.js'
 
-import type { JsonValue } from '../testing/transcripts/format.js'
+import type { JsonValue } from '../core/json.js'
 
-/** A JSON-safe value (what the journals persist). Same type as the transcript `JsonValue`. */
+/** A JSON-safe value (what the journals persist). The same type the main entry exports. */
 export type { JsonValue }
 
 /* ============================================================================
@@ -267,11 +267,29 @@ export interface DurabilityBackend {
  * parameters of capped exponential backoff with jitter
  * (`min(capMs, baseMs * 2^(attempt-1))`, then ± `jitter` fraction).
  */
-export type RetryBackoff = ((attempt: number) => number) | { baseMs?: number; capMs?: number; jitter?: number }
+export type RetryBackoff =
+  | ((attempt: number) => number)
+  | {
+    /** First delay: a duration (`'1s'`) or ms. */
+    baseMs?: number | string
+    /** Longest delay: a duration (`'1m'`) or ms. */
+    capMs?: number | string
+    /** Symmetric jitter fraction, `0`–`1`. */
+    jitter?: number
+  }
 
 /** `BotConfig.durability`. Every field is optional; `{}` enables durability with the in-memory backend. */
 export interface DurabilityConfig {
-  /** The backend. Default: a new `MemoryDurability` (survives nothing but redeliveries within the process). */
+  /**
+   * Where the inbox and outbox records live: `MemoryDurability`, `FileDurability`, or a store's
+   * backend (`PostgresStore#durability()`, `RedisStore#durability()`, …). Default: a new
+   * `MemoryDurability` (survives nothing but redeliveries within the process).
+   */
+  backend?: DurabilityBackend
+  /**
+   * @deprecated Use {@link DurabilityConfig.backend} (same value; the old name of the option).
+   * Setting both to different backends throws a `ConfigValidationError`.
+   */
   journal?: DurabilityBackend
   /**
    * Lease owner of this process. Keep it STABLE across restarts of the same deployment

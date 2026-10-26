@@ -17,6 +17,8 @@ type EnterMatcherHost = { registerEnterMatcher: (trigger: unknown, target: strin
 export class PluginHost {
   /** Names of the plugins currently plugged (with a count), for `PluginSpec.requires`. */
   private readonly pluggedNames = new Map<string, number>()
+  /** Names plugged by at least one instance without `PluginSpec.multiple`. */
+  private readonly singleNames = new Set<string>()
 
   constructor(private readonly k: BotKernel) {}
 
@@ -26,6 +28,13 @@ export class PluginHost {
       throw new TypeError(
         'plug() expects a plugin object { name, version, install(ctx) } or a factory returning one, ' +
           `got ${spec === null ? 'null' : typeof spec}`,
+      )
+    }
+    const multiple = spec.multiple === true
+    if (this.pluggedNames.has(spec.name) && (!multiple || this.singleNames.has(spec.name))) {
+      throw new Error(
+        `Plugin "${spec.name}" is already plugged on this bot. Unplug it first (call the function ` +
+          'plug() returned), or set PluginSpec.multiple: true on every instance to allow several.',
       )
     }
     const missing = (Array.isArray(spec.requires) ? spec.requires : [])
@@ -114,10 +123,12 @@ export class PluginHost {
 
     // Counted before install() so a nested plugin may require its parent.
     this.pluggedNames.set(spec.name, (this.pluggedNames.get(spec.name) ?? 0) + 1)
+    if (!multiple) this.singleNames.add(spec.name)
     const unregisterName = () => {
       const left = (this.pluggedNames.get(spec.name) ?? 1) - 1
       if (left > 0) this.pluggedNames.set(spec.name, left)
       else this.pluggedNames.delete(spec.name)
+      if (!multiple) this.singleNames.delete(spec.name)
     }
     try {
       reportAsync(spec.install(ctx, config))

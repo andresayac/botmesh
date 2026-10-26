@@ -3,12 +3,12 @@
 Besides text, regex and predicate triggers, `@botmesh/core` exports trigger
 constants for a subject's **first contact**, for **message types** (images,
 voice notes, locations...) and for **incoming calls**. They work everywhere
-a trigger is accepted: `bot.when()`, `flow()` / `addKeyword()` (including
+a trigger is accepted: `bot.when()`, `flow()` (and its deprecated alias `addKeyword()`, including
 `.scope()`), `bot.conversation(name, fn, { trigger })` and `bot.use()`.
 
 ```ts
 import {
-  Bot, flow, addKeyword, typeTrigger,
+  Bot, flow, typeTrigger,
   WELCOME, MEDIA, IMAGE, VIDEO, AUDIO, VOICE_NOTE, DOCUMENT, STICKER,
   LOCATION, CONTACT, POLL, CALL,
 } from '@botmesh/core'
@@ -24,7 +24,7 @@ bot.when(WELCOME, async (ctx) => {
 })
 
 // As an onboarding flow (add .id('onboarding') if you make it .persistent())
-bot.use(addKeyword(WELCOME).ask('What is your name?', 'name').say((_, c) => `Hi ${c.state.name}!`))
+bot.use(flow(WELCOME).ask('What is your name?', 'name').say((_, c) => `Hi ${c.state.name}!`))
 
 // Greet AND let the same message continue to the other triggers
 bot.when(WELCOME, async (ctx) => { await ctx.reply('Hi! 👋'); ctx.pass() })
@@ -86,7 +86,7 @@ bot.when({ ...IMAGE, scope: 'dm' }, (ctx) => ctx.reply('DM only'))
 | --- | --- |
 | `MEDIA` | `image`, `video`, `audio`, `voice`, `document`, `sticker` |
 | `IMAGE` / `VIDEO` / `DOCUMENT` / `STICKER` | the matching type |
-| `AUDIO` | `audio` only (an audio file, like `bot.onAudio`) |
+| `AUDIO` | `audio` only (an audio file, like `bot.onType('audio')`) |
 | `VOICE_NOTE` | `voice` (push-to-talk); use `typeTrigger('audio', 'voice')` for both |
 | `LOCATION` / `CONTACT` | `location` / `contact` |
 | `POLL` | `poll`: someone **created** a poll. Votes arrive on `bot.on('poll')` |
@@ -99,11 +99,11 @@ first):
 
 `WELCOME` (100) > equals / plain string (40) > `startsWith` (30) >
 `endsWith` (25) > RegExp (20) > `contains` (10) > predicate function (5) >
-single type (`IMAGE`..., `bot.onType`, `bot.onImage`) (2) > multi-type
+single type (`IMAGE`..., `bot.onType`) (2) > multi-type
 (`MEDIA`, `typeTrigger(a, b)`) (1) > catch-all (`bot.onMessage`).
 
 A text trigger is never shadowed by a type trigger: an image with the
-caption "hola" goes to `bot.when('hola')`. `bot.onImage()` and
+caption "hola" goes to `bot.when('hola')`. `bot.onType('image')` and
 `bot.when(IMAGE)` share the same tier.
 
 A trigger that is `undefined` or `null` (an unset environment variable, a

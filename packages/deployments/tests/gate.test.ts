@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { Bot, MemoryKv, type IProvider } from '@botmesh/core'
+import { Bot, type IProvider } from '@botmesh/core'
+import { MemoryKv } from '@botmesh/core/spi'
 import { createTranscript, type Transcript } from '@botmesh/core/testing'
 
 import {

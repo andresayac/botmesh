@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { InboundDeduper } from '@botmesh/core'
+import { InboundDeduper } from '@botmesh/core/internal'
 import type { InboundEvent, InboundMessage } from '@botmesh/core'
 import { TelegramProvider, isEditedMessage, parseUpdate } from '../src/index.js'
 

@@ -3,17 +3,8 @@ import { Bot } from '../src/core/Bot.js'
 import { MockProvider } from '../src/testing/MockProvider.js'
 import { flow } from '../src/flows/FlowBuilder.js'
 import {
-  DEFAULT_TYPING,
-  ExternalSendClock,
   PacedSendCancelled,
-  TYPING_REFRESH_MS,
   UnsupportedContentError,
-  createPacer,
-  messagingSupport,
-  normalizeTypingConfig,
-  parseReplyDelay,
-  resolveReplyTyping,
-  typingDuration,
   type BotConfig,
   type EditResult,
   type MessageContext,
@@ -22,6 +13,17 @@ import {
   type ProviderCapabilities,
   type SendResult,
 } from '../src/index.js'
+import {
+  DEFAULT_TYPING,
+  ExternalSendClock,
+  TYPING_REFRESH_MS,
+  createPacer,
+  messagingSupport,
+  normalizeTypingConfig,
+  parseReplyDelay,
+  resolveReplyTyping,
+  typingDuration,
+} from '../src/internal.js'
 
 type LogEntry =
   | { op: 'typing'; chatId: string; state?: string }
