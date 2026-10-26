@@ -2,7 +2,7 @@
  * Entry layout of `@botmesh/mcp` (public, semver on the main entry): the main entry holds what
  * a host needs to embed or run the server (`createMcpServer`, `serveStream`, `runStdio`, the
  * protocol revisions, the server identity and the canonical example document); the JSON-RPC
- * framing, the tool catalogue and the docs search live in `@botmesh/mcp/internal` (no semver).
+ * framing, the tool catalogue, the docs search and the stdio stream wiring live in `@botmesh/mcp/internal` (no semver).
  * Runtime names are pinned so growing an entry is a deliberate change.
  */
 import { readFileSync } from 'node:fs'
@@ -19,6 +19,7 @@ const MAIN_VALUES = [
 const INTERNAL_VALUES = [
   'JSONRPC_VERSION', 'LineDecoder', 'MAX_ARGUMENT_DEPTH', 'RPC_ERROR', 'checkArguments', 'createTools', 'docsDirFromArgv', 'docsDirFromEnv', 'encodeMessage',
   'errorResponse', 'idOf', 'isJsonRpcRequest', 'loadSections', 'markdownFiles', 'parseSections', 'readDocPage',
+  'serveStdioStreams',
   'resultResponse', 'searchDocs', 'searchSections', 'stepKindsOf',
 ]
 

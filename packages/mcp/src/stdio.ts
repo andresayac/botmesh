@@ -170,36 +170,77 @@ export async function runStdio(options: StdioOptions = {}): Promise<void> {
     process.stderr.write(`botmesh-mcp: warning: docs directory not found: ${docsDir} (docs_search / docs_page will fail)\n`)
   }
 
-  // A client that goes away closes the pipe: stop writing instead of crashing on EPIPE.
+  process.stdin.setEncoding('utf8')
+  await serveStdioStreams(server, { stdin: process.stdin, stdout: process.stdout, stderr: process.stderr })
+}
+
+/** The protocol channel: the subset of a writable stream {@link serveStdioStreams} uses. */
+export interface StdioOutput {
+  write(chunk: string): boolean
+  on(event: 'error', listener: (error: Error) => void): unknown
+  on(event: 'drain' | 'close', listener: () => void): unknown
+  once(event: 'drain', listener: () => void): unknown
+  off(event: 'error', listener: (error: Error) => void): unknown
+  off(event: 'drain' | 'close', listener: () => void): unknown
+  /** Bytes still queued; while non-zero, a late `'error'` is still absorbed after serving ends. */
+  readonly writableLength?: number
+}
+
+/** The streams {@link serveStdioStreams} serves over (the process streams in {@link runStdio}). */
+export interface StdioStreams {
+  stdin: AsyncIterable<string | Uint8Array>
+  stdout: StdioOutput
+  /** Diagnostics only: nothing but protocol messages goes to `stdout`. */
+  stderr: { write(chunk: string): unknown }
+}
+
+/**
+ * Serve `server` over a stdio-like stream pair until `stdin` ends. A client that goes away
+ * closes the pipe: an `'error'` (EPIPE) or `'close'` on `stdout` stops further writes instead
+ * of crashing the process, and a write waiting for `'drain'` is released. While output is still
+ * queued when the input ends, the error listener stays attached so a late EPIPE is absorbed.
+ */
+export async function serveStdioStreams(server: McpServer, streams: StdioStreams): Promise<void> {
+  const { stdin, stdout, stderr } = streams
   let closed = false
   let wake: (() => void) | undefined
   const onStdoutError = (error: Error): void => {
-    if (!closed) process.stderr.write(`botmesh-mcp: stdout closed: ${error.message}\n`)
+    if (!closed) stderr.write(`botmesh-mcp: stdout closed: ${error.message}
+`)
     closed = true
     wake?.()
   }
-  process.stdout.on('error', onStdoutError)
+  const onStdoutClose = (): void => {
+    closed = true
+    wake?.()
+  }
+  stdout.on('error', onStdoutError)
+  stdout.on('close', onStdoutClose)
 
-  process.stdin.setEncoding('utf8')
   try {
-    await serveStream(process.stdin, {
+    await serveStream(stdin, {
       server,
       write(line) {
         if (closed) return
-        if (process.stdout.write(`${line}\n`)) return
+        if (stdout.write(`${line}
+`)) return
         // Respect backpressure: the pipe is full, wait for it to drain (or to break).
         return new Promise<void>((resolve) => {
           const onDrain = (): void => { wake?.() }
-          wake = () => { wake = undefined; process.stdout.off('drain', onDrain); resolve() }
-          process.stdout.once('drain', onDrain)
+          wake = () => { wake = undefined; stdout.off('drain', onDrain); resolve() }
+          stdout.once('drain', onDrain)
         })
       },
       reportError(error) {
-        process.stderr.write(`botmesh-mcp: ${error instanceof Error ? error.message : String(error)}\n`)
+        stderr.write(`botmesh-mcp: ${error instanceof Error ? error.message : String(error)}
+`)
       },
     })
   } finally {
-    process.stdout.off('error', onStdoutError)
+    stdout.off('close', onStdoutClose)
+    // Queued output can still fail asynchronously (EPIPE after the client left): keep the
+    // listener then, or the late 'error' would be an uncaught exception.
+    if (closed || (stdout.writableLength ?? 0) === 0) stdout.off('error', onStdoutError)
   }
 }
 
