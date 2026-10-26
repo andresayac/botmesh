@@ -2,11 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { PayloadTooLargeError, ProviderError } from '@botmesh/core'
 import { GoHighLevelProvider } from '../src/GoHighLevelProvider.js'
 import { fakeHttp } from './support.js'
+import type { ProviderHttpOptions } from '../src/http.js'
 
 const down = () => fakeHttp(() => { throw new TypeError('fetch failed') }).http
 
 describe('GoHighLevelProvider — transport failures are typed', () => {
-  const make = (http = down()) => new GoHighLevelProvider({ accessToken: 'tok-secret', locationId: 'loc1', http })
+  const make = (http: ProviderHttpOptions = down()) => new GoHighLevelProvider({ accessToken: 'tok-secret', locationId: 'loc1', http })
 
   it('send rejects with a ProviderError when the request never gets a response', async () => {
     const err = await make().send('contact1', { kind: 'text', text: 'x' }).catch((e: unknown) => e)

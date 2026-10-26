@@ -97,13 +97,27 @@ export function parseFormParams(raw: string): TwilioParams {
   return out
 }
 
+/**
+ * One parsed value as a string. Objects (a body parser that expands )
+ * become JSON; never throws, even on null-prototype objects.
+ */
+function paramString(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (value === null || value === undefined) return ''
+  if (typeof value !== 'object') return String(value)
+  try {
+    return JSON.stringify(value) ?? ''
+  } catch {
+    return ''
+  }
+}
+
 /** Normalize an already-parsed body object (express `urlencoded`) into Twilio params. */
 export function paramsFromObject(body: Record<string, unknown>): TwilioParams {
   const out: TwilioParams = {}
   for (const [key, value] of Object.entries(body)) {
     if (value === undefined || value === null) continue
-    if (Array.isArray(value)) out[key] = value.map((v) => String(v))
-    else out[key] = String(value)
+    out[key] = Array.isArray(value) ? Array.from(value, paramString) : paramString(value)
   }
   return out
 }
