@@ -61,7 +61,10 @@ chat.replies()        // every text/caption sent to this chat so far
 provider.outbox       // every outbound message, any chat
 ```
 
-`createTestBot(config?)` builds a started `Bot` on a `MockProvider`. `chat` is one
+`createTestBot(config?)` builds a started `Bot` on a `MockProvider`. To test the
+bot module you ship, pass its [`defineBot`](./dev-simulator) factory instead:
+`await createTestBot(createBot)` calls it with the `MockProvider` and starts the
+bot it returns (it throws if the factory built the bot on another provider). `chat` is one
 DM (`user@s.whatsapp.net`): its helpers simulate what the user does and assert on
 what the bot sent back. Every `send*`/`press*` helper yields one macrotask before
 resolving, so the dispatch has started.

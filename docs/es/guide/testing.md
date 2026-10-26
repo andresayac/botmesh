@@ -62,6 +62,10 @@ provider.outbox       // todos los mensajes salientes, de cualquier chat
 ```
 
 `createTestBot(config?)` crea un `Bot` ya arrancado sobre un `MockProvider`.
+Para probar el módulo del bot que despliegas, pásale su fábrica
+[`defineBot`](./simulador) en su lugar: `await createTestBot(createBot)` la
+llama con el `MockProvider` y arranca el bot que devuelve (lanza si la fábrica
+construyó el bot sobre otro provider).
 `chat` es un DM (`user@s.whatsapp.net`): sus helpers simulan lo que hace el
 usuario y comprueban lo que respondió el bot. Cada helper `send*`/`press*` cede
 una macrotarea antes de resolver, así que el despacho ya ha empezado.

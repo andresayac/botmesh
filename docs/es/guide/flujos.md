@@ -358,8 +358,8 @@ Sin `{ trigger }`, iníciala con `bot.trigger('quiz', { chatId })` o con
 
 | Miembro | Qué hace |
 | --- | --- |
-| `c.ask(texto, opts?)` | Envía `texto` y espera una respuesta de texto. Resuelve con la respuesta (el valor parseado con `schema`). |
-| `c.waitText(opts?)` | Espera un mensaje de texto, sin pregunta. |
+| `c.ask(texto, opts?)` | Envía `texto` y espera una respuesta de texto. Resuelve con la respuesta (el valor parseado con `schema`). Pulsar un botón o una fila de lista nativos cuenta como respuesta: su texto es el id del botón o el título elegido (`ctx.body`). |
+| `c.waitText(opts?)` | Espera un mensaje de texto (o la pulsación de un botón o lista, como `ask`), sin pregunta. |
 | `c.choose(pregunta, opciones, opts?)` | Envía un menú numerado y resuelve con la clave elegida. |
 | `c.waitMedia(tipos?, opts?)` | Espera media y resuelve con el mensaje. Por defecto `image`, `video`, `audio`, `document` o `sticker`; las notas de voz solo si las pides (`['voice']`). Descarga los bytes con [`loadMediaOf()`](./mensajes#acceder-al-contenido-del-media). |
 | `c.waitLocation(opts?)` | Espera una ubicación compartida y resuelve con su `InboundLocation` (ver [Recibir una ubicación](./mensajes#recibir-una-ubicacion)). |

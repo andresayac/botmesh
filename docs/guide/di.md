@@ -91,6 +91,18 @@ tools registered elsewhere (or register their own with `ctx.bot.provide`).
 Outside handlers (a scheduled task, a webhook), read them from
 `bot.injectTools`.
 
+## Remove a tool
+
+`bot.unprovide(name)` removes a tool and returns `true` if it existed. Unplugging
+a plugin does not undo its `provide()` calls, so do it in `ctx.onDispose()`:
+
+```ts
+install(ctx) {
+  ctx.bot.provide('cache', createCache())
+  ctx.onDispose(() => { ctx.bot.unprovide('cache') })
+}
+```
+
 ## Multiple tools
 
 ```ts
