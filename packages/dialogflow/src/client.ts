@@ -12,6 +12,7 @@ import {
   type HttpOptions,
   type ServiceAccountCredentials,
 } from './auth.js'
+import { checkLocation, invalidConfig } from './validate.js'
 
 /** Dialogflow CX agent coordinates. */
 export interface DialogflowCxAgent {
@@ -95,15 +96,42 @@ export function toSessionId(key: string): string {
   return createHash('sha256').update(key).digest('base64url').slice(0, 32)
 }
 
+/** Keys that would reach an object's prototype when assigned or spread by user code. */
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
+/**
+ * The parameters as a plain object without prototype-reaching keys: they come from a remote
+ * service, and an own `__proto__` key (which `JSON.parse` creates) would replace the prototype of
+ * whatever object user code copies them into.
+ */
+function safeParameters(parameters: unknown): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  if (!isObj(parameters)) return out
+  for (const [key, value] of Object.entries(parameters)) if (!UNSAFE_KEYS.has(key)) out[key] = value
+  return out
+}
+
+/**
+ * The text responses in order. ES returns the responses of every platform (`platform: 'TELEGRAM'`…)
+ * next to the default ones; when the agent has default responses only those are kept, so a reply is
+ * never duplicated per platform.
+ */
 function textMessages(list: unknown): string[] {
   if (!Array.isArray(list)) return []
-  const out: string[] = []
+  const all: string[] = []
+  const unspecified: string[] = []
   for (const m of list) {
     if (!isObj(m) || !isObj(m.text)) continue
     const texts = m.text.text
-    if (Array.isArray(texts)) for (const t of texts) if (typeof t === 'string' && t) out.push(t)
+    if (!Array.isArray(texts)) continue
+    const isDefault = m.platform === undefined || m.platform === 'PLATFORM_UNSPECIFIED'
+    for (const t of texts) {
+      if (typeof t !== 'string' || !t) continue
+      all.push(t)
+      if (isDefault) unspecified.push(t)
+    }
   }
-  return out
+  return unspecified.length > 0 ? unspecified : all
 }
 
 /** Normalize a v2 (ES) `queryResult`. */
@@ -118,7 +146,7 @@ export function normalizeEsResult(qr: unknown): DialogflowResult {
     ...(intent && str(intent.name) ? { intentId: str(intent.name) } : {}),
     confidence: num(q.intentDetectionConfidence),
     isFallback: intent ? intent.isFallback === true : true,
-    parameters: isObj(q.parameters) ? q.parameters : {},
+    parameters: safeParameters(q.parameters),
     allRequiredParamsPresent: q.allRequiredParamsPresent !== false,
     messages: messages.length > 0 ? messages : fulfillmentText ? [fulfillmentText] : [],
     fulfillmentText,
@@ -140,7 +168,7 @@ export function normalizeCxResult(qr: unknown): DialogflowResult {
     ...(!noMatch && intent && str(intent.name) ? { intentId: str(intent.name) } : {}),
     confidence: num(match.confidence ?? q.intentDetectionConfidence),
     isFallback: noMatch || !intent,
-    parameters: isObj(q.parameters) ? q.parameters : isObj(match.parameters) ? match.parameters : {},
+    parameters: safeParameters(isObj(q.parameters) ? q.parameters : match.parameters),
     allRequiredParamsPresent: true,
     messages,
     fulfillmentText: messages.join('\n'),
@@ -156,6 +184,7 @@ export class DialogflowClient {
   private readonly tokens: AccessTokenSource
 
   constructor(private readonly config: DialogflowClientConfig) {
+    if (!config || typeof config !== 'object') invalidConfig('DialogflowClient needs a config object ({ credentials } or { projectId, tokenSource })')
     if (config.tokenSource) this.tokens = config.tokenSource
     else if (config.credentials) this.tokens = new ServiceAccountTokenSource(config.credentials, config.http, config.now)
     else throw new DialogflowError('either credentials or tokenSource is required', undefined, 'INVALID_CREDENTIALS')
@@ -164,6 +193,8 @@ export class DialogflowClient {
     if (config.cx && (!config.cx.agentId || !config.cx.location)) {
       throw new DialogflowError('cx.agentId and cx.location are required for Dialogflow CX', undefined, 'INVALID_CONFIG')
     }
+    checkLocation(config.cx?.location, 'cx.location')
+    checkLocation(config.location, 'location')
     this.projectId = projectId
     this.languageCode = config.languageCode ?? 'en'
     this.edition = config.cx ? 'cx' : 'es'
@@ -194,14 +225,28 @@ export class DialogflowClient {
     const queryInput = this.edition === 'cx'
       ? { text: { text }, languageCode }
       : { text: { text, languageCode } }
-    const payload: Json = { queryInput, ...(opts.queryParams ? { queryParams: opts.queryParams } : {}) }
-    const token = await this.tokens.getAccessToken()
-    const { response, body } = await secureFetch(this.sessionUrl(sessionId), {
-      ...this.config.http,
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json; charset=utf-8' },
-      body: JSON.stringify(payload),
-    })
+    const payload = JSON.stringify({ queryInput, ...(opts.queryParams ? { queryParams: opts.queryParams } : {}) } satisfies Json)
+    const url = this.sessionUrl(sessionId)
+    let token = ''
+    const post = async () => {
+      token = await this.tokens.getAccessToken()
+      if (typeof token !== 'string' || !token) {
+        throw new DialogflowError('the token source returned no access token', undefined, 'INVALID_TOKEN')
+      }
+      return secureFetch(url, {
+        ...this.config.http,
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json; charset=utf-8' },
+        body: payload,
+      })
+    }
+    let { response, body } = await post()
+    // A token revoked or expired early (or a clock that jumped back) answers 401: drop the cached
+    // token and retry once with a fresh one.
+    if (response.status === 401 && this.tokens.invalidate) {
+      this.tokens.invalidate(token)
+      ;({ response, body } = await post())
+    }
     let json: unknown
     try {
       json = JSON.parse(body.toString('utf8'))

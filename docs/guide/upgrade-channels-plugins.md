@@ -190,7 +190,12 @@ that used them from the monorepo (`workspace:*`) needs these changes:
   `foldText`).
 - **`@botmesh/dialogflow`:** `dialogflowPlugin` is the canonical name and
   `dialogflowContext` a deprecated alias. `languageCode` defaults to `'en'` (it was
-  `'es'`): set it to your agent's language.
+  `'es'`): set it to your agent's language. In groups, `sessionScope` defaults to
+  `'participant'` (one Dialogflow session per member, like conversations); set
+  `sessionScope: 'chat'` to keep one session per group. Mistyped options
+  (`minConfidence: 80`, an unknown `fulfillment`…) now throw `DialogflowError`
+  (`INVALID_CONFIG`) at `bot.plug()`, and texts over 256 characters are no longer
+  sent (`maxTextLength`).
 - **Frozen data:** `DEFAULT_VOICE_LIMITS`, `SUPPORTED_EXTENSIONS` (rag),
   `TICKET_PRIORITIES` and `TICKET_STATUSES` can no longer be mutated; copy them first.
 - **`@botmesh/chatwoot`:** a webhook signature without `x-chatwoot-timestamp` is rejected
