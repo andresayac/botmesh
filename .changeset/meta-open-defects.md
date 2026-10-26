@@ -10,3 +10,5 @@ Fixes for the low-severity defects left open by the alpha exit review:
 - A failed status' `errors[0]` is checked: `code` is kept only when it is a number (a digit string is converted) and the text only when it is a string, clipped to 1000 characters.
 - New `uploadTimeoutMs` option (default 5 minutes, or `requestTimeoutMs` when larger) for media uploads, which can be up to 100 MB; `requestTimeoutMs` (60 s) no longer cuts them.
 - `phoneNumberId` may be a safe positive integer again (it is used as a string); other numbers still fail with an error naming the field.
+
+What to change when upgrading: "Upgrade notes: channels and plugins" in the guide (`docs/guide/upgrade-channels-plugins.md`).

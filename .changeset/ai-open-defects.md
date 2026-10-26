@@ -10,3 +10,5 @@ Fixes for the low-severity defects left open by the alpha exit review:
 - Confirmation prompts show argument names and values on one line also when they contain NEL (U+0085) or the line/paragraph separators, and drop bidi control characters.
 - Aborting a call with your own signal (`/reset` of an autoreply turn, or `signal` passed to `ctx.tools.ai` methods) now releases the caller with an `AbortError` even when the provider ignores the signal, instead of waiting for `timeoutMs` (or forever with `0`).
 - `timeoutMs` is documented as a total deadline for non-streaming calls and an idle timeout between chunks when streaming.
+
+What to change when upgrading: "Upgrade notes: channels and plugins" in the guide (`docs/guide/upgrade-channels-plugins.md`).

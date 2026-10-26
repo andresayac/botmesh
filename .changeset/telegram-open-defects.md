@@ -9,3 +9,5 @@ Fixes for the low-severity defects left open by the alpha exit review:
 - A 429 `retry_after` is capped at 24 h (a huge value overflowed the timer and retried at once), and a negative or non-numeric one means 1 s.
 - New `uploadTimeoutMs` option (default 5 minutes, or `requestTimeoutMs` when larger) for file uploads; `requestTimeoutMs` no longer cuts a slow upload.
 - At most 1000 draft stop callbacks (`sendDraft(..., { onStop })`) are kept, dropping the oldest, so a burst of drafts cannot grow the map within its 10-minute TTL.
+
+What to change when upgrading: "Upgrade notes: channels and plugins" in the guide (`docs/guide/upgrade-channels-plugins.md`).
