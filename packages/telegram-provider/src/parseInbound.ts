@@ -216,11 +216,11 @@ function mentionsOf(msg: TelegramMessage): string[] {
  * When the leading `bot_command` entity names THIS bot (case-insensitive), the
  * `@BotName` suffix is dropped from the body so `bot.command('cmd')` matches;
  * a command addressed to another bot is left untouched (it then never matches).
- * `raw.text` keeps the original.
+ * `raw.text` (or `raw.caption`) keeps the original. Applies to text and to media captions.
  */
-function stripOwnMention(msg: TelegramMessage, text: string, botUsername?: string): string {
+function stripOwnMention(entities: unknown, text: string, botUsername?: string): string {
   if (!botUsername) return text
-  const first = arr(msg.entities)[0]
+  const first = arr(entities)[0]
   if (!isObj(first) || first.type !== 'bot_command' || first.offset !== 0 || typeof first.length !== 'number') return text
   const command = text.slice(0, first.length)
   const at = command.indexOf('@')
@@ -240,11 +240,14 @@ function toMessage(msg: TelegramMessage, updateId: number, selfId?: string, botU
   let location: InboundLocation | undefined
   if (typeof msg.text === 'string') {
     type = 'text'
-    body = stripOwnMention(msg, msg.text, botUsername)
+    body = stripOwnMention(msg.entities, msg.text, botUsername)
   } else {
     const parsed = mediaOf(msg)
     type = parsed.type
-    body = parsed.body
+    // A command can also open a media caption (`/menu@Bot` on a photo): same rule as text.
+    body = typeof msg.caption === 'string' && parsed.body === msg.caption
+      ? stripOwnMention(msg.caption_entities, parsed.body, botUsername)
+      : parsed.body
     media = parsed.media
     location = parsed.location
   }

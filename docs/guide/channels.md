@@ -236,13 +236,17 @@ const hooked = new TelegramProvider({
 - In webhook mode `ingest(body, headers)` takes the raw bytes, the JSON
   string or the parsed object, and checks the `X-Telegram-Bot-Api-Secret-Token`
   header (any case, plain or Fetch `Headers`). `@botmesh/server` needs no
-  extra option.
+  extra option. After `stop()` it answers `503` and emits nothing, so
+  Telegram redelivers those Updates once the bot is back.
 - **Group commands** addressed to the bot (`/menu@MyBot`) reach
-  `bot.command('menu')`: the provider drops the suffix when it names this bot
-  (username from `getMe`, or the `username` option when you pass `selfId`).
+  `bot.command('menu')`, also in a media caption: the provider drops the
+  suffix when it names this bot (username from `getMe`, or the `username`
+  option when you pass `selfId`).
 - Every Bot API request has a client timeout (`requestTimeoutMs`, 120 s by
-  default; long polls get `pollTimeout` + 15 s), errors never carry the bot
-  token, and `bot.stop()` cuts the poll loop's retry waits at once.
+  default; long polls get `pollTimeout` + 15 s; file uploads get
+  `uploadTimeoutMs`, 5 min by default), errors never carry the bot token, a
+  429 `retry_after` is honoured up to 24 h, and `bot.stop()` cuts the poll
+  loop's retry waits at once.
 - **Edited messages** reach the bot as messages with the new text and the
   original `ref.id` (replies, reactions and edits target the edited message).
   `isEditedMessage(ctx)` tells them apart; the core deduper lets an edit

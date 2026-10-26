@@ -72,13 +72,18 @@ export interface TelegramProviderConfig {
   /** Pause (ms) after an empty getUpdates batch. Default 250 (server long-poll already waited). */
   pollIdleMs?: number
   /**
-   * Client-side timeout (ms) for each Bot API request, uploads included. A
-   * request that takes longer rejects with a `ProviderError` ("timed out").
-   * Long polls get `pollTimeout` seconds plus up to 15 s of grace instead, so a
-   * half-open connection never stalls the poll loop. Default 120000 (raise it
-   * for very large uploads to a self-hosted Bot API server).
+   * Client-side timeout (ms) for each Bot API request. A request that takes longer
+   * rejects with a `ProviderError` ("timed out"). Long polls get `pollTimeout`
+   * seconds plus up to 15 s of grace instead, so a half-open connection never stalls
+   * the poll loop. Uploads use `uploadTimeoutMs`. Default 120000.
    */
   requestTimeoutMs?: number
+  /**
+   * Client-side timeout (ms) for a request that uploads a file (multipart). Default
+   * 300000 (5 minutes), or `requestTimeoutMs` when that is larger. Raise it for very
+   * large uploads to a self-hosted Bot API server.
+   */
+  uploadTimeoutMs?: number
   debug?: boolean
   logger?: LoggerLike
 }

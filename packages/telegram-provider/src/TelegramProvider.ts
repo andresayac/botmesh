@@ -67,6 +67,12 @@ const sleep = (ms: number, signal?: AbortSignal): Promise<void> =>
 
 /** Default per-request timeout (uploads included); long polls get `pollTimeout` + grace. */
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000
+/** Default timeout of a multipart (file upload) request. */
+const DEFAULT_UPLOAD_TIMEOUT_MS = 300_000
+/** Longest `retry_after` honoured (a larger value would overflow a timer and retry at once). */
+const MAX_RETRY_AFTER_MS = 24 * 60 * 60 * 1000
+/** Most draft stop callbacks kept at once (the oldest is dropped beyond it). */
+const MAX_DRAFT_STOPS = 1000
 /** Extra time a long poll may take beyond its server-side `timeout` before it counts as hung. */
 const POLL_GRACE_MAX_MS = 15_000
 
@@ -115,7 +121,10 @@ const TOO_LARGE_400 = /too long|too big|entity too large/i
 /** Translate a Bot API error envelope into a typed provider error. */
 export function toProviderError(chatId: ChatId, errorCode: number | undefined, description: string | undefined, retryAfterSec?: number): ProviderError {
   const desc = description ?? `Telegram error ${errorCode ?? 'unknown'}`
-  if (errorCode === 429) return new RateLimitedError((retryAfterSec ?? 1) * 1000, desc)
+  if (errorCode === 429) {
+    const sec = typeof retryAfterSec === 'number' && Number.isFinite(retryAfterSec) && retryAfterSec >= 0 ? retryAfterSec : 1
+    return new RateLimitedError(Math.min(sec * 1000, MAX_RETRY_AFTER_MS), desc)
+  }
   if (errorCode === 403) return new RecipientUnreachableError(chatId, desc)
   if (errorCode === 413 || (errorCode === 400 && TOO_LARGE_400.test(desc))) return new PayloadTooLargeError(desc)
   if (errorCode === 400 && UNREACHABLE_400.test(desc)) return new RecipientUnreachableError(chatId, desc)
@@ -148,7 +157,7 @@ export class TelegramProvider implements IProvider<unknown> {
     textFormat: 'plain', // sent without parse_mode: Markdown would show literally
   }
 
-  private readonly config: Required<Pick<TelegramProviderConfig, 'token' | 'baseUrl' | 'polling' | 'pollTimeout' | 'errorBackoffMs' | 'maxBackoffMs' | 'pollIdleMs' | 'requestTimeoutMs'>> & Pick<TelegramProviderConfig, 'mediaDownload'>
+  private readonly config: Required<Pick<TelegramProviderConfig, 'token' | 'baseUrl' | 'polling' | 'pollTimeout' | 'errorBackoffMs' | 'maxBackoffMs' | 'pollIdleMs' | 'requestTimeoutMs' | 'uploadTimeoutMs'>> & Pick<TelegramProviderConfig, 'mediaDownload'>
   /** Aborted by stop(): cuts the in-flight long poll and every poll-loop sleep. */
   private lifecycle?: AbortController
   private readonly webhookSecret?: string
@@ -190,10 +199,13 @@ export class TelegramProvider implements IProvider<unknown> {
     assertNumber('maxBackoffMs', config.maxBackoffMs, 0)
     assertNumber('pollIdleMs', config.pollIdleMs, 0)
     assertNumber('requestTimeoutMs', config.requestTimeoutMs, 1)
+    assertNumber('uploadTimeoutMs', config.uploadTimeoutMs, 1)
+    const requestTimeoutMs = config.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS
     this.config = {
       token: config.token,
       baseUrl,
-      requestTimeoutMs: config.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
+      requestTimeoutMs,
+      uploadTimeoutMs: config.uploadTimeoutMs ?? Math.max(DEFAULT_UPLOAD_TIMEOUT_MS, requestTimeoutMs),
       polling: config.polling ?? true,
       pollTimeout: config.pollTimeout ?? 30,
       errorBackoffMs: config.errorBackoffMs ?? 1000,
@@ -270,19 +282,24 @@ export class TelegramProvider implements IProvider<unknown> {
     this.readyEmitted = false
     this.pollErrors = 0
     this.emitConnection('connecting')
+    const lifecycle = this.lifecycle
     if (this._selfId == null) {
       try {
-        const me = await this.callApi<TelegramUser>('getMe')
+        const me = await this.callApi<TelegramUser>('getMe', {}, { signal: lifecycle.signal })
         this._selfId = String(me.id)
         if (!this.username && typeof me.username === 'string') this.username = me.username
         this.logger.debug(`getMe ok: @${me.username ?? me.id}`)
       } catch (err) {
+        // stop() during getMe: the start was cancelled, not failed (stop() already said 'closed').
+        if (lifecycle.signal.aborted) return
         this.running = false
         const detail = err instanceof Error ? err.message : String(err)
         this.emitConnection('closed', /unauthorized/i.test(detail) ? 'sessionInvalid' : 'transient', detail)
         throw err
       }
     }
+    // stop() ran while getMe was in flight: do not come up after 'closed'.
+    if (lifecycle.signal.aborted) return
     if (this.config.polling) {
       // Fire-and-forget: start() resolves once the poll loop is underway;
       // the first successful getUpdates batch emits `ready`.
@@ -390,6 +407,8 @@ export class TelegramProvider implements IProvider<unknown> {
    * Telegram retries non-200s).
    */
   ingest(rawEvent: unknown, headers?: TelegramWebhookHeaders): number {
+    // Stopped: nothing may reach the bot. 503 makes Telegram redeliver after a restart.
+    if (this.stopped) return 503
     if (!this.secretMatches(headers)) {
       this.logger.warn('ingest: rejected Update with missing/invalid X-Telegram-Bot-Api-Secret-Token')
       return 401
@@ -546,7 +565,8 @@ export class TelegramProvider implements IProvider<unknown> {
     }
     // Every request is bounded: a hung connection must not stall a send (or the
     // poll loop) forever. The caller's signal (stop()) still aborts it first.
-    const timeoutMs = opts?.timeoutMs ?? this.config.requestTimeoutMs
+    const upload = init.body instanceof FormData
+    const timeoutMs = opts?.timeoutMs ?? (upload ? this.config.uploadTimeoutMs : this.config.requestTimeoutMs)
     const timer = new AbortController()
     const timeout = setTimeout(() => timer.abort(), timeoutMs)
     init.signal = opts?.signal ? AbortSignal.any([opts.signal, timer.signal]) : timer.signal
@@ -561,7 +581,7 @@ export class TelegramProvider implements IProvider<unknown> {
     } catch (err) {
       if (opts?.signal?.aborted) throw err // stop(): the caller handles its own abort
       if (timer.signal.aborted) {
-        throw new ProviderError(`Telegram API request timed out after ${timeoutMs}ms (${method}); raise requestTimeoutMs for slow uploads`)
+        throw new ProviderError(`Telegram API request timed out after ${timeoutMs}ms (${method}); raise ${upload ? 'uploadTimeoutMs' : 'requestTimeoutMs'}`)
       }
       throw this.networkError(method, err)
     } finally {
@@ -678,7 +698,17 @@ export class TelegramProvider implements IProvider<unknown> {
    */
   async sendDraft(chatId: ChatId, draftId: number, text: string, opts?: DraftOptions): Promise<void> {
     this.pruneDraftStops()
-    if (opts?.onStop) this.draftStops.set(`${chatId}:${draftId}`, { onStop: opts.onStop, at: Date.now() })
+    if (opts?.onStop) {
+      const key = `${chatId}:${draftId}`
+      this.draftStops.delete(key)
+      this.draftStops.set(key, { onStop: opts.onStop, at: Date.now() })
+      // Bounded even within the TTL: a burst of drafts drops the oldest callbacks.
+      while (this.draftStops.size > MAX_DRAFT_STOPS) {
+        const oldest = this.draftStops.keys().next()
+        if (oldest.done) break
+        this.draftStops.delete(oldest.value)
+      }
+    }
     await this.callApi('sendMessageDraft', {
       chat_id: chatId,
       draft_id: draftId,
