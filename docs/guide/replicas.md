@@ -8,7 +8,8 @@ which replica processes each chat and which one connects an exclusive
 transport such as WhatsApp Web.
 
 Coordination is opt-in. Without `coordination` nothing below runs and the
-bot behaves exactly as before.
+bot behaves exactly as before. You need `@botmesh/redis-store` (a Redis server
+or a [Redis Cluster](./redis-cluster)) and a store every replica shares.
 
 ## When you need it (and when you don't)
 
@@ -220,13 +221,15 @@ Limits:
 - A conversation suspended before its first wait leaves no stub (nothing to
   hand over yet).
 - Async conversations are never migrated automatically.
-- The fence is a local check right before each write (like sends), not a
-  conditional write in the store.
+- Every built-in store writes checkpoints with a compare-and-set (see
+  above). A custom store without `setCheckpointIf`/`clearCheckpointIf` only
+  gets the local fence: a check right before each write, like sends.
 
 ## Requirements and limits
 
-- **A shared store** (`RedisStore`, or Postgres/Mongo/MySQL). With
-  `MemoryStore`/`SQLiteStore` each replica has its own data.
+- **A shared store**: `RedisStore` (the PostgreSQL, MySQL and MongoDB stores
+  also work, but are not on npm yet). With `MemoryStore` or `SQLiteStore` each
+  replica has its own data.
 - **Multi-turn flows should be `.persistent()`** (or use
   [`handover`](#conversation-hand-over)). Without it, a plain
   `bot.conversation` or non-persistent flow lives in the memory of the
@@ -242,8 +245,9 @@ Limits:
   single process that crashes), unless `durability` is on with a shared
   backend: the message was journaled on arrival and another replica replays
   it once its lease expires.
-- **Scheduled jobs (`bot.schedule/every`) run on every replica.** Use a
-  leader-only job with `coordinator.tryLead(name)` or the fenced lock below.
+- **Plain scheduled jobs (`bot.schedule/every` without an `id`) run on every
+  replica.** Make them durable tasks, which run each occurrence once, or take
+  the leadership yourself (see [Singleton jobs](#singleton-jobs-and-fenced-locks)).
 - **A conversation step longer than `settleMs` is cut short** (see above):
   raise `settleMs` for long `.do()` work or delays.
 - **Redis**: a failover that loses the last writes can grant a lease twice

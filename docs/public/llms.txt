@@ -72,6 +72,7 @@
 - [Golden transcripts](https://andresayac.github.io/botmesh/guide/golden-transcripts)
 - [ESLint plugin (eslint-plugin-botmesh)](https://andresayac.github.io/botmesh/guide/eslint)
 - [Sub-APIs: v1 sub-APIs → v2 capabilities and provider.socket](https://andresayac.github.io/botmesh/guide/sub-apis)
+- [Going to production (checklist)](https://andresayac.github.io/botmesh/guide/production)
 - [Deployment](https://andresayac.github.io/botmesh/guide/deploy)
 - [FAQ](https://andresayac.github.io/botmesh/guide/faq)
 

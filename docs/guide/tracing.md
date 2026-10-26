@@ -5,11 +5,15 @@ A bot does a lot of work for each message: access lists, persistence, the chat's
 Tracing is **opt-in**. Without `BotConfig.telemetry` the bot runs exactly the code it ran before: no spans, no extra awaits.
 
 - `@botmesh/core` has the tracing hooks: a minimal `BotTracer` interface, a no-op default and `bot.tracing`. No new dependency.
-- `@botmesh/otel` (private for now) adapts them to OpenTelemetry and also turns `bot.metrics()` into OpenTelemetry metrics.
+- `@botmesh/otel` adapts them to OpenTelemetry and also turns `bot.metrics()` into OpenTelemetry metrics.
 - `@botmesh/ai` adds model, tool and retrieval spans to the same trace.
 
 ::: tip No message content
 Spans carry **kinds, stages, outcomes and ids**, never message bodies, captions, prompts, completions, tool arguments or results, `c.state` or error messages. Chat, user and message ids are hashed by default. See [Personal data](#personal-data).
+:::
+
+::: warning `@botmesh/otel` is not on npm yet
+The tracing hooks are part of the published `@botmesh/core`, but the OpenTelemetry adapter lives only in the [repository](https://github.com/andresayac/botmesh/tree/main/packages/otel) for now. Until it is published, use it from a checkout, or implement `BotTracer` yourself: it is one method (`startSpan`) plus an optional `withSpan` (see [Other backends and tests](#other-backends-and-tests)), and [`packages/otel/src/tracer.ts`](https://github.com/andresayac/botmesh/blob/main/packages/otel/src/tracer.ts) is a complete OpenTelemetry implementation to start from.
 :::
 
 ## Quick start
@@ -39,7 +43,9 @@ sdk.start()
 ```ts
 // bot.ts
 import { Bot } from '@botmesh/core'
+import { aiPlugin } from '@botmesh/ai'
 import { createOtelTracer, otelMetricsPlugin } from '@botmesh/otel'
+import { sdk } from './telemetry.js'
 
 const bot = new Bot({
   provider,

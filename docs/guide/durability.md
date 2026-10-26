@@ -7,18 +7,23 @@ many bots. When it is not, turn on **durability**:
 
 ```ts
 import { Bot } from '@botmesh/core'
-import { PostgresDurability, PostgresStore } from '@botmesh/postgres-store'
+import { SQLiteStore } from '@botmesh/sqlite-store'
+
+const store = new SQLiteStore({ file: './data/bot.db' })
 
 const bot = new Bot({
   provider,
-  store: new PostgresStore({ pool }),
+  store,
   durability: {
-    backend: new PostgresDurability({ pool }),
+    backend: store.durability(),       // journals in the same SQLite file
     instanceId: 'bot-1',               // stable across restarts of this deployment
     outbox: { retries: 5, backoff: { baseMs: 1000, capMs: 60_000 } },
   },
 })
 ```
+
+With several replicas, use a shared backend instead: `new RedisDurability({ client, prefix })`
+from `@botmesh/redis-store` (see [Backends](#backends)).
 
 With `durability` set, the bot keeps two journals:
 
@@ -40,17 +45,19 @@ before, in memory and in a single process.
 | --- | --- | --- | --- |
 | `MemoryDurability` (the default with `durability: {}`) | `@botmesh/core` | No (retries, backoff and DLQ only) | No |
 | `FileDurability.open(path)` | `@botmesh/core` | Yes | No (a lock file refuses a second live process, and a second open in the same process until `close()`) |
-| `PostgresDurability({ pool \| connectionString, tablePrefix, logger })` | `@botmesh/postgres-store` | Yes | Yes, with sticky per-chat routing (see [Several replicas](#several-replicas)) |
-| `RedisDurability({ client \| url, prefix })` | `@botmesh/redis-store` | Yes (with Redis persistence on) | Yes, with sticky per-chat routing (see [Several replicas](#several-replicas)) |
-| `eventsDurability({ journal })` | `@botmesh/events/durability` (private, monorepo only) | With a `FileEventJournal` opened with `{ lock: true }` or a `SharedFileEventJournal` | With a `SharedFileEventJournal` (processes on one host; see [below](#an-botmesh-events-journal)) |
+| `store.durability()` of a `SQLiteStore` (`SQLiteDurability`) | `@botmesh/sqlite-store` | Yes | Processes on one host sharing the file |
+| `RedisDurability({ client \| url \| cluster, prefix })` | `@botmesh/redis-store` | Yes (with Redis persistence on) | Yes, with sticky per-chat routing or `coordination` (see [Several replicas](#several-replicas)) |
+| `PostgresDurability({ pool \| connectionString, tablePrefix, logger })` | `@botmesh/postgres-store` (not on npm yet) | Yes | Yes, like Redis |
+| `eventsDurability({ journal })` | `@botmesh/events/durability` (not on npm yet) | With a `FileEventJournal` opened with `{ lock: true }` or a `SharedFileEventJournal` | With a `SharedFileEventJournal` (processes on one host; see [below](#an-botmesh-events-journal)) |
 
-PostgreSQL creates one table, `{tablePrefix}durable`, idempotently on start.
+SQLite keeps the journals in the `durable` table of the store's file, created
+with the rest of the schema. PostgreSQL creates one table, `{tablePrefix}durable`, idempotently on start.
 With `connectionString` it creates (and later ends) its own pool, and a connection the
 server drops while idle (restart, failover) is reported to `logger.error` and replaced on
 the next query. An injected `pool` is yours: give it a `pool.on('error', …)` listener,
 because node-postgres crashes the process when nobody listens.
 Redis uses keys under `{prefix}:{durable:inbox:<scope>}` and `{prefix}:{durable:outbox:<scope>}`.
-Neither touches the store's own tables or keys.
+None of them touches the store's own tables or keys.
 
 `FileDurability.open(path, { appendLog: true })` (or `{ compactEvery, compactBytes, fsync }`)
 appends each committed write to `<path>.log` instead of rewriting the snapshot, and compacts
@@ -144,6 +151,32 @@ const bot = new Bot({ provider, durability: { backend: eventsDurability({ journa
   `LeasedEventJournal` with a shared `outbox` (`eventsDurability({ journal, outbox: kv })`,
   with the `DurableKv` of a Postgres or Redis backend), or those backends directly.
 
+## Configuration
+
+`BotConfig.durability` takes:
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `backend` | a new `MemoryDurability` | Where the journals live (see [Backends](#backends)). |
+| `instanceId` | `<hostname>/<botId>/<connectionId>` (plus a per-boot suffix on a shared backend) | Lease owner. Stable across restarts, unique per running replica (see [Operating it](#operating-it)). |
+| `failOpen` | `false` | `true` dispatches an inbound event even when the journal cannot record it. |
+| `inbox.leaseMs` | `'60s'` | Processing lease, extended by a heartbeat while the handler runs. |
+| `inbox.maxAttempts` | `5` | Runs charged before an inbound event that keeps failing is dead-lettered. |
+| `inbox.backoff` | `{ baseMs: 1000, capMs: 60000, jitter: 0.2 }` | Backoff between failed inbound attempts. |
+| `inbox.mediaRefs` | `true` | Journal a serializable media reference so a replay can download it (see [Media on replay](#media-on-replay)). |
+| `outbox.retries` | `5` | Retries **after** the first attempt before a send is dead-lettered (6 provider calls at most). |
+| `outbox.backoff` | as `inbox.backoff` | Backoff between send attempts; a `RateLimitedError` waits at least its `retryAfterMs`. |
+| `outbox.inlineMaxMs` | `'15s'` | How long `ctx.reply` / `bot.send` retry inline before rejecting with `SendDeferredError`. |
+| `outbox.onAmbiguous` | `'skip'` | A send whose outcome is unknown after a crash: `'skip'` (never a duplicate) or `'resend'` (never lost). |
+| `outbox.onDiverged` | `'send'` | A replay that produces different content under the same derived key: `'send'` or `'skip'` (see [Idempotency keys](#idempotency-keys)). |
+| `outbox.maxPayloadBytes` | 1 MiB | Larger payloads bypass the outbox, with a warning. |
+| `outbox.leaseMs` | `'60s'` | Lease of a send in flight (at least 20 ms). |
+| `pollMs` | `'1s'` | Period of the background sweeper (retries, expired leases). |
+| `retention` | `'7d'` | How long `done`/`sent` records are kept before they are purged; `0` keeps them. |
+
+Durations take a string (`'15s'`) or milliseconds, like every duration option
+of the bot.
+
 ## What is guaranteed
 
 Sends are **exactly once while the process is alive**. Across a crash they are
@@ -207,8 +240,8 @@ outbox `key`. The send is **not lost**: the background sweeper keeps retrying it
 When the caller does not need to wait, enqueue the send instead:
 
 ```ts
-const { key } = await bot.enqueue(chatId, 'Tu cita es mañana a las 9', {
-  idempotencyKey: `reminder:${cita.id}`,   // a second enqueue of this key is a no-op
+const { key } = await bot.enqueue(chatId, 'Your appointment is tomorrow at 9', {
+  idempotencyKey: `reminder:${appointment.id}`,   // a second enqueue of this key is a no-op
 })
 ```
 
@@ -364,6 +397,9 @@ replica that runs them. So:
   there. A replica that is alive keeps its leases through the heartbeat, however long
   its handler takes.
 - Give every replica its own explicit `instanceId`.
+- Use a shared backend: `RedisDurability` (or `PostgresDurability` from the
+  repository). `SQLiteDurability` and `SharedFileEventJournal` are shared only
+  by processes on one host.
 
 **With `coordination`** (see [Running N replicas](./replicas.md)), sticky routing is
 not needed: chat turns serialize each chat across replicas and `.persistent()` flows

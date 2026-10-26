@@ -1,65 +1,82 @@
-# Persistent Store
+# Persistent store
 
-The **store** is where the bot keeps messages, chats, contacts, flow state, checkpoints and AI conversation history. Choosing the right store is the difference between a bot that forgets everything on restart and one that survives deploys.
+The **store** is where the bot keeps messages, chats, contacts, flow
+checkpoints, AI conversation history and [`ctx.user`](./user-data) data. With
+the default in-memory store a restart forgets all of it; with a persistent one
+the bot picks up where it left off.
 
-Stores implement the generic, transport-neutral `IStore` from `@botmesh/core` — the same store works with any provider (Baileys, Cloud API, Telegram, Discord).
+Every store implements the transport-neutral `IStore` contract of
+`@botmesh/core`, so the same store works with any channel.
 
-## Available stores
+## Choosing a store
 
-| Store | Package | Persistence | Use case |
+| Store | Package | Where the data lives | Use it for |
 |---|---|---|---|
-| `MemoryStore` *(default)* | `@botmesh/core` | In-memory (optional JSON dump) | Development, tests, short-lived bots |
-| `SQLiteStore` | `@botmesh/sqlite-store` | SQLite file (WAL mode) | **Production** — single-bot, zero-config |
-| `RedisStore` | `@botmesh/redis-store` | Redis server | Distributed state, multiple instances, TTL |
-| `MongoStore` · `PostgresStore` · `MysqlStore` | `@botmesh/mongo-store` · `@botmesh/postgres-store` · `@botmesh/mysql-store` | MongoDB / PostgreSQL / MySQL | **Experimental** — real, tested implementations, not published yet |
+| `MemoryStore` *(default)* | `@botmesh/core` | Process memory (optional JSON snapshot) | Development and tests |
+| `SQLiteStore` | `@botmesh/sqlite-store` | One SQLite file | **Production with one process** |
+| `RedisStore` | `@botmesh/redis-store` | A Redis server or Redis Cluster | **Production with several replicas** |
+| `PostgresStore` · `MysqlStore` · `MongoStore` | `@botmesh/postgres-store` · `@botmesh/mysql-store` · `@botmesh/mongo-store` | PostgreSQL / MySQL / MongoDB | Not published on npm yet (see [below](#postgresql-mysql-and-mongodb)) |
 
-`MemoryStore` ships with the core. `SQLiteStore` and `RedisStore` are part of
-the first alpha, published on npm under the `alpha` dist-tag. The
-MongoDB, PostgreSQL and MySQL stores pass the same `IStore` conformance
-suite but stay private (unpublished) for now; see their READMEs in the
-[repository](https://github.com/andresayac/botmesh/tree/main/packages).
+Rules of thumb:
 
-## MemoryStore (default)
+- One bot process on a VPS or in a container: **`SQLiteStore`**. No server to
+  run, one file to back up.
+- Several processes of the same bot ([replicas](./replicas)), or state that
+  other services read: **`RedisStore`**. Every replica must see the same data,
+  so `MemoryStore` and `SQLiteStore` do not fit there.
+- Always pass a store **instance** (`store: new SQLiteStore({ … })`). A string
+  such as `store: 'sqlite'` is accepted only for compatibility and still creates
+  a `MemoryStore`.
 
-If you don't pass a `store`, the bot creates a `MemoryStore`. Everything lives in RAM; an optional JSON file can snapshot chats/contacts/checkpoints (not messages) on an interval.
+The bot calls the store's `start()` and `stop()` for you.
+
+## MemoryStore
+
+Without a `store` option the bot creates a `MemoryStore`. Everything lives in
+RAM. An optional JSON file snapshots chats, contacts, flow checkpoints, AI
+conversations and `ctx.user` data (not messages) on an interval and on
+`stop()`:
 
 ```ts
+import { Bot, MemoryStore } from '@botmesh/core'
+
 const bot = new Bot({
-  provider: new BaileysProvider({ session: 'my-bot' }),
-  // Optional: persist chats + flow state to a JSON file
+  provider,
   store: new MemoryStore({
-    file: './store.json',
-    autoSaveInterval: '1m', // duration or ms (0 = disable)
-    maxMessagesPerChat: 1000, // the default; Infinity disables the cap
+    file: './store.json',     // optional snapshot
+    autoSaveInterval: '1m',   // a duration or ms; 0 disables the timer
+    maxMessagesPerChat: 1000, // the default; Infinity removes the cap
   }),
 })
 ```
 
-`MemoryStore` keeps at most **1000 messages per chat** by default. Unlike the
-persistent stores, where the cap is opt-in, this log lives in the process's
-RAM and is never written to disk, so an unbounded default would only grow
-memory on a long-running bot. Pass `maxMessagesPerChat: Infinity` to keep
-everything.
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `file` | `string` | — | JSON file loaded on start and saved on the interval and on `stop()` |
+| `autoSaveInterval` | `string \| number` | `60000` | Save period of `file`; `0` disables it |
+| `maxMessagesPerChat` | `number` | `1000` | Newest messages kept per chat; `Infinity` keeps all of them |
+| `logger` | `MemoryStoreLogger` | — | Receives load and save failures |
 
-::: warning Messages are NOT restored
-`MemoryStore` intentionally skips messages on reload (privacy + size). Only chats, contacts, flow states, checkpoints and AI conversations survive a restart via the JSON dump.
+The message log is capped at 1000 messages per chat by default because it
+lives in RAM. The persistent stores have no cap unless you set one.
+
+::: warning Messages are not restored
+The JSON snapshot skips the message log on purpose (size and privacy). Use
+`SQLiteStore` or `RedisStore` when the history must survive a restart.
 :::
 
-## SQLiteStore (recommended for production)
+## SQLiteStore
 
-A real database backed by [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) — synchronous, zero-config, single-file. Perfect for a single bot instance on a VPS or Docker container. It's a **separate package**; `better-sqlite3` is a peer dependency you install next to it (it is loaded when the store is constructed, so a missing install fails with a clear error):
+A real database in one file, on
+[better-sqlite3](https://github.com/WiseLibs/better-sqlite3). `better-sqlite3`
+is a peer dependency, so install it next to the store:
 
 ```bash
-pnpm add @botmesh/sqlite-store@alpha better-sqlite3
+pnpm add @botmesh/sqlite-store better-sqlite3
 ```
 
-The supported range is `^11.7.0 || ^12.0.0 || ^13.0.0` (tested against 11.10.0, 12.11.1 and 13.0.3). `npm` picks a compatible major and only warns; `pnpm` installs the latest one and ignores the range.
-
-`better-sqlite3` is a native module: its install script downloads (or builds) the binary. **pnpm 10 and later skip dependency build scripts** until you approve them, and the store then fails at construction with `better-sqlite3 is installed but its native module was never built`. Approve it once with `pnpm approve-builds` (or list it under `onlyBuiltDependencies` in `pnpm-workspace.yaml`) and reinstall. After a Node.js upgrade, `npm rebuild better-sqlite3` fixes a binary built for the previous version. The directory of `file` must exist: SQLite creates the file, not its folders.
-
-::: warning Node.js 24.19 or later
-Install `better-sqlite3` 13. Versions 11 and 12 can abort the process (`Assertion failed: (env) != nullptr` in `RemoveEnvironmentCleanupHook`) when a prepared statement is garbage-collected, because of a Node.js regression ([nodejs/node#65446](https://github.com/nodejs/node/issues/65446)). Version 13 runs on N-API and is not affected.
-:::
+While botmesh is in prerelease, add the dist-tag shown in
+[Installation](./getting-started) to the `@botmesh/*` packages.
 
 ```ts
 import { Bot } from '@botmesh/core'
@@ -71,89 +88,164 @@ const bot = new Bot({
   store: new SQLiteStore({ file: './data/bot.db' }),
 })
 ```
+
+The folder of `file` must exist: SQLite creates the file, not its folders.
+
+### Installing better-sqlite3
+
+`better-sqlite3` is a native module. The supported range is
+`^11.7.0 || ^12.0.0 || ^13.0.0`, and the store is tested against all three.
+
+::: warning Node.js 24.19 or later: use better-sqlite3 13
+Versions 11 and 12 can abort the process (`Assertion failed: (env) != nullptr`
+in `RemoveEnvironmentCleanupHook`) when a prepared statement is
+garbage-collected, because of a Node.js regression
+([nodejs/node#65446](https://github.com/nodejs/node/issues/65446)). Version 13
+runs on N-API and is not affected.
+:::
+
+| Error when the store is constructed | Fix |
+|---|---|
+| `better-sqlite3` is not installed | `pnpm add better-sqlite3` |
+| `better-sqlite3 is installed but its native module was never built` | pnpm 10 and later skip dependency build scripts. Run `pnpm approve-builds` once (or list `better-sqlite3` under `onlyBuiltDependencies` in `pnpm-workspace.yaml`) and reinstall. |
+| The binary was built for another Node.js version | `npm rebuild better-sqlite3` (after a Node.js upgrade) |
+| The folder does not exist | Create the folder of `file` |
+| `SQLITE_NOTADB` | `file` points at something that is not a SQLite database |
 
 ### Options
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `file` | `string` | `'./bot.db'` | Path to the SQLite database file |
-| `wal` | `boolean` | `true` | Enable WAL mode (better concurrent reads) |
-| `maxMessagesPerChat` | `number` | — (unbounded) | Keep only the newest N messages per chat; older rows are pruned on save |
+| `file` | `string` | `'./bot.db'` | Database file. `':memory:'` is an in-memory database that `stop()` keeps open (closing it would lose its data). |
+| `wal` | `boolean` | `true` | WAL journal mode (readers do not block the writer) |
+| `maxMessagesPerChat` | `number` | — (no cap) | Keep only the newest N messages per chat; older rows are pruned on save |
+| `busyTimeoutMs` | `number` | `5000` | How long a statement waits for another connection's lock before `SQLITE_BUSY` |
 | `purgeBatchSize` | `number` | `1000` | Rows deleted per statement by `purgeExpiredUserData` (it loops until nothing expired is left) |
-| `busyTimeoutMs` | `number` | `5000` | How long a statement waits for another connection's lock before `SQLITE_BUSY` (`PRAGMA busy_timeout`) |
-| `logger` | `Partial<LoggerLike>` | — | Logger for close failures and schema migrations (pino or the bot's logger; every method optional) |
+| `logger` | `Partial<LoggerLike>` | — | Receives close failures and schema migration notes (pino or `bot.logger`) |
+
+An invalid number (negative, fractional) throws a `RangeError` from the constructor.
 
 ### What it stores
 
 | Table | Content |
 |---|---|
-| `messages` | Every inbound/outbound message (keyed by chat + timestamp) |
-| `chats` | Chat metadata (name, kind, etc.) |
-| `contacts` | Contact info (display name, username, etc.) |
-| `checkpoints` | `persistent()` flow checkpoints, including the flow's `c.state` — survive restarts |
+| `messages` | Inbound and outbound messages, indexed by chat and timestamp |
+| `chats`, `contacts` | Chat and contact metadata |
+| `checkpoints` | `.persistent()` flow checkpoints, including `c.state` |
 | `conversations` | AI conversation history (`@botmesh/ai`) |
-| `cursors` | Delivery cursors (e.g. Telegram's `update_id`) |
+| `cursors` | Delivery cursors (Telegram's `update_id`), `WELCOME` markers and the handoff index |
+| `user_data` | [`ctx.user`](./user-data) entries |
+| `schedules`, `schedule_fences` | [Durable scheduler](./scheduler#durable-tasks-survive-restarts-one-replica-per-run) tasks (`store.schedules()`) |
+| `durable` | [Durability](./durability) journals (`store.durability()`) |
 
-### Schema
+### Schema versions and upgrades
 
-The store creates its tables on construction (`CREATE TABLE IF NOT EXISTS`). You never need to create them manually — just point it at a file and it handles the rest.
+The file records its layout in `PRAGMA user_version`; `SQLITE_SCHEMA_VERSION`
+is the version this release writes. Opening a file runs the pending migrations
+in order, each in its own transaction, so a database written by an earlier
+release is upgraded in place with its rows kept. You never create or migrate
+tables by hand.
 
-### Persistent flows + SQLiteStore
+A file written by a **newer** release is refused, untouched, with
+`SQLiteSchemaVersionError` (`code: 'SQLITE_SCHEMA_TOO_NEW'`, with `found` and
+`supported`). Downgrades are not supported, so:
 
-With `SQLiteStore`, `flow(...).persistent()` checkpoints survive process restarts for free:
+- **Back up the file before upgrading** `@botmesh/sqlite-store` if you may need
+  to roll back.
+- When several processes share one file, stop the ones on the old version
+  before a new one opens it.
+
+The [package README](https://www.npmjs.com/package/@botmesh/sqlite-store#schema-versioning)
+lists what each version changed and how to roll back the latest step without a
+backup.
+
+### Lifecycle
+
+`bot.stop()` (and a failed `bot.start()`) closes the database, and the next
+`bot.start()` reopens it, so one `SQLiteStore` instance, with the `schedules()`
+and `durability()` backends it handed out, survives stop/start cycles.
+
+SQLite stores text as UTF-8, where a lone UTF-16 surrogate becomes U+FFFD and
+two different ids could share a row. `saveMessage` and `setCursor` reject such
+an id, key or cursor value with a `TypeError`.
+
+## Persistent flows
+
+With a persistent store, `flow(...).persistent()` checkpoints survive a restart:
 
 ```ts
 import { Bot, flow } from '@botmesh/core'
-import { BaileysProvider } from '@botmesh/baileys'
 import { SQLiteStore } from '@botmesh/sqlite-store'
 
-const bot = new Bot({
-  provider: new BaileysProvider({ session: 'my-bot' }),
-  store: new SQLiteStore({ file: './data/bot.db' }),
-})
+const bot = new Bot({ provider, store: new SQLiteStore({ file: './data/bot.db' }) })
 
 bot.use(
-  flow('registro')
-    .persistent()          // ← checkpoint saved to SQLite after each step
-    .ask('¿Tu nombre?', 'name')
-    .ask('¿Tu email?', 'email')
-    .say((_ctx, c) => `✅ Registrado: ${c.state.name}`)
+  flow('signup')
+    .persistent()                 // checkpoint saved after each step
+    .ask('What is your name?', 'name')
+    .ask('And your email?', 'email')
+    .say((_ctx, c) => `Thanks, ${c.state.name}!`),
 )
 ```
 
-If the process crashes mid-flow, the next message from that user **resumes at the exact step** where it left off. That message only wakes the flow: a pending `ask`/`choose` is sent again (`¿Tu email?` above), the flow goes on with the state it had, and the user's next reply is its answer (with [durability](./durability) the waking message is the answer instead). The checkpoint is written when a step completes, so a flow still waiting on its **first** question has nothing saved yet: after a restart, the user starts it again with its trigger.
+If the process stops in the middle of the flow, the user's next message
+**resumes it at the step where it stopped**. That message only wakes the flow:
+the pending question is sent again (`And your email?` above) and the user's
+next reply is its answer. With [durability](./durability) the waking message is
+taken as the answer instead.
 
-`bot.stop()` and a failed `bot.start()` close the database; the next `bot.start()` reopens it, so a bot can be stopped and started again with the same `SQLiteStore` (and the `schedules()` / `durability()` backends it handed out). An in-memory database (`file: ':memory:'`) is never closed by `stop()`: closing it would discard its data. Calling `schedules()` or `durability()` on a stopped store reopens it the same way.
+The checkpoint is written when a step completes, so a flow still waiting on its
+**first** question has nothing saved yet: after a restart the user starts it
+again with its trigger.
 
-**Schema versioning.** The file records its layout in `PRAGMA user_version`. Opening it runs the pending migrations in order, each in its own transaction (a failed step leaves the file at the last completed version), so a database written by an earlier release is upgraded in place. A file written by a newer release is refused with `SQLiteSchemaVersionError` (`code: 'SQLITE_SCHEMA_TOO_NEW'`, with `found` and `supported`) and left untouched. `SQLITE_SCHEMA_VERSION` is the version this release writes. Downgrades are not supported: back up the file before an upgrade you may need to roll back.
+## RedisStore
 
-SQLite stores text as UTF-8, where a lone UTF-16 surrogate becomes U+FFFD, so two different ids could share a row. `saveMessage` and `setCursor` reject a message id, chat id, cursor key or cursor value with a lone surrogate (`TypeError`), and a lookup with one finds nothing.
-
-## RedisStore (distributed)
-
-When you need state shared across processes/instances (horizontal scaling, TTL'd per-chat logs), use the Redis store:
+State shared by every process of a bot, on Redis (node-redis 4, 5 or 6 as a
+peer dependency):
 
 ```bash
-pnpm add @botmesh/redis-store@alpha
+pnpm add @botmesh/redis-store redis
 ```
 
 ```ts
 import { Bot } from '@botmesh/core'
-import { BaileysProvider } from '@botmesh/baileys'
 import { RedisStore } from '@botmesh/redis-store'
 
 const bot = new Bot({
-  provider: new BaileysProvider({ session: 'my-bot' }),
-  store: new RedisStore({ url: 'redis://localhost:6379', sessionTtl: '7d' }),
+  provider,
+  store: new RedisStore({ url: process.env.REDIS_URL, prefix: 'mybot', sessionTtl: '7d' }),
 })
 ```
 
-`sessionTtl` (a duration like `'24h'`, or milliseconds, like every other duration
-option) expires AI conversation history and flow checkpoints; messages, chats and
-contacts never expire. The former `ttl` option (seconds) was removed: `ttl: 3600` is
-`sessionTtl: '1h'`, and passing `ttl` now throws a `TypeError`.
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `url` | `string` | `redis://localhost:6379` | Connection URL; ignored with `client` |
+| `prefix` | `string` | `'botwa'` | Prefix of every key. Choose it once: data stored under one prefix is not seen under another. |
+| `client` | node-redis client or cluster | — | An existing client. The store never connects or closes it; give it an `'error'` listener. |
+| `cluster` | `{ rootNodes, … }` | — | Create and own a cluster client (see [Redis Cluster](./redis-cluster)) |
+| `sessionTtl` | `string \| number` | — (no expiry) | Expiry of AI conversations and flow checkpoints (`'24h'`, `'7d'` or ms). Messages, chats, contacts and cursors never expire. |
+| `maxMessagesPerChat` | `number` | — (no cap) | Keep only the newest N messages per chat |
+| `logger` | `{ error?, warn? }` | — | Receives connection errors of a client the store created |
 
-On a Redis Cluster, pass a cluster client (or `cluster` options): see [Redis Cluster](./redis-cluster.md).
+The same `RedisStore` hands out the other Redis backends, all on its client and
+prefix: `store.coordinator()` for [replicas](./replicas), `store.schedules()` and
+`store.leases()` for the [durable scheduler](./scheduler#backends). The
+durability backend is `new RedisDurability({ client, prefix })` (see
+[Durable message processing](./durability#backends)).
+
+An injected client without an `'error'` listener crashes the process on the
+first dropped connection (node-redis rethrows the event), so always attach one.
+The key scheme and every other detail are in the
+[package README](https://www.npmjs.com/package/@botmesh/redis-store).
+
+## PostgreSQL, MySQL and MongoDB
+
+`@botmesh/postgres-store`, `@botmesh/mysql-store` and `@botmesh/mongo-store`
+pass the same conformance suite as the published stores and also provide
+schedule stores (and, for PostgreSQL, a durability backend). They are **not
+published on npm yet**: use them from a checkout of the
+[repository](https://github.com/andresayac/botmesh/tree/main/packages), where
+their READMEs document the options.
 
 ## User data tables
 
@@ -164,91 +256,78 @@ state, honouring `tablePrefix` / `collectionPrefix`:
 | --- | --- |
 | `MemoryStore` | in memory; the JSON `file` gains a `userData` field (older files still load) |
 | `SQLiteStore` | table `user_data` (`user_id`, `namespace`, `key`, `value_json`, `expires_at`, `updated_at`) + index on `expires_at` |
-| `PostgresStore` | table `{prefix}user_data` (value as `TEXT`, not JSONB, to keep the exact JSON: U+0000 and unpaired surrogates round-trip unchanged, as JSON `\u0000` escapes) + expiry index |
+| `RedisStore` | one key per entry, `{prefix}:ud:{user}:{ns}:{key}`, with native `PX` expiry; listings use incremental `SCAN` |
+| `PostgresStore` | table `{prefix}user_data` (value as `TEXT`, not JSONB, so the exact JSON round-trips) + expiry index |
 | `MysqlStore` | table `{prefix}user_data`: ids, namespace and key as `VARBINARY` (byte-exact), value `MEDIUMTEXT` (16 MiB) |
 | `MongoStore` | collection `{prefix}user_data`, indexes on `{ userId, namespace }` and `expiresAt` |
-| `RedisStore` | one key per entry, `{prefix}:ud:{user}:{ns}:{key}`, with native `PX` expiry; listing and namespace deletes use incremental `SCAN` (falling back to `KEYS` for a client without `scanIterator`), like `listChats` |
 
-Postgres and MySQL now create seven tables in `start()`. Expired rows are
-removed lazily by `bot.purgeExpiredUserData()` (Redis expires them by
-itself). SQLite, Postgres, MySQL and MongoDB delete them in batches of
+Expired entries are removed lazily by `bot.purgeExpiredUserData()` (Redis
+expires them by itself). The SQL and Mongo stores delete them in batches of
 `purgeBatchSize` (default `1000`) until nothing expired is left, so a large
 backlog never runs as one long delete.
 
-## Custom stores
+## Writing your own store
 
-Implement the `IStore` interface to plug in any other backend (MongoDB, PostgreSQL and MySQL already have experimental stores in the monorepo):
+Implement `IStore` to plug in another backend. Store authors import the
+contract and its helpers from `@botmesh/core/spi`:
 
 ```ts
-import type { IStore } from '@botmesh/core'
+import type { MessageRef } from '@botmesh/core'
+import type { IStore, StoredMessage } from '@botmesh/core/spi'
 
 class MyStore implements IStore {
-  async saveMessage(msg) { /* ... */ }
-  async getMessage(ref) { /* ... */ }
-  // ... implement every method
+  async start(): Promise<void> { /* connect */ }
+  async stop(): Promise<void> { /* disconnect */ }
+  async saveMessage(msg: StoredMessage): Promise<void> { /* … */ }
+  async getMessage(ref: MessageRef): Promise<StoredMessage | undefined> { /* … */ }
+  // …every other required method of IStore
 }
-
-const bot = new Bot({
-  provider: new BaileysProvider({ session: 'my-bot' }),
-  store: new MyStore({ /* ... */ }),
-})
 ```
 
-The full interface is documented in the [API reference](/api/interfaces/_botmesh_core.IStore.html). `MemoryStore` is the reference implementation of the contract; inside the monorepo, every store runs the shared conformance suite (`test-utils/store-conformance.ts`).
+The full interface is in the [API reference](/api/interfaces/_botmesh_core.IStore.html).
+`MemoryStore` is the reference implementation, and inside the monorepo every
+store runs the shared conformance suite (`test-utils/store-conformance.ts`).
 
 Semantics every store must keep:
 
 - `upsertChat` / `upsertContact` **shallow-merge** onto the stored record. An
   own field set to `undefined` **unsets** that field, so a partial upsert must
-  omit what it does not know. The `Bot` already does: a message without a
-  display name (or chat name) never erases the one stored.
+  omit what it does not know. The bot already does: a message without a
+  display name never erases the stored one.
 - `deleteChat` also deletes that chat's message log.
-- `getMessagesByChat` returns the newest messages first. The persistent stores
-  order them by `timestamp`, so re-saving a message with a new timestamp moves
-  it. `MemoryStore` keeps a re-saved message at the position of its first
-  save (it updates the row in place); do not rely on re-saves to reorder the
-  log.
-- `maxMessagesPerChat` is opt-in in the persistent stores; by default their
-  message log is unbounded. `MemoryStore` is the exception: it keeps 1000
-  messages per chat by default because its log lives in RAM (`Infinity`
-  disables the cap). Every built-in store rejects a negative or fractional cap
-  with a `RangeError`.
-- Message rows are keyed by `messageKey(ref)` (from `@botmesh/core/spi`): `{chatId}:{id}` with `%` and `:`
-  escaped in each part (`%25`, `%3A`), so ids that contain `:` (Twilio's
-  `whatsapp:+1…` chat ids) never collide. Ids without `:` or `%` keep the key
-  earlier versions wrote; rows stored under the old unescaped key
-  (`legacyMessageKey(ref)`) are still read and deleted, and re-saving moves
-  them to the new key. A custom persistent store that keys rows by
-  `messageKey` should do the same and check that a row found under the legacy
-  key is the requested message (its stored `ref.id` and `ref.chatId`): the
-  legacy key can be another chat's key, or the new key of another message of
-  the same chat (legacy `c:%3A` of `('c', '%3A')` is the key of `('c', ':')`).
+- `getMessagesByChat(chatId, limit)` returns the newest `limit` messages,
+  **oldest first** (default `50`). A `limit` of `0` or less returns nothing, a
+  fraction rounds up and `Infinity` returns the whole log. The persistent stores
+  order by `timestamp`, so re-saving a message with a new timestamp moves it;
+  `MemoryStore` keeps a re-saved message at the position of its first save.
 - `saveMessage` ignores a message without `ref.id` or `chatId` (providers send
   `ref.id: ''` when they have no stable id), and `getMessage` of such a ref
   resolves `undefined`. Re-saving an id replaces the stored message.
-- `getMessagesByChat(chatId, limit)` returns the newest `limit` messages,
-  oldest first. A `limit` of `0` or less returns nothing, a fraction rounds up
-  and `Infinity` returns the whole log.
+- `maxMessagesPerChat` is opt-in in persistent stores. Reject a negative or
+  fractional cap with a `RangeError`.
 - `setUserData` rejects with a `TypeError` when the value is not JSON
   (`undefined`), and writes nothing.
+- Message rows are keyed by `messageKey(ref)` (from `@botmesh/core/spi`):
+  `{chatId}:{id}` with `%` and `:` escaped in each part (`%25`, `%3A`), so ids
+  that contain `:` (Twilio's `whatsapp:+1…` chat ids) never collide. Rows
+  written under the older unescaped key (`legacyMessageKey(ref)`) must still be
+  read and deleted, after checking that the row's stored `ref.id` and
+  `ref.chatId` are the requested message, and re-saving moves them to the new
+  key.
 
-The user-data methods (`getUserData`, `setUserData`, `deleteUserData`,
-`listUserData`, `purgeExpiredUserData`) are optional: without them
-`ctx.user` rejects with `UNSUPPORTED_STORE`. If you add them, also pass
-`runUserDataConformance` from `test-utils/user-data-conformance.ts`. A
-store with `getCursor`/`setCursor` also persists the [`WELCOME`](./triggers#welcome)
-markers and the [handoff](./handoff) index.
+Optional methods:
 
-## Docker + SQLiteStore
+- **User data** (`getUserData`, `setUserData`, `deleteUserData`,
+  `listUserData`, `purgeExpiredUserData`): without them `ctx.user` rejects with
+  `UNSUPPORTED_STORE`. Check them with `test-utils/user-data-conformance.ts`.
+- **Cursors** (`getCursor`/`setCursor`): they also persist the
+  [`WELCOME`](./triggers#welcome) markers and the [handoff](./handoff) index.
+- **Conditional checkpoints** (`setCheckpointIf`/`clearCheckpointIf`): needed
+  for a safe hand-over between [replicas](./replicas). Without them the bot logs
+  a warning when coordination is on.
 
-Mount the data directory as a volume so the database survives container restarts:
+## Docker
 
-```yaml
-# docker-compose.yml
-services:
-  bot:
-    build: .
-    volumes:
-      - ./sessions:/app/sessions   # WhatsApp auth
-      - ./data:/app/data           # SQLite database
-```
+Mount the data folder as a volume so the database survives container
+restarts. See [Deployment](./deploy#docker-compose-yml) for the full setup and
+[Backups](./deploy#backups).

@@ -7,18 +7,23 @@ Para muchos bots eso basta. Cuando no basta, activa la **durabilidad**:
 
 ```ts
 import { Bot } from '@botmesh/core'
-import { PostgresDurability, PostgresStore } from '@botmesh/postgres-store'
+import { SQLiteStore } from '@botmesh/sqlite-store'
+
+const store = new SQLiteStore({ file: './data/bot.db' })
 
 const bot = new Bot({
   provider,
-  store: new PostgresStore({ pool }),
+  store,
   durability: {
-    backend: new PostgresDurability({ pool }),
+    backend: store.durability(),       // journals en el mismo archivo SQLite
     instanceId: 'bot-1',               // estable entre reinicios de este despliegue
     outbox: { retries: 5, backoff: { baseMs: 1000, capMs: 60_000 } },
   },
 })
 ```
+
+Con varias réplicas, usa en su lugar un backend compartido: `new RedisDurability({ client, prefix })`
+de `@botmesh/redis-store` (ver [Backends](#backends)).
 
 Con `durability`, el bot lleva dos journals:
 
@@ -41,13 +46,15 @@ código que antes, en memoria y en un solo proceso.
 | --- | --- | --- | --- |
 | `MemoryDurability` (el de `durability: {}`) | `@botmesh/core` | No (solo reintentos, backoff y DLQ) | No |
 | `FileDurability.open(ruta)` | `@botmesh/core` | Sí | No (un archivo de lock rechaza un segundo proceso vivo, y un segundo `open()` en el mismo proceso hasta `close()`) |
-| `PostgresDurability({ pool \| connectionString, tablePrefix, logger })` | `@botmesh/postgres-store` | Sí | Sí, con enrutado fijo por chat (ver *Varias réplicas*) |
-| `RedisDurability({ client \| url, prefix })` | `@botmesh/redis-store` | Sí (con la persistencia de Redis activada) | Sí, con enrutado fijo por chat (ver *Varias réplicas*) |
-| `eventsDurability({ journal })` | `@botmesh/events/durability` (privado, solo en el monorepo) | Con un `FileEventJournal` abierto con `{ lock: true }` o un `SharedFileEventJournal` | Con un `SharedFileEventJournal` (procesos en un mismo host; ver *Un journal de `@botmesh/events`*) |
+| `store.durability()` de un `SQLiteStore` (`SQLiteDurability`) | `@botmesh/sqlite-store` | Sí | Procesos en un mismo host que comparten el archivo |
+| `RedisDurability({ client \| url \| cluster, prefix })` | `@botmesh/redis-store` | Sí (con la persistencia de Redis activada) | Sí, con enrutado fijo por chat o `coordination` (ver [Varias réplicas](#varias-replicas)) |
+| `PostgresDurability({ pool \| connectionString, tablePrefix, logger })` | `@botmesh/postgres-store` (aún no en npm) | Sí | Sí, como Redis |
+| `eventsDurability({ journal })` | `@botmesh/events/durability` (aún no en npm) | Con un `FileEventJournal` abierto con `{ lock: true }` o un `SharedFileEventJournal` | Con un `SharedFileEventJournal` (procesos en un mismo host; ver *Un journal de `@botmesh/events`*) |
 
-PostgreSQL crea una tabla, `{tablePrefix}durable`, de forma idempotente al
+SQLite guarda los journals en la tabla `durable` del archivo del store, creada
+con el resto del esquema. PostgreSQL crea una tabla, `{tablePrefix}durable`, de forma idempotente al
 arrancar. Redis usa claves bajo `{prefix}:{durable:inbox:<scope>}` y
-`{prefix}:{durable:outbox:<scope>}`. Ninguno toca las tablas ni las claves del store.
+`{prefix}:{durable:outbox:<scope>}`. Ninguno toca las tablas ni las claves propias del store.
 Con `connectionString`, PostgreSQL crea (y al parar cierra) su propio pool, y una conexión
 que el servidor corta mientras está ociosa (reinicio, failover) se informa a `logger.error`
 y se sustituye en la siguiente consulta. Un `pool` inyectado es tuyo: dale un listener
@@ -148,6 +155,32 @@ const bot = new Bot({ provider, durability: { backend: eventsDurability({ journa
   regla del mismo chat de *Varias réplicas* sigue valiendo. Para mucho tráfico, usa otro
   `LeasedEventJournal` con un `outbox` compartido (`eventsDurability({ journal, outbox: kv })`,
   con el `DurableKv` de un backend de Postgres o Redis), o esos backends directamente.
+
+## Configuración
+
+`BotConfig.durability` admite:
+
+| Opción | Default | Descripción |
+| --- | --- | --- |
+| `backend` | un `MemoryDurability` nuevo | Dónde viven los journals (ver [Backends](#backends)). |
+| `instanceId` | `<hostname>/<botId>/<connectionId>` (más un sufijo por arranque en un backend compartido) | Dueño de los préstamos. Estable entre reinicios y único por réplica en marcha (ver [Operación](#operacion)). |
+| `failOpen` | `false` | `true` despacha un evento entrante aunque el journal no pueda anotarlo. |
+| `inbox.leaseMs` | `'60s'` | Préstamo de procesamiento, extendido por un latido mientras corre el handler. |
+| `inbox.maxAttempts` | `5` | Ejecuciones cobradas antes de mandar a la cola de muertos un evento entrante que sigue fallando. |
+| `inbox.backoff` | `{ baseMs: 1000, capMs: 60000, jitter: 0.2 }` | Espera entre intentos fallidos de entrada. |
+| `inbox.mediaRefs` | `true` | Anotar una referencia de media serializable para que un reproceso pueda descargarla (ver [Media en un reproceso](#media-en-un-reproceso)). |
+| `outbox.retries` | `5` | Reintentos **después** del primer intento antes de mandar un envío a la cola de muertos (6 llamadas al provider como máximo). |
+| `outbox.backoff` | como `inbox.backoff` | Espera entre intentos de envío; un `RateLimitedError` espera al menos su `retryAfterMs`. |
+| `outbox.inlineMaxMs` | `'15s'` | Cuánto reintentan en línea `ctx.reply` / `bot.send` antes de rechazar con `SendDeferredError`. |
+| `outbox.onAmbiguous` | `'skip'` | Un envío de resultado desconocido tras una caída: `'skip'` (nunca duplica) o `'resend'` (nunca se pierde). |
+| `outbox.onDiverged` | `'send'` | Un reproceso que produce otro contenido bajo la misma clave derivada: `'send'` o `'skip'` (ver [Claves de idempotencia](#claves-de-idempotencia)). |
+| `outbox.maxPayloadBytes` | 1 MiB | Los payloads mayores se saltan el outbox, con un aviso. |
+| `outbox.leaseMs` | `'60s'` | Préstamo de un envío en curso (20 ms como mínimo). |
+| `pollMs` | `'1s'` | Periodo del barrido en segundo plano (reintentos, préstamos vencidos). |
+| `retention` | `'7d'` | Cuánto se conservan los registros `done`/`sent` antes de purgarlos; `0` los conserva. |
+
+Las duraciones admiten un string (`'15s'`) o milisegundos, como todas las
+opciones de duración del bot.
 
 ## Qué se garantiza
 
@@ -376,6 +409,9 @@ memoria de la réplica que las ejecuta. Por eso:
   reprocesa. Una réplica viva conserva sus préstamos gracias al latido, tarde lo que
   tarde su handler.
 - Da a cada réplica su propio `instanceId` explícito.
+- Usa un backend compartido: `RedisDurability` (o `PostgresDurability` del
+  repositorio). `SQLiteDurability` y `SharedFileEventJournal` solo se comparten
+  entre procesos de un mismo host.
 
 **Con `coordination`** (ver [Varias réplicas](./replicas.md)) no hace falta el enrutado
 fijo: los turnos por chat serializan cada chat entre réplicas y los flujos

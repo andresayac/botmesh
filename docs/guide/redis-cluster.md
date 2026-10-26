@@ -232,12 +232,8 @@ BOTWA_TEST_REDIS_CLUSTER_CHAOS=1 BOTWA_TEST_REDIS_CLUSTER_URL=redis://127.0.0.1:
 docker rm -f botmesh-it-redis-cluster
 ```
 
-The chaos tests (`tests/cluster-chaos.integration.test.ts`) change the cluster's topology,
-so vitest runs them in a later group, after every other file of the package. The suites seed
-cluster discovery with every node `CLUSTER NODES` lists and retry a failed initial connect:
-node-redis does not retry its first slot discovery, and with one root node a node that is
-failing over (or a slow machine) used to fail it with `All the root nodes are unavailable`.
-Other packages' cluster suites (`inbox`, `deployments`) can still overlap with the chaos run
-when the whole workspace runs at once; they retry their initial connect too.
+These are the package's own suites (run from a checkout of the repository); the
+chaos tests change the cluster's topology, so use a disposable cluster.
+`CONTRIBUTING.md` has the details.
 
 See also [Running N replicas](./replicas.md) and [Durable message processing](./durability.md).

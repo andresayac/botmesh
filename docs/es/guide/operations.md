@@ -7,6 +7,8 @@ iniciar un flujo desde un job, ve [Difusiones](./mensajes#difusiones-broadcast)
 e [Iniciar un flujo desde código](./mensajes#iniciar-un-flujo-desde-codigo).
 Para sobrevivir a caídas sin perder ni duplicar mensajes (inbox/outbox durables,
 reintentos, cola de muertos), ve [Procesamiento durable](./durabilidad).
+Para las comprobaciones de salud y la lista de producción, ve
+[Despliegue](./deploy#comprobaciones-de-salud) y [Pasar a producción](./produccion).
 
 ## Métricas de runtime
 
@@ -142,4 +144,4 @@ Los cinco comparten el mismo modelo de almacenamiento: `Memory…Store` (referen
 
 ## Trazas (OpenTelemetry)
 
-`bot.metrics()` cuenta; las trazas explican. Con `BotConfig.telemetry` el bot emite un árbol de spans por mensaje (entrada → dispatch → handler / turno de conversación → llamadas al modelo y herramientas de IA → envío), con los ids con hash por defecto y sin contenido de mensajes. `@botmesh/otel` manda esos spans a OpenTelemetry (Jaeger, Grafana Tempo, cualquier backend OTLP) y publica `bot.metrics()` como métricas de OpenTelemetry (`bot.plug(otelMetricsPlugin())`). Configuración, catálogo de spans, política de datos personales y un ejemplo con Jaeger / Grafana Tempo: [Trazas](./trazas).
+`bot.metrics()` cuenta; las trazas explican. Con `BotConfig.telemetry` el bot emite un árbol de spans por mensaje (entrada → dispatch → handler / turno de conversación → llamadas al modelo y herramientas de IA → envío), con los ids con hash por defecto y sin contenido de mensajes. `@botmesh/otel` (en el repositorio, aún no en npm) manda esos spans a OpenTelemetry (Jaeger, Grafana Tempo, cualquier backend OTLP) y publica `bot.metrics()` como métricas de OpenTelemetry (`bot.plug(otelMetricsPlugin())`). Configuración, catálogo de spans, política de datos personales y un ejemplo con Jaeger / Grafana Tempo: [Trazas](./trazas).

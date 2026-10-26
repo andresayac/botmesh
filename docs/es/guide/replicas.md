@@ -8,7 +8,9 @@ backend (Redis) que decide qué réplica procesa cada chat y cuál conecta un
 transporte exclusivo como WhatsApp Web.
 
 La coordinación es opcional. Sin `coordination` no se ejecuta nada de lo que
-sigue y el bot se comporta exactamente como antes.
+sigue y el bot se comporta exactamente como antes. Necesitas
+`@botmesh/redis-store` (un servidor Redis o un [Redis Cluster](./redis-cluster))
+y un store que compartan todas las réplicas.
 
 ## Cuándo la necesitas (y cuándo no)
 
@@ -232,13 +234,16 @@ Límites:
 - Una conversación suspendida antes de su primera espera no deja marcador
   (todavía no hay nada que relevar).
 - Las conversaciones asíncronas nunca se migran solas.
-- El fencing es una comprobación local justo antes de cada escritura (como en
-  los envíos), no una escritura condicional en el store.
+- Todos los stores integrados escriben los checkpoints con compare-and-set
+  (ver arriba). Un store propio sin `setCheckpointIf`/`clearCheckpointIf` solo
+  tiene el fencing local: una comprobación justo antes de cada escritura, como
+  en los envíos.
 
 ## Requisitos y límites
 
-- **Un store compartido** (`RedisStore`, o Postgres/Mongo/MySQL). Con
-  `MemoryStore`/`SQLiteStore` cada réplica tiene sus propios datos.
+- **Un store compartido**: `RedisStore` (los stores de PostgreSQL, MySQL y
+  MongoDB también sirven, pero aún no están en npm). Con `MemoryStore` o
+  `SQLiteStore` cada réplica tiene sus propios datos.
 - **Los flujos de varios turnos deberían ser `.persistent()`** (o usa el
   [`handover`](#relevo-de-conversaciones)). Sin eso, un `bot.conversation` o
   un flujo no persistente vive en la memoria de la réplica que lo inició; si
@@ -254,9 +259,10 @@ Límites:
   un único proceso que se cae), salvo con `durability` y un backend
   compartido: el mensaje quedó anotado al llegar y otra réplica lo reprocesa
   cuando vence su préstamo.
-- **Las tareas programadas (`bot.schedule/every`) corren en todas las
-  réplicas.** Usa una tarea solo-líder con `coordinator.tryLead(nombre)` o el
-  lock con fencing de abajo.
+- **Las tareas programadas simples (`bot.schedule/every` sin `id`) corren en
+  todas las réplicas.** Conviértelas en tareas durables, que ejecutan cada
+  ocurrencia una sola vez, o toma tú el liderazgo (ver
+  [Tareas únicas](#tareas-unicas-y-locks-con-fencing)).
 - **Un paso de conversación más largo que `settleMs` se interrumpe** (ver
   arriba): sube `settleMs` para trabajo largo en `.do()` o delays.
 - **Redis**: un failover que pierda las últimas escrituras puede conceder un
