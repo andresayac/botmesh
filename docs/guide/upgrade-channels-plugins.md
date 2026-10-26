@@ -97,8 +97,11 @@ cursor value with a lone UTF-16 surrogate (before, SQLite stored it as U+FFFD an
 could share a row). Escape or drop such characters before storing them.
 
 **Schema versioning.** The database records its layout in `PRAGMA user_version`
-(`SQLITE_SCHEMA_VERSION`, now `1`). Opening a file written by an earlier release (version
-`0`) migrates it in place, keeping every row; nothing to do. A file written by a **newer**
+(`SQLITE_SCHEMA_VERSION`, now `2`). Opening a file written by an earlier release (version
+`0` or `1`) migrates it in place, keeping every row; nothing to do. Version `2` folds the
+durable scheduler's tables (`schedules`, `schedule_fences`) and the durability table
+(`durable`) into the versioned migrations: they used to be created ad hoc the first time
+`schedules()` or `durability()` was called, and are now created when the file is opened. A file written by a **newer**
 release is refused with `SQLiteSchemaVersionError` (`code: 'SQLITE_SCHEMA_TOO_NEW'`) and
 left untouched: downgrades are not supported, so back up the file before upgrading if you
 may need to roll back. New options: `busyTimeoutMs` (default 5000, `PRAGMA busy_timeout`)

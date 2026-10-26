@@ -318,7 +318,6 @@ describe('RedisStore — fenced lock', () => {
     const first = await store.acquireLockFenced('job', 10_000)
     expect(first).toMatchObject({ fence: 1 })
     expect(await store.acquireLockFenced('job', 10_000)).toBeNull()
-    expect(await store.acquireLock('job', 10_000)).toBeNull()      // same lock as the legacy API
     expect(await store.releaseLock('job', first!.token)).toBe(true)
     expect((await store.acquireLockFenced('job', 10_000))?.fence).toBe(2)
   })

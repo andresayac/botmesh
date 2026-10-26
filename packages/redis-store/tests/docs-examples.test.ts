@@ -51,14 +51,6 @@ describe('README examples (fake client)', () => {
     expect(fences).toEqual([1, 2])
   })
 
-  it('Distributed lock: the deprecated acquireLock still works', async () => {
-    const store = new RedisStore({ client: new FakeRedisClient() })
-    const token = await store.acquireLock('chat:c1', 30_000)
-    expect(token).toBeTypeOf('string')
-    expect(await store.acquireLock('chat:c1', 30_000)).toBeNull()
-    expect(await store.releaseLock('chat:c1', token!)).toBe(true)
-  })
-
   it('Durable scheduler tasks: schedules() + leases()', async () => {
     const store = new RedisStore({ client: new FakeRedisClient() })
     const bot = new Bot({ provider: new MockProvider(), store, scheduler: { store: store.schedules(), lease: store.leases() } })

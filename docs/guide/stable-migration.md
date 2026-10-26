@@ -146,6 +146,32 @@ channels got the same renames (`toDiscordError`, `toMessengerError`,
 packages (Telegram poll votes, Discord edits, SQLite schema versioning) are in
 [Upgrade notes: channels & plugins](./upgrade-channels-plugins).
 
+### `@botmesh/redis-store`
+
+**Breaking:** the cluster key-layout internals moved to a new subpath without a semver
+promise, `@botmesh/redis-store/internal`. The `layout` option, the `RedisKeyLayout`
+type, `migrateToClusterLayout()`, `inspectKeyspace()`, `isRedisClusterClient()` and
+`withClusterRetry()` stay on the main entry.
+
+| Names | Import from |
+| --- | --- |
+| `INDEX_BUCKETS`, `LAYOUT_MARKER`, `bucketOf`, `encodeSegment`, `hashSlot` | `@botmesh/redis-store/internal` (still re-exported by the main entry, `@deprecated`) |
+| `storeKeys`, `coordKeys`, `scheduleKeys`, `userDataKeys`, `hashTagOf`, `assertOneSlot`, `assertLayoutPrefix` and the key types | `@botmesh/redis-store/internal` (new; never exported before) |
+
+**Breaking:** two deprecated APIs were removed.
+
+| Removed | Use |
+| --- | --- |
+| `new RedisStore({ ttl: 3600 })` (seconds) | `new RedisStore({ sessionTtl: '1h' })` (a duration or milliseconds). Passing `ttl` from JavaScript throws a `TypeError` that names the replacement. |
+| `store.acquireLock(key, ttlMs)` → `token \| null` | `store.acquireLockFenced(key, ttlMs)` → `{ token, fence } \| null`; release with `releaseLock(key, lock.token)`. Same lock key, so replicas on the old and new versions still exclude each other during a rolling upgrade. From JavaScript the old call rejects with a `TypeError`. |
+
+```ts
+// Before
+const token = await store.acquireLock(`job:${id}`, 30_000)
+// After
+const token = (await store.acquireLockFenced(`job:${id}`, 30_000))?.token
+```
+
 ## Sandbox API token
 
 `@botmesh/sandbox` is private, but scripts that drive its web API change:

@@ -103,8 +103,12 @@ valor de cursor que lleve un surrogate UTF-16 suelto (antes SQLite lo guardaba c
 dos ids podían compartir fila). Escapa o quita esos caracteres antes de guardarlos.
 
 **Versionado del esquema.** La base de datos guarda su layout en `PRAGMA user_version`
-(`SQLITE_SCHEMA_VERSION`, ahora `1`). Abrir un archivo escrito por una versión anterior
-(versión `0`) lo migra en el sitio y conserva todas las filas; no hay que hacer nada. Un
+(`SQLITE_SCHEMA_VERSION`, ahora `2`). Abrir un archivo escrito por una versión anterior
+(versión `0` o `1`) lo migra en el sitio y conserva todas las filas; no hay que hacer nada.
+La versión `2` incorpora a las migraciones versionadas las tablas del scheduler durable
+(`schedules`, `schedule_fences`) y la de durabilidad (`durable`): antes se creaban sobre la
+marcha la primera vez que se llamaba a `schedules()` o `durability()`, y ahora se crean al
+abrir el archivo. Un
 archivo escrito por una versión **más nueva** se rechaza con `SQLiteSchemaVersionError`
 (`code: 'SQLITE_SCHEMA_TOO_NEW'`) y no se toca: no se admite volver atrás, así que haz una
 copia del archivo antes de actualizar si puedes necesitar revertir. Opciones nuevas:

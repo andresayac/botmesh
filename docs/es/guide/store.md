@@ -147,7 +147,8 @@ const bot = new Bot({
 
 `sessionTtl` (una duración como `'24h'`, o milisegundos, como el resto de opciones de
 duración) hace expirar el historial de IA y los checkpoints de flujos; los mensajes,
-chats y contactos nunca expiran. Sustituye a la opción obsoleta `ttl`, que iba en segundos.
+chats y contactos nunca expiran. La antigua opción `ttl` (en segundos) se eliminó: `ttl: 3600`
+es `sessionTtl: '1h'`, y pasar `ttl` ahora lanza un `TypeError`.
 
 En un Redis Cluster, pasa un cliente cluster (u opciones `cluster`): ver [Redis Cluster](./redis-cluster.md).
 

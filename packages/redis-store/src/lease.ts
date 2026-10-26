@@ -6,7 +6,7 @@
  * release and expiry). Mutations are compare-and-set, like {@link RedisScheduleStore}.
  * Deadlines use this process's clock (`Date.now()`): keep replica clocks in sync.
  *
- * Unlike {@link RedisStore.acquireLock}, every grant carries a monotonic token, so a
+ * Like {@link RedisStore.acquireLockFenced}, every grant carries a monotonic token, so a
  * protected resource can reject a stale holder.
  *
  * Every operation touches one key, so the same key names work on Redis Cluster; the

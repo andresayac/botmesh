@@ -59,12 +59,15 @@ With a durable store, `flow(...).persistent()` checkpoints survive a restart: th
 ## Schema versioning
 
 The file records its layout in `PRAGMA user_version`; `SQLITE_SCHEMA_VERSION` is
-the version this release writes (`1`). Opening a database runs the pending
+the version this release writes (`2`). Opening a database runs the pending
 migrations in order, each in its own `IMMEDIATE` transaction together with the
 version bump, so a failed step leaves the file at the last completed version and
 two processes opening one file never run a step twice. Files written before
 versioning existed (version `0`, up to `0.2.0-alpha.0`) are upgraded in place
-with every row kept.
+with every row kept. Version `2` adds the durable scheduler's tables
+(`schedules`, `schedule_fences`) and the durability table (`durable`), which
+earlier releases created ad hoc on the first `schedules()` / `durability()` call:
+they are now created when the file is opened, and existing rows are kept.
 
 A file written by a newer release is refused, untouched, with
 `SQLiteSchemaVersionError` (`code: 'SQLITE_SCHEMA_TOO_NEW'`, `found`,
@@ -96,7 +99,7 @@ you may need to roll back.
 
 ## Durable scheduler tasks
 
-`store.schedules()` returns a `ScheduleStore` on the same connection (table `schedules`, created on first use) for durable `bot.schedule/every/delay` tasks, the ones registered with an `id`:
+`store.schedules()` returns a `ScheduleStore` on the same connection (table `schedules`, created with the schema) for durable `bot.schedule/every/delay` tasks, the ones registered with an `id`:
 
 ```ts
 const store = new SQLiteStore({ file: './data/bot.db' })

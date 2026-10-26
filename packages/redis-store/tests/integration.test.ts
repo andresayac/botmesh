@@ -641,9 +641,9 @@ describe.skipIf(!REDIS_URL)('RedisStore against a real Redis server', { timeout:
   /* TTL ------------------------------------------------------------------- */
 
   describe('ttl', () => {
-    it('applies the ttl to checkpoint and conversation keys only (checked with PTTL)', async () => {
+    it('applies sessionTtl to checkpoint and conversation keys only (checked with PTTL)', async () => {
       const prefix = nextPrefix('ttl')
-      const store = new RedisStore({ client: admin, prefix, ttl: 60 })
+      const store = new RedisStore({ client: admin, prefix, sessionTtl: '60s' })
       await store.setCheckpoint('k', { flowId: 'f', step: 1, state: {}, updatedAt: 1 })
       await store.setConversation('k', [{ role: 'user', content: 'hi' }])
       await store.setCursor('k', 'v')
@@ -661,9 +661,9 @@ describe.skipIf(!REDIS_URL)('RedisStore against a real Redis server', { timeout:
       }
     })
 
-    it('a fractional ttl (seconds) is honored instead of being rejected by the server', async () => {
+    it('a sub-second sessionTtl is honored with millisecond precision', async () => {
       const prefix = nextPrefix('ttl-frac')
-      const store = new RedisStore({ client: admin, prefix, ttl: 0.25 })
+      const store = new RedisStore({ client: admin, prefix, sessionTtl: 250 })
       await store.setCheckpoint('k', { flowId: 'f', step: 1, state: {}, updatedAt: 1 })
       await store.setConversation('k', [{ role: 'user', content: 'hi' }])
       const pttl = await admin.pTTL(`${prefix}:cp:k`)
@@ -675,9 +675,9 @@ describe.skipIf(!REDIS_URL)('RedisStore against a real Redis server', { timeout:
       expect(await store.listCheckpoints()).toEqual([])
     })
 
-    it('rejects a ttl the server cannot honor at construction time, not on the first write', () => {
-      for (const ttl of [0, -5, Number.NaN, Number.POSITIVE_INFINITY]) {
-        expect(() => new RedisStore({ client: admin, ttl })).toThrow(RangeError)
+    it('rejects a sessionTtl the server cannot honor at construction time, not on the first write', () => {
+      for (const sessionTtl of [0, -5, Number.NaN, Number.POSITIVE_INFINITY]) {
+        expect(() => new RedisStore({ client: admin, sessionTtl })).toThrow(RangeError)
       }
     })
   })
@@ -690,8 +690,8 @@ describe.skipIf(!REDIS_URL)('RedisStore against a real Redis server', { timeout:
       const a = own({ prefix })
       const b = own({ prefix })
       await Promise.all([a.start(), b.start()])
-      const tokens = await Promise.all(Array.from({ length: 40 }, (_, i) => (i % 2 ? a : b).acquireLock('job', 10_000)))
-      const winners = tokens.filter((t): t is string => t !== null)
+      const locks = await Promise.all(Array.from({ length: 40 }, (_, i) => (i % 2 ? a : b).acquireLockFenced('job', 10_000)))
+      const winners = locks.flatMap((l) => (l ? [l.token] : []))
       expect(winners).toHaveLength(1)
       expect(await admin.get(`${prefix}:lock:job`)).toBe(winners[0])
     })
@@ -699,7 +699,7 @@ describe.skipIf(!REDIS_URL)('RedisStore against a real Redis server', { timeout:
     it('stores the token with a PX deadline on the server', async () => {
       const prefix = nextPrefix('lock-px')
       const store = new RedisStore({ client: admin, prefix })
-      const token = await store.acquireLock('job', 1_500)
+      const token = (await store.acquireLockFenced('job', 1_500))?.token
       expect(token).toMatch(/^[0-9a-f-]{36}$/)
       const pttl = await admin.pTTL(`${prefix}:lock:job`)
       expect(pttl).toBeGreaterThan(1_000)
@@ -709,8 +709,8 @@ describe.skipIf(!REDIS_URL)('RedisStore against a real Redis server', { timeout:
     it('only the owner releases it (Lua compare-and-delete executed by the server)', async () => {
       const prefix = nextPrefix('lock-own')
       const store = new RedisStore({ client: admin, prefix })
-      const token = await store.acquireLock('job', 10_000)
-      expect(token).not.toBeNull()
+      const token = (await store.acquireLockFenced('job', 10_000))?.token
+      expect(token).toBeDefined()
       expect(await store.releaseLock('job', 'someone-else')).toBe(false)
       expect(await admin.get(`${prefix}:lock:job`)).toBe(token)
       expect(await store.releaseLock('job', token as string)).toBe(true)
@@ -722,12 +722,12 @@ describe.skipIf(!REDIS_URL)('RedisStore against a real Redis server', { timeout:
     it('expires after ttlMs; the stale owner can then no longer release the new holder\'s lock', async () => {
       const prefix = nextPrefix('lock-exp')
       const store = new RedisStore({ client: admin, prefix })
-      const stale = await store.acquireLock('job', 150)
-      expect(stale).not.toBeNull()
-      expect(await store.acquireLock('job', 150)).toBeNull()
+      const stale = (await store.acquireLockFenced('job', 150))?.token
+      expect(stale).toBeDefined()
+      expect(await store.acquireLockFenced('job', 150)).toBeNull()
       await sleep(300)
-      const fresh = await store.acquireLock('job', 10_000)
-      expect(fresh).not.toBeNull()
+      const fresh = (await store.acquireLockFenced('job', 10_000))?.token
+      expect(fresh).toBeDefined()
       expect(await store.releaseLock('job', stale as string)).toBe(false)
       expect(await admin.get(`${prefix}:lock:job`)).toBe(fresh)
       expect(await store.releaseLock('job', fresh as string)).toBe(true)
@@ -736,18 +736,18 @@ describe.skipIf(!REDIS_URL)('RedisStore against a real Redis server', { timeout:
     it('locks are namespaced by prefix', async () => {
       const a = new RedisStore({ client: admin, prefix: nextPrefix('lock-ns') })
       const b = new RedisStore({ client: admin, prefix: nextPrefix('lock-ns') })
-      expect(await a.acquireLock('same', 5_000)).not.toBeNull()
-      expect(await b.acquireLock('same', 5_000)).not.toBeNull()
+      expect(await a.acquireLockFenced('same', 5_000)).not.toBeNull()
+      expect(await b.acquireLockFenced('same', 5_000)).not.toBeNull()
     })
 
     it('accepts a fractional ttlMs and rejects a non-positive one with a RangeError', async () => {
       const prefix = nextPrefix('lock-ttl')
       const store = new RedisStore({ client: admin, prefix })
-      const token = await store.acquireLock('frac', 1_500.5)
-      expect(token).not.toBeNull()
+      const lock = await store.acquireLockFenced('frac', 1_500.5)
+      expect(lock).not.toBeNull()
       expect(await admin.pTTL(`${prefix}:lock:frac`)).toBeGreaterThan(1_000)
       for (const ttlMs of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
-        await expect(store.acquireLock(`bad-${ttlMs}`, ttlMs)).rejects.toThrow(RangeError)
+        await expect(store.acquireLockFenced(`bad-${ttlMs}`, ttlMs)).rejects.toThrow(RangeError)
       }
     })
   })

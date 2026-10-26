@@ -309,8 +309,8 @@ Para tus propias secciones críticas, `store.acquireLockFenced(key, ttlMs)`
 devuelve `{ token, fence }`: el fence crece en cada adquisición, así que un
 recurso puede rechazar la escritura de un dueño que se quedó congelado más
 allá de su lock. Alarga una sección larga con `renewLock(key, token, ttlMs)`
-y libera con `releaseLock(key, token)`. El `acquireLock` anterior sigue
-funcionando pero no tiene fence (obsoleto).
+y libera con `releaseLock(key, token)`. El `acquireLock` sin fence se
+eliminó; ver [Migrar a la API estable](./migracion-estable#botmesh-redis-store).
 
 ## Docker Compose con dos réplicas
 

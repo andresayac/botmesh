@@ -5,7 +5,10 @@
   "description": "Redis IStore for @botmesh/core — distributed state, TTL, per-chat message logs.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
-  "exports": { ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" } },
+  "exports": {
+    ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" },
+    "./internal": { "types": "./lib/internal.d.ts", "default": "./lib/internal.js" }
+  },
   "engines": { "node": ">=22" },
   "keywords": ["botmesh", "redis", "store", "distributed"],
   "author": "Andres Aya",

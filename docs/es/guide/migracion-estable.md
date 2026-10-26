@@ -152,6 +152,32 @@ El mapeador de errores de bajo nivel de cada provider se llama ahora
 en Telegram, ediciones en Discord, versionado del esquema de SQLite) están en
 [Notas de actualización: canales y plugins](./actualizar-canales-plugins).
 
+### `@botmesh/redis-store`
+
+**Ruptura:** los internos del layout de claves cluster pasan a un subpath nuevo sin
+garantía semver, `@botmesh/redis-store/internal`. La opción `layout`, el tipo
+`RedisKeyLayout`, `migrateToClusterLayout()`, `inspectKeyspace()`,
+`isRedisClusterClient()` y `withClusterRetry()` siguen en la entrada principal.
+
+| Nombres | Importar de |
+| --- | --- |
+| `INDEX_BUCKETS`, `LAYOUT_MARKER`, `bucketOf`, `encodeSegment`, `hashSlot` | `@botmesh/redis-store/internal` (la entrada principal aún los reexporta, `@deprecated`) |
+| `storeKeys`, `coordKeys`, `scheduleKeys`, `userDataKeys`, `hashTagOf`, `assertOneSlot`, `assertLayoutPrefix` y los tipos de claves | `@botmesh/redis-store/internal` (nuevos; antes no se exportaban) |
+
+**Ruptura:** se eliminan dos API deprecadas.
+
+| Eliminado | Usa |
+| --- | --- |
+| `new RedisStore({ ttl: 3600 })` (segundos) | `new RedisStore({ sessionTtl: '1h' })` (una duración o milisegundos). Pasar `ttl` desde JavaScript lanza un `TypeError` que nombra el reemplazo. |
+| `store.acquireLock(key, ttlMs)` → `token \| null` | `store.acquireLockFenced(key, ttlMs)` → `{ token, fence } \| null`; libera con `releaseLock(key, lock.token)`. Usa la misma clave de lock, así que réplicas con la versión vieja y la nueva se siguen excluyendo durante un despliegue gradual. Desde JavaScript la llamada antigua rechaza con un `TypeError`. |
+
+```ts
+// Antes
+const token = await store.acquireLock(`job:${id}`, 30_000)
+// Después
+const token = (await store.acquireLockFenced(`job:${id}`, 30_000))?.token
+```
+
 ## Token de la API del sandbox
 
 `@botmesh/sandbox` es privado, pero los scripts que usan su API web cambian:
