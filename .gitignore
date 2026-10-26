@@ -41,3 +41,6 @@ docs/.vitepress/dist/
 .env
 .env.*
 !.env.example
+
+# Temporary programs written by the docs example tests (packages/ai/tests/fixtures/docs-examples-harness.ts)
+.docs-example-*/

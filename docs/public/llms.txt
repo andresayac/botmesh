@@ -86,6 +86,7 @@
 - [Troubleshooting: install errors, 428 handshake, LID identity, webhook signatures, rate limits](https://andresayac.github.io/botmesh/guide/troubleshooting)
 - [FAQ](https://andresayac.github.io/botmesh/guide/faq)
 - Recipes: [send messages](https://andresayac.github.io/botmesh/examples/messages), [media](https://andresayac.github.io/botmesh/examples/media), [registration flow](https://andresayac.github.io/botmesh/examples/registration-flow), [shopping flow](https://andresayac.github.io/botmesh/examples/shopping-flow), [support with timeout](https://andresayac.github.io/botmesh/examples/support-flow), [rate-limiter plugin](https://andresayac.github.io/botmesh/examples/rate-limiter)
+- AI examples (each a runnable bot.js, tested): [overview](https://andresayac.github.io/botmesh/examples/), [FAQ assistant with guardrails](https://andresayac.github.io/botmesh/examples/ai-faq), [booking with confirmed tools](https://andresayac.github.io/botmesh/examples/ai-tools-booking), [RAG over your FAQ](https://andresayac.github.io/botmesh/examples/ai-rag), [streaming on Telegram](https://andresayac.github.io/botmesh/examples/ai-streaming), [intent router to flows](https://andresayac.github.io/botmesh/examples/ai-router), [human escalation](https://andresayac.github.io/botmesh/examples/ai-handoff)
 
 ## Package status (44 packages)
 Public = published on npm and covered by semver (prerelease dist-tag until the stable

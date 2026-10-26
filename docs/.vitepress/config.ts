@@ -114,6 +114,29 @@ const enSidebar = {
   ],
   '/examples/': [
     {
+      text: 'Examples',
+      items: [{ text: 'Overview', link: '/examples/' }],
+    },
+    {
+      text: 'Beginner',
+      items: [{ text: 'AI FAQ assistant', link: '/examples/ai-faq' }],
+    },
+    {
+      text: 'Intermediate',
+      items: [
+        { text: 'AI booking assistant', link: '/examples/ai-tools-booking' },
+        { text: 'AI answers from your FAQ', link: '/examples/ai-rag' },
+        { text: 'Streaming AI replies', link: '/examples/ai-streaming' },
+      ],
+    },
+    {
+      text: 'Advanced',
+      items: [
+        { text: 'AI router', link: '/examples/ai-router' },
+        { text: 'AI with human escalation', link: '/examples/ai-handoff' },
+      ],
+    },
+    {
       text: 'Recipes',
       items: [
         { text: 'Send messages', link: '/examples/messages' },
@@ -204,6 +227,29 @@ const esSidebar = {
   ],
   '/es/ejemplos/': [
     {
+      text: 'Ejemplos',
+      items: [{ text: 'Índice', link: '/es/ejemplos/' }],
+    },
+    {
+      text: 'Principiante',
+      items: [{ text: 'Asistente de preguntas frecuentes con IA', link: '/es/ejemplos/ia-faq' }],
+    },
+    {
+      text: 'Intermedio',
+      items: [
+        { text: 'Asistente de citas con IA', link: '/es/ejemplos/ia-herramientas-citas' },
+        { text: 'IA con tus preguntas frecuentes', link: '/es/ejemplos/ia-rag' },
+        { text: 'Respuestas de IA en streaming', link: '/es/ejemplos/ia-streaming' },
+      ],
+    },
+    {
+      text: 'Avanzado',
+      items: [
+        { text: 'Enrutador con IA', link: '/es/ejemplos/ia-enrutador' },
+        { text: 'IA con escalado a humano', link: '/es/ejemplos/ia-escalado-humano' },
+      ],
+    },
+    {
       text: 'Recetas',
       items: [
         { text: 'Enviar mensajes', link: '/es/ejemplos/mensajes' },
@@ -231,7 +277,11 @@ function listPages(dir: string, prefix = ''): string[] {
 
 function sidebarPages(sidebar: DefaultTheme.SidebarMulti): string[] {
   const walk = (items: DefaultTheme.SidebarItem[]): string[] =>
-    items.flatMap((item) => [...(item.link ? [`${item.link.slice(1)}.md`] : []), ...walk(item.items ?? [])])
+    items.flatMap((item) => [
+      // `/examples/` is the folder's index page.
+      ...(item.link ? [`${item.link.slice(1).replace(/\/$/, '/index')}.md`] : []),
+      ...walk(item.items ?? []),
+    ])
   return Object.values(sidebar).flatMap((group) => walk(Array.isArray(group) ? group : group.items))
 }
 
@@ -374,7 +424,7 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Guide', link: '/guide/getting-started' },
-          { text: 'Examples', link: '/examples/messages' },
+          { text: 'Examples', link: '/examples/' },
           // TypeDoc output is plain HTML, not a VitePress page: bypass the SPA router.
           { text: 'API', link: '/api/', target: '_self' },
         ],
@@ -395,7 +445,7 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Guía', link: '/es/guide/inicio' },
-          { text: 'Ejemplos', link: '/es/ejemplos/mensajes' },
+          { text: 'Ejemplos', link: '/es/ejemplos/' },
           { text: 'API', link: '/api/', target: '_self' },
         ],
         sidebar: esSidebar,
