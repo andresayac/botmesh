@@ -9,6 +9,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Boom } from '@hapi/boom'
 import { ProviderError, RecipientUnreachableError } from '@botmesh/core'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 let releaseVersion: (() => void) | undefined
 let holdVersion = false
@@ -57,6 +59,39 @@ describe('start()/stop() races', () => {
     await p.start()
     expect(first.end).toHaveBeenCalledTimes(1)
     expect(sockOf(p)).not.toBe(first)
+    await p.stop()
+  })
+
+  it("a stopped socket's late close does not reconnect over the next start()", async () => {
+    // Baileys' end() is async: the close of the stopped socket can land after a new start().
+    const p = make()
+    await p.start()
+    const stopped = sockOf(p)!
+    await p.stop()
+    await p.start()
+    const fresh = sockOf(p)!
+    await stopped.handler!({ 'connection.update': { connection: 'close', lastDisconnect: { error: new Error('shutdown') } } })
+    expect((p as unknown as { reconnectTimer: unknown }).reconnectTimer).toBeNull()
+    expect(fresh.end).not.toHaveBeenCalled()
+    expect(sockOf(p)).toBe(fresh)
+    await p.stop()
+  })
+
+  it("a logged-out socket's late 401 does not wipe the session of the next start()", async () => {
+    const p = make()
+    await p.start()
+    const old = sockOf(p)! as Sock & { logout?: () => Promise<void> }
+    old.logout = async () => {}
+    await p.logoutAndDeleteSession()
+    await p.start()
+    const fresh = sockOf(p)!
+    const credsDir = p.sessionDir
+    mkdirSync(credsDir, { recursive: true })
+    writeFileSync(join(credsDir, 'creds.json'), '{}')
+    await old.handler!({ 'connection.update': { connection: 'close', lastDisconnect: { error: new Boom('logged out', { statusCode: 401 }) } } })
+    expect(existsSync(join(credsDir, 'creds.json'))).toBe(true)
+    expect(fresh.end).not.toHaveBeenCalled()
+    expect((p as unknown as { reconnectTimer: unknown }).reconnectTimer).toBeNull()
     await p.stop()
   })
 
@@ -118,6 +153,12 @@ describe('config validation', () => {
       expect(() => make({ pairingCode })).toThrow(/pairingCode/)
     }
     expect(() => make({ pairingCode: '+57 300 123 4567' })).not.toThrow()
+  })
+
+  it('treats an empty or blank pairingCode as QR mode (e.g. an empty env var)', () => {
+    for (const pairingCode of ['', '   ']) {
+      expect(() => make({ pairingCode })).not.toThrow()
+    }
   })
 
   it('rejects an unknown browser preset or a malformed tuple', () => {

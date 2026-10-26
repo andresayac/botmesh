@@ -104,7 +104,10 @@ export interface BaileysProviderConfig {
   ignoreBroadcasts?: boolean
   reconnect?: boolean
   qr?: QrConfig
-  /** Phone number (international format) for pairing-code login instead of QR. */
+  /**
+   * Phone number (international format) for pairing-code login instead of QR.
+   * An empty or blank string means QR mode; any other value without 6-15 digits throws.
+   */
   pairingCode?: string
   /**
    * Persistence for polls, so votes cast after a restart can still be
@@ -134,15 +137,20 @@ export interface BaileysProviderConfig {
   logger?: LoggerLike
 }
 
-/** E.164: a country code plus subscriber number, at most 15 digits. */
-function assertPairingNumber(pairingCode: string | undefined): void {
-  if (pairingCode === undefined) return
+/**
+ * The digits of `pairingCode` (E.164: a country code plus subscriber number, at
+ * most 15 digits), or `undefined` for QR mode. An empty or blank value (e.g. an
+ * unset `WA_PAIRING_NUMBER=` env var) means QR mode, as it always did.
+ */
+function pairingNumber(pairingCode: string | undefined): string | undefined {
+  if (pairingCode === undefined || (typeof pairingCode === 'string' && pairingCode.trim() === '')) return undefined
   const digits = typeof pairingCode === 'string' ? pairingCode.replace(/\D/g, '') : ''
   if (digits.length < 6 || digits.length > 15) {
     throw new TypeError(
       "BaileysProvider: pairingCode must be the bot's phone number in international format (country code + number, 6-15 digits), e.g. '+57 300 123 4567'",
     )
   }
+  return digits
 }
 
 const cacheKey = (k: WAMessageKey) => `${k.remoteJid}:${k.id}`
@@ -230,6 +238,8 @@ export class BaileysProvider implements IProvider<WAMessage> {
   private generation = 0
   /** Sockets replaced by a newer start(); their late events are ignored. */
   private retired = new WeakSet<object>()
+  /** Digits of `config.pairingCode`, or undefined for QR mode. */
+  private readonly pairingPhone: string | undefined
 
   constructor(config: BaileysProviderConfig = {}) {
     this.config = config
@@ -241,7 +251,7 @@ export class BaileysProvider implements IProvider<WAMessage> {
     // Validate eagerly, before any filesystem or network operation.
     resolveSessionDirectory(this.config.sessionsDir, this.config.session)
     assertBrowserConfig(config.browser)
-    assertPairingNumber(config.pairingCode)
+    this.pairingPhone = pairingNumber(config.pairingCode)
     if (Array.isArray(config.browser)) {
       this.logger.warn(
         { browser: config.browser },
@@ -310,16 +320,14 @@ export class BaileysProvider implements IProvider<WAMessage> {
     this.cancelReconnect()
     this.isShuttingDown = true
     this.rateLimiter.reset()
-    if (this.sock) {
-      try { this.sock.end(new Error('shutdown')) } catch { /* socket may already be closed */ }
-      this.sock = null
-    }
+    this.retireSocket('shutdown')
   }
 
   /**
-   * End the current socket before start() replaces it. Its late events (the
-   * close this causes included) are ignored, so they cannot schedule a reconnect
-   * that would race the new socket.
+   * End the current socket (on stop(), or before start() replaces it). Its late
+   * events are ignored: Baileys' end() is async, so the close it causes can land
+   * after a later start() and must not schedule a reconnect that races the new
+   * socket.
    */
   private retireSocket(reason: string): void {
     const sock = this.sock
@@ -338,8 +346,12 @@ export class BaileysProvider implements IProvider<WAMessage> {
     this.cancelReconnect()
     this.isShuttingDown = true
     this.rateLimiter.reset()
-    if (this.sock) {
-      try { await this.sock.logout() }
+    const sock = this.sock
+    if (sock) {
+      // logout() ends the socket without awaiting it: its late 401 close must not
+      // wipe the session of a later start().
+      this.retired.add(sock)
+      try { await sock.logout() }
       finally { this.sock = null }
     }
     removeSessionDirectory(this.config.sessionsDir, this.config.session)
@@ -890,10 +902,10 @@ export class BaileysProvider implements IProvider<WAMessage> {
     if (qr) {
       this.fan({ kind: 'connection', update: { state: 'authenticating', authPayload: qr } })
       this.renderQr(qr)
-      if (this.config.pairingCode && !this.authState?.state?.creds?.registered && !this.pairingCodeRequested && this.sock) {
+      if (this.pairingPhone && !this.authState?.state?.creds?.registered && !this.pairingCodeRequested && this.sock) {
         this.pairingCodeRequested = true
         try {
-          const code = await this.sock.requestPairingCode(this.config.pairingCode.replace(/\D/g, ''))
+          const code = await this.sock.requestPairingCode(this.pairingPhone)
           this.fan({ kind: 'connection', update: { state: 'authenticating', authPayload: code } })
         } catch (error) { this.logger.warn({ err: error }, 'pairing code request failed — falling back to QR') }
       }
