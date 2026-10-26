@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createTestBot } from '@botmesh/core/testing'
-import { IntentEngine, nluPlugin, whenIntent } from '../src/index.js'
+import { IntentEngine, nluPlugin, whenIntent, type NluPluginConfig } from '../src/index.js'
 
 describe('whenIntent — Bot integration', () => {
   it('routes each message to its intent handler; unmatched text falls through to onMessage', async () => {
@@ -107,6 +107,54 @@ describe('nluPlugin', () => {
     bot.plug(nluPlugin, { threshold: 0.9, intents: { g: ['hola'] } })
     expect(bot.injectTools.nlu?.threshold).toBe(0.9)
     expect(bot.injectTools.nlu?.match('hola')?.confidence).toBe(1)
+    await bot.stop()
+  })
+})
+
+describe('nluPlugin — config mistakes and unplug', () => {
+  it('removes ctx.tools.nlu when unplugged', async () => {
+    const { bot } = await createTestBot()
+    const unplug = bot.plug(nluPlugin, { intents: { g: ['hola'] } })
+    expect(bot.injectTools.nlu).toBeInstanceOf(IntentEngine)
+    unplug()
+    expect(bot.injectTools.nlu).toBeUndefined()
+    await bot.stop()
+  })
+
+  it('rejects an intents value that is not a plain object', async () => {
+    const { bot } = await createTestBot()
+    expect(() => bot.plug(nluPlugin, { intents: [['hola']] as unknown as Record<string, string[]> })).toThrow(
+      /nluPlugin: intents must be an object/,
+    )
+    expect(bot.injectTools.nlu).toBeUndefined()
+    await bot.stop()
+  })
+})
+
+describe('whenIntent — argument mistakes', () => {
+  it('throws a clear error for a missing engine, intent or handler', async () => {
+    const { bot } = await createTestBot()
+    const nlu = new IntentEngine().define('greeting', ['hola'])
+    expect(() => whenIntent(bot, undefined as unknown as IntentEngine, 'greeting', () => {})).toThrow(
+      /whenIntent: engine must be an IntentEngine.*nluPlugin/,
+    )
+    expect(() => whenIntent(bot, nlu, '', () => {})).toThrow(/whenIntent: intent must be a non-empty string/)
+    expect(() => whenIntent(bot, nlu, 'greeting', 'nope' as unknown as () => void)).toThrow(/whenIntent: handler must be a function/)
+    await bot.stop()
+  })
+})
+
+describe('nluPlugin — config typing', () => {
+  it('accepts a config typed as NluPluginConfig and rejects unknown options at compile time', async () => {
+    const { bot } = await createTestBot()
+    const config: NluPluginConfig = { threshold: 0.6, intents: { g: ['hola'] } }
+    const unplug = bot.plug(nluPlugin, config)
+    expect(bot.injectTools.nlu?.threshold).toBe(0.6)
+    unplug()
+    const typo = () =>
+      // @ts-expect-error `threshhold` is not an nluPlugin option
+      bot.plug(nluPlugin, { threshhold: 0.9 })
+    void typo
     await bot.stop()
   })
 })

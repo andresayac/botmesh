@@ -20,6 +20,10 @@ await bot.start()
 // unplug()
 ```
 
+`config` lo tipa el plugin (`definePlugin<MiConfig>()`): una opción
+desconocida es un error de compilación, y una configuración declarada con la
+interfaz de configuración del plugin se pasa tal cual.
+
 `bot.plug(plugin, config?)` devuelve una función **unplug** (no el bot, así
 que las llamadas a `plug()` no se encadenan). Al llamarla, primero ejecuta el
 `uninstall(ctx)` del plugin, si lo tiene, y después revierte, de lo más nuevo

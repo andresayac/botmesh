@@ -893,11 +893,14 @@ export class Bot extends EventEmitter {
    * the first instance before plugging it again), unless every instance sets
    * `spec.multiple: true`.
    *
+   * `config` is typed by the plugin (`definePlugin<MyConfig>()`), so an unknown option or a
+   * wrong type is a compile error.
+   *
    * @throws {Error} when a plugin named in `spec.requires` is not plugged, or when a plugin
    * with the same `spec.name` is already plugged and `spec.multiple` is not set.
    */
-  plug(plugin: Plugin, config?: Record<string, unknown>): () => void {
-    return this.plugins.plug(this, plugin, config)
+  plug<TConfig = Record<string, unknown>>(plugin: Plugin<TConfig>, config?: TConfig): () => void {
+    return this.plugins.plug(this, plugin as Plugin, config as Record<string, unknown> | undefined)
   }
 
   /* =========================================================================

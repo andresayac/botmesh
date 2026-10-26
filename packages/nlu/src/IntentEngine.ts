@@ -51,7 +51,9 @@ const SLOT_SPLITTER = /(\{[A-Za-z_]\w*\})/
 interface CompiledUtterance {
   /** Normalized literal text (slots removed). */
   normalized: string
-  /** Normalized literal tokens (slots removed). */
+  /** `normalized` padded with spaces, for whole-word containment. */
+  bounded: string
+  /** Distinct normalized literal tokens (slots removed); scores compare token sets. */
   tokens: string[]
   /** Slot names in order of appearance. */
   slotNames: string[]
@@ -60,27 +62,42 @@ interface CompiledUtterance {
 }
 
 /**
- * Normalize text for matching: NFD-decompose and strip diacritics, lowercase,
- * replace every non-alphanumeric character with a space, collapse whitespace
- * and trim. Deterministic and locale-independent.
+ * Optional marks removed like Latin accents: combining diacritics (U+0300–U+036F),
+ * Hebrew points and cantillation, and Arabic harakat / Quranic annotation marks. Marks of
+ * other scripts (Devanagari, Thai, Bengali vowel signs…) are part of the letter and stay.
+ */
+const OPTIONAL_MARKS =
+  /[\u0300-\u036f\u0591-\u05bd\u05bf\u05c1\u05c2\u05c4\u05c5\u05c7\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06dc\u06df-\u06e4\u06e7\u06e8\u06ea-\u06ed]/g
+/** Invisible format characters (zero-width space/joiners, soft hyphen, BOM, bidi marks). */
+const FORMAT_CHARS = /\p{Cf}/gu
+/** Anything that is not a letter, a mark kept above, a digit or whitespace becomes a space. */
+const NON_WORD = /[^\p{L}\p{M}\p{N}\s]+/gu
+
+/** Fold one piece of text without collapsing whitespace (shared by both normalizers). */
+function fold(text: string): string {
+  return text
+    .normalize('NFKD')
+    .replace(OPTIONAL_MARKS, '')
+    .replace(FORMAT_CHARS, '')
+    .toLowerCase()
+    .replace(NON_WORD, ' ')
+    .normalize('NFC')
+}
+
+/**
+ * Normalize text for matching: compatibility-decompose (NFKD: full-width letters and
+ * ligatures fold to plain ones), strip accents and other optional diacritics (Latin,
+ * Hebrew points, Arabic harakat), drop invisible format characters, lowercase, replace
+ * every character that is not a letter, a digit or a script's own combining mark with a
+ * space, collapse whitespace and trim. Deterministic and locale-independent.
  */
 export function normalizeText(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
+  return fold(text).replace(/\s+/g, ' ').trim()
 }
 
 /** Loose normalize (no collapse/trim) — keeps spacing between segments intact. */
 function loose(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+  return fold(text)
 }
 
 function escapeRegExp(s: string): string {
@@ -88,32 +105,47 @@ function escapeRegExp(s: string): string {
 }
 
 function compileUtterance(raw: string): CompiledUtterance {
+  const where = `IntentEngine.define: utterance ${JSON.stringify(raw)}`
+  // Fold the literal pieces first and drop the ones that fold to nothing (an emoji, a lone
+  // accent): `{a}` + U+0301 + `{b}` must count as adjacent slots, like `{a}{b}`.
+  const segments: Array<{ slot: string } | { text: string }> = []
+  for (const seg of raw.split(SLOT_SPLITTER)) {
+    const m = SLOT_SEGMENT.exec(seg)
+    if (m) {
+      const prev = segments[segments.length - 1]
+      if (prev && 'slot' in prev) {
+        // `(\S+)(\S+)` is ambiguous (which token boundary?) and backtracks quadratically on a
+        // long token, so a crafted message could stall the chat queue.
+        throw new Error(`${where} has adjacent slots {${prev.slot}}{${m[1]}}; separate them with a space or a word`)
+      }
+      segments.push({ slot: m[1] })
+    } else {
+      const text = loose(seg)
+      if (text !== '') segments.push({ text })
+    }
+  }
   const slotNames: string[] = []
   const withSlots: string[] = []
   const withoutSlots: string[] = []
-  let previousSlot: string | undefined
-  for (const seg of raw.split(SLOT_SPLITTER)) {
-    if (seg === '') continue
-    const m = SLOT_SEGMENT.exec(seg)
-    if (m && previousSlot !== undefined) {
-      // `(\S+)(\S+)` is ambiguous (which token boundary?) and backtracks quadratically on a
-      // long token, so a crafted message could stall the chat queue.
-      throw new Error(
-        `IntentEngine.define: utterance ${JSON.stringify(raw)} has adjacent slots {${previousSlot}}{${m[1]}}; separate them with a space or a word`,
-      )
-    }
-    previousSlot = m ? m[1] : undefined
-    if (m) {
-      slotNames.push(m[1])
-      withSlots.push(seg)
+  for (const seg of segments) {
+    if ('slot' in seg) {
+      if (seg.slot === '__proto__') throw new Error(`${where}: slot name {__proto__} is reserved; rename it`)
+      if (slotNames.includes(seg.slot)) throw new Error(`${where}: slot {${seg.slot}} appears twice; give each slot its own name`)
+      slotNames.push(seg.slot)
+      withSlots.push(`{${seg.slot}}`)
       withoutSlots.push(' ')
     } else {
-      withSlots.push(loose(seg))
-      withoutSlots.push(loose(seg))
+      withSlots.push(seg.text)
+      withoutSlots.push(seg.text)
     }
   }
   const normalized = normalizeText(withoutSlots.join(''))
-  const tokens = normalized ? normalized.split(' ') : []
+  if (normalized === '' && slotNames.length === 0) {
+    throw new Error(
+      `${where} has no letters or digits after normalization (emoji and punctuation are ignored), so it would never match`,
+    )
+  }
+  const tokens = normalized ? [...new Set(normalized.split(' '))] : []
   let regex: RegExp | null = null
   if (slotNames.length > 0) {
     // Build the pattern from the loose-normalized segments directly (a full
@@ -137,7 +169,15 @@ function compileUtterance(raw: string): CompiledUtterance {
       .replace(/\s+/g, '\\s+')
     regex = new RegExp(`^${body}$`, 'u')
   }
-  return { normalized, tokens, slotNames, regex }
+  return { normalized, bounded: ` ${normalized} `, tokens, slotNames, regex }
+}
+
+function typeOf(value: unknown): string {
+  return value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value
+}
+
+function copyMatch(m: IntentMatch): IntentMatch {
+  return m.entities ? { ...m, entities: { ...m.entities } } : { ...m }
 }
 
 function checkThreshold(threshold: unknown): number {
@@ -154,6 +194,11 @@ function checkThreshold(threshold: unknown): number {
 export class IntentEngine {
   private readonly registry = new Map<string, CompiledUtterance[]>()
   private readonly defaultThreshold: number
+  /**
+   * Scores of the last text ranked: several `whenIntent` matchers (and the handler that
+   * fires) look up the same message, so it is scored once. `define()` clears it.
+   */
+  private lastRanked: { text: string; ranked: IntentMatch[] } | undefined
 
   constructor(options: IntentEngineOptions = {}) {
     this.defaultThreshold = checkThreshold(options.threshold ?? 0.5)
@@ -176,13 +221,19 @@ export class IntentEngine {
     if (!Array.isArray(utterances)) {
       throw new Error(`IntentEngine.define("${intent}"): utterances must be an array of strings`)
     }
-    const clean = utterances.filter((u): u is string => typeof u === 'string' && u.trim() !== '')
+    utterances.forEach((u, i) => {
+      if (typeof u !== 'string') {
+        throw new Error(`IntentEngine.define("${intent}"): utterances must be strings, got ${typeOf(u)} at index ${i}`)
+      }
+    })
+    const clean = utterances.filter((u) => u.trim() !== '')
     if (clean.length === 0) {
       throw new Error(`IntentEngine.define("${intent}"): provide at least one non-empty utterance`)
     }
-    const existing = this.registry.get(intent) ?? []
-    for (const u of clean) existing.push(compileUtterance(u))
-    this.registry.set(intent, existing)
+    // Compile everything first so a bad utterance leaves the intent untouched.
+    const compiled = clean.map(compileUtterance)
+    this.registry.set(intent, [...(this.registry.get(intent) ?? []), ...compiled])
+    this.lastRanked = undefined
     return this
   }
 
@@ -198,8 +249,8 @@ export class IntentEngine {
    */
   match(text: string, threshold: number = this.defaultThreshold): IntentMatch | null {
     checkThreshold(threshold)
-    const best = this.rank(text)[0]
-    return best && best.confidence >= threshold ? best : null
+    const best = this.ranked(text, 'match')[0]
+    return best && best.confidence >= threshold ? copyMatch(best) : null
   }
 
   /**
@@ -208,15 +259,28 @@ export class IntentEngine {
    * debugging and disambiguation UIs.
    */
   rank(text: string): IntentMatch[] {
+    return this.ranked(text, 'rank').map(copyMatch)
+  }
+
+  /** Shared, cached ranking. Callers copy what they hand out. */
+  private ranked(text: string, method: string): IntentMatch[] {
+    if (typeof text !== 'string') throw new TypeError(`IntentEngine.${method}: text must be a string, got ${typeOf(text)}`)
+    if (this.lastRanked?.text === text) return this.lastRanked.ranked
+    const ranked = this.scoreAll(text)
+    this.lastRanked = { text, ranked }
+    return ranked
+  }
+
+  private scoreAll(text: string): IntentMatch[] {
     const input = normalizeText(text)
     if (!input) return []
-    const inputTokens = input.split(' ')
-    const inputSet = new Set(inputTokens)
+    const inputSet = new Set(input.split(' '))
+    const padded = ` ${input} ` // word-boundary containment checks
     const out: IntentMatch[] = []
     for (const [intent, utterances] of this.registry) {
       let best: IntentMatch | undefined
       for (const u of utterances) {
-        const scored = this.scoreUtterance(u, input, inputTokens, inputSet)
+        const scored = this.scoreUtterance(u, input, padded, inputSet)
         if (scored.confidence > 0 && (!best || scored.confidence > best.confidence)) {
           best = { intent, confidence: scored.confidence, ...(scored.entities ? { entities: scored.entities } : {}) }
         }
@@ -230,7 +294,7 @@ export class IntentEngine {
   private scoreUtterance(
     u: CompiledUtterance,
     input: string,
-    inputTokens: string[],
+    padded: string,
     inputSet: Set<string>,
   ): { confidence: number; entities?: Record<string, string> } {
     // Slot utterances: a full pattern match scores 1 and captures entities.
@@ -253,10 +317,10 @@ export class IntentEngine {
     for (const t of u.tokens) if (inputSet.has(t)) intersection++
     if (intersection === 0) return { confidence: 0 }
 
-    const union = u.tokens.length + inputTokens.length - intersection
+    const union = u.tokens.length + inputSet.size - intersection
     const jaccard = intersection / union // token-overlap symmetry
     const coverage = intersection / u.tokens.length // how much of the utterance the input covers
-    const contains = u.normalized.length > 0 && input.includes(u.normalized) ? 1 : 0
+    const contains = u.normalized.length > 0 && padded.includes(u.bounded) ? 1 : 0 // whole words only
     return { confidence: W_JACCARD * jaccard + W_COVERAGE * coverage + W_CONTAINS * contains }
   }
 }

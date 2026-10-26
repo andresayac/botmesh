@@ -51,7 +51,7 @@ const CANONICAL_MEMBERS: Array<[file: string, member: RegExp]> = [
   ['core/provider.ts', /reply\(text: string/],
   ['core/Bot.ts', /async send\(chatId/],
   ['core/Bot.ts', /use\(flow: FlowBuilder/],
-  ['core/Bot.ts', /plug\(plugin: Plugin/],
+  ['core/Bot.ts', /plug<TConfig = Record<string, unknown>>\(plugin: Plugin/],
   ['core/Bot.ts', /trigger\(name: string/],
   ['core/Bot.ts', /registerFlow\(flow/],
   ['core/Bot.ts', /when\(trigger: Trigger/],
