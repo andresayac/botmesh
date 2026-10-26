@@ -255,8 +255,9 @@ await rag.save()
 ```
 
 Every failure is a `RagError` with a `code`: `INVALID_OPTIONS`,
-`UNSUPPORTED_FORMAT`, `LOAD_FAILED`, `MISSING_DEPENDENCY`, `EMBEDDING_FAILED`
-or `INVALID_INDEX`. The index is brute force, meant for thousands of chunks;
+`UNSUPPORTED_FORMAT`, `LOAD_FAILED`, `MISSING_DEPENDENCY`, `EMBEDDING_FAILED`,
+`INVALID_INDEX` or `PERSIST_FAILED` (`EMBEDDER_CHANGED` only reaches
+`onError`). The index is brute force, meant for thousands of chunks;
 for millions, write your own retriever over a vector database. Details in the
 [`@botmesh/rag` README](https://github.com/andresayac/botmesh/tree/main/packages/rag).
 

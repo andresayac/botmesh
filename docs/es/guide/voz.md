@@ -32,10 +32,10 @@ bot.plug(voicePlugin({
   tts: { provider: 'openai', voice: 'nova', apiKey: process.env.OPENAI_API_KEY },
 }))
 
-// A voice note saying "Hola." also fires this text trigger
+// Una nota de voz que dice "Hola." también dispara este trigger de texto
 bot.when('hola', (ctx) => ctx.reply('¡Hola!'))
 
-// Type triggers still work, now with the transcript at hand
+// Los triggers por tipo siguen funcionando, ahora con la transcripción a mano
 bot.when(VOICE_NOTE, async (ctx) => {
   await ctx.reply(`Dijiste: ${ctx.transcript}`)
   await ctx.voice(await ctx.tools.voice.synthesize('¡Entendido!'))
@@ -102,7 +102,7 @@ bot.plug(voicePlugin({
   stt: { provider: 'openai', model: 'gpt-4o-mini-transcribe' },
   tts: { provider: 'openai', voice: 'nova' },
   autoTranscribe: { asText: true },
-  autoReplyWithVoice: true, // the AI's answer goes back as a voice note
+  autoReplyWithVoice: true, // la respuesta de la IA vuelve como nota de voz
 }))
 bot.plug(aiPlugin({ provider: 'anthropic', persona }))
 ```
@@ -238,10 +238,10 @@ bot.plug(voicePlugin({ stt: local }))
 voicePlugin({
   stt, tts,
   limits: {
-    maxInputBytes: 25 * 1024 * 1024, // max audio size; the download is cut as soon as it goes over
-    maxDurationSec: 300,             // max duration; read from the last OGG page before calling the service (OGG is detected from the bytes, not the declared mimetype)
-    maxTextChars: 4096,              // max characters per synthesis
-    timeoutMs: 60_000,               // max time per STT/TTS call; also the adapters' HTTP timeout
+    maxInputBytes: 25 * 1024 * 1024, // tamaño máximo del audio; la descarga se corta en cuanto lo supera
+    maxDurationSec: 300,             // duración máxima; se lee de la última página OGG antes de llamar al servicio (el OGG se detecta por los bytes, no por el mimetype declarado)
+    maxTextChars: 4096,              // máximo de caracteres por síntesis
+    timeoutMs: 60_000,               // tiempo máximo por llamada STT/TTS; también el timeout HTTP de los adapters
   },
 })
 ```
@@ -282,7 +282,7 @@ transcripciones. Se conserva el detalle de error del propio servicio (explica un
 import { createTestBot } from '@botmesh/core/testing'
 import { voicePlugin } from '@botmesh/voice'
 
-const { bot, chat, provider } = await createTestBot()
+const { bot, chat, provider } = await createTestBot({ lang: 'es' })
 provider.downloadMedia = async () => Buffer.from('OggS...')
 bot.plug(voicePlugin({
   stt: { name: 'fake', transcribe: async () => ({ text: 'hola', provider: 'fake' }) },

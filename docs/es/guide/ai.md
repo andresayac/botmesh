@@ -402,7 +402,7 @@ inyección de prompt) queda como texto.
 
 ## Notas de voz
 
-El autoresponder solo contesta mensajes de texto. Con el plugin experimental
+El autoresponder solo contesta mensajes de texto. Con el plugin
 [`@botmesh/voice`](/es/guide/voz), las notas de voz se transcriben antes de
 enrutarse (usa `autoTranscribe: { asText: true }` para que la IA las
 conteste) y `autoReplyWithVoice` puede devolver la respuesta como audio.
@@ -549,7 +549,7 @@ import { aiPlugin } from '@botmesh/ai'
 import { MockAIProvider } from '@botmesh/ai/testing'
 import { createTestBot } from '@botmesh/core/testing'
 
-const { bot, chat } = await createTestBot()
+const { bot, chat } = await createTestBot({ lang: 'es' })
 bot.plug(aiPlugin({ instance: new MockAIProvider({ reply: 'Abrimos a las 7.' }) }))
 
 await chat.send('¿a qué hora abren?')

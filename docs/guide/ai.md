@@ -390,7 +390,7 @@ prompt injection could produce) stays as text.
 
 ## Voice notes
 
-The autoresponder answers text messages only. With the experimental
+The autoresponder answers text messages only. With the
 [`@botmesh/voice`](/guide/voice) plugin, voice notes are transcribed before
 routing (use `autoTranscribe: { asText: true }` so the AI answers them) and
 `autoReplyWithVoice` can send the answer back as audio.

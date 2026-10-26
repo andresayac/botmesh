@@ -49,8 +49,6 @@ await bot.start()
 
 You can also declare the routes in the config: `routes: { 'book.table': bookingFlow, greeting: (ctx) => ctx.reply('Hello!') }`.
 
-`dialogflowContext` is a `@deprecated` alias of `dialogflowPlugin` (same function); use `dialogflowPlugin`.
-
 ### Dialogflow CX
 
 ```ts
