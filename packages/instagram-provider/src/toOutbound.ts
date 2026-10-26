@@ -97,6 +97,12 @@ export function toOutbound(content: OutboundContent): Record<string, unknown> {
     }
 
     case 'native':
+      if (content.provider !== 'instagram') {
+        throw new UnsupportedContentError('native', `native content for '${content.provider}' cannot be sent through Instagram (use ctx.sendNative('instagram', message))`)
+      }
+      if (content.payload === null || typeof content.payload !== 'object' || Array.isArray(content.payload)) {
+        throw new UnsupportedContentError('native', 'Instagram native payload must be a Send API `message` object')
+      }
       return content.payload as Record<string, unknown>
 
     case 'form':

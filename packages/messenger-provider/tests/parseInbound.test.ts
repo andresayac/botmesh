@@ -99,7 +99,7 @@ describe('parseInbound', () => {
     if (ev.kind !== 'reaction') return
     expect(ev.reaction.ref.id).toBe('target_mid')
     expect(ev.reaction.ref.chatId).toBe('USER1')
-    expect(ev.reaction.emoji).toBe('love')
+    expect(ev.reaction.emoji).toBe('😍')
     expect(ev.reaction.senderId).toBe('USER1')
     expect(ev.reaction.removed).toBe(false)
   })

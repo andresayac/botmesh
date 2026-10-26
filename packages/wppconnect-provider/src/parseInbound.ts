@@ -48,7 +48,8 @@ export function remoteOfMessageId(id: unknown): string | undefined {
   return m ? normalizeJid(m[1]) : undefined
 }
 
-const TYPE_MAP: Record<string, MessageType> = {
+/** Null prototype: a WA-JS `type` such as `constructor` must not resolve to an Object.prototype member. */
+const TYPE_MAP: Readonly<Record<string, MessageType>> = Object.assign(Object.create(null) as Record<string, MessageType>, {
   chat: 'text',
   image: 'image',
   video: 'video',
@@ -63,7 +64,7 @@ const TYPE_MAP: Record<string, MessageType> = {
   list_response: 'list',
   buttons_response: 'buttons',
   template_button_reply: 'buttons',
-}
+})
 
 /** System/protocol message types that never reach handlers. */
 const SKIP_TYPES = new Set(['e2e_notification', 'notification_template', 'notification', 'gp2', 'protocol', 'revoked', 'ciphertext', 'call_log', 'broadcast_notification'])

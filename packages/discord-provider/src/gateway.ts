@@ -59,6 +59,9 @@ export interface GatewaySocketConfig {
   connection: (update: ConnectionUpdate) => void
 }
 
+/** Heartbeat interval used when HELLO carries none (or a nonsensical one). */
+const DEFAULT_HEARTBEAT_MS = 41_250
+
 const CLOSE_MEANINGS: Record<number, string> = {
   4004: 'Authentication failed (bad token)',
   4007: 'Invalid sequence',
@@ -116,7 +119,6 @@ export class GatewaySocket {
     const base = this.sessionId ? (this.resumeGatewayUrl ?? this.cfg.gatewayUrl) : this.cfg.gatewayUrl
     const socket = this.cfg.socketFactory(gatewayConnectUrl(base))
     this.socket = socket
-    socket.on('open', () => { this.reconnectAttempts = 0 })
     socket.on('message', (data) => this.onMessage(data))
     socket.on('close', (code) => {
       if (this.socket !== socket) return // superseded socket
@@ -134,24 +136,37 @@ export class GatewaySocket {
       this.cfg.logger.warn('discord gateway: dropped non-JSON frame')
       return
     }
+    if (frame === null || typeof frame !== 'object' || Array.isArray(frame)) {
+      this.cfg.logger.warn('discord gateway: dropped a frame that is not a JSON object')
+      return
+    }
 
     switch (frame.op) {
       case GatewayOpcode.Hello: {
-        const interval = (frame.d as { heartbeat_interval?: number } | undefined)?.heartbeat_interval ?? 41_250
-        this.startHeartbeat(interval)
+        const interval = (frame.d as { heartbeat_interval?: unknown } | null | undefined)?.heartbeat_interval
+        // A missing or nonsensical interval must not become a busy loop: use Discord's usual value.
+        this.startHeartbeat(typeof interval === 'number' && Number.isFinite(interval) && interval > 0 ? interval : DEFAULT_HEARTBEAT_MS)
         if (this.sessionId) this.resume()
         else this.identify()
         break
       }
       case GatewayOpcode.Dispatch: {
         if (typeof frame.s === 'number') this.seq = frame.s
-        const t = frame.t ?? ''
+        const t = typeof frame.t === 'string' ? frame.t : ''
         if (t === 'READY') {
-          const d = frame.d as { session_id?: string; resume_gateway_url?: string } | undefined
-          this.sessionId = d?.session_id ?? null
-          this.resumeGatewayUrl = d?.resume_gateway_url ?? null
+          const d = frame.d as { session_id?: unknown; resume_gateway_url?: unknown } | null | undefined
+          this.sessionId = typeof d?.session_id === 'string' ? d.session_id : null
+          this.resumeGatewayUrl = typeof d?.resume_gateway_url === 'string' ? d.resume_gateway_url : null
         }
-        this.cfg.dispatch(t, frame.d)
+        // Backoff restarts only once a session is really established: a socket that
+        // opens and is closed right away (rate limit, bad resume) keeps backing off.
+        if (t === 'READY' || t === 'RESUMED') this.reconnectAttempts = 0
+        try {
+          this.cfg.dispatch(t, frame.d)
+        } catch (err) {
+          // Never let a handler error escape into the websocket listener (it would crash the process).
+          this.cfg.logger.error({ err, event: t }, 'discord gateway: dispatch handler failed')
+        }
         break
       }
       case GatewayOpcode.Heartbeat:

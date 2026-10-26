@@ -52,6 +52,7 @@ import {
 import {
   WaIdentityStore,
   describeErrorBody,
+  gatewayBaseUrl,
   isRecord,
   normalizeJid,
   resolveHttpPolicy,
@@ -127,7 +128,7 @@ export class EvolutionProvider implements IProvider<unknown> {
     if (!config.webhookSecret && !config.webhookJwtKey) {
       this.logger.warn('EvolutionProvider unsigned webhook mode explicitly enabled; never expose this endpoint publicly.')
     }
-    this.baseUrl = config.baseUrl.replace(/\/+$/, '')
+    this.baseUrl = gatewayBaseUrl('EvolutionProvider', config.baseUrl)
     this.instancePath = encodeURIComponent(config.instance)
     this.http = resolveHttpPolicy(this.baseUrl, config.http)
     this.identity = new WaIdentityStore(config.identityCacheSize, config.identityPersistence)

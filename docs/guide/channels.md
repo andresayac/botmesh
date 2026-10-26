@@ -137,7 +137,9 @@ text menu, `ctx.edit` sends a new message, `ctx.react` resolves
 - Every provider except Baileys accepts the `native` content kind
   (`ctx.sendNative('<provider id>', payload)`) as an escape hatch to the
   channel's own API, with a provider-specific payload. Baileys rejects it
-  with `UnsupportedContentError`.
+  with `UnsupportedContentError`. Discord, Messenger, Instagram, Evolution,
+  WPPConnect, Twilio, Gupshup and HighLevel also reject a payload addressed to
+  another provider id instead of posting it.
 
 ## Providers
 
@@ -268,7 +270,11 @@ const provider = new MessengerProvider({
 })
 ```
 
-- Buttons and lists are native; reactions arrive but cannot be sent.
+- Buttons and lists are native; reactions arrive but cannot be sent
+  (subscribe the webhook to `message_reactions`; `emoji` is the character and
+  `removed` is set on `unreact`).
+- Text is capped at 2000 characters (`maxTextLength`), so `ctx.stream()`
+  chunks fit the Send API.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/messenger-provider)
 
@@ -289,6 +295,8 @@ const provider = new InstagramProvider({
 
 - Buttons go out as quick replies; lists degrade to numbered text.
 - DMs only (no groups); reactions arrive but cannot be sent.
+- Text is capped at 1000 (`maxTextLength`; Meta counts UTF-8 bytes, so
+  non-ASCII text fits less), which sizes the `ctx.stream()` chunks.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/instagram-provider)
 
@@ -312,7 +320,15 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
   set (in memory, `reactionMemory`, default 1000 messages); an unknown one
   (set before a restart, or evicted) rejects with `UnsupportedContentError`.
 - Interactions have a hard acknowledgement deadline
-  (`interactionsRequireAck`).
+  (`interactionsRequireAck`): the core does not acknowledge them for you, so a
+  handler that answers a button, menu or slash command calls
+  `ctx.acknowledge()` (or `ctx.acknowledge('text')`) within ~3 s, or Discord
+  shows "This interaction failed".
+- System messages (member joins, pins, boosts...) and messages from bots are
+  not routed.
+- A forwarded message carries the forwarded text and media (from its
+  snapshot), not a quoted reply; one with nothing readable arrives as
+  `unknown`. A native poll arrives as `type: 'poll'` with its question as body.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/discord-provider)
 

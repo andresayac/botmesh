@@ -114,4 +114,11 @@ text. For Evolution's own, use
 `ctx.sendNative('evolution', { endpoint: 'sendButtons', body: {...} })`.
 - Poll votes (`pollUpdates`) are not emitted as `poll-vote` yet.
 - If a person's first message arrives with the LID only and without a twin, that LID
-  stays as their canonical id for the session (the map lives in memory).
+  stays as their canonical id. Without `identityPersistence` the map lives in
+  memory, so after a restart the same person may get the phone-number id instead.
+- `baseUrl` must be an absolute `http(s)://` URL: `localhost:8080` (no scheme)
+  fails in the constructor. Network failures name their cause
+  (`ECONNREFUSED`, `TIMEOUT`...) in the `ProviderError` message.
+- Sending through an instance that is not paired yet makes Evolution hold the
+  request until `http.timeoutMs` (30 s by default) and it rejects with a
+  `TIMEOUT` `ProviderError`.

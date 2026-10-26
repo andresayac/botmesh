@@ -106,6 +106,9 @@ export class DiscordProvider implements IProvider<unknown> {
   private readonly reactionMemory: number
 
   constructor(config: DiscordProviderConfig) {
+    if (typeof config.token !== 'string' || config.token.trim() === '') {
+      throw new Error('DiscordProvider requires `token` (Developer Portal → Bot → Reset Token); got an empty value — is the env var set?')
+    }
     const memory = config.reactionMemory ?? DEFAULT_REACTION_MEMORY
     if (!Number.isSafeInteger(memory) || memory < 0) {
       throw new Error(`DiscordProvider: reactionMemory must be a non-negative integer (got ${String(memory)})`)

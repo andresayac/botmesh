@@ -7,6 +7,7 @@
 export {
   restCall,
   resolveHttpPolicy,
+  gatewayBaseUrl,
   parseRetryAfter,
   isRecord,
   describeErrorBody,

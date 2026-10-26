@@ -34,7 +34,7 @@ export function normalizeEventName(event: unknown): string {
 }
 
 function toMs(ts: EvolutionMessage['messageTimestamp']): number {
-  if (typeof ts === 'number') return ts < 1e12 ? ts * 1000 : ts
+  if (typeof ts === 'number') return Number.isFinite(ts) && ts > 0 ? (ts < 1e12 ? ts * 1000 : ts) : Date.now()
   if (typeof ts === 'string' && ts.trim() !== '' && Number.isFinite(Number(ts))) return toMs(Number(ts))
   if (isRecord(ts) && typeof ts.low === 'number') return toMs(ts.low >>> 0)
   return Date.now()
@@ -157,18 +157,19 @@ export function parseMessage(data: EvolutionMessage, ctx: ParseContext): Inbound
   const reaction = rec(m.reactionMessage)
   if (reaction) {
     const target = rec(reaction.key) as EvolutionMessageKey | undefined
-    if (!target?.id) return []
+    const targetId = str(target?.id)
+    if (!targetId) return []
     const emoji = str(reaction.text) ?? ''
     return [{
       kind: 'reaction',
-      reaction: { ref: { id: target.id, chatId, native: target }, emoji, senderId, removed: emoji === '' },
+      reaction: { ref: { id: targetId, chatId, native: target }, emoji, senderId, removed: emoji === '' },
     }]
   }
 
   const kind = group ? 'group' : channel ? 'channel' : broadcast ? 'broadcast' : 'dm'
   const chat: ChatInfo = { id: chatId, kind, isGroup: group, isBroadcast: broadcast || channel }
   const c = classify(m)
-  const contextInfo = c.contextInfo ?? data.contextInfo
+  const contextInfo = c.contextInfo ?? (rec(data.contextInfo) as EvolutionContextInfo | undefined)
   const rawWho = normalizeJid(group ? key.participant : key.remoteJid)
   const senderInfo: SenderInfo = {
     id: senderId,
@@ -195,15 +196,17 @@ export function parseMessage(data: EvolutionMessage, ctx: ParseContext): Inbound
   }
 
   let quoted: QuotedRef | undefined
-  if (contextInfo?.stanzaId) {
-    const quotedSender = contextInfo.participant ? ctx.identity.lookup(contextInfo.participant) : undefined
+  const stanzaId = str(contextInfo?.stanzaId)
+  if (stanzaId) {
+    const participant = str(contextInfo?.participant)
     quoted = {
-      ref: { id: contextInfo.stanzaId, chatId, native: { id: contextInfo.stanzaId, remoteJid: key.remoteJid, participant: contextInfo.participant } },
-      body: textOf(rec(contextInfo.quotedMessage)),
-      senderId: quotedSender,
+      ref: { id: stanzaId, chatId, native: { id: stanzaId, remoteJid: key.remoteJid, participant } },
+      body: textOf(rec(contextInfo?.quotedMessage)),
+      senderId: participant ? ctx.identity.lookup(participant) : undefined,
     }
   }
-  const mentions = (contextInfo?.mentionedJid ?? [])
+  const mentionedJid: unknown = contextInfo?.mentionedJid
+  const mentions = (Array.isArray(mentionedJid) ? mentionedJid : [])
     .map((j) => ctx.identity.lookup(j))
     .filter((j): j is string => j !== undefined)
 

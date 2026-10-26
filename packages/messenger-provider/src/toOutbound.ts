@@ -140,6 +140,12 @@ export function toOutbound(content: OutboundContent, mediaUrl?: string): Record<
     }
 
     case 'native':
+      if (content.provider !== 'messenger') {
+        throw new UnsupportedContentError('native', `native content for '${content.provider}' cannot be sent through Messenger (use ctx.sendNative('messenger', message))`)
+      }
+      if (content.payload === null || typeof content.payload !== 'object' || Array.isArray(content.payload)) {
+        throw new UnsupportedContentError('native', 'Messenger native payload must be a Send API `message` object')
+      }
       return content.payload as Record<string, unknown>
 
     case 'sticker':

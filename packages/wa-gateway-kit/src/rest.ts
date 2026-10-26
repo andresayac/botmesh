@@ -43,6 +43,39 @@ export function parseRetryAfter(value: string | null): number | undefined {
   return Number.isNaN(at) ? undefined : Math.max(0, at - Date.now())
 }
 
+/**
+ * Validate and normalize a gateway base URL at construction time, so a typo
+ * (`localhost:8080` without the scheme) fails with an actionable message
+ * instead of a misleading "only HTTPS URLs are allowed" on the first request.
+ */
+export function gatewayBaseUrl(owner: string, baseUrl: unknown): string {
+  const raw = typeof baseUrl === 'string' ? baseUrl.trim() : ''
+  let parsed: URL | undefined
+  try {
+    parsed = new URL(raw)
+  } catch {
+    parsed = undefined
+  }
+  if (!parsed || (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') || !parsed.hostname) {
+    throw new Error(`${owner}: \`baseUrl\` must be an absolute http(s) URL such as 'http://127.0.0.1:8080' (got ${JSON.stringify(baseUrl)})`)
+  }
+  return raw.replace(/\/+$/, '')
+}
+
+/** "fetch failed" says nothing: also surface the network error code/message carried in `cause`. */
+function describeTransportError(err: unknown): string {
+  const parts: string[] = []
+  let cur: unknown = err
+  for (let depth = 0; cur && depth < 4; depth++) {
+    const e = cur as { message?: unknown; code?: unknown; cause?: unknown }
+    for (const piece of [e.code, e.message]) {
+      if (typeof piece === 'string' && piece && !parts.some((p) => p.includes(piece))) parts.push(piece)
+    }
+    cur = e.cause
+  }
+  return parts.join(': ') || String(err)
+}
+
 export function resolveHttpPolicy(baseUrl: string, http: RestHttpOptions = {}): RestHttpOptions {
   return {
     allowHttp: http.allowHttp ?? /^http:\/\//i.test(baseUrl),
@@ -80,7 +113,7 @@ export async function restCall(
       ...(http.fetch ? { fetch: http.fetch } : {}),
     })
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err)
+    const detail = describeTransportError(err)
     throw new ProviderError(`gateway request failed: ${init.method} ${init.label ?? new URL(url).pathname}: ${detail}`)
   }
   const { response } = result

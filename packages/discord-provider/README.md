@@ -51,18 +51,22 @@ await bot.start()
 
 Discord requires an interaction to be answered within **~3 seconds**
 (`interactionsRequireAck: true`). Button clicks / menu selections /
-slash commands arrive as `interaction` events with an `interactionId`
-`"<id>:<token>"` and `respondBy` (deadline epoch ms):
+slash commands are routed like messages (the button `custom_id`, the
+selected option value or the command name is the body) and carry
+`ctx.interaction` (`id` = `"<id>:<token>"`, `respondBy` = deadline epoch ms).
+The core does **not** acknowledge them for you: answer each one once from
+the handler, or Discord shows "This interaction failed":
 
 ```ts
-provider.onEvent(async (e) => {
-  if (e.kind !== 'interaction') return
-  // deferred ack (type 6) before the deadline:
-  await provider.acknowledgeInteraction(e.interaction.interactionId)
-  // …or an immediate text reply (type 4):
-  await provider.acknowledgeInteraction(e.interaction.interactionId, { text: 'Done ✅' })
+bot.when('confirm', async (ctx) => {
+  await ctx.acknowledge?.()          // deferred update (type 6), before the deadline
+  // …or: await ctx.acknowledge?.('Done ✅') — an immediate text reply (type 4)
+  await ctx.reply('Order confirmed')
 })
 ```
+
+Outside a handler, `provider.acknowledgeInteraction(interactionId, { text? })`
+does the same; acknowledge an interaction only once.
 
 ### Gateway (technical note)
 
@@ -90,6 +94,7 @@ non-resumable INVALID_SESSION, and a definitive stop on fatal codes
 | Templates (kind `template`) | ❌ (does not exist in Discord) |
 | Presence, read receipts (`markRead` no-op) | ❌ (not applicable) |
 | Location / contact | ⚠️ explicit degradation to text (map link / text card) |
+| `native` (`ctx.sendNative('discord', createMessagePayload)`) | ✅ (another provider id → `UnsupportedContentError`) |
 
 ## Bot reactions
 
@@ -122,13 +127,16 @@ without knowing which one).
 
 `chatId` is the channel snowflake (`channel_id`) and `senderId` the user's
 (`author.id` / `member.user.id`) — stable, with no member-vs-user ambiguity.
-Bot messages (including the bot's own) are ignored.
+Bot messages (including the bot's own) and system messages (member joins,
+pins, boosts, thread notices: any `type` other than 0 *default* and 19
+*reply*) are ignored. Malformed gateway frames are dropped with a warning and
+an error thrown by a dispatch handler is logged, never raised into the socket.
 
 ## Full configuration
 
 ```ts
 new DiscordProvider({
-  token: '…',                 // required
+  token: '…',                 // required (an empty value fails in the constructor)
   intents?: number,           // default: Guilds | GuildMessages | MessageContent
   appId?: string,             // for interaction followups (SendOptions.interactionId)
   selfId?: string,            // auto-detected from the gateway READY

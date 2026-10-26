@@ -154,6 +154,12 @@ export function toOutbound(content: OutboundContent, file?: DiscordFile): Discor
       throw new UnsupportedContentError('template', 'Discord has no template messages.')
 
     case 'native':
+      if (content.provider !== 'discord') {
+        throw new UnsupportedContentError('native', `native content for '${content.provider}' cannot be sent through Discord (use ctx.sendNative('discord', payload))`)
+      }
+      if (content.payload === null || typeof content.payload !== 'object' || Array.isArray(content.payload)) {
+        throw new UnsupportedContentError('native', 'Discord native payload must be a Create Message JSON object')
+      }
       return { payload: content.payload as Record<string, unknown> }
   }
 }

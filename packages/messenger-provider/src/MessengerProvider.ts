@@ -66,6 +66,7 @@ export class MessengerProvider implements IProvider<unknown> {
   readonly id = 'messenger'
   readonly capabilities: ProviderCapabilities = {
     contentKinds: ['text', 'image', 'video', 'audio', 'voice', 'document', 'buttons', 'list', 'card', 'native'],
+    maxTextLength: 2000, // Send API `text` limit
     // reactions: false — Messenger has no Send API for reactions (inbound only).
     buttons: true, lists: true, polls: false, reactions: false, edit: false,
     typing: true, presence: false, readReceipts: true, groups: false, templates: false,
@@ -80,6 +81,12 @@ export class MessengerProvider implements IProvider<unknown> {
   private listeners = new Set<(e: InboundEvent) => void | Promise<void>>()
 
   constructor(config: MessengerProviderConfig) {
+    if (typeof config.accessToken !== 'string' || config.accessToken.trim() === '') {
+      throw new Error('MessengerProvider requires `accessToken` (a Page access token with pages_messaging); got an empty value — is the env var set?')
+    }
+    if (typeof config.verifyToken !== 'string' || config.verifyToken === '') {
+      throw new Error('MessengerProvider requires `verifyToken` (the webhook verify token you set in Meta); without it the GET handshake always fails.')
+    }
     this.config = { apiVersion: 'v21.0', graphUrl: 'https://graph.facebook.com', pageId: 'me', ...config }
     this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
     if (config.mediaRefHosts !== undefined &&
