@@ -5,7 +5,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { assertTenantId } from '@botmesh/tenant-kv'
-import { heldByOther, type CommitInput, type DeploymentStore } from './store.js'
+import { heldByOther, versionsPage, versionsToPrune, type CommitInput, type DeploymentListOptions, type DeploymentStore } from './store.js'
 import { DeploymentExistsError, DeploymentNotFoundError, gateRunId, type Deployment, type GateRun } from './types.js'
 
 /** Per-bot state: the active version, the publish order and the live reservations. */
@@ -130,11 +130,22 @@ export class MemoryDeploymentStore implements DeploymentStore {
     return state.versions.includes(version) ? this.deployment(tenantId, botId, version, state) : undefined
   }
 
-  async list(tenantId: string, botId: string, options: { limit?: number } = {}): Promise<Deployment[]> {
+  async list(tenantId: string, botId: string, options: DeploymentListOptions = {}): Promise<Deployment[]> {
     assertDeploymentIds(tenantId, botId)
     const limit = assertListLimit(options.limit, DEFAULT_LIST_LIMIT)
     const state = this.state(tenantId, botId)
-    return state.versions.slice(0, limit).map((version) => this.deployment(tenantId, botId, version, state))
+    return versionsPage(state.versions, limit, options.after).map((version) => this.deployment(tenantId, botId, version, state))
+  }
+
+  async prune(tenantId: string, botId: string, keep: number): Promise<number> {
+    assertDeploymentIds(tenantId, botId)
+    const state = this.bots.get(botKey(tenantId, botId))
+    const doomed = versionsToPrune(state?.versions ?? [], state?.activeVersion ?? null, keep)
+    if (!state || doomed.length === 0) return 0
+    const gone = new Set(doomed)
+    state.versions = state.versions.filter((v) => !gone.has(v))
+    for (const version of doomed) this.versions.delete(versionKey(tenantId, botId, version))
+    return doomed.length
   }
 
   async recordGateRun(run: Omit<GateRun, 'id'>): Promise<GateRun> {

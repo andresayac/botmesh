@@ -25,6 +25,7 @@ import {
   mergeUpsert,
   messageDirection,
   noteId,
+  notesPage,
   upsertAllowed,
 } from './memory.js'
 import type { InboxStore } from './store.js'
@@ -35,6 +36,7 @@ import {
   type InboxConversation,
   type InboxListOptions,
   type InboxNote,
+  type InboxNoteListOptions,
   type InboxPatch,
   type InboxUpsert,
 } from './types.js'
@@ -150,10 +152,27 @@ export class KvInboxStore implements InboxStore {
     return { ...note }
   }
 
-  async listNotes(tenantId: string, conversationId: string, options: { limit?: number } = {}): Promise<InboxNote[]> {
+  async listNotes(tenantId: string, conversationId: string, options: InboxNoteListOptions = {}): Promise<InboxNote[]> {
     assertTenantId(tenantId)
     assertTenantId(conversationId, 'conversationId')
     const limit = assertLimit(options.limit, DEFAULT_NOTES_LIMIT, 'limit')
-    return this.notes.in(tenantId, conversationId).list({ limit })
+    const table = this.notes.in(tenantId, conversationId)
+    if (options.after === undefined) return table.list({ limit })
+    // The backend index only bounds scores from above: read the notes in order, then page.
+    return notesPage(await table.list({ limit: Number.POSITIVE_INFINITY }), limit, options.after)
+  }
+
+  async erase(tenantId: string, conversationId: string): Promise<boolean> {
+    assertTenantId(tenantId)
+    assertTenantId(conversationId, 'conversationId')
+    const notes = this.notes.in(tenantId, conversationId)
+    let erased = false
+    for (;;) {
+      const batch = await notes.list({ limit: 100 })
+      if (batch.length === 0) break
+      for (const note of batch) if (await notes.delete(note.id)) erased = true
+    }
+    if (await this.conversations.in(tenantId).delete(conversationId)) erased = true
+    return erased
   }
 }

@@ -184,5 +184,31 @@ export function runInboxStoreConformance(name: string, harness: InboxStoreHarnes
       await store.addNote('tenant-ñ', '🦜 chat/1:{x}', 'agent-é', 'hola 👋 \u0000 end')
       expect((await store.listNotes('tenant-ñ', '🦜 chat/1:{x}'))[0]?.body).toBe('hola 👋 \u0000 end')
     })
+
+    it('pages notes with an after cursor (the id of the last note seen)', async () => {
+      await store.upsert(open('a', 'c'))
+      const notes = []
+      for (let i = 0; i < 5; i++) { notes.push(await store.addNote('a', 'c', 'agent', `n${i}`)); now += 1 }
+      const page1 = await store.listNotes('a', 'c', { limit: 2 })
+      expect(page1).toEqual(notes.slice(0, 2))
+      const page2 = await store.listNotes('a', 'c', { limit: 2, after: page1[1]!.id })
+      expect(page2).toEqual(notes.slice(2, 4))
+      expect(await store.listNotes('a', 'c', { after: notes[4]!.id })).toEqual([])
+      expect(await store.listNotes('a', 'c', { after: 'unknown-id' })).toEqual([])
+    })
+
+    it('erase removes a conversation and its notes (right to erasure), only in that tenant', async () => {
+      await store.upsert(open('a', 'c'))
+      await store.upsert(open('b', 'c'))
+      await store.addNote('a', 'c', 'agent', 'private')
+      await store.addNote('b', 'c', 'agent', 'kept')
+      expect(await store.erase('a', 'c')).toBe(true)
+      expect(await store.get('a', 'c')).toBeUndefined()
+      expect(await store.listNotes('a', 'c')).toEqual([])
+      expect(await store.list('a')).toEqual([])
+      expect(await store.erase('a', 'c')).toBe(false)
+      expect(await store.get('b', 'c')).toBeDefined()
+      expect((await store.listNotes('b', 'c')).map((n) => n.body)).toEqual(['kept'])
+    })
   })
 }

@@ -105,4 +105,9 @@ export class KvContactStore implements ContactStore {
     if (!written) throw new ContactNotFoundError()
     return cloneContact(written.doc)
   }
+
+  async erase(tenantId: string, id: string): Promise<boolean> {
+    assertContactIds(tenantId, id)
+    return this.contacts.in(tenantId).delete(id)
+  }
 }

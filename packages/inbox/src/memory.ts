@@ -14,6 +14,7 @@ import {
   type ConversationStatus,
   type InboxConversation,
   type InboxListOptions,
+  type InboxNoteListOptions,
   type InboxNote,
   type InboxPatch,
   type InboxUpsert,
@@ -217,10 +218,29 @@ export class MemoryInboxStore implements InboxStore {
     return { ...note }
   }
 
-  async listNotes(tenantId: string, conversationId: string, options: { limit?: number } = {}): Promise<InboxNote[]> {
+  async listNotes(tenantId: string, conversationId: string, options: InboxNoteListOptions = {}): Promise<InboxNote[]> {
     assertTenantId(tenantId)
     assertTenantId(conversationId, 'conversationId')
     const limit = assertLimit(options.limit, DEFAULT_NOTES_LIMIT, 'limit')
-    return (this.notes.get(key(tenantId, conversationId)) ?? []).slice(0, limit).map((note) => ({ ...note }))
+    return notesPage(this.notes.get(key(tenantId, conversationId)) ?? [], limit, options.after).map((note) => ({ ...note }))
   }
+
+  async erase(tenantId: string, conversationId: string): Promise<boolean> {
+    assertTenantId(tenantId)
+    assertTenantId(conversationId, 'conversationId')
+    const k = key(tenantId, conversationId)
+    const hadNotes = this.notes.delete(k)
+    return this.conversations.delete(k) || hadNotes
+  }
+}
+
+/** The page of `notes` (creation order) after the note `after` (`[]` when it is unknown). */
+export function notesPage<T extends { id: string }>(notes: readonly T[], limit: number, after: string | undefined): T[] {
+  let start = 0
+  if (after !== undefined) {
+    const i = notes.findIndex((note) => note.id === after)
+    if (i === -1) return []
+    start = i + 1
+  }
+  return notes.slice(start, start + limit)
 }

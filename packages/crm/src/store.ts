@@ -22,4 +22,6 @@ export interface ContactStore {
    * @throws {ContactNotFoundError} when it does not exist in that tenant.
    */
   setConsent(tenantId: string, id: string, marketingConsent: boolean): Promise<Contact>
+  /** Delete a contact (right to erasure). `true` when it existed in that tenant. */
+  erase(tenantId: string, id: string): Promise<boolean>
 }

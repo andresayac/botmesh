@@ -116,9 +116,9 @@ The same journal can also be a bot's durability backend (`eventsDurability({ jou
 
 ### Inbox and CRM
 
-`@botmesh/inbox` provides optimistic-concurrency assignment (a compare-and-set on `version`), handoff, notes and unread state. Project ledger `StoredMessage` entries with `inbox.projectMessage(message)` so conversations can be rebuilt across channels; `attachInbox(bot, inbox)` does it for a running bot, inbound messages and accepted sends alike, without delaying either; a projection failure goes to the bot's `'error'` event (`{ error }`) or, with nobody listening, to the bot logger. Persist with `new Inbox(new KvInboxStore(kv))`.
+`@botmesh/inbox` provides optimistic-concurrency assignment (a compare-and-set on `version`), handoff, notes and unread state. Project ledger `StoredMessage` entries with `inbox.projectMessage(message)` so conversations can be rebuilt across channels; `attachInbox(bot, inbox)` does it for a running bot, inbound messages and accepted sends alike, without delaying either; a projection failure goes to the bot's `'error'` event (`{ error }`) or, with nobody listening, to the bot logger. Without a `tenantId` option the conversations go under the bot's own tenant (`BotConfig.tenantId`). Persist with `new Inbox(new KvInboxStore(kv))`. Notes are paged with `listNotes(tenant, conversation, { limit, after })` (`after` = the last note id of the previous page), and `inbox.erase(tenant, conversation)` deletes a conversation with its notes (right to erasure; erase the messages in the bot store too).
 
-`@botmesh/crm` stores contact channels, tags, attributes and marketing consent, with rule-based segments (`tagsAll`, `attributes` compared strictly, consent). `ContactDirectory` is async over `MemoryContactStore` or `KvContactStore`; `setConsent` retries concurrent writers instead of overwriting them. Always segment campaigns using tenant-scoped data and consent.
+`@botmesh/crm` stores contact channels, tags, attributes and marketing consent, with rule-based segments (`tagsAll`, `attributes` compared strictly, consent). `ContactDirectory` is async over `MemoryContactStore` or `KvContactStore`; `setConsent` retries concurrent writers instead of overwriting them, and `erase(tenant, id)` deletes a contact (right to erasure). Always segment campaigns using tenant-scoped data and consent.
 
 ### Campaigns, plugins and deployments
 
@@ -126,7 +126,7 @@ The same journal can also be a bot's durability backend (`eventsDurability({ jou
 
 `@botmesh/hub` validates plugin manifests, runtime compatibility and granted permissions before enabling a plugin. Manifests are treated as untrusted JSON (every field is type-checked and unknown permissions are rejected), and enabling re-checks the grants atomically, so a concurrent re-install with more permissions is never enabled without them. Installs and enable/disable are persisted per tenant; it does not execute or sandbox untrusted code by itself.
 
-`@botmesh/deployments` tracks immutable versions and one active deployment per tenant/bot, with reservations for running gates and an audit log of gate runs. Connect it to your deployment system for gradual rollout and physical rollback.
+`@botmesh/deployments` tracks immutable versions and one active deployment per tenant/bot, with reservations for running gates and an audit log of gate runs. `list(tenant, bot, { limit, after })` pages the versions, `prune(tenant, bot, keep)` deletes the ones older than the newest `keep` (never the active one), and `new DeploymentRegistry(store, { retainVersions })` prunes after every publish so the version list stays bounded. Connect it to your deployment system for gradual rollout and physical rollback.
 
 All five share the same storage model: `Memory…Store` (reference), `Kv…Store` over any `DurableKv`, a conformance suite in `test-utils/`, and tenant isolation enforced by the backend table name (`@botmesh/tenant-kv`). Every write is validated before it reaches the backend (a malformed field fails with a `TypeError` naming it), so one bad write can never make a tenant's listings unreadable.
 

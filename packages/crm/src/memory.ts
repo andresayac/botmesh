@@ -153,4 +153,9 @@ export class MemoryContactStore implements ContactStore {
     this.contacts.set(key, next)
     return cloneContact(next)
   }
+
+  async erase(tenantId: string, id: string): Promise<boolean> {
+    assertContactIds(tenantId, id)
+    return this.contacts.delete(contactKey(tenantId, id))
+  }
 }

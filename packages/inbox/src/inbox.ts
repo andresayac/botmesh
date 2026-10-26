@@ -6,7 +6,7 @@
 import type { StoredMessage } from '@botmesh/core'
 import { MemoryInboxStore } from './memory.js'
 import type { InboxStore } from './store.js'
-import type { InboxConversation, InboxListOptions, InboxNote, InboxUpsert } from './types.js'
+import type { InboxConversation, InboxListOptions, InboxNote, InboxNoteListOptions, InboxUpsert } from './types.js'
 
 /**
  * Tenant-isolated inbox over a store. Without a store it keeps everything in memory
@@ -69,8 +69,16 @@ export class Inbox {
   }
 
   /** Notes of a conversation in creation order. */
-  listNotes(tenantId: string, conversationId: string, options?: { limit?: number }): Promise<InboxNote[]> {
+  listNotes(tenantId: string, conversationId: string, options?: InboxNoteListOptions): Promise<InboxNote[]> {
     return this.store.listNotes(tenantId, conversationId, options)
+  }
+
+  /**
+   * Delete a conversation and its notes (right to erasure). `true` when something was
+   * deleted. Messages live in the bot store, not here: erase them there too.
+   */
+  erase(tenantId: string, conversationId: string): Promise<boolean> {
+    return this.store.erase(tenantId, conversationId)
   }
 
   /**
