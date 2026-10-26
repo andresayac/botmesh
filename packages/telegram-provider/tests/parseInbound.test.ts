@@ -198,6 +198,28 @@ describe('parseUpdate', () => {
     if (ev?.kind === 'message') expect(ev.message.mentions).toEqual(['321'])
   })
 
+  // groupMode: 'mentions' compares ctx.mentions with the bot's selfId: an @username mention
+  // of the bot (a 'mention' entity, the usual way to address a bot in a group) must count.
+  it('maps an @username mention of the bot itself to its selfId', () => {
+    const group = { id: -100, type: 'supergroup' as const, title: 'Team' }
+    const parse = (text: string, entities: unknown[]) => {
+      const ev = parseUpdate({ update_id: 10, message: { message_id: 41, date: 1, from: ana, chat: group, text, entities } } as TelegramUpdate, '999', 'MyBot')
+      return ev?.kind === 'message' ? ev.message : undefined
+    }
+    expect(parse('@mybot quiz', [{ type: 'mention', offset: 0, length: 6 }])?.mentions).toEqual(['999'])
+    // A command addressed to this bot (`/rules@MyBot`) is addressed to it as well.
+    const command = parse('/rules@MyBot', [{ type: 'bot_command', offset: 0, length: 12 }])
+    expect(command?.body).toBe('/rules')
+    expect(command?.mentions).toEqual(['999'])
+    // Other users and other bots are not the bot; a bare command mentions nobody.
+    expect(parse('@OtherBot hi @ana', [{ type: 'mention', offset: 0, length: 9 }, { type: 'mention', offset: 13, length: 4 }])?.mentions).toEqual([])
+    expect(parse('/rules@OtherBot', [{ type: 'bot_command', offset: 0, length: 15 }])?.mentions).toEqual([])
+    expect(parse('/rules', [{ type: 'bot_command', offset: 0, length: 6 }])?.mentions).toEqual([])
+    // Without its username (getMe not answered yet) nothing can be matched.
+    const ev = parseUpdate({ update_id: 11, message: { message_id: 42, date: 1, from: ana, chat: group, text: '@mybot hi', entities: [{ type: 'mention', offset: 0, length: 6 }] } } as TelegramUpdate, '999')
+    expect(ev?.kind === 'message' ? ev.message.mentions : undefined).toEqual([])
+  })
+
   it('returns undefined for unsupported update kinds (channel_post)', () => {
     expect(parseUpdate({ update_id: 10, channel_post: { message_id: 1, date: 1, chat: { id: -1, type: 'channel' }, text: 'x' } })).toBeUndefined()
   })

@@ -202,13 +202,27 @@ function mediaOf(msg: TelegramMessage): { type: MessageType; body: string; media
   return { type: 'unknown', body: '' }
 }
 
-function mentionsOf(msg: TelegramMessage): string[] {
+/**
+ * Users the message mentions. A `text_mention` names its user. An `@username`
+ * (`mention` entity) or a command addressed as `/cmd@BotName` (`bot_command`) only
+ * carries a name, so it is resolved when it names THIS bot: its `selfId` is added,
+ * which is what `groupMode: 'mentions'` and `ctx.mentions` compare against.
+ */
+function mentionsOf(msg: TelegramMessage, selfId?: string, botUsername?: string): string[] {
   const ids = new Set<string>()
-  for (const list of [arr(msg.entities), arr(msg.caption_entities)]) {
+  const own = botUsername ? '@' + botUsername.replace(/^@/, '').toLowerCase() : undefined
+  for (const [list, text] of [[arr(msg.entities), str(msg.text)], [arr(msg.caption_entities), str(msg.caption)]] as const) {
     for (const e of list) {
-      if (!isObj(e) || e.type !== 'text_mention') continue
-      const user = userOf(e.user)
-      if (user) ids.add(String(user.id))
+      if (!isObj(e)) continue
+      if (e.type === 'text_mention') {
+        const user = userOf(e.user)
+        if (user) ids.add(String(user.id))
+        continue
+      }
+      if (selfId == null || !own || text === undefined || typeof e.offset !== 'number' || typeof e.length !== 'number') continue
+      const slice = text.slice(e.offset, e.offset + e.length).toLowerCase()
+      if (e.type === 'mention' && slice === own) ids.add(selfId)
+      else if (e.type === 'bot_command' && slice.endsWith(own) && slice.indexOf('@') === slice.length - own.length) ids.add(selfId)
     }
   }
   return [...ids]
@@ -288,7 +302,7 @@ function toMessage(msg: TelegramMessage, updateId: number, selfId?: string, botU
     type,
     body,
     timestamp: secondsToMs(msg.date),
-    mentions: mentionsOf(msg),
+    mentions: mentionsOf(msg, selfId, botUsername),
     quoted,
     media,
     ...(location ? { location } : {}),

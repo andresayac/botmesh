@@ -445,6 +445,11 @@ const hooked = new TelegramProvider({
   `bot.command('menu')`, también en el pie de una foto o un archivo: el
   provider quita el sufijo cuando nombra a este bot (usuario de `getMe`, o la
   opción `username` si pasas `selfId`).
+- **Menciones al bot**: un `@MiBot` en el texto y un comando dirigido como
+  `/menu@MiBot` añaden el `selfId` del bot a `ctx.mentions`, así que
+  `groupMode: 'mentions'` los deja pasar. Las demás menciones `@usuario` no
+  llevan id de usuario y no se listan; un `text_mention` (un usuario sin nombre
+  de usuario) sí.
 - Cada petición a la Bot API tiene timeout de cliente (`requestTimeoutMs`,
   120 s por defecto; el long poll usa `pollTimeoutMs` (30 s por defecto) + 15 s; las subidas de
   archivos, `uploadTimeoutMs`, 5 min por defecto), los errores nunca llevan el

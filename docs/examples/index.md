@@ -21,7 +21,7 @@ example's code and checks its transcript, so what you read is what you get.
    the provider for [Telegram](/guide/getting-started#or-connect-telegram).
    The bot code does not change between channels.
 
-## All examples
+## Beginner
 
 | Example | Level | Tags | Features | What you'll build |
 | --- | --- | --- | --- | --- |
@@ -33,9 +33,20 @@ example's code and checks its transcript, so what you read is what you get.
 | [Media replies](./media) | Beginner | Media | Photo, file, video, voice, sticker, location, contact; `bot.onType()`, `loadMediaOf()` | A bot that sends every media kind and reacts to images |
 | [Reminder bot](./reminders) | Beginner | Scheduler | `bot.delay()`, `bot.schedule()` with time zone, `task.cancel()`, `bot.send()` | One-off reminders and a daily tip at 9:00 |
 | [Registration flow](./registration-flow) | Beginner | Flows, Forms | `.ask()` with `validate`, `.do()`, `c.state`, `.timeout()`, `/cancel` | A validated sign-up that saves the user |
+
+## Intermediate
+
+| Example | Level | Tags | Features | What you'll build |
+| --- | --- | --- | --- | --- |
 | [Shopping flow](./shopping-flow) | Intermediate | Flows | `.choose()`, `then` sub-flows, `goto`, computed state, timeouts | A small shop with quantity, confirmation and address |
 | [Support with timeout](./support-flow) | Intermediate | Conversations | `bot.conversation()`, `c.waitText()`, `c.choose()`, `ConversationTimeout`, `ConversationCancelled` | A support desk that opens tickets and handles abandoned sessions |
 | [Plugin: rate limiter](./rate-limiter) | Intermediate | Plugins, Hooks | `definePlugin()`, `before('message')`, `abort()`, `onDispose()` | A reusable plugin that limits messages per user |
+| [Appointment booking](./appointment-booking) | Intermediate | WhatsApp, Forms, SQLite | `.persistent()`, `.form()`, `validate` + `maxAttempts`, `SQLiteStore`, `ctx.user` | A booking flow that validates, confirms and resumes after a restart |
+| [Order tracking](./order-tracking) | Intermediate | WhatsApp, User data | `ctx.user` namespaces, `bot.conversation()`, `MemoryStore` file | Order lookups that remember what each user follows |
+| [Human handoff](./human-handoff) | Intermediate | WhatsApp, Support | `ctx.handoff()`, `bot.resume()`, handoff events, agent commands, `bot.delay()` | A support bot that passes chats to agents and takes them back |
+| [Multi-language bot](./multi-language) | Intermediate | WhatsApp, Telegram, i18n | `bot.locale()`, `ctx.t()`, `detect`, `ctx.setLang()`, plurals | A bot that answers each user in English or Spanish |
+| [Group bot](./group-bot) | Intermediate | WhatsApp, Telegram, Groups | per-participant conversations, `scope`, mentions, `groupMode`, admin-only commands | A group quiz with a scoreboard and admin commands |
+| [WhatsApp and Telegram at once](./whatsapp-and-telegram) | Intermediate | WhatsApp, Telegram, SQLite | `defineBot`, two providers, store namespaces, stable ids | One bot file serving two channels from one process |
 
 The bot code of every example is the same on WhatsApp (Baileys) and
 Telegram: only the provider changes. Where a channel renders something

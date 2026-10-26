@@ -430,6 +430,11 @@ const hooked = new TelegramProvider({
   `bot.command('menu')`, also in a media caption: the provider drops the
   suffix when it names this bot (username from `getMe`, or the `username`
   option when you pass `selfId`).
+- **Mentions of the bot**: an `@MyBot` in the text and a command addressed as
+  `/menu@MyBot` put the bot's `selfId` in `ctx.mentions`, so
+  `groupMode: 'mentions'` lets them through. Other `@username` mentions carry
+  no user id and are not listed; a `text_mention` (a user without username)
+  is.
 - Every Bot API request has a client timeout (`requestTimeoutMs`, 120 s by
   default; long polls get `pollTimeoutMs` (30 s by default) + 15 s; file uploads get
   `uploadTimeoutMs`, 5 min by default), errors never carry the bot token, a
