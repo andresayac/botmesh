@@ -590,7 +590,9 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
 - Every message the provider sends carries `allowed_mentions` (default
   `{ parse: ['users'] }`, option `allowedMentions`), so echoed text cannot ping
   `@everyone`, `@here` or a role; `SendOptions.mentions`,
-  `platformData.allowed_mentions` and `native` payloads override it.
+  `platformData.allowed_mentions` and `native` payloads override it. A quoted
+  reply still pings the replied author (`replied_user: true`; set
+  `allowedMentions.replied_user: false` to reply silently).
 - Ids go into REST URLs percent-encoded, and an empty, `.` or `..` id rejects
   with `ProviderError`: a crafted id never reaches another route. Native poll
   votes are not delivered as events.

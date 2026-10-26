@@ -256,8 +256,9 @@ export class DiscordProvider implements IProvider<unknown> {
 
   async start(): Promise<void> {
     // A second start() replaces the session instead of leaving the first socket and its timers running.
-    if (this.gateway) await this.gateway.stop()
-    this.gateway = new GatewaySocket({
+    // The new gateway is installed synchronously so overlapping start()/stop() calls never orphan one.
+    const previous = this.gateway
+    const gateway = new GatewaySocket({
       token: this.config.token,
       intents: this.config.intents,
       gatewayUrl: this.config.gatewayUrl,
@@ -267,13 +268,19 @@ export class DiscordProvider implements IProvider<unknown> {
       dispatch: (t, d) => this.onGatewayDispatch(t, d),
       connection: (update) => this.fan({ kind: 'connection', update }),
     })
-    await this.gateway.connect()
+    this.gateway = gateway
+    await previous?.stop()
+    // Superseded by a later start() or cancelled by stop() while the previous gateway closed.
+    if (this.gateway !== gateway) return
+    await gateway.connect()
   }
 
   async stop(): Promise<void> {
     this.presenceReady = false
-    await this.gateway?.stop()
+    // Detach first, so a start() still closing its predecessor sees it was cancelled.
+    const gateway = this.gateway
     this.gateway = null
+    await gateway?.stop()
     for (const entry of this.interactions.values()) if (entry.timer) clearTimeout(entry.timer)
     this.interactions.clear()
   }
@@ -412,13 +419,16 @@ export class DiscordProvider implements IProvider<unknown> {
         fail_if_not_exists: false,
       }
     }
+    // A provider-built allowed_mentions on a reply keeps Discord's usual ping of the replied
+    // author (`replied_user` defaults to false once allowed_mentions is present).
+    const repliedUser = options?.quoted ? (this.allowedMentions.replied_user ?? true) : undefined
     if (options?.mentions?.length) {
-      payload.allowed_mentions = { users: options.mentions }
+      payload.allowed_mentions = { users: options.mentions, ...(repliedUser !== undefined ? { replied_user: repliedUser } : {}) }
     }
     if (options?.platformData) Object.assign(payload, options.platformData)
     // Echoed text must not ping @everyone/@here/roles unless the bot opts in (native payloads are verbatim).
     if (content.kind !== 'native' && payload.allowed_mentions === undefined) {
-      payload.allowed_mentions = structuredClone(this.allowedMentions)
+      payload.allowed_mentions = { ...structuredClone(this.allowedMentions), ...(repliedUser !== undefined ? { replied_user: repliedUser } : {}) }
     }
 
     // Reply INTO an interaction (Discord followup) when we can.

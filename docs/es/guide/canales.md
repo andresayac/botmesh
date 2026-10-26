@@ -614,7 +614,9 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
   `{ parse: ['users'] }`, opción `allowedMentions`), así que un texto que el bot
   repite no puede mencionar a `@everyone`, `@here` ni a un rol;
   `SendOptions.mentions`, `platformData.allowed_mentions` y los payloads `native`
-  lo sustituyen.
+  lo sustituyen. Una respuesta citada sigue notificando al autor del mensaje
+  citado (`replied_user: true`; `allowedMentions.replied_user: false` responde
+  sin notificar).
 - Los ids van en las URLs REST codificados, y un id vacío, `.` o `..` rechaza
   con `ProviderError`: un id manipulado nunca llega a otra ruta. Los votos de las
   encuestas nativas no llegan como eventos.

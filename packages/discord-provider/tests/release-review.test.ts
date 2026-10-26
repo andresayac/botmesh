@@ -93,6 +93,30 @@ describe('mentions are safe by default', () => {
     expect((calls[0]!.body as Record<string, unknown>)['allowed_mentions']).toEqual({ parse: ['users'] })
   })
 
+  it('a quoted reply still pings the replied author by default', async () => {
+    const calls = mockFetch()
+    const p = provider()
+    await p.send('C1', { kind: 'text', text: 'hi' }, { quoted: { id: 'M1', chatId: 'C1' } })
+    await p.send('C1', { kind: 'text', text: 'yo' }, { quoted: { id: 'M1', chatId: 'C1' }, mentions: ['U2'] })
+    await p.send('C1', { kind: 'text', text: 'plain' })
+    expect(calls.map((c) => (c.body as Record<string, unknown>)['allowed_mentions'])).toEqual([
+      { parse: ['users'], replied_user: true },
+      { users: ['U2'], replied_user: true },
+      { parse: ['users'] },
+    ])
+  })
+
+  it('allowedMentions.replied_user: false opts quoted replies out of the ping', async () => {
+    const calls = mockFetch()
+    const p = provider({ allowedMentions: { parse: ['users'], replied_user: false } })
+    await p.send('C1', { kind: 'text', text: 'hi' }, { quoted: { id: 'M1', chatId: 'C1' } })
+    await p.send('C1', { kind: 'text', text: 'yo' }, { quoted: { id: 'M1', chatId: 'C1' }, mentions: ['U2'] })
+    expect(calls.map((c) => (c.body as Record<string, unknown>)['allowed_mentions'])).toEqual([
+      { parse: ['users'], replied_user: false },
+      { users: ['U2'], replied_user: false },
+    ])
+  })
+
   it('allowedMentions configures the default; explicit mentions and platformData still win', async () => {
     const calls = mockFetch()
     const p = provider({ allowedMentions: { parse: ['users', 'roles', 'everyone'] } })
@@ -163,6 +187,31 @@ describe('lifecycle', () => {
     await p.start()
     const open = sockets.filter((s) => s.closedWith.length === 0)
     expect(open.length).toBe(1)
+  })
+
+  it('overlapping start() calls leave exactly one gateway, and stop() closes it', async () => {
+    const { sockets, factory } = fakeSocketFactory()
+    const p = new DiscordProvider({ token: 'TOK', socketFactory: factory, reconnectDelayMs: 0 })
+    live.push(p)
+    const events: string[] = []
+    p.onEvent((e) => { if (e.kind === 'message') events.push(e.kind) })
+    await Promise.all([p.start(), p.start(), p.start()])
+    expect(sockets.filter((s) => s.closedWith.length === 0).length).toBe(1)
+    await p.stop()
+    expect(sockets.filter((s) => s.closedWith.length === 0).length).toBe(0)
+    for (const s of sockets) {
+      s.serverSend({ op: 0, t: 'MESSAGE_CREATE', s: 5, d: { id: 'M9', channel_id: 'C1', content: 'hi', author: { id: 'U1' } } })
+    }
+    expect(events).toEqual([])
+  })
+
+  it('stop() while start() is still replacing the previous gateway leaves nothing open', async () => {
+    const { sockets, factory } = fakeSocketFactory()
+    const p = new DiscordProvider({ token: 'TOK', socketFactory: factory, reconnectDelayMs: 0 })
+    live.push(p)
+    await p.start()
+    await Promise.all([p.start(), p.stop()])
+    expect(sockets.filter((s) => s.closedWith.length === 0).length).toBe(0)
   })
 
   it('frames from a superseded socket (no removeAllListeners) are ignored', async () => {

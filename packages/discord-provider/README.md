@@ -148,6 +148,10 @@ still notify, `@everyone`, `@here` and role mentions do not.
 - `SendOptions.mentions` sends `{ users: [...] }` (only those users),
   `platformData.allowed_mentions` replaces it for one send, and a `native`
   payload is sent exactly as written.
+- A reply (`ctx.quote()`, `SendOptions.quoted`) still pings the author of the
+  replied message: the provider adds `replied_user: true`, because Discord turns
+  that ping off once `allowed_mentions` is present. Set
+  `allowedMentions: { parse: ['users'], replied_user: false }` to reply silently.
 
 ## Typed errors
 

@@ -156,7 +156,7 @@ describe('DiscordProvider — REST outbound', () => {
     await p.send('C1', { kind: 'text', text: 're' }, { quoted: { id: 'M1', chatId: 'C1' }, mentions: ['U1'] })
     const body = JSON.parse(calls[0].init!.body as string)
     expect(body.message_reference).toMatchObject({ message_id: 'M1', channel_id: 'C1' })
-    expect(body.allowed_mentions).toEqual({ users: ['U1'] })
+    expect(body.allowed_mentions).toEqual({ users: ['U1'], replied_user: true })
   })
 
   it('send image uploads multipart (files[0] + payload_json)', async () => {
