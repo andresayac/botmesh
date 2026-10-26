@@ -73,7 +73,7 @@ The guides are not bundled in the package; the flow tools work without them.
 import { createMcpServer, serveStream } from '@botmesh/mcp'
 
 const server = createMcpServer({ docsDir: 'docs' })
-await serveStream(process.stdin, { server, write: (line) => process.stdout.write(`${line}\n`) })
+await serveStream(process.stdin, { server, write: (line) => { process.stdout.write(`${line}\n`) } })
 ```
 
 | Export | What it is for |

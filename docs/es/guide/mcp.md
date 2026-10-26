@@ -59,7 +59,7 @@ En VS Code el repo ya trae `.vscode/mcp.json`: ejecuta `pnpm build` una vez y ar
 import { createMcpServer, serveStream } from '@botmesh/mcp'
 
 const server = createMcpServer({ docsDir: 'docs' })
-await serveStream(process.stdin, { server, write: (line) => process.stdout.write(`${line}\n`) })
+await serveStream(process.stdin, { server, write: (line) => { process.stdout.write(`${line}\n`) } })
 ```
 
 La entrada principal (`createMcpServer`, `serveStream`, `runStdio`, las revisiones del protocolo, la identidad del servidor y `EXAMPLE_FLOW_DOCUMENT`) sigue semver; el framing JSON-RPC, el catálogo de herramientas y la búsqueda en la documentación viven en `@botmesh/mcp/internal`, sin garantía semver.

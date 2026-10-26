@@ -93,7 +93,8 @@ Todo esto es opt-in: sin la opción, el bot funciona exactamente igual que antes
 
 Los paquetes de npm son `@botmesh/core`, `@botmesh/baileys`, `@botmesh/meta`,
 `@botmesh/telegram`, `@botmesh/sqlite-store`, `@botmesh/redis-store`,
-`@botmesh/ai`, `@botmesh/http`, `@botmesh/graph-core` y `create-botmesh`.
+`@botmesh/ai`, `@botmesh/http`, `@botmesh/graph-core`, `@botmesh/flow-schema`,
+`@botmesh/mcp`, `eslint-plugin-botmesh` y `create-botmesh`.
 Algunas páginas describen además paquetes que de momento solo están en el
 [repositorio](https://github.com/andresayac/botmesh/tree/main/packages) (los
 stores de PostgreSQL, MySQL y MongoDB, `@botmesh/server`, `@botmesh/otel`,
