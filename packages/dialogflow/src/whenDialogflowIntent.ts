@@ -18,6 +18,7 @@ import {
 } from '@botmesh/core'
 import type { DialogflowResult } from './client.js'
 import type { DialogflowContext } from './context.js'
+import { checkConfidence } from './validate.js'
 
 /** Handler for an intent-matched message; receives the context plus the Dialogflow result. */
 export type DialogflowIntentHandler = (ctx: MessageContext, result: DialogflowResult) => unknown | Promise<unknown>
@@ -93,6 +94,10 @@ export function whenDialogflowIntent(
   opts: WhenDialogflowIntentOptions = {},
 ): () => void {
   const intents = typeof intent === 'string' ? [intent] : [...intent]
+  if (intents.length === 0 || intents.some((name) => typeof name !== 'string' || !name)) {
+    throw new TypeError(`whenDialogflowIntent(${JSON.stringify(intents)}): intent must be a non-empty display name or a non-empty list of them`)
+  }
+  checkConfidence(opts.minConfidence)
   const predicate = (c: { body: string; isGroup: boolean }) => df.matches(df.resultFor(c), intents, opts.minConfidence)
 
   let unsub: () => void

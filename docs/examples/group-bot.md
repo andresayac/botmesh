@@ -29,7 +29,7 @@ npm install @botmesh/core @botmesh/baileys
 
 ```js
 // bot.js
-import { Bot, defineBot, flow, isMainModule } from '@botmesh/core'
+import { Bot, defineBot, flow, isMainModule, slashCommandsPlugin } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'
 
 // Bot admins: their user ids, as /id shows them (WhatsApp: 573001234567@s.whatsapp.net)
@@ -43,6 +43,7 @@ const createBot = defineBot((provider) => {
   const scores = new Map() // group id → Map(name → points)
   const isAdmin = (ctx) => ADMINS.includes(ctx.sender)
   const nameOf = (ctx) => ctx.pushName ?? ctx.sender
+  bot.plug(slashCommandsPlugin) // /id, /help, /cancel...
 
   // 2. A quiz per participant: two people can play at the same time
   bot.use(
@@ -113,7 +114,9 @@ if (isMainModule(import.meta)) {
    the group they are sent in.
 4. **Admin-only commands.** The bot checks `ctx.sender` against `ADMINS`. These
    are the bot's admins, not the group's: botmesh does not read a group's
-   admin list, so keep yours in configuration (send `/id` to learn an id).
+   admin list, so keep yours in configuration. `/id` (from
+   `slashCommandsPlugin`) shows the id of the chat it is sent in: in a DM with
+   the bot that is your user id; in a group, the group id.
 5. **Mentions.** `ctx.mentions` lists the users a message mentions, and
    `provider.selfId` is the bot's own id once connected. The catch-all checks
    them, and it only sees what no other handler took, so `@bot quiz` still
@@ -197,7 +200,7 @@ with a DM-only catch-all instead.
 
 ## Run it on WhatsApp or Telegram
 
-Set `ADMINS` to your id (send `/id` to the bot to see it), start the bot with
+Set `ADMINS` to your id (send `/id` to the bot in a DM to see it), start the bot with
 `node bot.js`, scan the QR from **WhatsApp → Linked devices** and add the
 bot's number to a group. On Telegram, install `@botmesh/telegram`, swap the
 provider as in [Or connect Telegram](/guide/getting-started#or-connect-telegram)

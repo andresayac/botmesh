@@ -42,7 +42,7 @@ botmesh is ESM-only. Use `import`, and add `"type": "module"` to your `package.j
 
 ### `pnpm add @botmesh/core` installs an old prerelease
 
-During the prerelease, npm's `latest` tag can lag behind: it still points at the first version published under that name, while newer builds go out under the `alpha` (later `beta`) dist-tag. A plain `pnpm add @botmesh/core` then installs that old build, and a project that mixes it with newer packages can fail on missing exports or peer ranges. Check the tags with `pnpm view @botmesh/core dist-tags` and install with the prerelease tag to get the newest build, for example `pnpm add @botmesh/core@alpha @botmesh/baileys@alpha` (or `@beta` during the beta). Once the stable release ships, `latest` is the stable line and the tag is no longer needed. See [Installation](./getting-started).
+During the prerelease, npm's `latest` tag lags behind: it still points at the first version published under that name (an early alpha for the packages that were already on npm), while newer builds go out under the `beta` dist-tag. A plain `pnpm add @botmesh/core` then installs that old build, and a project that mixes it with newer packages can fail on missing exports or peer ranges. Check the tags with `pnpm view @botmesh/core dist-tags` and install with the prerelease tag to get the newest build, for example `pnpm add @botmesh/core@beta @botmesh/baileys@beta`. Once the stable release ships, `latest` is the stable line and the tag is no longer needed. See [Installation](./getting-started).
 
 ## WhatsApp Web (Baileys)
 
@@ -113,7 +113,7 @@ More than 24 hours passed since the user's last message, and Meta only accepts a
 
 A test number can only write to the numbers listed under API setup → "To" in the Meta dashboard (Graph code `131030`). Add the recipient there.
 
-### "check the token" / "check the configured id"
+### "the access token is invalid or expired" / "check the configured phone number id"
 
 Graph code `190` is an invalid or expired access token: use a permanent system-user token with `whatsapp_business_messaging`. Code `100`/`33` means the `phoneNumberId` does not exist or the token cannot reach it: copy the **phone number id** from API setup (it is not the phone number).
 

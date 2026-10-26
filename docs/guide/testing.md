@@ -50,9 +50,9 @@ import { flow } from '@botmesh/core'
 import { createTestBot } from '@botmesh/core/testing'
 
 const { bot, provider, chat } = await createTestBot()
-bot.use(flow('hola').ask('Your name?', 'name').say((_ctx, c) => `Hi ${c.state.name}`))
+bot.use(flow('hi').ask('Your name?', 'name').say((_ctx, c) => `Hi ${c.state.name}`))
 
-await chat.send('hola')
+await chat.send('hi')
 await chat.expectReply('Your name?')
 await chat.send('Ana')
 await chat.expectReply(/Hi Ana/)
@@ -115,7 +115,7 @@ const ana = dm('ana@s.whatsapp.net', { displayName: 'Ana' })      // another DM
 const team = group('team@g.us', { as: 'ana@s.whatsapp.net' })     // a group, driven by Ana
 const beto = team.as('beto@s.whatsapp.net', { displayName: 'Beto' })  // same group, another participant
 
-await team.send('hola'); await beto.send('hola')
+await team.send('hi'); await beto.send('hi')
 await team.expectReply('Your name?'); await beto.expectReply('Your name?')
 ```
 
@@ -132,7 +132,7 @@ another DM. `provider.journal` holds the events every view emitted, ready for
 expect(chat.transcript()).toMatchSnapshot()
 
 chat.transcript({ as: 'text' })
-// user@s.whatsapp.net> hola
+// user@s.whatsapp.net> hi
 // bot< Your name?
 ```
 
@@ -184,8 +184,8 @@ const { bot, provider, chaos } = await createTestBot({}, {
     aliases: { map: { '573001@s.whatsapp.net': ['999@lid'] }, strategy: 'cycle' },
   },
 })
-bot.when('hola', async (ctx) => await ctx.reply('👋'))
-provider.incoming('hola', { from: 'u1' })   // keep driving the mock
+bot.when('hi', async (ctx) => await ctx.reply('👋'))
+provider.incoming('hi', { from: 'u1' })   // keep driving the mock
 await chaos.settle()                        // wait for pending deliveries (real timers)
 ```
 

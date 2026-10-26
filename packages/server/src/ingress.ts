@@ -24,8 +24,9 @@ function json(status: number, value: unknown): IngressResponse {
   return { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }, body: JSON.stringify(value) }
 }
 
+/** A final HTTP status: 1xx codes are informational and cannot end a response. */
 function isStatus(value: unknown): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 100 && value <= 599
+  return typeof value === 'number' && Number.isInteger(value) && value >= 200 && value <= 599
 }
 
 function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
@@ -34,16 +35,42 @@ function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
 
 function positive(name: string, value: number | undefined, fallback: number): number {
   if (value === undefined) return fallback
-  if (!Number.isFinite(value) || value <= 0) throw new TypeError(`@botmesh/server: ${name} must be a positive number`)
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) throw new TypeError(`@botmesh/server: ${name} must be a positive number`)
   return value
+}
+
+/** Largest delay `setTimeout` honours; anything above is silently clamped to 1 ms. */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1
+
+function timeoutMs(name: string, value: number | undefined, fallback: number): number {
+  const ms = positive(name, value, fallback)
+  if (ms > MAX_TIMEOUT_MS) throw new TypeError(`@botmesh/server: ${name} must be at most ${MAX_TIMEOUT_MS} ms (about 24.8 days)`)
+  return ms
 }
 
 // RFC 9110 token for header names; values may not contain CR, LF or NUL (nor other controls but HTAB).
 const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/
 const HEADER_VALUE = /^[\t\x20-\x7e\x80-\xff]*$/
 
-function validHeader([name, value]: [string, unknown]): boolean {
-  return typeof value === 'string' && HEADER_NAME.test(name) && HEADER_VALUE.test(value)
+/**
+ * Framing and hop-by-hop headers the adapters own: letting `ingest()` set them would produce a
+ * second `Content-Length`, or one that contradicts `Transfer-Encoding`, which clients reject.
+ */
+const RESERVED_HEADERS = new Set([
+  'content-length', 'transfer-encoding', 'connection', 'keep-alive', 'upgrade',
+  'proxy-connection', 'te', 'trailer',
+])
+
+/** Valid, non-reserved headers from an `ingest()` result, with lowercase names (they replace ours). */
+function resultHeaders(headers: unknown): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (!headers || typeof headers !== 'object') return out
+  for (const [name, value] of Object.entries(headers as Record<string, unknown>)) {
+    if (typeof value !== 'string' || !HEADER_NAME.test(name) || !HEADER_VALUE.test(value)) continue
+    const key = name.toLowerCase()
+    if (!RESERVED_HEADERS.has(key)) out[key] = value
+  }
+  return out
 }
 
 /** Map whatever `ingest` returned to a response. */
@@ -52,9 +79,7 @@ function fromIngestResult(result: unknown): IngressResponse {
   if (result && typeof result === 'object') {
     const { status, body, headers } = result as { status?: unknown; body?: unknown; headers?: unknown }
     const code = isStatus(status) ? status : 200
-    const extraHeaders = headers && typeof headers === 'object' ? Object.fromEntries(
-      Object.entries(headers as Record<string, unknown>).filter(validHeader),
-    ) as Record<string, string> : {}
+    const extraHeaders = resultHeaders(headers)
     let res: IngressResponse
     if (body === undefined || body === null) res = text(code, '')
     else if (typeof body === 'string') res = text(code, body)
@@ -91,9 +116,17 @@ function contentLength(headers: IngressRequest['headers']): number | undefined {
  * ```
  */
 export function createIngress(options: IngressOptions): Ingress {
+  if (!options || typeof options !== 'object') throw new TypeError('@botmesh/server: createIngress() needs an options object: createIngress({ routes: [{ path, provider }] })')
+  if (!Array.isArray(options.routes)) throw new TypeError('@botmesh/server: options.routes must be an array of { path, provider } (use [] for health endpoints only)')
+  if (options.bot !== undefined && typeof options.bot?.getConnectionState !== 'function') {
+    throw new TypeError('@botmesh/server: bot must have a getConnectionState() method (pass the Bot instance)')
+  }
+  if (options.readiness !== undefined && typeof options.readiness !== 'function') {
+    throw new TypeError('@botmesh/server: readiness must be a function returning a boolean or a Promise<boolean>')
+  }
   const maxBodyBytes = positive('maxBodyBytes', options.maxBodyBytes, DEFAULT_MAX_BODY_BYTES)
-  const bodyTimeoutMs = positive('bodyTimeoutMs', options.bodyTimeoutMs, DEFAULT_BODY_TIMEOUT_MS)
-  const ingestTimeoutMs = positive('ingestTimeoutMs', options.ingestTimeoutMs, DEFAULT_INGEST_TIMEOUT_MS)
+  const bodyTimeoutMs = timeoutMs('bodyTimeoutMs', options.bodyTimeoutMs, DEFAULT_BODY_TIMEOUT_MS)
+  const ingestTimeoutMs = timeoutMs('ingestTimeoutMs', options.ingestTimeoutMs, DEFAULT_INGEST_TIMEOUT_MS)
   const maxConcurrent = positive('maxConcurrent', options.maxConcurrent, DEFAULT_MAX_CONCURRENT)
   const logger = options.logger ?? silentLogger
   const healthPath = options.healthPath === false ? undefined : normalizePath(options.healthPath ?? '/healthz')
@@ -102,12 +135,17 @@ export function createIngress(options: IngressOptions): Ingress {
   const routes = new Map<string, IngressRoute>()
   const reserved = new Set([healthPath, readyPath].filter((p): p is string => !!p))
   for (const p of reserved) if (!p.startsWith('/')) throw new TypeError(`@botmesh/server: health path "${p}" must start with "/"`)
-  for (const route of options.routes) {
+  if (healthPath !== undefined && healthPath === readyPath) throw new TypeError(`@botmesh/server: duplicate path "${healthPath}" (healthPath and readyPath must differ)`)
+  for (const [index, route] of options.routes.entries()) {
+    if (!route || typeof route !== 'object') throw new TypeError(`@botmesh/server: routes[${index}] must be an object { path, provider }`)
     if (typeof route.path !== 'string' || !route.path.startsWith('/')) {
       throw new TypeError(`@botmesh/server: route path "${String(route.path)}" must start with "/"`)
     }
     if (typeof route.provider?.ingest !== 'function') {
       throw new TypeError(`@botmesh/server: provider for "${route.path}" has no ingest() — socket providers (Baileys, Discord gateway) need no ingress`)
+    }
+    if (route.body !== undefined && route.body !== 'buffer' && route.body !== 'text') {
+      throw new TypeError(`@botmesh/server: body of "${route.path}" must be 'buffer' or 'text', got ${JSON.stringify(route.body)}`)
     }
     if (route.maxBodyBytes !== undefined) positive(`maxBodyBytes of "${route.path}"`, route.maxBodyBytes, 0)
     const path = normalizePath(route.path)
@@ -124,9 +162,19 @@ export function createIngress(options: IngressOptions): Ingress {
     if (inflight === 0) for (const w of [...idleWaiters]) w()
   }
 
+  /** The bot's connection state, or undefined when there is no bot or reading it threw. */
+  function connectionState(): string | undefined {
+    if (!options.bot) return undefined
+    try { return String(options.bot.getConnectionState()) }
+    catch (err) {
+      logger.warn({ errName: errName(err) }, 'ingress could not read the bot connection state')
+      return undefined
+    }
+  }
+
   async function isReady(): Promise<boolean> {
     if (closing) return false
-    if (options.bot && options.bot.getConnectionState() !== 'ready') return false
+    if (options.bot && connectionState() !== 'ready') return false
     if (options.readiness) {
       try { return (await options.readiness()) === true }
       catch (err) {
@@ -140,7 +188,8 @@ export function createIngress(options: IngressOptions): Ingress {
   async function readiness(): Promise<IngressResponse> {
     const ready = await isReady()
     const body: Record<string, unknown> = { status: ready ? 'ready' : 'not_ready' }
-    if (options.bot) body.connection = options.bot.getConnectionState()
+    const connection = connectionState()
+    if (connection !== undefined) body.connection = connection
     if (closing) body.draining = true
     return json(ready ? 200 : 503, body)
   }
@@ -277,13 +326,17 @@ export function createIngress(options: IngressOptions): Ingress {
       }
     },
     close(opts) {
+      const limit = opts?.timeoutMs
+      if (limit !== undefined && (typeof limit !== 'number' || !Number.isFinite(limit) || limit < 0 || limit > MAX_TIMEOUT_MS)) {
+        return Promise.reject(new TypeError(`@botmesh/server: close() timeoutMs must be a number between 0 and ${MAX_TIMEOUT_MS}`))
+      }
       closing = true
       if (inflight === 0) return Promise.resolve()
       return new Promise<void>((resolve) => {
         let timer: NodeJS.Timeout | undefined
         const finish = () => { clearTimeout(timer); idleWaiters.delete(finish); resolve() }
         idleWaiters.add(finish)
-        if (opts?.timeoutMs !== undefined) timer = setTimeout(finish, opts.timeoutMs)
+        if (limit !== undefined) timer = setTimeout(finish, limit)
       })
     },
   }

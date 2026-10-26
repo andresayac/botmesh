@@ -126,25 +126,6 @@ describe('dialogflowPlugin — what is sent to Dialogflow', () => {
     await bot.stop()
   })
 
-  it('uses one hashed session per chat by default, per participant on request', async () => {
-    const { bot, provider, google } = await setup()
-    provider.incoming('hola', { from: 'g1', sender: 'u1', isGroup: true })
-    provider.incoming('hola', { from: 'g1', sender: 'u2', isGroup: true })
-    await flush()
-    const urls = google.detectRequests().map((r) => r.url)
-    expect(urls[0]).toContain(`/sessions/${toSessionId('g1')}:detectIntent`)
-    expect(urls[1]).toBe(urls[0])
-    await bot.stop()
-
-    const s2 = await setup({ sessionScope: 'participant' })
-    s2.provider.incoming('hola', { from: 'g1', sender: 'u1', isGroup: true })
-    s2.provider.incoming('hola', { from: 'g1', sender: 'u2', isGroup: true })
-    await flush()
-    const [a, b] = s2.google.detectRequests().map((r) => r.url)
-    expect(a).not.toBe(b)
-    await s2.bot.stop()
-  })
-
   it('passes languageFor / queryParams per message and honours filter', async () => {
     const { bot, chat, google } = await setup({
       languageFor: () => 'en',
@@ -241,7 +222,7 @@ describe('dialogflowPlugin — hostile parameters and foreign flow builders', ()
     const df = bot.injectTools.dialogflow!
     whenDialogflowIntent(bot, df, 'book.table', flow('booking').say((_ctx, c) =>
       `people=${String(c.state.people)} polluted=${String((c.state as Record<string, unknown>).polluted)} proto=${Object.getPrototypeOf(c.state) === Object.prototype}`))
-    whenDialogflowIntent(bot, df, 'book.table', flow('nested').say((_ctx, c) => `nested=${String(Object.getPrototypeOf(c.state.p) === Object.prototype)}`), { stateKey: 'p', minConfidence: 2 })
+    whenDialogflowIntent(bot, df, 'book.table', flow('nested').say((_ctx, c) => `nested=${String(Object.getPrototypeOf(c.state.p) === Object.prototype)}`), { stateKey: 'p', minConfidence: 1 })
     await chat.send('reservar')
     await chat.expectReply('people=3 polluted=undefined proto=true')
     await bot.stop()

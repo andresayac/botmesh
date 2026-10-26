@@ -57,11 +57,11 @@ import {
   type UserId,
   type JsonValue,
 } from '@botmesh/core'
-import { domainOf, looksLikeAddress, normalizeAddress, type EmailAddress } from './address.js'
+import { domainOf, hasUnsafeAddressChars, looksLikeAddress, normalizeAddress, type EmailAddress } from './address.js'
 import { isAuthenticated } from './auth.js'
 import { detectBounce } from './bounce.js'
 import { composeContent, singleLine, type ResolvedMedia } from './compose.js'
-import { toEmailError } from './errors.js'
+import { tlsReason, toEmailError } from './errors.js'
 import { htmlToText } from './html.js'
 import { ImapIngress, isAuthError, type ImapMessageMeta } from './imap.js'
 import { loadModule } from './loadModule.js'
@@ -84,6 +84,8 @@ const DEFAULT_CACHE_BYTES = 32 * 1024 * 1024
 const DEFAULT_FLOOD = { max: 30, windowMs: 3_600_000 }
 const DEFAULT_MAX_INBOUND_BYTES = 40 * 1024 * 1024
 const MAX_SUPPRESSED = 10_000
+/** How far in the future a sender's `Date` header may be (clock skew) before the receive time is used. */
+const MAX_CLOCK_SKEW_MS = 5 * 60_000
 
 /** Why `ingest()` / IMAP processing did not emit a message. */
 export type EmailSkipReason = AutomatedReason | 'self' | 'bounce' | 'flood' | 'invalid' | 'too-large' | 'unauthenticated'
@@ -94,6 +96,14 @@ export interface EmailIngestResult {
   accepted: boolean
   reason?: EmailSkipReason
 }
+
+/**
+ * A Message-ID (without brackets) that is safe and meaningful in `In-Reply-To` / `References`:
+ * not the synthetic id of mail that had none, and nothing that could break out of `<...>`.
+ * As lenient as inbound parsing, so legacy ids without "@" and quoted local parts still thread.
+ */
+const isPlainMessageId = (id: string): boolean =>
+  id.length > 0 && id.length <= 998 && !id.startsWith('synthetic-') && !/[<>\s\u0000-\u001f\u007f]/.test(id)
 
 const digestOf = (bytes: Buffer): string => createHash('sha256').update(bytes).digest('hex').slice(0, 32)
 
@@ -283,8 +293,25 @@ export class EmailProvider implements IProvider<EmailRaw> {
       const detail = err instanceof Error ? err.message : String(err)
       this.emitConnection('closed', isAuthError(err) ? 'sessionInvalid' : 'transient', detail)
       if (err instanceof ProviderError) throw err
-      throw new ProviderError(isAuthError(err) ? `IMAP authentication failed: ${detail}` : `Email provider failed to start: ${detail}`)
+      throw new ProviderError(this.startErrorMessage(err, detail))
     }
+  }
+
+  /** An actionable message for a failed IMAP connect / select. */
+  private startErrorMessage(err: unknown, detail: string): string {
+    if (isAuthError(err)) return `IMAP authentication failed: ${detail}`
+    const imap = this.config.imap
+    const tls = tlsReason(err)
+    if (tls) {
+      const where = imap ? ` with ${imap.host}:${imap.port ?? 993}` : ''
+      return `IMAP ${tls}${where}: the port probably expects plain text or STARTTLS; set imap.secure: false (implicit TLS is port 993)`
+    }
+    const e = (typeof err === 'object' && err !== null ? err : {}) as { responseText?: unknown; mailboxMissing?: unknown }
+    const server = typeof e.responseText === 'string' && e.responseText ? e.responseText : undefined
+    if (e.mailboxMissing === true) {
+      return `IMAP mailbox "${imap?.mailbox ?? 'INBOX'}" cannot be selected${server ? ` (${server})` : ''}: check imap.mailbox`
+    }
+    return `Email provider failed to start: ${detail}${server && !detail.includes(server) ? ` (${server})` : ''}`
   }
 
   async stop(): Promise<void> {
@@ -422,7 +449,11 @@ export class EmailProvider implements IProvider<EmailRaw> {
     const body = stripped || (media ? '' : email.subject)
     const type: MessageType = media ? media.kind : 'text'
     // Epoch ms: the Date header, else the IMAP INTERNALDATE, else the receive time (never 0 or NaN).
-    const timestamp = [email.date?.getTime(), meta?.internalDate?.getTime()].find((t) => t !== undefined && Number.isFinite(t) && t > 0) ?? Date.now()
+    // The Date header is written by the sender: one in the future (a wrong clock or a forgery)
+    // falls back to the receive time, so it cannot reorder the chat's history.
+    const now = Date.now()
+    const timestamp = [email.date?.getTime(), meta?.internalDate?.getTime()]
+      .find((t) => t !== undefined && Number.isFinite(t) && t > 0 && t <= now + MAX_CLOCK_SKEW_MS) ?? now
     const subject = baseSubject(email.subject)
 
     const headers: Record<string, string[]> = {}
@@ -661,7 +692,15 @@ export class EmailProvider implements IProvider<EmailRaw> {
     let to: EmailAddress
     if (thread) to = thread.counterpart
     else if (looksLikeAddress(chatId)) to = { address: chatId.trim() }
-    else throw new RecipientUnreachableError(chatId, `Unknown email thread "${chatId}" (thread state lost or never seen)`)
+    else if (!chatId.startsWith('thread:') && chatId.includes('@')) {
+      throw new RecipientUnreachableError(chatId, `"${singleLine(chatId).slice(0, 200)}" is not a valid single email address (user@domain.tld); send to one address (use native cc/bcc for more recipients)`)
+    }
+    else throw new RecipientUnreachableError(chatId, `Unknown email thread "${singleLine(chatId).slice(0, 200)}" (thread state lost or never seen; persist it with threadStore: cursorThreadStore(store))`)
+    // A stored counterpart comes from a thread store (maybe a custom or tampered one): never hand
+    // whitespace or control characters to the SMTP envelope.
+    if (typeof to?.address !== 'string' || !to.address.includes('@') || hasUnsafeAddressChars(to.address.trim())) {
+      throw new RecipientUnreachableError(chatId, 'The thread recipient is not a single plain email address')
+    }
     if (this.suppressed.has(normalizeAddress(to.address))) {
       throw new RecipientUnreachableError(chatId, 'Recipient address hard-bounced; call unsuppress() to retry')
     }
@@ -679,8 +718,11 @@ export class EmailProvider implements IProvider<EmailRaw> {
       || composed.overrides.subject
       || (thread?.subject ? `Re: ${thread.subject}` : this.config.defaultSubject ?? '(no subject)'))
     const id = `${randomUUID()}@${domainOf(this.address) ?? 'botmesh.local'}`
-    const inReplyTo = options?.quoted?.id ?? thread?.lastMessageId
-    const refs = [...(thread?.references ?? [])]
+    // Only real Message-IDs go into threading headers: not the synthetic id of mail that had
+    // none, and not an arbitrary quoted id handed in by the application.
+    const quotedId = options?.quoted?.id
+    const inReplyTo = [quotedId, thread?.lastMessageId].find((v): v is string => typeof v === 'string' && isPlainMessageId(v))
+    const refs = (thread?.references ?? []).filter(isPlainMessageId)
     if (inReplyTo && !refs.includes(inReplyTo)) refs.push(inReplyTo)
 
     // Native headers never override the provider's own (protected names are dropped in composeContent).
@@ -711,6 +753,12 @@ export class EmailProvider implements IProvider<EmailRaw> {
     try {
       info = await transport.sendMail(mail)
     } catch (err) {
+      const tls = tlsReason(err)
+      if (tls) {
+        const smtp = this.config.smtp
+        const where = smtp ? ` with ${smtp.host}:${smtp.port ?? 465}` : ''
+        throw new ProviderError(`SMTP ${tls}${where}: the port probably expects plain text or STARTTLS; set smtp.secure: false (implicit TLS is port 465)`)
+      }
       throw toEmailError(err, chatId)
     }
     if (info.rejected?.length && !info.accepted?.length) {

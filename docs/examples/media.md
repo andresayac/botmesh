@@ -110,9 +110,10 @@ bot › 🖼️ Got your image/jpeg image: "My cat"
 ## How it works
 
 - **One method per kind.** `ctx.photo`, `ctx.video`, `ctx.file`,
-  `ctx.voice`, `ctx.sticker`, `ctx.location` and `ctx.contact` take a URL, a
-  local path or a `Buffer`. `ctx.file(source, filename, caption)` sets the
-  name the user sees.
+  `ctx.voice` and `ctx.sticker` take a URL, a local path or a `Buffer`;
+  `ctx.file(source, filename, caption)` sets the name the user sees.
+  `ctx.location(lat, lng, name?)` takes coordinates and
+  `ctx.contact(phone, displayName?)` a phone number.
 - **Transport details stay in the provider.** On WhatsApp a voice note is
   converted with ffmpeg and a sticker needs the optional `sharp` package.
   Telegram sends them as they are, so there a sticker URL must point at a

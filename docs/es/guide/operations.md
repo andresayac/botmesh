@@ -24,7 +24,7 @@ const m = bot.metrics()
 //   conversations: { started, completed, ended, guarded, cancelled, timedOut, retriesExceeded, errored, avgDurationMs, active },
 //   flows: { registro: { started, completed, ended, guarded, cancelled, timedOut, retriesExceeded, errored, avgDurationMs } },
 //   messages: { in, out, outFailed },
-//   dropped: { duplicate, blocked, handoff },
+//   dropped: { duplicate, blocked, handoff, echo? },
 //   presenceSkipped: { typing, markRead },
 //   triggered,   // llamadas a bot.trigger() que iniciaron una conversación
 //   errors,      // errores reportados en bot.on('error')
@@ -38,7 +38,9 @@ const m = bot.metrics()
   [dedupe de entrada](./conceptos#dedupe-de-entrada), `blocked` los mensajes,
   interacciones y llamadas que descartan la blacklist / whitelist (cada
   entrega, porque el dedupe nunca registra lo bloqueado), y `handoff` los mensajes que no se enrutan porque el chat está
-  [en manos de un humano](./handoff).
+  [en manos de un humano](./handoff). `echo` (solo existe con
+  [`echoFilter`](./conceptos#filtro-de-ecos) activo) cuenta los ecos de los
+  envíos del propio bot que descarta el filtro.
 - `presenceSkipped.typing` / `markRead` cuentan las señales de presencia
   (`ctx.typing()`, `ctx.recording()`, el indicador automático de escritura,
   `ctx.markRead()`) omitidas porque el transporte estaba desconectado o parado
@@ -74,7 +76,7 @@ El prefijo por defecto es `botmesh_` (`prefix: 'botwa_'` conserva los nombres de
 `flow_started_total{flow}`, `flow_ended_total{flow,outcome}`,
 `flow_duration_avg_seconds{flow}`, `messages_in_total`,
 `messages_out_total{result}` (`sent` / `failed`),
-`inbound_dropped_total{reason}` (`duplicate` / `blocked` / `handoff`),
+`inbound_dropped_total{reason}` (`duplicate` / `blocked` / `handoff`, más `echo` con `echoFilter`),
 `presence_skipped_total{kind}` (`typing` / `mark_read`),
 `triggers_total` y `errors_total`. Un prefijo o un nombre de label inválido
 lanza `TypeError`.
@@ -105,7 +107,7 @@ bot.on('conversation:ended', ({ id, name, chatId, outcome, completed, durationMs
 
 `@botmesh/events` está publicado en npm (`pnpm add @botmesh/events`; mientras
 los paquetes estén en prerelease, añade el dist-tag que indica
-[Inicio](/es/guide/inicio)).
+[Inicio](./inicio)).
 
 ::: warning Paquetes de producto — sin publicar
 Los paquetes de producto (`@botmesh/inbox`,
@@ -114,14 +116,14 @@ son reales y **persistentes**: cada uno tiene un contrato de almacenamiento,
 una implementación de referencia en RAM y un adaptador `Kv*` sobre cualquier
 `DurableKv` del core (SQLite, PostgreSQL, Redis, Redis Cluster o archivo), con
 una suite de conformidad compartida y suites opt-in contra servidores reales.
-Su API todavía puede cambiar mientras la alpha no se publique.
+Solo están en el repositorio y su API todavía puede cambiar.
 :::
 
 Los paquetes operativos son agnósticos de canal y están aislados por tenant.
 
 ### Procesamiento de eventos
 
-Usa `MemoryEventJournal` en tests. `FileEventJournal.open('./data/events.json')` persiste el journal de una sola instancia con snapshots atómicos, idempotencia, leases, reintentos y replay. Para varios procesos en un mismo host, `SharedFileEventJournal.open(path)` comparte un archivo bajo un mutex entre procesos; entre hosts, implementa `LeasedEventJournal` sobre PostgreSQL, Redis o un broker.
+Usa `MemoryEventJournal` en tests. `FileEventJournal.open('./data/events.json')` persiste el journal de una sola instancia con snapshots atómicos, idempotencia, leases, reintentos y replay. Para varios procesos en un mismo host, `SharedFileEventJournal.open(path)` comparte un archivo bajo un mutex entre procesos; entre hosts, implementa `LeasedEventJournal` sobre PostgreSQL, Redis o un broker. Los journals de archivo guardan JSON: un sobre con un `BigInt` o una referencia circular se rechaza con un `TypeError` (no se guarda nada), y un `Date` se lee de vuelta como su cadena ISO. Un registro que no se leería de vuelta como válido (sin `partitionKey`, con un `occurredAt` `NaN` o `Date`, o con un `toJSON` que cambia el id del evento) se rechaza igual, en todos los journals, así que nada de lo que un journal acepta le impide volver a abrirse. Cada operación de `SharedFileEventJournal` toma el mutex y vuelve a leer el archivo (milisegundos en Linux, decenas de milisegundos en Windows), así que resérvalo para volúmenes modestos.
 
 `EventWorker` reclama eventos, invoca el handler, confirma el trabajo exitoso y mueve a la cola de mensajes muertos (DLQ) los que agotan sus reintentos.
 

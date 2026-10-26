@@ -74,3 +74,24 @@ describe('Gupshup simulator + GupshupProvider over real HTTP', () => {
     expect((await h.sim.post(body, { token: 'nope' }))[0]!.status).toBe(401)
   })
 })
+
+describe('Gupshup callbacks with the token in the query string (the documented callback URL)', () => {
+  it('are accepted through the @botmesh/server ingress, which passes the request URL to ingest()', async () => {
+    const h = await startHarness(new GupshupSimulator({ tokenIn: 'query' }), (sim) => new GupshupProvider({ ...sim.providerConfig(), logger: silent }), (bot) => {
+      standardHandlers(bot)
+      bot.when('largo', (ctx) => ctx.buttons('Elige 👇', [{ id: 'a', title: 'Confirmar la reservación ahora' }, { id: 'b', title: 'Cancelar 🙅‍♀️🙅‍♀️🙅‍♀️🙅‍♀️🙅‍♀️' }]))
+    }, { bot: { logger: silent } })
+    try {
+      const sent = await h.sim.sendText('hola')
+      expect(sent.deliveries[0]!.status).toBe(200)
+      expect(await h.sim.waitForOutbound()).toMatchObject({ kind: 'text', text: '¡Hola!' })
+      expect((await h.sim.post({ app: 'SandboxApp', type: 'message', payload: {} }, { token: 'nope' }))[0]!.status).toBe(401)
+      // Titles over WhatsApp's 20 characters are cut instead of rejected by the API.
+      await h.sim.sendText('largo')
+      expect((await h.sim.waitForOutbound((r) => r.kind === 'buttons')).buttons?.map((b) => b.id)).toEqual(['a', 'b'])
+      expect(h.sim.issues()).toEqual([])
+    } finally {
+      await h.stop()
+    }
+  })
+})

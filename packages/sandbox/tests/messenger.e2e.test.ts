@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { OutsideSessionWindowError, PayloadTooLargeError, ProviderError, RateLimitedError, RecipientUnreachableError } from '@botmesh/core'
-import { MessengerProvider } from '@botmesh/messenger'
+import { type InboundMessage, OutsideSessionWindowError, PayloadTooLargeError, ProviderError, RateLimitedError, RecipientUnreachableError } from '@botmesh/core'
+import { MessengerProvider, isEditedMessage } from '@botmesh/messenger'
 import { InstagramProvider } from '@botmesh/instagram'
 import { InstagramSimulator, MessengerSimulator, startHarness, type Harness } from '../src/index.js'
 import { JPEG, silent, standardHandlers, type Recorded } from './_bot.js'
@@ -44,6 +44,28 @@ describe('Messenger simulator + MessengerProvider over real HTTP', () => {
     expect(list.sections?.[0]?.rows.map((r) => r.id)).toEqual(['baguette', 'croissant'])
     await h.sim.send({ reply: { kind: 'list', id: 'croissant', title: 'Croissant' } })
     expect((await h.sim.waitForOutbound((r) => r.text?.startsWith('lista:') === true)).text).toBe('lista: croissant')
+  })
+
+  it('sends the list text before the generic template (the template has no header)', async () => {
+    await h.sim.sendText('lista')
+    await h.sim.waitForOutbound((r) => r.kind === 'list')
+    expect(h.sim.outbox.map((r) => r.kind)).toEqual(['text', 'list'])
+    expect(h.sim.outbox[0]!.text).toBe('Elige un pan')
+    expect(h.sim.issues()).toEqual([])
+  })
+
+  it('an edited message reaches the bot again with its original id', async () => {
+    const seen: Array<{ id: string; body: string; edited: boolean }> = []
+    const listener = (m: InboundMessage): void => { seen.push({ id: m.ref.id, body: m.body, edited: isEditedMessage(m) }) }
+    h.bot.on('message', listener)
+    const sent = await h.sim.sendText('hola mundo')
+    await h.sim.send({ edit: { messageId: sent.id, text: 'hola corregido' } })
+    await expect.poll(() => seen.filter((m) => m.id === sent.id).length).toBe(2)
+    expect(seen.filter((m) => m.id === sent.id)).toEqual([
+      { id: sent.id, body: 'hola mundo', edited: false },
+      { id: sent.id, body: 'hola corregido', edited: true },
+    ])
+    h.bot.off('message', listener)
   })
 
   it('downloads an inbound attachment from the CDN URL and reads a location', async () => {

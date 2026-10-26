@@ -40,16 +40,16 @@ if (issues.length === 0) bot.registerFlow(compileFlowDocument(document))
 | Kind | What it does |
 | --- | --- |
 | `say` | Sends text (`{{ path }}` templates allowed). |
-| `ask` | Asks and stores the answer in `c.state[stateKey]`; optional `timeout`, `maxAttempts` / `retries` and `validate: { expr, message }`. |
+| `ask` | Asks and stores the answer in `c.state[stateKey]`; optional `timeout`, `maxAttempts` / `retries` and `validate: { expr, message }` (in scope there: `$answer`, `$body`, `$from`, `$sender`, `$isGroup`; not `c.state`). |
 | `choose` | Numbered menu (`options: [{ key, label, steps? }]`), stores the picked key. |
 | `condition` | `if` expression with `then` / `else` nested steps. |
 | `delay` | Pauses (at most 5 minutes); ends with the conversation. |
 | `goto` / `end` | Jumps to another flow / ends with an optional farewell. |
-| `media` | Image, video, audio, voice, document, sticker (http(s) URL or a URL in state) or location. |
+| `media` | Image, video, audio, voice, document, sticker (http(s) URL, or an https URL with a public host in state: anything else, such as a local path or `http://169.254.169.254/`, fails the step) or location. |
 | `form` | Native form, or question by question where the channel has no forms. |
 | `guard` | `if` expression; when false it sends `message` and ends or redirects. |
 | `subflow` | Inlines another document, resolved with `resolveSubflow`. |
-| `http` | Request through `@botmesh/http` (anti-SSRF, redirect checks, timeout, size cap); stores the body in `stateKey`. |
+| `http` | Request through `@botmesh/http` (anti-SSRF, redirect checks, timeout, size cap); stores the body in `stateKey`. `{{ path }}` works in the URL path/query/fragment, header values and the JSON `body`; a non-2xx answer fails the step. |
 | `handoff` | Hands the chat to a human (`ctx.handoff`). |
 | `ai` | One AI turn through `ctx.tools.ai` (needs [`@botmesh/ai`](https://www.npmjs.com/package/@botmesh/ai)), optionally restricted to configured tool ids. |
 
@@ -61,7 +61,7 @@ Expressions (`condition.if`, `guard.if`, `ask.validate.expr`) are a small safe l
 | --- | --- |
 | `validateFlowDocument(input)` / `isFlowDocument(input)` | Issues with JSON Pointer paths / type guard (version 2 only). A version 1 document is migrated on load. |
 | `compileFlowDocument(input, options?)` | Document → `CompiledFlow`. Options below. |
-| `exportFlowDocument(flow)` | `CompiledFlow` → document. Exact for flows compiled from a document; an opaque `do` throws `FlowExportError`. |
+| `exportFlowDocument(flow)` | `CompiledFlow` → document. Exact for flows compiled from a document; an opaque `do`, or a result that would not validate, throws `FlowExportError`. |
 | `migrateFlowDocument(input, migrations?, target?)` | Chains `FLOW_MIGRATIONS` (frozen; extend a copy). |
 | `flowDigest`, `flowVersionOf`, `diffFlowDocuments`, `sameFlow` | `sha256` over canonical JSON, a version label, a structural diff, equality ignoring key order. |
 | `flowArtifact`, `flowFromArtifact`, `flowDocumentGate`, `publishFlow` | Store a document as a deployment artifact and gate it (any registry with a compatible `publish()`). |
@@ -74,16 +74,20 @@ Expressions (`condition.if`, `guard.if`, `ask.validate.expr`) are a small safe l
 | Option | Default | What it does |
 | --- | --- | --- |
 | `resolveSubflow` | none | `(id) => FlowDocument \| undefined` for `subflow` steps. A missing document or a cycle is a compile error. |
-| `fetch` | `secureFetch` | Custom fetch for `http` steps (tests, an egress proxy). |
+| `fetch` | `secureFetch` | Custom fetch for `http` steps (tests, an egress proxy), with the signature of `@botmesh/http`'s `secureFetch`. |
 | `http` | 10 s, 64 KiB | Bounds of `http` steps: `{ timeoutMs, maxBytes, allowHttp }`. |
+| `media` | https, public hosts | Policy for `media` URLs read from state: `{ allowHttp, allowPrivateHosts, resolver }`. |
 | `formTimeoutMs` | the form's own option | Timeout of the waits of a nested `form` step. |
 
 ## Troubleshooting
 
 - **`FlowDocumentError` on compile:** read `error.issues`; each one has the JSON Pointer of the offending node (`/steps/2/stateKey`).
 - **`unknown function` / `ExpressionError`:** only the functions listed above exist, and paths read own properties of `c.state` (plus `$body`, `$from`, `$sender`, `$isGroup`).
-- **A form `pattern` is rejected:** patterns that can backtrack catastrophically (`(a+)+`, backreferences, lookarounds) are refused; write them with a character class (`[a-z0-9-]+`).
+- **A form `pattern` is rejected:** patterns that can backtrack catastrophically (`(a+)+`, backreferences, lookarounds) are refused; write them with a character class (`[a-z0-9-]+`). A field with a pattern accepts answers of at most 1000 characters (`maxLength`).
+- **`{{ first-name }}` renders literally:** state keys you read back must use letters, digits, `_` and `.` (a dotted key such as `user.name` works).
+- **`"name" is not available here` on `ask.validate.expr`:** the answer is validated before it is stored, so only `$answer` and the message fields exist there.
 - **`http` step refused:** placeholders are allowed only in the URL path, query or fragment, never in the host; plain `http:` needs `http: { allowHttp: true }`, and private or loopback hosts are always refused by `@botmesh/http`.
+- **`media` step from state refused:** a URL read from `c.state` must be `https:` (or `http:` with `media: { allowHttp: true }`) and its host must resolve to public addresses (`media: { allowPrivateHosts: true }` lifts that for internal media servers).
 
 ## Links
 

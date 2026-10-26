@@ -32,10 +32,10 @@ bot.plug(voicePlugin({
   tts: { provider: 'openai', voice: 'nova', apiKey: process.env.OPENAI_API_KEY },
 }))
 
-// A voice note saying "Hola." also fires this text trigger
+// Una nota de voz que dice "Hola." también dispara este trigger de texto
 bot.when('hola', (ctx) => ctx.reply('¡Hola!'))
 
-// Type triggers still work, now with the transcript at hand
+// Los triggers por tipo siguen funcionando, ahora con la transcripción a mano
 bot.when(VOICE_NOTE, async (ctx) => {
   await ctx.reply(`Dijiste: ${ctx.transcript}`)
   await ctx.voice(await ctx.tools.voice.synthesize('¡Entendido!'))
@@ -83,7 +83,7 @@ mayoría) descarga cada nota de voz, la transcribe y deja:
 | `language` | `string` | — | Pista de idioma para cada transcripción (p. ej. `'es'`). |
 | `useContextLanguage` | `boolean` | `true` | Usa `ctx.lang` como pista si no hay `language` (ver [i18n](#idioma-e-i18n)). |
 | `prompt` | `string` | — | Pista de prompt / vocabulario para cada transcripción. |
-| `filter` | `(ctx) => boolean` | — | Devuelve `false` para no transcribir un mensaje (grupos grandes, usuarios sin plan). |
+| `filter` | `(ctx) => boolean` | — | Devuelve `false` para no transcribir un mensaje (grupos grandes, usuarios sin plan). Un filtro que lanza se registra en el log y omite la transcripción. |
 | `priority` | `number` | `100` | Prioridad del hook `before('message')`. |
 | `onError` | `(error, ctx) => void` | registra un aviso | Se llama cuando falla una transcripción. |
 
@@ -102,7 +102,7 @@ bot.plug(voicePlugin({
   stt: { provider: 'openai', model: 'gpt-4o-mini-transcribe' },
   tts: { provider: 'openai', voice: 'nova' },
   autoTranscribe: { asText: true },
-  autoReplyWithVoice: true, // the AI's answer goes back as a voice note
+  autoReplyWithVoice: true, // la respuesta de la IA vuelve como nota de voz
 }))
 bot.plug(aiPlugin({ provider: 'anthropic', persona }))
 ```
@@ -138,7 +138,7 @@ texto, el chat vuelve a texto.
 | `voice` | `string` | — | Voz de las respuestas. |
 | `instructions` | `string` | — | Instrucciones de estilo (OpenAI `gpt-4o-mini-tts`). |
 | `triggerTypes` | `('voice' \| 'audio')[]` | `['voice']` | Tipos entrantes que pasan el chat a respuestas de voz. |
-| `filter` | `(chatId, text) => boolean` | — | Devuelve `false` para mantener un texto como texto (p. ej. las respuestas de un agente humano). |
+| `filter` | `(chatId, text) => boolean` | — | Devuelve `false` para mantener un texto como texto (p. ej. las respuestas de un agente humano). Un filtro que lanza se registra en el log y deja el texto. |
 
 Siempre se quedan en texto:
 
@@ -167,8 +167,10 @@ El plugin inyecta un `VoiceClient` como `ctx.tools.voice` (tipado por
 | `warmup()` | `Promise<void>` | Resuelve los adapters ya; rechaza con `VoiceConfigError`. |
 | `hasStt` / `hasTts` / `limits` | — | Configuración efectiva. |
 
-Opciones de transcripción: `language`, `prompt`, `signal`. Opciones de
-síntesis: `voice`, `instructions`, `signal`.
+Opciones de transcripción: `language`, `prompt`, `signal`, `timeoutMs`.
+Opciones de síntesis: `voice`, `instructions`, `signal`, `timeoutMs`. Un
+`timeoutMs` por llamada solo puede acortar `limits.timeoutMs`. `source` también
+puede ser un `Uint8Array`.
 
 ```ts
 bot.when(VOICE_NOTE, async (ctx) => {
@@ -236,10 +238,10 @@ bot.plug(voicePlugin({ stt: local }))
 voicePlugin({
   stt, tts,
   limits: {
-    maxInputBytes: 25 * 1024 * 1024, // max audio size; the download is cut as soon as it goes over
-    maxDurationSec: 300,             // max duration; read from the last OGG page before calling the service
-    maxTextChars: 4096,              // max characters per synthesis
-    timeoutMs: 60_000,               // max time per STT/TTS call; also the adapters' HTTP timeout
+    maxInputBytes: 25 * 1024 * 1024, // tamaño máximo del audio; la descarga se corta en cuanto lo supera
+    maxDurationSec: 300,             // duración máxima; se lee de la última página OGG antes de llamar al servicio (el OGG se detecta por los bytes, no por el mimetype declarado)
+    maxTextChars: 4096,              // máximo de caracteres por síntesis
+    timeoutMs: 60_000,               // tiempo máximo por llamada STT/TTS; también el timeout HTTP de los adapters
   },
 })
 ```
@@ -247,6 +249,11 @@ voicePlugin({
 La duración se comprueba **antes** de pagar la transcripción cuando se conoce
 (un `durationSec` explícito o un archivo OGG). Para otros contenedores no se
 estima.
+
+Los límites se validan al enchufar el plugin (o al crear el `VoiceClient`):
+`timeoutMs` debe estar entre 1 y 2147483647 ms (el rango de `setTimeout`) y los
+demás topes deben ser positivos (`Infinity` desactiva un tope). Cualquier otro
+valor lanza un `VoiceConfigError` que nombra el campo.
 
 ## Errores
 
@@ -267,7 +274,7 @@ Todos extienden `VoiceError` y llevan un `code` estable:
 Los mensajes de error y los logs nunca incluyen API keys, audio ni
 transcripciones. Se conserva el detalle de error del propio servicio (explica un 400 o un
 401), pero antes se le quita la API key de la petición y todo lo que tenga forma de clave
-(`sk-…`, aunque venga enmascarada).
+(`sk-…` o `sk_…`, aunque venga enmascarada).
 
 ## Testing
 
@@ -275,7 +282,7 @@ transcripciones. Se conserva el detalle de error del propio servicio (explica un
 import { createTestBot } from '@botmesh/core/testing'
 import { voicePlugin } from '@botmesh/voice'
 
-const { bot, chat, provider } = await createTestBot()
+const { bot, chat, provider } = await createTestBot({ lang: 'es' })
 provider.downloadMedia = async () => Buffer.from('OggS...')
 bot.plug(voicePlugin({
   stt: { name: 'fake', transcribe: async () => ({ text: 'hola', provider: 'fake' }) },

@@ -56,7 +56,7 @@ straight from the mock (see [Conversation snapshots](/guide/testing#conversation
 | `now` | `Date.now` | Clock for the `t` offsets. |
 
 Failed or skipped sends are not recorded. Recording also works in production
-(that is why it is exported from `@botmesh/core`), but the buffer keeps message
+(`RecordingProvider` wraps a real transport as well as the mock), but the buffer keeps message
 bodies, display names and ids **unredacted** in RAM: keep `maxTurns` bounded
 and call `clear()` once you have taken a transcript.
 
@@ -94,7 +94,7 @@ push name.
   "source": "recorder",
   "redacted": true,
   "turns": [
-    { "dir": "in", "chatId": "<user:1>", "senderId": "<user:1>", "type": "text", "text": "hola", "displayName": "<name:1>", "id": "<msg:1>", "t": 0 },
+    { "dir": "in", "chatId": "<user:1>", "senderId": "<user:1>", "type": "text", "text": "hi", "displayName": "<name:1>", "id": "<msg:1>", "t": 0 },
     { "dir": "out", "chatId": "<user:1>", "kind": "text", "text": "Hi <name:1>! Your email?", "content": { "kind": "text", "text": "Hi <name:1>! Your email?" }, "t": 12 }
   ]
 }

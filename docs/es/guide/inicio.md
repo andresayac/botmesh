@@ -271,7 +271,7 @@ para montarlo y [Canales](./canales) para lo que admite cada transporte.
 | WhatsApp muestra un QR nuevo en cada arranque | Se borró la sesión, o WhatsApp desvinculó el dispositivo (el provider borra entonces `sessions/<session>` por su cuenta). Vuelve a escanear. |
 | WhatsApp se desconecta con `440` (`connectionReplaced`) | Otro proceso usa la misma sesión. Detenlo: el provider no reconecta para no pelear por la sesión. |
 | Telegram registra `getUpdates conflicts with an active webhook` | El token tiene un webhook configurado. Llama a `deleteWebhook` o usa el modo webhook (`polling: false`). |
-| `TelegramProvider: token is required` | `TELEGRAM_TOKEN` no llegó al proceso. Arranca con `node --env-file=.env bot.js` y comprueba que `.env` contiene `TELEGRAM_TOKEN=...` guardado como UTF-8 sin BOM (en Windows PowerShell, `echo` escribe UTF-16 o con BOM; crea el archivo con un editor). |
+| `` TelegramProvider: `token` is required `` | `TELEGRAM_TOKEN` no llegó al proceso. Arranca con `node --env-file=.env bot.js` y comprueba que `.env` contiene `TELEGRAM_TOKEN=...` guardado como UTF-8 sin BOM (en Windows PowerShell, `echo` escribe UTF-16 o con BOM; crea el archivo con un editor). |
 | Telegram falla con `Unauthorized — check the bot token` | El token está mal o fue revocado: vuelve a copiarlo de @BotFather. |
 | `BotNotRunningError` al enviar | `bot.send()` y `ctx.reply()` necesitan el bot en marcha: envía después de `await bot.start()` (o desde un listener de `'ready'`). |
 | Los textos integrados (`/help`, timeouts) salen en inglés | Es el valor por defecto. `new Bot({ provider, lang: 'es' })` los pasa a español; ver [Internacionalización](./i18n). |

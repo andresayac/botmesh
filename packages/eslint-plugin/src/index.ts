@@ -87,7 +87,10 @@ plugin.configs.strict = {
     'botmesh/no-await-runtime-enter': 'error',
     'botmesh/no-async-plugin-install': 'error',
     'botmesh/no-empty-trigger': 'error',
-    'botmesh/require-timeout-on-ask': ['error', { methods: ['ask', 'waitText', 'waitMedia', 'choose', 'waitAny'] }],
+    'botmesh/require-timeout-on-ask': [
+      'error',
+      { methods: ['ask', 'waitText', 'waitMedia', 'waitLocation', 'choose', 'waitAny', 'form'] },
+    ],
     'botmesh/prefer-ctx-user-over-global-state': 'error',
   },
 }

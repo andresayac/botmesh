@@ -45,20 +45,24 @@ function withMeta(doc: RagDocument, metadata?: RagMetadata): RagDocument {
   return doc
 }
 
+/** Deepest JSON nesting {@link fromJson} flattens (deeper data would overflow the stack). */
+const MAX_JSON_DEPTH = 64
+
 /** Flatten a JSON value into `key.path: value` lines. */
-function flatten(value: unknown, prefix: string, out: string[]): void {
+function flatten(value: unknown, prefix: string, out: string[], source: string, depth: number): void {
   if (value === null || value === undefined) return
+  if (depth > MAX_JSON_DEPTH) throw new RagError('LOAD_FAILED', `${source} nests JSON deeper than ${MAX_JSON_DEPTH} levels`)
   if (Array.isArray(value)) {
     if (value.every((v) => v === null || typeof v !== 'object')) {
       const items = value.filter((v) => v !== null && v !== undefined).map(String)
       if (items.length) out.push(prefix ? `${prefix}: ${items.join(', ')}` : items.join(', '))
       return
     }
-    value.forEach((v, i) => flatten(v, prefix ? `${prefix}.${i}` : String(i), out))
+    value.forEach((v, i) => flatten(v, prefix ? `${prefix}.${i}` : String(i), out, source, depth + 1))
     return
   }
   if (typeof value === 'object') {
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) flatten(v, prefix ? `${prefix}.${k}` : k, out)
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) flatten(v, prefix ? `${prefix}.${k}` : k, out, source, depth + 1)
     return
   }
   out.push(prefix ? `${prefix}: ${String(value)}` : String(value))
@@ -68,13 +72,13 @@ function flatten(value: unknown, prefix: string, out: string[]): void {
  * JSON data as documents: a top-level array yields one document per item
  * (`source#0`, `source#1`...), anything else a single document. Objects are
  * flattened to `key.path: value` lines, which read well to both embedders
- * and LLMs.
+ * and LLMs. Data nested deeper than 64 levels throws `RagError('LOAD_FAILED')`.
  */
 export function fromJson(data: unknown, source: string, metadata?: RagMetadata): RagDocument[] {
   const render = (v: unknown): string => {
     if (typeof v === 'string') return v
     const lines: string[] = []
-    flatten(v, '', lines)
+    flatten(v, '', lines, source, 0)
     return lines.join('\n')
   }
   if (Array.isArray(data)) {

@@ -49,7 +49,7 @@ const createBot = defineBot((provider) => {
   // Restart the countdown that returns the chat to the bot
   const armTimer = (chatId) => {
     timers.get(chatId)?.cancel()
-    timers.set(chatId, bot.delay(AGENT_TIMEOUT, () => bot.resume(chatId, { reason: 'timeout' })))
+    timers.set(chatId, bot.delay(AGENT_TIMEOUT, async () => { await bot.resume(chatId, { reason: 'timeout' }) }))
   }
 
   bot.plug(slashCommandsPlugin, {

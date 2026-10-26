@@ -20,7 +20,7 @@ pnpm add @botmesh/otel @opentelemetry/api @opentelemetry/sdk-node \
 ```
 
 While the packages are in prerelease, add the dist-tag shown in
-[Getting started](/guide/getting-started).
+[Getting started](./getting-started).
 
 ```ts
 // telemetry.ts — load it before the bot (e.g. `node --import ./telemetry.js bot.js`)
@@ -32,9 +32,9 @@ import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics'
 export const sdk = new NodeSDK({
   serviceName: 'sales-bot',
   traceExporter: new OTLPTraceExporter({ url: 'http://localhost:4318/v1/traces' }),
-  metricReader: new PeriodicExportingMetricReader({
+  metricReaders: [new PeriodicExportingMetricReader({
     exporter: new OTLPMetricExporter({ url: 'http://localhost:4318/v1/metrics' }),
-  }),
+  })],
 })
 sdk.start()
 ```
@@ -171,7 +171,7 @@ The user's answer arrives as another message: its own `bot.inbound` → `bot.dis
 | `bot.provider.id`, `bot.id` | inbound, send | Provider id, bot id of the store namespace. |
 | `bot.event.kind`, `bot.message.type`, `bot.chat.kind` | inbound, dispatch | `message`/`interaction`/`call`; `text`, `image`…; `private`/`group`. |
 | `bot.chat.id`, `bot.sender.id`, `bot.message.id` | inbound, send | Through the [ids policy](#personal-data). |
-| `bot.inbound.outcome` | inbound | `dispatched`, `blocked`, `duplicate`, `group_filtered`, `stopped`, `from_me`, `handoff` (calls). |
+| `bot.inbound.outcome` | inbound | `dispatched`, `blocked`, `duplicate`, `group_filtered`, `stopped`, `from_me`, `echo` (with `echoFilter`), `handoff` (calls). |
 | `bot.queue.wait_ms` | dispatch | Time waiting for the chat's turn (includes the cross-replica turn with coordination). |
 | `bot.dispatch.stage` | dispatch | `aborted_by_hook`, `handoff`, `command`, `command_unknown`, `conversation`, `dormant`, `matcher`, `catch_all`, `unhandled`, `event`. |
 | `bot.handler.stage`, `bot.matcher.kind` | handler | `command`/`matcher`/`catch_all`/`event`; `welcome`/`text`/`function`/`type`. |
@@ -249,7 +249,7 @@ With `@botmesh/otel`, bot spans are also the active OpenTelemetry context, so `t
 | --- | --- | --- |
 | `botmesh.messages.inbound` | counter | |
 | `botmesh.messages.outbound` | counter | `result` = `ok`/`failed` |
-| `botmesh.dropped` | counter | `reason` = `duplicate`/`blocked`/`handoff` |
+| `botmesh.dropped` | counter | `reason` = `duplicate`/`blocked`/`handoff`, plus `echo` with `echoFilter` |
 | `botmesh.presence.skipped` | counter | `kind` = `typing`/`mark_read` |
 | `botmesh.conversations.started` / `.ended` | counter | `outcome` (ended) |
 | `botmesh.flow.conversations.started` / `.ended` | counter | `flow`, `outcome` (`perFlow`) |
@@ -260,6 +260,8 @@ With `@botmesh/otel`, bot spans are also the active OpenTelemetry context, so `t
 Every point carries `bot.id` plus your `attributes`. `bot.resetMetrics()` makes the cumulative counters drop, which OpenTelemetry and Prometheus treat as a counter reset.
 
 The tracer also derives histograms from finished spans (`spanMetrics`, on by default), recorded even for unsampled traces: `botmesh.inbound.duration{bot.event.kind, bot.inbound.outcome, bot.provider.id}`, `botmesh.dispatch.duration{bot.dispatch.stage}`, `botmesh.queue.wait`, `botmesh.send.duration{bot.provider.id, bot.send.outcome}`, `botmesh.lifecycle.duration{bot.lifecycle.step, bot.lifecycle.phase}`, `gen_ai.client.operation.duration` and `gen_ai.client.token.usage{gen_ai.token.type}`. No metric ever carries a chat, user or message id.
+
+The histograms come with bucket boundaries that fit their unit (sent as instrument advice, so a `View` in your SDK still wins): 5 ms to 10 s for the bot latencies, the GenAI semantic-convention buckets for model calls and tokens, and 1 s to 1 day for `botmesh.conversation.duration`. A `prefix` must start with a letter and contain only letters, digits, `.`, `_`, `-` or `/`; anything else throws when the tracer or the bridge is built.
 
 ## Personal data
 
@@ -274,6 +276,7 @@ The tracer also derives histograms from finished spans (`spanMetrics`, on by def
 
 ```ts
 new Bot({
+  provider,
   telemetry: {
     tracer,                          // BotTracer (required)
     ids: 'hash',                     // 'hash' | 'raw' | 'omit'
@@ -286,10 +289,11 @@ new Bot({
 
 | `@botmesh/otel` option | Default | |
 | --- | --- | --- |
+| `api` | lazy import | The `@opentelemetry/api` module; injected, `otelTracer()` / `bridgeMetrics()` work synchronously. |
 | `tracerProvider` | global (`trace.getTracerProvider()`) | |
 | `tracerName` | `'@botmesh/otel'` | Instrumentation scope. |
 | `spanMetrics` | `true` | `false`, or `{ meterProvider, prefix }`. |
-| `otelMetricsPlugin({ meterProvider, prefix, attributes, perFlow, conversationDuration })` | global, `'botmesh'` (`'botwa'` keeps the alpha names), `{}`, `true`, `true` | |
+| `otelMetricsPlugin({ meterProvider, meterName, prefix, attributes, perFlow, conversationDuration })` | global, `'@botmesh/otel'`, `'botmesh'` (`'botwa'` keeps the alpha names), `{}`, `true`, `true` | |
 
 ### Sampling
 

@@ -9,6 +9,7 @@
  */
 
 export { MessengerProvider, toMessengerError } from './MessengerProvider.js'
+export { isEditedMessage } from './parseInbound.js'
 export type { PageWebhookBody, MessagingEvent, MessengerMessage, MessengerAttachment } from './parseInbound.js'
 export type { ChallengeQuery } from '@botmesh/graph-core'
 export type { MessengerProviderConfig, MessengerSendResponse } from './types.js'

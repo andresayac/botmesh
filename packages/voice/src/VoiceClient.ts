@@ -56,7 +56,9 @@ export interface VoiceLimits {
   /**
    * Hard timeout for each STT/TTS call, in ms. Default `60_000`. Also passed to
    * the adapter as the per-call `timeoutMs`, so the built-in adapters' HTTP
-   * timeout follows it (an adapter-level `timeoutMs` can only tighten it).
+   * timeout follows it (an adapter-level or per-call `timeoutMs` can only tighten it).
+   * Must be 1–2147483647 (the `setTimeout` range); the other limits must be positive
+   * (`Infinity` turns a cap off). Invalid values throw a {@link VoiceConfigError}.
    */
   timeoutMs?: number
 }
@@ -82,7 +84,10 @@ export interface VoiceClientOptions {
 }
 
 /** What {@link VoiceClient.transcribe} accepts. */
-export type TranscribeSource = Buffer | AudioInput | MediaPayload | MessageContext | null | undefined
+export type TranscribeSource = Buffer | Uint8Array | AudioInput | MediaPayload | MessageContext | null | undefined
+
+/** Largest delay `setTimeout` honours (about 24.8 days); longer ones fire at once. */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1
 
 function isMessageContext(x: unknown): x is MessageContext {
   return typeof x === 'object' && x !== null && !Buffer.isBuffer(x) &&
@@ -90,12 +95,15 @@ function isMessageContext(x: unknown): x is MessageContext {
 }
 
 export class VoiceClient {
-  readonly limits: ResolvedVoiceLimits
+  /** The effective limits (defaults merged with `options.limits`; frozen). */
+  readonly limits: Readonly<ResolvedVoiceLimits>
   private sttAdapter?: SttAdapter
   private ttsAdapter?: TtsAdapter
 
   constructor(private readonly options: VoiceClientOptions = {}) {
-    this.limits = { ...DEFAULT_VOICE_LIMITS, ...definedOnly(options.limits ?? {}) }
+    const limits = { ...DEFAULT_VOICE_LIMITS, ...definedOnly(options.limits ?? {}) }
+    validateLimits(limits)
+    this.limits = Object.freeze(limits)
   }
 
   /** Is speech-to-text configured? */
@@ -119,7 +127,8 @@ export class VoiceClient {
     const stt = this.stt()
     const audio = await this.toAudioInput(source)
     this.checkInput(audio)
-    return this.withTimeout(stt.name, options.signal, (signal) => stt.transcribe(audio, { ...options, signal, timeoutMs: this.limits.timeoutMs }))
+    const timeoutMs = this.callTimeout(options.timeoutMs)
+    return this.withTimeout(stt.name, timeoutMs, options.signal, (signal) => stt.transcribe(audio, { ...options, signal, timeoutMs }))
   }
 
   /** Synthesize `text` and return the audio bytes (ready for `ctx.voice(buffer)`). */
@@ -133,7 +142,8 @@ export class VoiceClient {
     const input = text.trim()
     if (!input) throw new VoiceError('nothing to synthesize: text is empty', 'NO_MEDIA')
     if (input.length > this.limits.maxTextChars) throw new TextTooLongError(input.length, this.limits.maxTextChars)
-    return this.withTimeout(tts.name, options.signal, (signal) => tts.synthesize(input, { ...options, signal, timeoutMs: this.limits.timeoutMs }))
+    const timeoutMs = this.callTimeout(options.timeoutMs)
+    return this.withTimeout(tts.name, timeoutMs, options.signal, (signal) => tts.synthesize(input, { ...options, signal, timeoutMs }))
   }
 
   /** Synthesize `text` and send it as a voice note to the chat of `ctx`. */
@@ -155,11 +165,13 @@ export class VoiceClient {
 
   private async toAudioInput(source: TranscribeSource): Promise<AudioInput> {
     let input: AudioInput | undefined
-    if (Buffer.isBuffer(source)) input = { buffer: source }
+    if (source instanceof Uint8Array) input = { buffer: toBuffer(source) }
     else if (isMessageContext(source)) {
       const media = await this.download(source)
       if (media) input = { buffer: media.buffer, mimetype: media.mimetype, filename: media.filename }
-    } else if (source && Buffer.isBuffer((source as AudioInput).buffer)) input = source as AudioInput
+    } else if (source && (source as AudioInput).buffer instanceof Uint8Array) {
+      input = { ...(source as AudioInput), buffer: toBuffer((source as AudioInput).buffer) }
+    }
     if (!input || input.buffer.length === 0) throw new VoiceError('nothing to transcribe: no audio media', 'NO_MEDIA')
     return input
   }
@@ -183,13 +195,18 @@ export class VoiceClient {
   private checkInput(audio: AudioInput): void {
     const { maxInputBytes, maxDurationSec } = this.limits
     if (audio.buffer.length > maxInputBytes) throw new AudioTooLargeError(audio.buffer.length, maxInputBytes)
-    const duration = audio.durationSec ?? estimateDurationSec(audio.buffer, audio.mimetype)
+    const duration = audio.durationSec ?? estimateDurationSec(audio.buffer)
     if (duration !== undefined && duration > maxDurationSec) throw new AudioTooLongError(duration, maxDurationSec)
   }
 
-  /** Race the call against `limits.timeoutMs`, aborting the adapter's request when it fires. */
-  private async withTimeout<T>(service: string, parent: AbortSignal | undefined, run: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  /** The call's deadline: a per-call `timeoutMs` can only tighten `limits.timeoutMs`. */
+  private callTimeout(perCall: number | undefined): number {
     const { timeoutMs } = this.limits
+    return typeof perCall === 'number' && perCall > 0 && perCall < timeoutMs ? perCall : timeoutMs
+  }
+
+  /** Race the call against `timeoutMs`, aborting the adapter's request when it fires. */
+  private async withTimeout<T>(service: string, timeoutMs: number, parent: AbortSignal | undefined, run: (signal: AbortSignal) => Promise<T>): Promise<T> {
     const controller = new AbortController()
     const onParentAbort = () => controller.abort(parent?.reason)
     if (parent?.aborted) controller.abort(parent.reason)
@@ -208,6 +225,33 @@ export class VoiceClient {
       clearTimeout(timer)
       parent?.removeEventListener('abort', onParentAbort)
     }
+  }
+}
+
+/** A Buffer view of `bytes` (no copy when it already is one). */
+function toBuffer(bytes: Uint8Array): Buffer {
+  return Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+}
+
+/**
+ * Reject limits that would silently misbehave: `setTimeout` fires at once for a
+ * non-finite, non-positive or over-2^31 delay, and a non-positive or non-numeric
+ * cap would reject (or let through) everything.
+ */
+function validateLimits(limits: ResolvedVoiceLimits): void {
+  const fail = (field: keyof ResolvedVoiceLimits, rule: string) => {
+    throw new VoiceConfigError(`voice limits.${field} must be ${rule} (got ${String(limits[field])})`)
+  }
+  const { timeoutMs, maxInputBytes, maxDurationSec, maxTextChars } = limits
+  if (typeof timeoutMs !== 'number' || !Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > MAX_TIMEOUT_MS) {
+    fail('timeoutMs', `a number of milliseconds between 1 and ${MAX_TIMEOUT_MS}`)
+  }
+  if (typeof maxInputBytes !== 'number' || !(maxInputBytes > 0) || (Number.isFinite(maxInputBytes) && !Number.isInteger(maxInputBytes))) {
+    fail('maxInputBytes', 'a positive whole number of bytes (or Infinity)')
+  }
+  if (typeof maxDurationSec !== 'number' || !(maxDurationSec > 0)) fail('maxDurationSec', 'a positive number of seconds (or Infinity)')
+  if (typeof maxTextChars !== 'number' || !(maxTextChars > 0) || (Number.isFinite(maxTextChars) && !Number.isInteger(maxTextChars))) {
+    fail('maxTextChars', 'a positive whole number of characters (or Infinity)')
   }
 }
 

@@ -76,7 +76,7 @@ sorted from most to least severe.
 | `unreachable-flow` | warning / info | no trigger can start it and no reachable flow jumps to it. Info when reachable code could still enter it with `c.goto()` |
 | `empty-trigger` | warning / info | `flow([])` never matches; an empty regex matches everything (`''` is already rejected at registration). Info if the flow is only a `goto` target |
 | `duplicate-trigger` | warning | a route never gets a pattern because an earlier one in the real dispatch order (specificity, then registration) takes it; respects scope and match strategy |
-| `flow-id-collision` | warning | two flows/conversations with the same id (e.g. `flow('hola')` and `flow(['Hola', 'hi'])`): only the last one runs |
+| `flow-id-collision` | warning | two flows/conversations with the same id (e.g. `flow('hi')` and `flow(['Hi', 'hello'])`): only the last one runs |
 | `persistent-memory-store` | warning | `.persistent()` with a `MemoryStore` without `file` (checkpoints die on restart) |
 | `duplicate-choice` | warning | options with the same key or normalized label |
 | `ambiguous-choice` | warning | a numeric key/label out of position (`{ 0: 'Zero', 1: 'One' }`: typing 1 picks '0'), or a label equal to another option's key |

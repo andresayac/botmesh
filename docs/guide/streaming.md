@@ -182,7 +182,8 @@ for (const part of splitMessage(longText, 4096)) await ctx.reply(part)
 ```
 
 `resolveStreamStrategy(target, requested)` tells you which strategy a target
-would get, and `findSplitPoint(text, max)` where text would be cut.
+would get, and `findSplitPoint(text, max)` where text would be cut. Both come
+from `@botmesh/core/internal`, with no semver guarantee.
 
 ## Testing
 

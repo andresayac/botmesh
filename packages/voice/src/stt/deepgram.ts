@@ -5,6 +5,7 @@
 import { effectiveMimetype } from '../audio.js'
 import { VoiceConfigError, VoiceError } from '../errors.js'
 import { joinUrl, parseJson, voiceRequest } from '../http.js'
+import { safeContentType } from '../multipart.js'
 import type { AudioInput, SttAdapter, TranscribeOptions, Transcription, VoiceHttpOptions } from '../types.js'
 
 export interface DeepgramSttOptions extends VoiceHttpOptions {
@@ -47,7 +48,7 @@ export function deepgramStt(options: DeepgramSttOptions = {}): SttAdapter {
         {
           service: SERVICE,
           url: `${joinUrl(baseUrl, 'listen')}?${params.toString()}`,
-          headers: { authorization: `Token ${apiKey}`, 'content-type': effectiveMimetype(audio.buffer, audio.mimetype) },
+          headers: { authorization: `Token ${apiKey}`, 'content-type': safeContentType(effectiveMimetype(audio.buffer, audio.mimetype)) },
           body: audio.buffer,
           signal: opts.signal, timeoutMs: opts.timeoutMs,
           defaultMaxBytes: 1024 * 1024, secret: apiKey,

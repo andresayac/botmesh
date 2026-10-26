@@ -1,1 +1,1 @@
-{ "event": "status-find", "session": "my-bot", "status": "inChat" }
+{ "event": "status-find", "session": "my-bot", "status": "isLogged" }

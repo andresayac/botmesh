@@ -27,15 +27,17 @@ bot.when('visitas', async (ctx) => {
 ### 1. Registrar una herramienta
 
 ```ts
-bot.provide('db', {
-  users: new Map(),
+const db = {
+  users: new Map<string, { visits: number }>(),
   async touch(jid: string) {
     const u = this.users.get(jid) ?? { visits: 0 }
     u.visits++
     this.users.set(jid, u)
     return u
   },
-})
+}
+
+bot.provide('db', db)
 ```
 
 `bot.provide(name, value)` devuelve `this`, así que las llamadas se pueden
@@ -47,17 +49,35 @@ bot
   .provide('cache', myCache)
 ```
 
-### 2. Usarla en cualquier handler
+### 2. Tiparla
+
+`ctx.tools` se tipa con la interfaz `DefaultTools`, que está vacía hasta que la
+amplías (declaration merging). Declara cada herramienta una vez, junto al código
+que la registra, y todos los handlers la ven tipada:
+
+```ts
+declare module '@botmesh/core' {
+  interface DefaultTools {
+    db: typeof db
+  }
+}
+```
+
+Los plugins hacen lo mismo con las herramientas que registran: importar
+`@botmesh/ai` tipa `ctx.tools.ai`, e importar `@botmesh/nlu` tipa
+`ctx.tools.nlu`. En JavaScript no hay nada que declarar.
+
+### 3. Usarla en cualquier handler
 
 ```ts
 bot.when('visitas', async (ctx) => {
   const db = ctx.tools.db
   const user = await db.touch(ctx.from)
-  await ctx.reply(`📊 You have visited ${user.visits} times.`)
+  await ctx.reply(`📊 Nos has visitado ${user.visits} veces.`)
 })
 ```
 
-### 3. También disponible en hooks y plugins
+### 4. También disponible en hooks y plugins
 
 ```ts
 bot.before('message', async (ctx, next) => {
@@ -69,7 +89,8 @@ bot.before('message', async (ctx, next) => {
 
 El `install(ctx)` de un plugin también recibe `ctx.tools`, así que los
 plugins pueden consumir herramientas registradas en otro lugar (o
-registrar las suyas con `bot.provide`).
+registrar las suyas con `ctx.bot.provide`). Fuera de los handlers (una tarea
+programada, un webhook), léelas de `bot.injectTools`.
 
 ## Quitar una herramienta
 
@@ -97,6 +118,8 @@ bot.when('test', async (ctx) => {
   await ctx.tools.api.fetch(/* ... */)
 })
 ```
+
+Con TypeScript, declara las tres en `DefaultTools` como arriba.
 
 ## Siguientes pasos
 

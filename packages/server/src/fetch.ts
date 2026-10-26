@@ -23,7 +23,8 @@ export async function serveFetch(ingress: Ingress, request: Request): Promise<Re
   if (!response) return undefined
   const headers: Record<string, string> = { ...response.headers }
   if (response.closeConnection) headers.connection = 'close'
-  const noBody = request.method === 'HEAD' || response.status === 204 || response.status === 304
+  // Null-body statuses: the Response constructor throws if they carry a body.
+  const noBody = request.method === 'HEAD' || response.status === 204 || response.status === 205 || response.status === 304
   return new Response(noBody ? null : response.body, { status: response.status, headers })
 }
 

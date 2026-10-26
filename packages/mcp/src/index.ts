@@ -28,14 +28,14 @@ export {
   MCP_PROTOCOL_VERSIONS,
   createMcpServer,
 } from './server.js'
-export type { McpServer, McpServerOptions, McpToolInfo } from './server.js'
+export type { McpServer, McpServerOptions, McpToolAnnotations, McpToolInfo } from './server.js'
 
 export { EXAMPLE_FLOW_DOCUMENT } from './tools.js'
 export type { ToolContext } from './tools.js'
 
 export type { JsonRpcErrorBody, JsonRpcFailure, JsonRpcId, JsonRpcResult } from './protocol.js'
 
-export { runStdio, serveStream } from './stdio.js'
+export { DEFAULT_MAX_MESSAGE_LENGTH, runStdio, serveStream } from './stdio.js'
 export type { ServeOptions, StdioOptions } from './stdio.js'
 
 export { MCP_SERVER_NAME, MCP_SERVER_VERSION } from './version.js'

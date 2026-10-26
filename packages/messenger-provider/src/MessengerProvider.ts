@@ -63,6 +63,9 @@ export function toMessengerError(err: GraphError, retryAfterMs?: number, chatId:
   return toGraphError(err, { retryAfterMs, chatId })
 }
 
+const MESSAGING_TYPES = ['RESPONSE', 'UPDATE', 'MESSAGE_TAG'] as const
+const NOTIFICATION_TYPES = ['REGULAR', 'SILENT_PUSH', 'NO_PUSH'] as const
+
 export class MessengerProvider implements IProvider<unknown> {
   readonly id = 'messenger'
   readonly capabilities: ProviderCapabilities = {
@@ -134,12 +137,17 @@ export class MessengerProvider implements IProvider<unknown> {
     }
   }
 
+  /** Set by `stop()`, cleared by `start()`: a stopped provider refuses webhooks with 503 so Meta redelivers them. */
+  private stopped = false
+
   /** No socket to open — the transport is webhook-driven. */
   async start(): Promise<void> {
+    this.stopped = false
     this.fan({ kind: 'connection', update: { state: 'ready' } })
     this.logger.debug('MessengerProvider ready — wire your webhook to ingest()')
   }
   async stop(): Promise<void> {
+    this.stopped = true
     this.presenceReady = false
     this.fan({ kind: 'connection', update: { state: 'closed' } })
   }
@@ -156,9 +164,11 @@ export class MessengerProvider implements IProvider<unknown> {
    * verified against `X-Hub-Signature-256` first (forged bodies → 403).
    * Normalized events are emitted via onEvent. Pass the RAW body so the
    * signature computes over exactly what Meta signed. A body that is not a
-   * JSON object answers 400 instead of throwing.
+   * JSON object answers 400 instead of throwing; a stopped provider answers 503.
    */
   ingest(body: unknown, headers?: Record<string, string | string[] | undefined>): number {
+    // Stopped: nothing may reach the bot. 503 makes Meta redeliver after a restart.
+    if (this.stopped) return 503
     const sig = checkGraphSignature({ body, headers, appSecret: this.config.appSecret, logger: this.logger })
     if (!sig.ok) return sig.status
     const parsed = tryParseGraphBody<PageWebhookBody>(body)
@@ -173,7 +183,7 @@ export class MessengerProvider implements IProvider<unknown> {
   /* Outbound -------------------------------------------------------------- */
 
   private url(path: string): string {
-    return `${this.config.graphUrl.replace(/\/$/, '')}/${this.config.apiVersion}/${this.config.pageId}/${path}`
+    return `${this.config.graphUrl.replace(/\/$/, '')}/${encodeURIComponent(this.config.apiVersion)}/${encodeURIComponent(this.config.pageId)}/${path}`
   }
 
   /** POST to /{page-id}/messages — the single Send API endpoint for everything. */
@@ -215,7 +225,45 @@ export class MessengerProvider implements IProvider<unknown> {
     )
   }
 
+  /**
+   * Delivery fields of a send from `options.platformData`: `messaging_type`
+   * (`'RESPONSE'` by default), `tag` (a message tag; sets `messaging_type: 'MESSAGE_TAG'`
+   * when no type is given), `notification_type` and `persona_id`. Other keys are ignored,
+   * so `platformData` can never change the recipient or the message.
+   */
+  private deliveryFields(platformData: Record<string, unknown> | undefined): Record<string, string> {
+    const pd = platformData ?? {}
+    const read = (key: string, allowed?: readonly string[]): string | undefined => {
+      const value = pd[key]
+      if (value === undefined) return undefined
+      if (typeof value !== 'string' || value === '' || (allowed && !allowed.includes(value))) {
+        const expected = allowed ? `one of ${allowed.map((a) => `'${a}'`).join(', ')}` : 'a non-empty string'
+        throw new TypeError(`MessengerProvider: platformData.${key} must be ${expected}; got ${JSON.stringify(value)}`)
+      }
+      return value
+    }
+    const tag = read('tag')
+    const messagingType = read('messaging_type', MESSAGING_TYPES) ?? (tag ? 'MESSAGE_TAG' : 'RESPONSE')
+    if (messagingType === 'MESSAGE_TAG' && !tag) {
+      throw new TypeError("MessengerProvider: platformData.messaging_type 'MESSAGE_TAG' needs platformData.tag (e.g. 'HUMAN_AGENT')")
+    }
+    const notification = read('notification_type', NOTIFICATION_TYPES)
+    const persona = read('persona_id')
+    return {
+      messaging_type: messagingType,
+      ...(tag ? { tag } : {}),
+      ...(notification ? { notification_type: notification } : {}),
+      ...(persona ? { persona_id: persona } : {}),
+    }
+  }
+
+  /**
+   * Send content to a PSID. `options.platformData` sets the delivery fields
+   * (`messaging_type`, `tag`, `notification_type`, `persona_id`), e.g.
+   * `{ tag: 'HUMAN_AGENT' }` to answer after the 24-hour window with an approved tag.
+   */
   async send(chatId: ChatId, content: OutboundContent, options?: SendOptions): Promise<SendResult<unknown>> {
+    const delivery = this.deliveryFields(options?.platformData)
     if (options?.quoted) {
       // Messenger has no first-class reply/quote on the Send API — documented no-op.
       this.logger.debug('Messenger Send API has no reply/quote context; ignoring options.quoted')
@@ -225,7 +273,7 @@ export class MessengerProvider implements IProvider<unknown> {
     // Usually one message; a long card is split so no text is cut (see toOutboundMessages).
     let body: MessengerSendResponse = {}
     for (const message of toOutboundMessages(content, mediaUrl)) {
-      body = await this.postMessages({ recipient: { id: chatId }, messaging_type: 'RESPONSE', message }, chatId, content.kind)
+      body = await this.postMessages({ recipient: { id: chatId }, ...delivery, message }, chatId, content.kind)
     }
     return { ref: { id: body.message_id ?? '', chatId }, raw: body }
   }

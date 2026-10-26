@@ -100,7 +100,7 @@ app.post('/chatwoot', express.raw({ type: '*/*' }), async (req, res) => {
 | Inbound message (also during handoff) | Posted as `incoming` in the chat's conversation (created on first use). In groups the text is prefixed with the participant's name |
 | The bot sends | Posted as `outgoing`. Media is mirrored as text (`[image] caption`…) |
 | `ctx.handoff()` / `bot.handoff()` | Conversation set to `open`, private note (`handoffNote`), `labels.handoff` added. When the handoff came from Chatwoot itself (`reason` starting with `chatwoot:`), only the labels are added |
-| Public agent reply (`message_created`) | `bot.handoff(chatId, { reason: 'chatwoot:agent' })` if `autoHandoff` and the chat is not handed off; then `bot.send()` (attachments by URL). Never mirrored back; a redelivery of the same message id is ignored |
+| Public agent reply (`message_created`) | `bot.handoff(chatId, { reason: 'chatwoot:agent' })` if `autoHandoff` and the chat is not handed off; then `bot.send()` (attachments by URL). Never mirrored back; a redelivery of the same message id is ignored. If the channel refuses it (for example `OutsideSessionWindowError` on the Cloud API), the message is marked **failed** in Chatwoot with the error name, so the agent sees it |
 | Conversation resolved (`conversation_status_changed`, `conversation_resolved`, or `conversation_updated` with a `status` change) | `bot.resume(chatId, { reason: 'chatwoot:resolved' })` when the chat is handed off (`resumeOnResolve`). It only ends the handoff: it does not close any ticket |
 | `bot.resume()` for any other reason | Conversation `resolved` (`resolveOnResume`), `labels.handoff` removed, `labels.resume` added |
 
@@ -111,7 +111,14 @@ created itself.
 Each chat maps to one Chatwoot contact (`identifier` = chat id) and one
 conversation. The mapping lives in the bot store through the cursor API
 (`chatwoot:chat:<chatId>`, `chatwoot:conv:<id>`), so it survives restarts
-with a persistent store. Chat ids are only used as opaque keys.
+with a persistent store. Chat ids are only used as opaque keys. If the
+mapping is lost (a new store, or a restart on `MemoryStore`), the plugin
+finds the contact by exact `identifier` (contacts filter API) and keeps
+using its newest conversation in the inbox, so agents answering there
+still reach the chat.
+
+One `chatwootPlugin()` instance serves one bot: plugging the same instance
+into a second bot throws (create one per bot, each with its webhook URL).
 
 ### Chatwoot options
 
@@ -146,7 +153,10 @@ on shutdown and in tests) and `client` (`ChatwootClient`).
   `webhookToken`, `webhookSecret` or `insecureNoWebhookAuth: true`. Keep
   the last one for an endpoint that is not reachable from outside.
 - The token is accepted in `?token=`, `x-chatwoot-token` or
-  `Authorization: Bearer`. The HMAC-SHA256 signature goes in
+  `Authorization: Bearer`. Chatwoot itself (checked on 4.7) does not sign
+  account webhooks, so put the token in the webhook URL; `webhookSecret`
+  is for a sender or proxy that signs as described next. The HMAC-SHA256
+  signature goes in
   `x-chatwoot-signature` (hex, `sha256=` prefix allowed) and is computed
   over `${timestamp}.${rawBody}`, with `x-chatwoot-timestamp` (seconds)
   within `webhookToleranceSec` (300). A signature over the bare body never
@@ -159,15 +169,21 @@ on shutdown and in tests) and `client` (`ChatwootClient`).
 - Outgoing HTTP goes through `secureFetch` from `@botmesh/http`: HTTPS only,
   SSRF guard, timeouts and no redirects, so `api_access_token` never
   reaches another origin. A self-hosted Chatwoot on a LAN needs
-  `http.allowPrivateHosts` (and `http.allowHttp` for plain HTTP).
+  `http.allowPrivateHosts` (and `http.allowHttp` for plain HTTP): an
+  `http://` `baseUrl` without `http.allowHttp` throws when the plugin is
+  created, and a blocked private host is reported with the option to set.
 - With `syncMode: 'all'` every conversation is copied to Chatwoot. Use
   `syncMode: 'handoff'` if only escalated chats should leave the bot.
 
 ### Chatwoot limitations
 
 - Inbound media is mirrored as text (`[image] caption`), not uploaded.
-- One chat, one conversation. If Chatwoot answers 404 for the mapped
-  conversation, a new one is created.
+- One chat, one conversation. If the mapped conversation is gone (Chatwoot
+  answers 404, or 422 while it is still deleting a contact), a new one is
+  created and the message goes there.
+- Marking a refused agent reply as failed uses the message status API,
+  which Chatwoot only offers for API-channel inboxes (the kind this plugin
+  needs anyway).
 - Without cursor support in the store the mapping lives in memory (a
   warning is logged at install).
 
@@ -250,6 +266,18 @@ used without a bot: `new TicketDesk({ storage: memoryTicketStorage() })`.
 
 - There is no agent UI or agent identity: `assignee` is a free string.
   Build the panel on `bot.injectTools.tickets` and protect it yourself.
+- With `handoffOnAssign`, only the first assignment hands the chat off: a
+  reassignment keeps the handoff and its `meta.assignee` (read the ticket
+  for the current agent), and unassigning (`assignee: null`) puts the
+  ticket back in the queue but keeps the chat handed off. Call
+  `bot.resume(chatId)` yourself if the bot should answer again.
+- `meta` must be a plain JSON object (no `Date`, `Map`, class instances,
+  functions or `BigInt`); anything else is rejected before the ticket is
+  stored. A property set to `undefined` is dropped, as in JSON, so
+  `{ email: user?.email }` or `{ ...prev, key: undefined }` (to remove a
+  key) work; `undefined` inside an array is rejected.
+- In shared mode every call re-reads the index and every active ticket, so
+  its cost grows with the number of open tickets.
 - `list()` with a filter that may include `closed` scans every id from 1
   to the last one.
 - The default storage (the store's cursors) has no compare-and-set, so it
@@ -314,6 +342,11 @@ own messages are never moderated.
 
 - Words are compared ignoring case and accents (`ñ` stays distinct from
   `n`) and as whole words; RegExps run on the raw text.
+- Invisible characters (zero-width, soft hyphen, bidi controls) are dropped
+  and compatibility forms such as fullwidth `ｓｐａｍ` are read as plain
+  letters before words and links are matched, so they cannot hide a banned
+  word or an invite. WhatsApp formatting around a link (`_italic_`,
+  `*bold*`, `~strike~`) does not hide it either.
 - Recognized invites: WhatsApp (`chat.whatsapp.com/…`), Telegram
   (`t.me/+…`, `t.me/joinchat/…`) and Discord (`discord.gg/…`,
   `discord.com/invite/…`). `allowInvites` matches the exact code.
@@ -338,7 +371,11 @@ default, Spanish with `lang: 'es'`).
 Admins skip every rule (`adminBypass`, default `true`): ids in `admins`,
 anyone `isAdmin(chatId, userId)` approves, and the list from
 `provider.groups.getAdmins(chatId)`, cached for `adminCacheMs` (default 5
-min) and invalidated on `promote`/`demote` group events. When someone
+min) and invalidated on `promote`/`demote` group events. Admins are only
+looked up for a message that breaks a rule or comes from a muted user. If
+`isAdmin` throws, the sender counts as a non-admin (and a warning is
+logged); if `getAdmins` fails, the last known list is kept and the provider
+is asked again after at most 30 seconds. When someone
 leaves (`remove`), their warnings, mute and spam window are forgotten.
 The state stays bounded on a long-running bot: expired mutes and stale
 admin lists are swept, and at most `maxTrackedUsers` (default 10,000)
@@ -348,6 +385,12 @@ warning counters are kept, dropping the least recently warned user's.
 `resetWarnings`, `kick` (resolves an `ActionResult`), `setGroupRules`
 (`false` disables, `undefined` removes the override) and
 `invalidateAdmins`.
+
+The config is validated when you call `moderationPlugin()` and by
+`setGroupRules`: an unknown action, a non-positive count or window, or a
+field of the wrong type throws a `TypeError`/`RangeError` naming the field.
+`{name}` in the warning text is the sender's display name with control and
+bidi characters removed, on one line and at most 64 characters.
 
 ::: warning `groupMode` runs first
 The bot's `groupMode` filter runs **before** `before('message')` hooks.
@@ -381,7 +424,7 @@ import { dialogflowPlugin, whenDialogflowIntent } from '@botmesh/dialogflow'
 
 const bot = new Bot({ provider })
 
-bot.plug(dialogflowPlugin({                         // dialogflowContext is a deprecated alias
+bot.plug(dialogflowPlugin({
   credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS!), // service-account JSON
   languageCode: 'en',
   fulfillment: 'unrouted',     // reply with the agent's text when the intent has no route
@@ -415,12 +458,19 @@ For CX, add `cx: { agentId, location, environment? }`.
    `minConfidence`, the target runs; otherwise the message falls through
    to other matchers and the catch-all.
 3. Not sent to Dialogflow: empty messages, interactions, commands
-   (`commandPrefix`, default `'/'`), messages from a chat in
+   (`commandPrefix`, default `'/'`), texts longer than `maxTextLength`
+   (256 characters, the API limit), messages from a chat in
    [handoff](/guide/handoff), messages from a user inside an active
    conversation (`skipActiveConversation`, default `true`) and anything
    `filter` rejects.
-4. If `detectIntent` fails, it is logged, `onError(error, ctx)` is called
-   and the message keeps flowing.
+4. If `detectIntent` (or `filter`) fails, it is logged, `onError(error, ctx)`
+   is called and the message keeps flowing. A `401` drops the cached access
+   token and retries once with a fresh one.
+
+While an ES intent still has required parameters to fill, the result has
+`allRequiredParamsPresent: false` and the agent's prompt in `messages`. A
+route runs anyway, so check that flag in the handler if the intent relies on
+Dialogflow's slot filling.
 
 `fulfillment: 'all'` also answers fallback / no-match results with the
 agent's text, so those messages never reach your `onMessage` or the
@@ -432,33 +482,36 @@ what Dialogflow does not understand.
 | Option | Default | Description |
 | --- | --- | --- |
 | `credentials` | — | Service-account JSON (`client_email`, `private_key`, `project_id`…) |
-| `tokenSource` | — | `{ getAccessToken() }`, alternative to `credentials` |
+| `tokenSource` | — | `{ getAccessToken(), invalidate?(token) }`, alternative to `credentials` (with `invalidate`, a `401` is retried once) |
 | `projectId` | `credentials.project_id` | Google Cloud project |
 | `languageCode` / `languageFor(ctx)` | `'en'` | Query language, global / per message |
 | `queryParams(ctx)` | — | Raw `queryParams` per message |
 | `cx` | — | `{ agentId, location, environment? }` switches to CX |
 | `location` / `environment` | global / draft | ES only: regional agent or published environment |
-| `minConfidence` | `0` | Minimum confidence to route |
-| `sessionScope` / `sessionKey(ctx)` | `'chat'` | One session per chat, per participant in groups (`'participant'`), or your own key |
+| `minConfidence` | `0` | Minimum confidence to route, between 0 and 1 |
+| `sessionScope` / `sessionKey(ctx)` | `'participant'` | In groups, one session per participant (like conversations) or per group (`'chat'`); or your own key. A DM is one session |
 | `routes` | — | Intent → handler or flow |
 | `fulfillment` | `'off'` | `'unrouted'` or `'all'` auto-replies with the agent's texts |
 | `commandPrefix` | `'/'` | `false` sends commands too |
+| `maxTextLength` | `256` | Longer texts are not sent (the API rejects them) |
 | `skipActiveConversation` | `true` | Do not query inside a conversation |
-| `filter(ctx)` | — | Return `false` to skip a message |
+| `filter(ctx)` | — | Return `false` to skip a message (if it throws, the message is skipped and `onError` is called) |
 | `priority` | `0` | Before-hook priority |
-| `onError(error, ctx)` | — | `detectIntent` failures |
+| `onError(error, ctx)` | — | `detectIntent` and `filter` failures |
 | `http` | — | `{ fetch, resolver, timeoutMs, maxBytes }` for `secureFetch` |
 
 ### Security and privacy
 
-- Invalid credentials throw `DialogflowError` **synchronously** at
-  `bot.plug()`. The access token is fetched lazily on the first message,
+- Invalid credentials (`code: 'INVALID_CREDENTIALS'`) and invalid options
+  (`code: 'INVALID_CONFIG'`: `minConfidence` outside 0–1, an unknown
+  `fulfillment` or `sessionScope`, an empty `commandPrefix`, a malformed
+  `location`…) throw `DialogflowError` **synchronously** at `bot.plug()`. The access token is fetched lazily on the first message,
   cached and refreshed shortly before it expires.
 - The session key is hashed (SHA-256, 32 characters) before it is used as
   the Dialogflow session id, so chat ids and phone numbers are not sent to
   Google. The message **text** is.
 - Keep the service-account JSON in a secret, never in the repo.
-- Parameters copied into `c.state` skip `__proto__`, `constructor` and
+- Parameters (in the result and copied into `c.state`) skip `__proto__`, `constructor` and
   `prototype`: they come from a remote service and must not reach the
   prototype of the state object.
 - A route target that is not a handler function, a `flow()` builder or a
@@ -505,8 +558,11 @@ whenIntent(bot, nlu, 'order.status', async (ctx, match) => {
 - `engine.match(text)` returns `{ intent, confidence, entities? }` or `null`;
   `engine.rank(text)` scores every intent (useful to debug a phrase);
   `engine.define(intent, utterances)` adds phrases at runtime.
-- Matching normalizes case, accents and punctuation (`¡HOLA!` equals `hola`),
-  then scores token overlap. An exact phrase, or a phrase with `{slot}`
+- Matching normalizes case, accents, punctuation, full-width letters and
+  invisible characters (`¡HOLA!` equals `hola`), then scores the words in
+  common; vowel signs of scripts such as Devanagari stay in their word. A
+  phrase with only emoji or punctuation throws in `define()`: it could never
+  match. Punctuation splits words, so an id like `A-1` does not fill one slot. An exact phrase, or a phrase with `{slot}`
   placeholders that lines up with the whole message, scores `1`; a slot
   captures one word.
 - Scope: no stemming, synonyms or embeddings. Give each intent several short

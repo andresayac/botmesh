@@ -33,7 +33,10 @@ describe('PostgresDurability', () => {
     const pool = new FakeDurablePool()
     const kv = new PostgresDurableKv({ pool, tablePrefix: 'bot1_' })
     await kv.start()
-    await kv.start()
+    await kv.start() // already started: a no-op, like PostgresStore.start()
+    expect(pool.statements.filter((s) => s.startsWith('CREATE TABLE IF NOT EXISTS bot1_durable '))).toHaveLength(1)
+    await kv.stop()
+    await kv.start() // a restart runs the idempotent DDL again
     expect(pool.statements.filter((s) => s.startsWith('CREATE TABLE IF NOT EXISTS bot1_durable '))).toHaveLength(2)
     expect(kv.table).toBe('bot1_durable')
   })

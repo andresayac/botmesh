@@ -52,27 +52,29 @@ Options (`OtelTracingOptions`):
 | `api` | lazy import | The `@opentelemetry/api` module. |
 | `tracerProvider` | the global one | `api.trace.getTracerProvider()`, set by the SDK. |
 | `tracerName` | `'@botmesh/otel'` | Instrumentation scope name. |
-| `spanMetrics` | `true` | Histograms derived from finished spans, recorded whether or not the span was sampled: `botmesh.inbound.duration`, `botmesh.dispatch.duration`, `botmesh.queue.wait`, `botmesh.send.duration`, `botmesh.lifecycle.duration`, `gen_ai.client.operation.duration`, `gen_ai.client.token.usage`. Only low-cardinality attributes (kinds, stages, outcomes, provider and model names). `false` turns them off; `{ meterProvider, prefix }` changes where they go. |
+| `spanMetrics` | `true` | Histograms derived from finished spans, recorded whether or not the span was sampled: `botmesh.inbound.duration`, `botmesh.dispatch.duration`, `botmesh.queue.wait`, `botmesh.send.duration`, `botmesh.lifecycle.duration`, `gen_ai.client.operation.duration`, `gen_ai.client.token.usage`. Only low-cardinality attributes (kinds, stages, outcomes, provider and model names). `false` turns them off; `{ meterProvider, prefix }` changes where they go. Bucket boundaries fit each unit (5 ms to 10 s for latencies, the GenAI semantic-convention buckets for model calls and tokens). |
 
 ## Metrics
 
-`otelMetricsPlugin(options?)` (or `registerOtelMetrics(bot, options?)`, which resolves to an unregister function; `bridgeMetrics(api, bot, options?)` is the synchronous form) publishes `bot.metrics()` as counters and observable gauges: `botmesh.messages.inbound`, `botmesh.messages.outbound{result}`, `botmesh.dropped{reason}`, `botmesh.presence.skipped{kind}`, `botmesh.conversations.started|ended{outcome}|active`, `botmesh.flow.conversations.*{flow}`, `botmesh.triggered`, `botmesh.errors`, `botmesh.uptime`, and the `botmesh.conversation.duration{flow,outcome}` histogram.
+`otelMetricsPlugin(options?)` (or `registerOtelMetrics(bot, options?)`, which resolves to an unregister function; `bridgeMetrics(api, bot, options?)` is the synchronous form) publishes `bot.metrics()` as counters and observable gauges: `botmesh.messages.inbound`, `botmesh.messages.outbound{result}`, `botmesh.dropped{reason}` (`duplicate`, `blocked`, `handoff`, plus `echo` with `echoFilter`), `botmesh.presence.skipped{kind}`, `botmesh.conversations.started|ended{outcome}|active`, `botmesh.flow.conversations.*{flow}`, `botmesh.triggered`, `botmesh.errors`, `botmesh.uptime`, and the `botmesh.conversation.duration{flow,outcome}` histogram.
 
 | Option | Default | What it does |
 | --- | --- | --- |
 | `api` | lazy import | The `@opentelemetry/api` module (injected, the bridge registers at once). |
 | `meterProvider` | the global one | Where the instruments are created. |
 | `meterName` | `'@botmesh/otel'` | Instrumentation scope name. |
-| `prefix` | `'botmesh'` | Metric name prefix (`'botwa'` keeps the names of the alpha releases). |
+| `prefix` | `'botmesh'` | Metric name prefix (`'botwa'` keeps the names of the alpha releases). It must start with a letter and use only letters, digits, `.`, `_`, `-` or `/`; an invalid one throws. |
 | `attributes` | none | Constant attributes added to every data point (besides `bot.id`). Keep them low-cardinality. |
 | `perFlow` | `true` | Per-flow conversation counters. |
-| `conversationDuration` | `true` | The `conversation:ended` duration histogram. |
+| `conversationDuration` | `true` | The `conversation:ended` duration histogram (buckets from 1 s to 1 day). |
 
 ## Troubleshooting
 
 | Symptom | Cause and fix |
 | --- | --- |
 | `@botmesh/otel needs @opentelemetry/api` | Install `@opentelemetry/api` (and an SDK). |
+| `... is not a valid metric name prefix` | The `prefix` (or `spanMetrics.prefix`) has a space or another character OpenTelemetry rejects in instrument names. Use something like `'acme.bot'`. |
+| `metricReader` does not exist in `NodeSDKConfiguration` | Recent `@opentelemetry/sdk-node` releases take `metricReaders: [reader]` (an array). |
 | No spans reach the backend | The SDK was started after the tracer was built, or it has no exporter. Start the SDK first, or use `lazyOtelTracer()`. |
 | Spans but no histograms | No global meter provider is registered: give the SDK a metric reader, or pass `spanMetrics: { meterProvider }`. |
 | Every chat id looks different after a restart | Ids are HMAC-hashed with a random key per process: set `telemetry.idKey` to a stable secret. |

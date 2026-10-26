@@ -66,8 +66,8 @@ features:
     linkText: Plugins
   - title: Stores intercambiables
     details: |
-      MemoryStore por defecto; @botmesh/sqlite-store y @botmesh/redis-store
-      para persistir, o tu propio IStore.
+      MemoryStore por defecto; stores de SQLite, Redis, PostgreSQL, MySQL y
+      MongoDB para persistir, o tu propio IStore.
     icon: 📦
     link: /es/guide/store
     linkText: Stores

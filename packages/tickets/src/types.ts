@@ -26,7 +26,7 @@ export interface Ticket {
   status: TicketStatus
   /** Agent that owns the ticket (free-form id or name). */
   assignee?: string
-  /** Host-defined, JSON-serializable metadata. */
+  /** Host-defined metadata: a plain JSON object (no `Date`, `Map`, class instances, functions or `BigInt`). */
   meta?: Record<string, unknown>
   createdAt: number
   updatedAt: number
@@ -40,6 +40,7 @@ export interface CreateTicketInput {
   subject: string
   /** Default `'normal'`. */
   priority?: TicketPriority
+  /** A plain JSON object; anything else is rejected with a `TypeError` before any write. */
   meta?: Record<string, unknown>
 }
 
@@ -59,7 +60,7 @@ export interface TicketPatch {
   priority?: TicketPriority
   status?: TicketStatus
   assignee?: string | null
-  /** Replaces the whole `meta` object. */
+  /** Replaces the whole `meta` object (a plain JSON object, as in `create`). */
   meta?: Record<string, unknown>
 }
 

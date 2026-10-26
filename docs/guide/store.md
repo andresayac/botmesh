@@ -156,7 +156,7 @@ A file written by a **newer** release is refused, untouched, with
 - When several processes share one file, stop the ones on the old version
   before a new one opens it.
 
-The [package README](https://www.npmjs.com/package/@botmesh/sqlite-store#schema-versioning)
+The [package README](https://www.npmjs.com/package/@botmesh/sqlite-store#schema-versions-and-upgrades)
 lists what each version changed and how to roll back the latest step without a
 backup.
 
@@ -273,8 +273,9 @@ const bot = new Bot({ provider, store, scheduler: { store: store.schedules() } }
 Each one also takes an existing pool or client (`pool` / `client`), which it
 never closes. With an injected `pg` pool, attach a `pool.on('error', …)`
 listener: node-postgres crashes the process when an idle connection drops and
-nobody listens. The options, table layouts and error tables are in each package
-README: [PostgreSQL](https://www.npmjs.com/package/@botmesh/postgres-store),
+nobody listens. On PostgreSQL keep `tablePrefix` at 42 characters or fewer (the
+server truncates names to 63 bytes; a longer prefix throws a `RangeError`). The
+options, table layouts and error tables are in each package README: [PostgreSQL](https://www.npmjs.com/package/@botmesh/postgres-store),
 [MySQL/MariaDB](https://www.npmjs.com/package/@botmesh/mysql-store),
 [MongoDB](https://www.npmjs.com/package/@botmesh/mongo-store).
 

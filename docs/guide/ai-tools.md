@@ -147,7 +147,7 @@ words around a yes/no are ignored. The default words cover English and
 Spanish. The "yes" words (`DEFAULT_YES`) are
 `si`, `s`, `yes`, `y`, `ok`, `okay`, `confirmo`, `confirmar`, `dale`, `claro`,
 `de acuerdo`, `acepto`, `1`, `vale`, `listo`, `perfecto`, `adelante`, `hazlo`,
-`correcto`, `está bien`, `sure`, `yeah` and `yep`; the "no" words
+`correcto`, `esta bien`, `sure`, `yeah` and `yep`; the "no" words
 (`DEFAULT_NO`) are `no`, `n`, `nop`, `nope`, `nel`, `cancelar`, `cancela`,
 `cancelo`, `cancel`, `negativo`, `mejor no`, `para nada`, `tampoco`,
 `no gracias`, `2` and `0`. Change them with `toolConfirm.yes` / `toolConfirm.no`;

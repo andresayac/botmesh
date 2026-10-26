@@ -38,9 +38,9 @@ import type {
   UserId,
 } from '@botmesh/core'
 import { ProviderError } from '@botmesh/core'
-import type { InstagramProviderConfig } from './types.js'
+import type { InstagramProviderConfig, InstagramSendResponse } from './types.js'
 import { GraphClient } from './graphClient.js'
-import { toOutbound } from './toOutbound.js'
+import { toOutboundParts } from './toOutbound.js'
 import { parseInbound, type IgWebhookBody } from './parseInbound.js'
 import {
   verifyChallenge, checkGraphSignature, tryParseGraphBody, META_MEDIA_HOSTS, serializeUrlMediaRef, rehydrateUrlMediaRef,
@@ -81,13 +81,27 @@ export class InstagramProvider implements IProvider<unknown> {
     if (typeof config.accessToken !== 'string' || config.accessToken.trim() === '') {
       throw new Error('InstagramProvider requires `accessToken` (the connected Page access token); got an empty value — is the env var set?')
     }
-    if (typeof config.verifyToken !== 'string' || config.verifyToken === '') {
+    if (typeof config.verifyToken !== 'string' || config.verifyToken.trim() === '') {
       throw new Error('InstagramProvider requires `verifyToken` (the webhook verify token you set in Meta); without it the GET handshake always fails.')
     }
     if (config.requestTimeoutMs !== undefined && !(typeof config.requestTimeoutMs === 'number' && Number.isFinite(config.requestTimeoutMs) && config.requestTimeoutMs > 0)) {
       throw new TypeError('InstagramProvider: `requestTimeoutMs` must be a positive number of milliseconds')
     }
-    this.config = { apiVersion: DEFAULT_GRAPH_API_VERSION, graphUrl: 'https://graph.facebook.com', ...config }
+    if (config.appSecret !== undefined && (typeof config.appSecret !== 'string' || (config.appSecret !== '' && config.appSecret.trim() === ''))) {
+      throw new TypeError('InstagramProvider: `appSecret` must be the app secret string (App settings → Basic); got a blank value.')
+    }
+    if (config.apiVersion !== undefined && !(typeof config.apiVersion === 'string' && /^v\d+\.\d+$/.test(config.apiVersion))) {
+      throw new TypeError(`InstagramProvider: \`apiVersion\` must look like '${DEFAULT_GRAPH_API_VERSION}' (a 'v' and major.minor); got ${JSON.stringify(config.apiVersion)}.`)
+    }
+    if (config.graphUrl !== undefined && !isHttpUrl(config.graphUrl)) {
+      throw new TypeError(`InstagramProvider: \`graphUrl\` must be an absolute http(s) URL such as 'https://graph.facebook.com'; got ${JSON.stringify(config.graphUrl)}.`)
+    }
+    // `??`, not a spread: an explicit `undefined` (an unset env var) keeps the default.
+    this.config = {
+      ...config,
+      apiVersion: config.apiVersion ?? DEFAULT_GRAPH_API_VERSION,
+      graphUrl: config.graphUrl ?? 'https://graph.facebook.com',
+    }
     this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
     if (config.mediaRefHosts !== undefined &&
       (!Array.isArray(config.mediaRefHosts) || config.mediaRefHosts.some((h) => typeof h !== 'string' || h.trim() === ''))) {
@@ -137,12 +151,17 @@ export class InstagramProvider implements IProvider<unknown> {
     }
   }
 
+  /** Set by `stop()`, cleared by `start()`: a stopped provider refuses webhooks with 503 so Meta redelivers them. */
+  private stopped = false
+
   /** No socket to open — the transport is webhook-driven. */
   async start(): Promise<void> {
+    this.stopped = false
     this.fan({ kind: 'connection', update: { state: 'ready' } })
     this.logger.debug('InstagramProvider ready — wire your webhook to ingest()')
   }
   async stop(): Promise<void> {
+    this.stopped = true
     this.presenceReady = false
     this.fan({ kind: 'connection', update: { state: 'closed' } })
   }
@@ -162,6 +181,8 @@ export class InstagramProvider implements IProvider<unknown> {
    * a JSON object answers 400 instead of throwing.
    */
   ingest(body: unknown, headers?: Record<string, string | string[] | undefined>): number {
+    // Stopped: nothing may reach the bot. 503 makes Meta redeliver after a restart.
+    if (this.stopped) return 503
     const sig = checkGraphSignature({ body, headers, appSecret: this.config.appSecret, logger: this.logger })
     if (!sig.ok) return sig.status
     const parsed = tryParseGraphBody<IgWebhookBody>(body)
@@ -169,7 +190,7 @@ export class InstagramProvider implements IProvider<unknown> {
       this.logger.warn('webhook rejected: body is not a JSON object')
       return parsed.status
     }
-    for (const event of parseInbound(parsed.body)) this.fan(event)
+    for (const event of parseInbound(parsed.body, this.config.selfId)) this.fan(event)
     return 200
   }
 
@@ -181,8 +202,21 @@ export class InstagramProvider implements IProvider<unknown> {
    */
   async send(chatId: ChatId, content: OutboundContent, options?: SendOptions): Promise<SendResult<unknown>> {
     void options // quoted/mentions/interactionId have no Send API equivalent
-    const message = toOutbound(content)
-    const res = await this.graph.sendMessage(chatId, message, content.kind)
+    let primary: InstagramSendResponse | undefined
+    for (const part of toOutboundParts(content)) {
+      if (part.primary) {
+        primary = await this.graph.sendMessage(chatId, part.message, content.kind)
+        continue
+      }
+      try {
+        await this.graph.sendMessage(chatId, part.message, content.kind)
+      } catch (err) {
+        // A caption or card image that fails never fails (and so never re-sends) the main message.
+        const e = err as { name?: unknown; code?: unknown }
+        this.logger.warn({ errorName: e?.name, code: e?.code, contentKind: content.kind }, 'instagram: secondary part of a send failed (caption or card image); skipped')
+      }
+    }
+    const res = primary ?? {}
     return { ref: { id: res.message_id ?? '', chatId }, raw: res }
   }
 
@@ -233,4 +267,14 @@ export class InstagramProvider implements IProvider<unknown> {
 
   /** IG quick replies carry no ack deadline — nothing to do. */
   async acknowledgeInteraction(_interactionId: string, _opts?: { text?: string; defer?: boolean }): Promise<void> {}
+}
+
+function isHttpUrl(v: unknown): boolean {
+  if (typeof v !== 'string') return false
+  try {
+    const u = new URL(v)
+    return u.protocol === 'https:' || u.protocol === 'http:'
+  } catch {
+    return false
+  }
 }

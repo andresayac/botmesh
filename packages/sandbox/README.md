@@ -71,10 +71,10 @@ import { CloudAPIProvider } from '@botmesh/meta'
 const h = await startHarness(
   new WhatsAppSimulator(),
   (sim) => new CloudAPIProvider(sim.providerConfig()),
-  (bot) => { bot.when('hola', (ctx) => ctx.reply('¡Hola!')) },
+  (bot) => { bot.when('hi', (ctx) => ctx.reply('Hi!')) },
 )
-await h.sim.sendText('hola')
-expect((await h.sim.waitForOutbound()).text).toBe('¡Hola!')
+await h.sim.sendText('hi')
+expect((await h.sim.waitForOutbound()).text).toBe('Hi!')
 expect(h.sim.issues()).toEqual([])          // every request matched the documented shape
 h.sim.fail('rateLimit', { retryAfterSec: 30 }) // next send answers 429 + Retry-After
 await h.stop()
@@ -89,4 +89,4 @@ opt-in suites in `tests/docker/*.integration.test.ts` (variables `BOTWA_TEST_EVO
 `BOTWA_TEST_WPPCONNECT_*`, `BOTWA_TEST_CHATWOOT_*`, `BOTWA_TEST_MAILPIT_*`). Pairing a WhatsApp
 number by QR code stays manual.
 
-See the guide: `docs/guide/sandbox.md`.
+See the [platform sandbox guide](https://andresayac.github.io/botmesh/guide/sandbox).

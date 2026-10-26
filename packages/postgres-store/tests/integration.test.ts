@@ -536,6 +536,23 @@ describe.skipIf(!URL)('PostgresStore — real PostgreSQL integration', () => {
       expect(await store.getConversation('k')).toEqual([{ role: 'user', content: `x${FFFD}` }])
     })
 
+    it('finds a message whose id or chat id holds a lone surrogate (stored as U+FFFD)', async () => {
+      // node-postgres sends parameters as UTF-8, where a lone surrogate becomes U+FFFD, and
+      // the JSONB copy is sanitized the same way: getMessage compared the stored ref with
+      // the raw one and reported the message as missing.
+      const store = makeStore()
+      await store.start()
+      const id = 'id-' + 'ok 👋'.slice(0, -1)
+      const chatId = 'chat-\udc00'
+      const m = msg(chatId, id, 'hi', 1)
+      await store.saveMessage(m)
+      const got = await store.getMessage({ id, chatId })
+      expect(got?.body).toBe('hi')
+      expect(got?.ref).toEqual({ id: `id-ok ${FFFD}`, chatId: `chat-${FFFD}` })
+      await store.deleteMessage({ id, chatId })
+      expect(await store.getMessage({ id, chatId })).toBeUndefined()
+    })
+
     it('setCheckpointIf stores text JSONB cannot hold (U+0000, lone surrogates) like setCheckpoint', async () => {
       const store = makeStore()
       await store.start()

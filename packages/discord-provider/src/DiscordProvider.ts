@@ -34,7 +34,7 @@ import type {
 } from '@botmesh/core'
 import { ProviderError, UnsupportedContentError } from '@botmesh/core'
 import { isAllowedHostUrl } from '@botmesh/http'
-import type { DiscordProviderConfig } from './types.js'
+import type { DiscordAllowedMentions, DiscordProviderConfig } from './types.js'
 import { DEFAULT_INTENTS } from './types.js'
 import { GatewaySocket, defaultSocketFactory } from './gateway.js'
 import { DiscordRestClient } from './restClient.js'
@@ -45,6 +45,17 @@ import { toOutbound, type DiscordFile } from './toOutbound.js'
 const DEFAULT_REACTION_MEMORY = 1000
 /** Default delay before an unanswered interaction is deferred by the provider (Discord fails it at ~3 s). */
 const DEFAULT_AUTO_ACK_MS = 2000
+/** Default `allowedMentions`: user mentions notify; @everyone, @here and roles do not. */
+const DEFAULT_ALLOWED_MENTIONS: DiscordAllowedMentions = Object.freeze({ parse: ['users'] }) as DiscordAllowedMentions
+const MENTION_KINDS = new Set(['users', 'roles', 'everyone'])
+
+function isAllowedMentions(v: unknown): v is DiscordAllowedMentions {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false
+  const o = v as Record<string, unknown>
+  const ids = (x: unknown) => x === undefined || (Array.isArray(x) && x.every((i) => typeof i === 'string'))
+  return (o.parse === undefined || (Array.isArray(o.parse) && o.parse.every((k) => MENTION_KINDS.has(k as string)))) &&
+    ids(o.users) && ids(o.roles) && (o.replied_user === undefined || typeof o.replied_user === 'boolean')
+}
 
 /** Hosts (and their subdomains) that serve Discord attachments (`cdn.discordapp.com`, `media.discordapp.net`). */
 export const DISCORD_MEDIA_HOSTS: readonly string[] = Object.freeze(['discordapp.com', 'discordapp.net'])
@@ -147,20 +158,29 @@ export class DiscordProvider implements IProvider<unknown> {
   private readonly lastEdits = new Map<string, string>()
   /** Application id for interaction followups: `config.appId`, else learnt from READY or an interaction. */
   private appId: string | undefined
+  /** `allowed_mentions` added to payloads that set none (`allowedMentions` config). */
+  private readonly allowedMentions: DiscordAllowedMentions
 
   constructor(config: DiscordProviderConfig) {
     if (typeof config.token !== 'string' || config.token.trim() === '') {
       throw new Error('DiscordProvider requires `token` (Developer Portal → Bot → Reset Token); got an empty value — is the env var set?')
+    }
+    if (/^bot\s/i.test(config.token.trim())) {
+      throw new TypeError('DiscordProvider: pass the bot token without the "Bot " prefix (the provider adds the Authorization scheme itself)')
+    }
+    const token = config.token.trim()
+    if (config.reconnectDelayMs !== undefined && !(Number.isFinite(config.reconnectDelayMs) && config.reconnectDelayMs >= 0)) {
+      throw new TypeError(`DiscordProvider: reconnectDelayMs must be a non-negative number of ms (got ${String(config.reconnectDelayMs)})`)
+    }
+    if (config.intents !== undefined && !(Number.isSafeInteger(config.intents) && config.intents >= 0)) {
+      throw new TypeError(`DiscordProvider: intents must be a non-negative integer bitmask, e.g. GatewayIntents.Guilds | GatewayIntents.GuildMessages (got ${String(config.intents)})`)
     }
     const memory = config.reactionMemory ?? DEFAULT_REACTION_MEMORY
     if (!Number.isSafeInteger(memory) || memory < 0) {
       throw new Error(`DiscordProvider: reactionMemory must be a non-negative integer (got ${String(memory)})`)
     }
     this.reactionMemory = memory
-    if (config.autoAcknowledgeMs !== undefined && config.autoAckMs !== undefined && config.autoAcknowledgeMs !== config.autoAckMs) {
-      throw new TypeError('DiscordProvider: set `autoAcknowledgeMs` only (`autoAckMs` is its deprecated alias), not both with different values')
-    }
-    const autoAck = config.autoAcknowledgeMs ?? config.autoAckMs ?? DEFAULT_AUTO_ACK_MS
+    const autoAck = config.autoAcknowledgeMs ?? DEFAULT_AUTO_ACK_MS
     if (autoAck !== false && !(typeof autoAck === 'number' && Number.isFinite(autoAck) && autoAck >= 0 && autoAck < 3000)) {
       throw new TypeError(`DiscordProvider: \`autoAcknowledgeMs\` must be false or a number of ms from 0 to 2999 (Discord fails an interaction after ~3 s), got ${String(autoAck)}`)
     }
@@ -180,13 +200,19 @@ export class DiscordProvider implements IProvider<unknown> {
       (!Array.isArray(config.mediaRefHosts) || config.mediaRefHosts.some((h) => typeof h !== 'string' || h.trim() === ''))) {
       throw new TypeError('DiscordProvider: mediaRefHosts must be an array of host names')
     }
+    if (config.allowedMentions !== undefined && !isAllowedMentions(config.allowedMentions)) {
+      throw new TypeError("DiscordProvider: allowedMentions must be Discord's allowed_mentions object, e.g. { parse: ['users'] } (parse: 'users' | 'roles' | 'everyone'; users/roles: id arrays)")
+    }
+    this.allowedMentions = config.allowedMentions ? structuredClone(config.allowedMentions) : DEFAULT_ALLOWED_MENTIONS
+    // `??` per field: an explicit `undefined` (an unset env var) keeps the default.
     this.config = {
-      intents: DEFAULT_INTENTS,
-      gatewayUrl: 'wss://gateway.discord.gg',
-      apiUrl: 'https://discord.com/api',
-      apiVersion: 'v10',
-      reconnectDelayMs: 500,
       ...config,
+      token,
+      intents: config.intents ?? DEFAULT_INTENTS,
+      gatewayUrl: config.gatewayUrl ?? 'wss://gateway.discord.gg',
+      apiUrl: config.apiUrl ?? 'https://discord.com/api',
+      apiVersion: config.apiVersion ?? 'v10',
+      reconnectDelayMs: config.reconnectDelayMs ?? 500,
     }
     this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
     this.rest = new DiscordRestClient({
@@ -229,7 +255,10 @@ export class DiscordProvider implements IProvider<unknown> {
   /* Lifecycle --------------------------------------------------------------- */
 
   async start(): Promise<void> {
-    this.gateway = new GatewaySocket({
+    // A second start() replaces the session instead of leaving the first socket and its timers running.
+    // The new gateway is installed synchronously so overlapping start()/stop() calls never orphan one.
+    const previous = this.gateway
+    const gateway = new GatewaySocket({
       token: this.config.token,
       intents: this.config.intents,
       gatewayUrl: this.config.gatewayUrl,
@@ -239,13 +268,19 @@ export class DiscordProvider implements IProvider<unknown> {
       dispatch: (t, d) => this.onGatewayDispatch(t, d),
       connection: (update) => this.fan({ kind: 'connection', update }),
     })
-    await this.gateway.connect()
+    this.gateway = gateway
+    await previous?.stop()
+    // Superseded by a later start() or cancelled by stop() while the previous gateway closed.
+    if (this.gateway !== gateway) return
+    await gateway.connect()
   }
 
   async stop(): Promise<void> {
     this.presenceReady = false
-    await this.gateway?.stop()
+    // Detach first, so a start() still closing its predecessor sees it was cancelled.
+    const gateway = this.gateway
     this.gateway = null
+    await gateway?.stop()
     for (const entry of this.interactions.values()) if (entry.timer) clearTimeout(entry.timer)
     this.interactions.clear()
   }
@@ -319,12 +354,10 @@ export class DiscordProvider implements IProvider<unknown> {
     this.interactions.set(id, entry)
   }
 
-  /** The token for an `interactionId` (a remembered id, or the old `<id>:<token>` form). */
+  /** The remembered token of an `interactionId` (undefined once expired, evicted or unknown). */
   private interactionToken(interactionId: string): { id: string; token: string } | undefined {
     const known = this.interactions.get(interactionId)
-    if (known) return { id: interactionId, token: known.token }
-    const sep = interactionId.indexOf(':')
-    return sep > 0 ? { id: interactionId.slice(0, sep), token: interactionId.slice(sep + 1) } : undefined
+    return known ? { id: interactionId, token: known.token } : undefined
   }
 
   /* Outbound ---------------------------------------------------------------- */
@@ -386,10 +419,17 @@ export class DiscordProvider implements IProvider<unknown> {
         fail_if_not_exists: false,
       }
     }
+    // A provider-built allowed_mentions on a reply keeps Discord's usual ping of the replied
+    // author (`replied_user` defaults to false once allowed_mentions is present).
+    const repliedUser = options?.quoted ? (this.allowedMentions.replied_user ?? true) : undefined
     if (options?.mentions?.length) {
-      payload.allowed_mentions = { users: options.mentions }
+      payload.allowed_mentions = { users: options.mentions, ...(repliedUser !== undefined ? { replied_user: repliedUser } : {}) }
     }
     if (options?.platformData) Object.assign(payload, options.platformData)
+    // Echoed text must not ping @everyone/@here/roles unless the bot opts in (native payloads are verbatim).
+    if (content.kind !== 'native' && payload.allowed_mentions === undefined) {
+      payload.allowed_mentions = { ...structuredClone(this.allowedMentions), ...(repliedUser !== undefined ? { replied_user: repliedUser } : {}) }
+    }
 
     // Reply INTO an interaction (Discord followup) when we can.
     const followup = options?.interactionId ? this.interactionToken(options.interactionId) : undefined
@@ -508,8 +548,8 @@ export class DiscordProvider implements IProvider<unknown> {
 
   /**
    * Answer an interaction before the ~3s deadline. `interactionId` is the bare
-   * interaction id emitted on the InboundInteraction (the token stays in the provider;
-   * the alpha `<id>:<token>` form is still accepted). With `text` posts an immediate
+   * interaction id emitted on the InboundInteraction (the token stays in the provider).
+   * With `text` posts an immediate
    * response (type 4); otherwise defers (type 5 for commands and modals, 6 for
    * components). After the interaction was already acknowledged (by the provider's
    * `autoAcknowledgeMs` defer or an earlier call), `text` is sent as a followup, which
@@ -528,7 +568,7 @@ export class DiscordProvider implements IProvider<unknown> {
       if (!this.appId) {
         throw new ProviderError('acknowledgeInteraction: the interaction was already acknowledged (autoAcknowledgeMs) and its text can only go out as a followup, which needs `appId` (not configured and not received from Discord yet)')
       }
-      await this.rest.sendFollowup(this.appId, target.token, { content: text })
+      await this.rest.sendFollowup(this.appId, target.token, { content: text, allowed_mentions: structuredClone(this.allowedMentions) })
       return
     }
     if (entry) {
@@ -536,7 +576,7 @@ export class DiscordProvider implements IProvider<unknown> {
       if (entry.timer) { clearTimeout(entry.timer); entry.timer = undefined }
     }
     const callback = text !== undefined
-      ? { type: 4, data: { content: text } }
+      ? { type: 4, data: { content: text, allowed_mentions: structuredClone(this.allowedMentions) } }
       : { type: entry?.command ? 5 : 6 }
     try {
       await this.rest.ackInteraction(target.id, target.token, callback)

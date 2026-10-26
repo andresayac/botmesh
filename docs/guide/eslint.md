@@ -49,14 +49,25 @@ export default [
 ```
 
 The rules are syntactic and need no type information. For TypeScript files,
-combine the plugin with `typescript-eslint` (its parser).
+combine the plugin with `typescript-eslint` (its parser) and list the `.ts`
+files, since ESLint only lints `.js`/`.mjs`/`.cjs` by default:
+
+```js
+import botmesh from 'eslint-plugin-botmesh'
+import tseslint from 'typescript-eslint'
+
+export default [
+  { ...botmesh.configs.recommended, files: ['src/**/*.{js,ts}'] },
+  { files: ['src/**/*.ts'], languageOptions: { parser: tseslint.parser } },
+]
+```
 
 ## Presets
 
 | Preset | Rules |
 | --- | --- |
 | `configs.recommended` | Errors: `no-v1-api`, `no-await-runtime-enter`, `no-async-plugin-install`, `no-empty-trigger`. Warnings: `require-timeout-on-ask`, `prefer-ctx-user-over-global-state`. |
-| `configs.strict` | Every rule as an error; `require-timeout-on-ask` also checks `waitText`, `waitMedia`, `choose` and `waitAny`. |
+| `configs.strict` | Every rule as an error; `require-timeout-on-ask` also checks `waitText`, `waitMedia`, `waitLocation`, `choose`, `waitAny` and flow `.form()`. |
 
 ## Rules
 
@@ -75,8 +86,8 @@ replacement in the message:
 | `endFlow()` | return from the step, or `c.end(message)` |
 
 ```js
-addKeyword('hola').addAnswer('Your name?', { capture: true })   // reported
-flow('hola').ask('Your name?', 'name', { timeout: '5m' })        // ok
+addKeyword('hi').addAnswer('Your name?', { capture: true })   // reported
+flow('hi').ask('Your name?', 'name', { timeout: '5m' })       // ok
 ```
 
 No options.
@@ -88,7 +99,9 @@ Awaiting it in a handler blocks the chat's FIFO queue, so the message the
 conversation is waiting for is never dispatched. The rule reports
 `await runtime.enter(...)`, `return runtime.enter(...)` (the dispatcher awaits
 the returned promise), an arrow function whose body is `runtime.enter(...)`,
-and `await runtime.enter(...).catch(...)` (also `.then` / `.finally`).
+and the same three forms with `.catch(...)` / `.then(...)` / `.finally(...)`
+chained or with optional calls (`await runtime?.enter(...)`): the chained
+promise still settles only when the conversation ends.
 
 ```js
 await runtime.enter(handle, msg)                                     // reported
@@ -120,35 +133,64 @@ An empty trigger (`''`, `'   '`, an empty template literal, `[]`, `['']`,
 every message. Checked in `flow(...)` / `addKeyword(...)`, `bot.when(...)` and
 the `trigger` option of `bot.conversation(name, fn, { trigger })`. The core
 also throws a `TypeError` for an empty text pattern when it is registered; the
-rule catches it (and `[]`) before the code runs.
+rule catches it (and `[]`) before the code runs. `flow([])` /
+`addKeyword([])` is allowed: it is the idiom for a sub-flow with no trigger of
+its own (run from a choose `then`, `.use()` or a `goto`); `bot.lint()` reports
+the ones nothing reaches.
 
 No options.
 
 ### `botmesh/require-timeout-on-ask`
 
-Every wait for user input should have a timeout, so an abandoned conversation
-does not stay open (capturing that user's messages) forever.
+Every wait for user input should set its timeout on purpose. Without one, the
+wait falls back to the bot's `conversation.timeout`, else the built-in 5
+minutes, which rarely suits both a long form and a quick yes/no. A timeout of
+`0` (or `'0s'`) disables it: a user who stops answering keeps the conversation
+open, capturing their messages, until a command such as `/reset`. The rule
+reports both.
 
-- Flow DSL: `.ask(text, key, { timeout })`, or a `.timeout(...)` anywhere on
-  the same `flow(...)` chain (unless `allowFlowTimeout: false`). A flow's
-  `.choose(...)` has no per-step options, so it needs the chain `.timeout()`.
+- Flow DSL: `.ask(text, key, { timeout })`,
+  `.choose(prompt, options, key, { timeout })`, `.form(definition, { timeout })`,
+  or a `.timeout(...)` anywhere on the same `flow(...)` chain (unless
+  `allowFlowTimeout: false`).
 - Conversations: `c.ask(text, { timeout })` and, when listed in `methods`,
   `c.waitText({ timeout })`, `c.waitMedia(types, { timeout })`,
-  `c.choose(prompt, options, { timeout })` and `c.waitAny({ timeout })`.
+  `c.waitLocation({ timeout })`, `c.choose(prompt, options, { timeout })` and
+  `c.waitAny({ timeoutMs })`. `waitAny` takes milliseconds in `timeoutMs` and
+  ignores a `timeout` key, so the rule reports `c.waitAny({ timeout })` too.
 - When the options argument is not an object literal (a variable, a call) or
   contains a spread, the rule cannot see inside it and stays quiet.
 
-Options: `{ methods?: ('ask' | 'waitText' | 'waitMedia' | 'choose' | 'waitAny')[], allowFlowTimeout?: boolean }`
+```js
+await c.ask('Your email?')                        // reported (falls back to the default)
+await c.ask('Your email?', { timeout: 0 })        // reported (never expires)
+await c.ask('Your email?', { timeout: '10m' })    // ok
+await c.waitAny({ timeoutMs: 60_000 })            // ok (with 'waitAny' in methods)
+```
+
+If every wait should use the bot-wide `conversation.timeout`, turn the rule
+off instead of repeating it on each step.
+
+Options: `{ methods?: ('ask' | 'waitText' | 'waitMedia' | 'waitLocation' | 'choose' | 'waitAny' | 'form')[], allowFlowTimeout?: boolean }`
 (defaults `['ask']` and `true`).
 
 ### `botmesh/prefer-ctx-user-over-global-state`
 
-Flags the v1 `globalState` and module-level `Map`s or objects keyed by
-`ctx.from`, `ctx.sender` or `ctx.senderId` (`users.get/set/has/delete(ctx.from)`,
-`scores[ctx.sender]`). That state is lost on restart, grows forever and is not
-shared between replicas. Use [`ctx.user`](/guide/user-data)
+Flags the v1 `globalState` and module-level `Map`s, `Set`s or objects keyed by
+`ctx.from`, `ctx.sender` or `ctx.senderId`. Writes (`users.set/delete(ctx.from)`,
+`seen.add(ctx.from)`, `scores[ctx.sender] = …`, `scores[ctx.sender].n++`) are always
+reported; reads (`users.get/has(ctx.from)`, `scores[ctx.sender]`) only when the
+same binding is also written or reassigned inside a function. A constant
+allow or deny list (`const ADMINS = new Set([...])`, `if (blocked.has(ctx.from))`),
+even one filled at module level, holds no per-user state and is not reported.
+Per-user state is lost on restart, grows forever and is not shared between
+replicas. Use [`ctx.user`](/guide/user-data)
 (`await ctx.user.ns('feature').set(key, value)`) for per-user data and
 `c.state` for per-conversation data.
+
+Short-lived per-process data that should not survive a restart, such as a
+rate-limit window, is a deliberate exception: disable the rule on that line
+(`// eslint-disable-next-line botmesh/prefer-ctx-user-over-global-state`).
 
 Option: `{ contextNames: string[] }`, the names of the handler context
 parameter (default `['ctx']`).

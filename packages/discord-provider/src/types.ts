@@ -33,15 +33,15 @@ export interface DiscordProviderConfig {
    * Gateway intents bitmask. Default: Guilds | GuildMessages | MessageContent.
    * Add `GatewayIntents.DirectMessages` to receive DMs.
    */
-  intents?: number
+  intents?: number | undefined
   /**
    * Application id, used for interaction followups (`SendOptions.interactionId` and a
    * late `ctx.acknowledge(text)`). When omitted, the id Discord sends on READY or on an
    * interaction is used.
    */
-  appId?: string
+  appId?: string | undefined
   /** The bot's own user id (for `fromMe`); auto-detected from gateway READY when omitted. */
-  selfId?: string
+  selfId?: string | undefined
   /**
    * What to do with message edits (`MESSAGE_UPDATE` with `edited_timestamp`):
    *  - `'deliver'` (default): an edit reaches the bot as a message that keeps the
@@ -53,11 +53,11 @@ export interface DiscordProviderConfig {
    */
   editedMessages?: 'deliver' | 'ignore'
   /** Gateway base URL. Default 'wss://gateway.discord.gg'. */
-  gatewayUrl?: string
+  gatewayUrl?: string | undefined
   /** REST base URL (without version). Default 'https://discord.com/api'. */
-  apiUrl?: string
+  apiUrl?: string | undefined
   /** REST API version. Default 'v10'. */
-  apiVersion?: string
+  apiVersion?: string | undefined
   /** Safe-download policy for Discord CDN URLs. */
   mediaDownload?: Omit<SecureFetchOptions, 'fetch'>
   /**
@@ -88,7 +88,7 @@ export interface DiscordProviderConfig {
   /** Injectable websocket factory — tests pass a fake; production uses `ws`. */
   socketFactory?: SocketFactory
   /** Base delay between gateway reconnects (ms, exponential backoff on top). Default 500. */
-  reconnectDelayMs?: number
+  reconnectDelayMs?: number | undefined
   /**
    * How many messages the provider remembers the bot's own reaction for
    * (bounded LRU, in memory). Discord removes a reaction by emoji, so this is
@@ -97,8 +97,16 @@ export interface DiscordProviderConfig {
    * unsupported.
    */
   reactionMemory?: number
-  /** @deprecated Use {@link DiscordProviderConfig.autoAcknowledgeMs} (same meaning; setting both to different values throws). */
-  autoAckMs?: number | false
+  /**
+   * Default `allowed_mentions` of every message the provider sends (sends and
+   * interaction followups), applied when the payload has none. Default
+   * `{ parse: ['users'] }`: a text the bot echoes (a user's message, an AI answer)
+   * cannot ping `@everyone`, `@here` or a role, while `<@user>` mentions still
+   * notify. `SendOptions.mentions` (`{ users }`), `platformData.allowed_mentions` and
+   * `native` payloads override it. Pass `{ parse: ['users', 'roles', 'everyone'] }`
+   * for Discord's own default.
+   */
+  allowedMentions?: DiscordAllowedMentions
   /** Time allowed for a REST request that uploads files, in ms. Default 300 000. */
   uploadTimeoutMs?: number
   /**
@@ -106,7 +114,19 @@ export interface DiscordProviderConfig {
    * instead. Removal planned for v3.
    */
   debug?: boolean
-  logger?: LoggerLike
+  logger?: LoggerLike | undefined
+}
+
+/** Discord's `allowed_mentions` object (which mentions in the content notify). */
+export interface DiscordAllowedMentions {
+  /** Mention kinds parsed from the content. */
+  parse?: Array<'users' | 'roles' | 'everyone'>
+  /** User ids allowed to be pinged (not together with `parse: ['users']`). */
+  users?: string[]
+  /** Role ids allowed to be pinged (not together with `parse: ['roles']`). */
+  roles?: string[]
+  /** Whether a reply pings the author of the replied message. */
+  replied_user?: boolean
 }
 
 /* --- Gateway protocol ------------------------------------------------------ */
@@ -152,6 +172,11 @@ export const GatewayIntents = Object.freeze({
   DirectMessageReactions: 1 << 13,
   DirectMessageTyping: 1 << 14,
   MessageContent: 1 << 15,
+  GuildScheduledEvents: 1 << 16,
+  AutoModerationConfiguration: 1 << 20,
+  AutoModerationExecution: 1 << 21,
+  GuildMessagePolls: 1 << 24,
+  DirectMessagePolls: 1 << 25,
 } as const)
 
 /** Default: Guilds | GuildMessages | MessageContent (what a text bot needs in servers). */
@@ -200,6 +225,8 @@ export interface DiscordMessagePayload {
   referenced_message?: DiscordMessagePayload | null
   /** Forwarded copies (only on a FORWARD `message_reference`); a partial message each. */
   message_snapshots?: Array<{ message?: { content?: string; attachments?: DiscordAttachment[] } }>
+  /** Stickers sent with the message (`format_type`: 1 PNG, 2 APNG, 3 LOTTIE, 4 GIF). */
+  sticker_items?: Array<{ id?: string; name?: string; format_type?: number }>
   /** A native poll; the message `content` is empty. */
   poll?: { question?: { text?: string } }
   webhook_id?: string

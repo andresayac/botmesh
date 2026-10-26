@@ -237,8 +237,8 @@ text menu, `ctx.edit` sends a new message, `ctx.react` resolves
   (`ctx.sendNative('<provider id>', payload)`) as an escape hatch to the
   channel's own API, with a provider-specific payload. Baileys rejects it
   with `UnsupportedContentError`. Discord, Messenger, Instagram, Evolution,
-  WPPConnect, Twilio, Gupshup and HighLevel also reject a payload addressed to
-  another provider id instead of posting it.
+  WPPConnect, Twilio, Gupshup, HighLevel, Email and TikTok also reject a payload
+  addressed to another provider id instead of posting it.
 
 ## Cross-channel contract
 
@@ -287,10 +287,12 @@ Provider authors check them with the helpers of `@botmesh/core/testing`
   the voter and `vote.options` the current tally of every option with its `voters`.
 - **One naming scheme for low-level helpers.** Each provider's error mapper is
   `to<Channel>Error` (`toTelegramError`, `toDiscordError`, `toTwilioError`…; the Meta
-  channels share `toGraphError` from `@botmesh/graph-core`); the older `toProviderError`
-  names remain as deprecated aliases. `ingest()` returns the HTTP status to answer with
-  (a `number`); WPPConnect returns it as a `Promise<number>` (it checks the token
-  asynchronously) and email's `ingest()` takes a raw message, not a webhook, and returns
+  channels share `toGraphError` from `@botmesh/graph-core`). Telegram, TikTok and the
+  Cloud API keep their older `toProviderError` (and Email its `toEmailProviderError`) as
+  deprecated aliases; the channels first published in the beta have only the new names.
+  `ingest()` returns the HTTP status to answer with
+  (a `number`); WPPConnect returns it as a `Promise<number>` (it resolves unknown LIDs
+  through the gateway before emitting, never waiting for your handlers) and email's `ingest()` takes a raw message, not a webhook, and returns
   an `EmailIngestResult`.
 
 | Provider | `maxTextLength` | `maxTextBytes` |
@@ -401,6 +403,8 @@ const provider = new CloudAPIProvider({
   provider has no `typing()` or `deleteMessage()`, so `ctx.typing()` and
   `ctx.delete()` do nothing (see the [cross-channel contract](#cross-channel-contract)).
 - Text over 4096 characters is split into several messages by the core.
+- While the bot is stopped, `ingest()` answers `503`, so Meta redelivers the
+  webhook after the restart.
 - `publishForm()` bakes the default submit label of a form into the Flow in
   the provider's `lang` (default `'en'`; set it to your bot's `BotConfig.lang`),
   or in `publishForm(def, { lang })` for one Flow. A form's own `submitLabel`
@@ -507,6 +511,17 @@ const provider = new MessengerProvider({
 - More than 3 buttons (button template) or 10 list rows (generic template)
   reject with `UnsupportedContentError` instead of dropping options.
 - Each Send API call times out after `requestTimeoutMs` (60 s by default).
+- No text is cut: a list sends its text before the generic template (which
+  has no header), and button text past the template's 640 characters goes
+  first as plain text.
+- Several attachments in one message arrive as one message each (`<mid>`,
+  `<mid>#2`…). An edited message (subscribe `message_edits`) arrives again
+  with its original id; `isEditedMessage(ctx)` tells it apart.
+- Message tags: `bot.send(psid, text, { platformData: { tag: 'HUMAN_AGENT' } })`
+  sends after the 24-hour window (`messaging_type`, `notification_type` and
+  `persona_id` are accepted too).
+- While the bot is stopped, `ingest()` answers `503`, so Meta redelivers the
+  webhook after the restart.
 
 ```bash
 pnpm add @botmesh/core @botmesh/messenger
@@ -523,22 +538,28 @@ Instagram DMs of a professional account connected to a Facebook Page
 import { InstagramProvider } from '@botmesh/instagram'
 
 const provider = new InstagramProvider({
-  accessToken: process.env.FB_PAGE_TOKEN!, // token of the connected Page
+  accessToken: process.env.META_PAGE_TOKEN!, // token of the connected Page
   verifyToken: process.env.META_VERIFY_TOKEN!,
   appSecret: process.env.META_APP_SECRET!,
 })
 ```
 
-- Buttons go out as quick replies (at most 13; more reject with
-  `UnsupportedContentError`); lists degrade to numbered text. Every Send API
-  request times out after `requestTimeoutMs` (60 s).
+- Buttons go out as quick replies (at most 13, titles cut to 20 characters,
+  unique ids and titles, attached to a non-empty text; anything else rejects
+  with `UnsupportedContentError` instead of dropping options); lists degrade
+  to numbered text. Every Send API request times out after
+  `requestTimeoutMs` (60 s).
 - DMs only (no groups); reactions arrive but cannot be sent.
 - Text is capped at 1000 UTF-8 bytes (`maxTextBytes`, plus `maxTextLength`
   1000), so non-ASCII text fits less: longer text is split into several
   messages by bytes, and the `ctx.stream()` chunks fit too.
-- More than 13 quick replies reject with `UnsupportedContentError` instead
-  of dropping options.
-- Each Send API call times out after `requestTimeoutMs` (60 s by default).
+- Attachments carry no caption: a media caption goes out as a text message
+  right after the attachment, and a card image after the card text (an
+  image-only card sends just the image; one with neither is rejected).
+- A DM with several photos arrives as one message per photo (ids `<mid>`,
+  `<mid>#2`, `<mid>#3`…).
+- While the bot is stopped, `ingest()` answers `503`, so Meta redelivers the
+  webhook after the restart.
 
 ```bash
 pnpm add @botmesh/core @botmesh/instagram
@@ -584,7 +605,18 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
 - Each REST call times out after `requestTimeoutMs` (60 s by default); file
   uploads after `uploadTimeoutMs` (5 min).
 - System messages (member joins, pins, boosts...) and messages from bots are
-  not routed.
+  not routed. A message with no text and no file arrives as `sticker` (with the
+  sticker image as media) or `unknown` (embeds only, or the Message Content
+  intent is off), never as an empty text.
+- Every message the provider sends carries `allowed_mentions` (default
+  `{ parse: ['users'] }`, option `allowedMentions`), so echoed text cannot ping
+  `@everyone`, `@here` or a role; `SendOptions.mentions`,
+  `platformData.allowed_mentions` and `native` payloads override it. A quoted
+  reply still pings the replied author (`replied_user: true`; set
+  `allowedMentions.replied_user: false` to reply silently).
+- Ids go into REST URLs percent-encoded, and an empty, `.` or `..` id rejects
+  with `ProviderError`: a crafted id never reaches another route. Native poll
+  votes are not delivered as events.
 - A forwarded message carries the forwarded text and media (from its
   snapshot), not a quoted reply; one with nothing readable arrives as
   `unknown`. A native poll arrives as `type: 'poll'` with its question as body.
@@ -626,7 +658,14 @@ const provider = new EvolutionProvider({
 - LID/PN twins sent by Evolution are reconciled before emitting; pass
   `identityPersistence` to keep ids stable across restarts.
 - Polls, reactions, edits (text), typing and read receipts; buttons, lists
-  and cards degrade to numbered text; `template` is rejected.
+  and cards degrade to numbered text; `template` is rejected, and so is a
+  poll WhatsApp cannot carry (fewer than 2 or more than 12 options, empty or
+  repeated ones).
+- If Evolution stops offering QR codes before the number is paired
+  (`QRCODE_LIMIT`), the `connection` update is `closed` with reason
+  `sessionInvalid`: call `start()` again for a new QR.
+- Keep the instance webhook's `webhookByEvents` off: with it, Evolution adds
+  the event name to the URL and an exact-path route answers 404.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/evolution-provider)
 
@@ -659,6 +698,11 @@ const provider = new WPPConnectProvider({
   emitting.
 - `markRead` marks the whole chat as seen; buttons and lists degrade to
   numbered text.
+- The connection follows the server's `status-find` webhooks: `isLogged` /
+  `qrReadSuccess` → `ready`, `notLogged` and `qrcode` → `authenticating`,
+  unlinking the device from the phone (`disconnectedMobile`) → `closed`
+  with `sessionInvalid`. `bot.stop()` does not close the session on the
+  server.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/wppconnect-provider)
 
@@ -686,7 +730,10 @@ const provider = new TwilioProvider({
   lists become numbered text; `template` maps to `ContentSid` +
   `ContentVariables`.
 - `ingestRequest({ url, body, headers })` for per-request URLs
-  (multi-tenant).
+  (multi-tenant). With `webhookPath` (URL rebuilt from the `Host` /
+  `X-Forwarded-*` headers), pass the request's path and query as the third
+  argument of `ingest()` (`@botmesh/server` does): a query string Twilio
+  called with is then part of the signed URL.
 - Error 63016 maps to `OutsideSessionWindowError`.
 - A message with several attachments (`NumMedia` > 1, up to 10) arrives as
   **one message per attachment**, in order: the first keeps the `MessageSid`
@@ -716,6 +763,8 @@ const provider = new GoHighLevelProvider({
 - HighLevel's public key is bundled (`GHL_WEBHOOK_PUBLIC_KEY`), so no
   webhook secret is needed. `ingest()` needs the **raw** body.
 - Media only from public URLs; `template` maps to `templateId`.
+- An Email's HTML body arrives as plain text in `ctx.body`; `ctx.raw.body`
+  keeps the HTML and `ctx.chat.platformData.subject` the subject.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/gohighlevel-provider)
 
@@ -740,7 +789,13 @@ const provider = new GupshupProvider({
 - Buttons go out as quick replies (up to 3), then as a list (up to 10),
   then as numbered text; lists are native up to 10 rows. The list button of
   degraded buttons reads `listButtonText` (default `'Options'`, max 20
-  characters; `'Opciones'` for a Spanish bot).
+  characters; `'Opciones'` for a Spanish bot). Longer labels are cut to
+  WhatsApp's limits (titles 20/24 characters) instead of being rejected.
+- With `@botmesh/server`, mount the provider as a route: the ingress passes
+  the request URL to `ingest()`, so the `?token=` callback works as is.
+- Use a URL-safe `webhookToken` (`openssl rand -hex 32`). A base64 secret
+  pasted raw into `?token=` also matches (a literal `+` is not read as a
+  space), and so does its percent-encoded form.
 - `chatId` = the sender's phone digits (no `+`), exactly what the send API
   expects.
 - Media only from public URLs. Gupshup also documents IP allow-listing: do
@@ -773,7 +828,12 @@ const provider = new EmailProvider({
   (`status: 'failed'` events, suppression of hard-bounced addresses).
 - `From` is not authenticated by email itself: use
   `requireAuthentication: { authservId }` to accept only mail your MTA
-  authenticated.
+  authenticated. Hostile headers are contained: addresses with control
+  characters are dropped, oversized Message-IDs ignored and `References`
+  chains capped.
+- `secure` means implicit TLS (default except IMAP port 143, and only SMTP
+  port 465); against a plain-text or STARTTLS port `start()`/`send()` reject
+  with a `TLS handshake failed` message that says which option to set.
 - Without IMAP, `ingest(rawMime)` accepts raw MIME from an inbound-mail
   webhook and resolves `{ status, accepted, reason? }`.
 - A transport built from `smtp` is closed on `stop()` and rebuilt on the
@@ -854,9 +914,10 @@ and [Migrating to the stable API](/guide/stable-migration).
   `editedMessages: 'ignore'`.
 - **Renamed helpers** (the old names are deprecated aliases until v3): Telegram
   `pollTimeout` (seconds) → `pollTimeoutMs`; `toProviderError` → `toTelegramError`,
-  `toDiscordError`, `toMessengerError`, `toInstagramError`, `toTikTokError`;
-  `toEmailProviderError` → `toEmailError`; `@botmesh/meta`'s `toProviderError` →
-  `toGraphError` from `@botmesh/graph-core`.
+  `toTikTokError`; `toEmailProviderError` → `toEmailError`; `@botmesh/meta`'s
+  `toProviderError` → `toGraphError` from `@botmesh/graph-core`. Discord, Messenger and
+  Instagram dropped their alpha `toProviderError` before their first npm release: use
+  `toDiscordError`, `toMessengerError` and `toInstagramError`.
 
 :::
 

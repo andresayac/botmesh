@@ -90,8 +90,8 @@ function parseRetryAfter(value: string | null): number | undefined {
   return Number.isNaN(date) ? undefined : Math.max(0, date - Date.now())
 }
 
-/** OpenAI-style keys, whole or masked (`sk-proj-****abcd`), as services quote them in errors. */
-const KEY_LIKE = /(?<![A-Za-z0-9_-])sk-[A-Za-z0-9*_-]{4,}/g
+/** OpenAI/ElevenLabs-style keys (`sk-…`, `sk_…`), whole or masked (`sk-proj-****abcd`), as services quote them in errors. */
+const KEY_LIKE = /(?<![A-Za-z0-9_-])sk[-_][A-Za-z0-9*_-]{4,}/g
 
 /**
  * Best-effort short error detail from the common shapes (OpenAI, Deepgram, ElevenLabs).

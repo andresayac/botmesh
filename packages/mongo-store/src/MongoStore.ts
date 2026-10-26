@@ -53,6 +53,7 @@ import type {
 } from '@botmesh/core/spi'
 import { legacyMessageKey, messageKey } from '@botmesh/core/spi'
 import { idString } from './ids.js'
+import { READ } from './read.js'
 import { bsonSafeKeys } from './keys.js'
 import { MongoScheduleStore } from './schedules.js'
 import { MongoUserData, type UserDataDoc } from './userData.js'
@@ -96,12 +97,16 @@ export interface MongoLikeCollection<T extends { _id: string }> {
     update: { $set: Partial<Omit<T, '_id'>>; $unset?: Record<string, ''> },
     options?: { upsert?: boolean; ignoreUndefined?: boolean },
   ): Promise<{ matchedCount: number; upsertedCount: number }>
-  /** `promoteBuffers` asks the driver to return BSON Binary as Node Buffers. */
-  findOne(filter: { _id: string }, options?: { promoteBuffers?: boolean }): Promise<T | null>
+  /**
+   * `promoteBuffers` asks the driver to return BSON Binary as Node Buffers; `fieldsAsRaw`
+   * (always an empty null-prototype object here) keeps js-bson from returning raw BSON for
+   * arrays named after `Object.prototype` members.
+   */
+  findOne(filter: { _id: string }, options?: { promoteBuffers?: boolean; fieldsAsRaw?: Readonly<Record<string, never>> }): Promise<T | null>
   /** `projection` (e.g. `{ _id: 1 }`) limits the returned fields; the documents are then partial. */
   find(
     filter?: Record<string, unknown>,
-    options?: { promoteBuffers?: boolean; projection?: Record<string, 0 | 1> },
+    options?: { promoteBuffers?: boolean; fieldsAsRaw?: Readonly<Record<string, never>>; projection?: Record<string, 0 | 1> },
   ): MongoLikeCursor<T>
   /** `session` runs the delete inside that session's transaction. */
   deleteOne(filter: { _id: string } & Record<string, unknown>, options?: { session?: unknown }): Promise<{ deletedCount: number }>
@@ -209,8 +214,6 @@ function isDuplicateKey(error: unknown): boolean {
   const e = error as { code?: unknown; message?: unknown } | null
   return e?.code === 11000 || (typeof e?.message === 'string' && e.message.includes('E11000'))
 }
-/** Read options: return BSON Binary as Node Buffers, not the driver's `Binary` class. */
-const READ = { promoteBuffers: true } as const
 
 /**
  * Filter for the document that holds the message `ref` names. A legacy

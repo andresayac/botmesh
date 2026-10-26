@@ -6,12 +6,12 @@ un delay. Cada método devuelve un `ScheduledTask` que puedes cancelar.
 ## every — repetir cada intervalo
 
 ```ts
-bot.every('30 seconds', () => console.log('💓 heartbeat'))
+bot.every('30 seconds', () => console.log('💓 latido'))
 bot.every('5 minutes', async () => {
-  await bot.send('57300XXXXXXX@s.whatsapp.net', '⏰ reminder')
+  await bot.send('57300XXXXXXX@s.whatsapp.net', '⏰ recordatorio')
 })
-bot.every('2 hours', async () => { /* cleanup */ })
-bot.every(60000, () => console.log('1 minute'))  // ms
+bot.every('2 hours', async () => { /* limpieza */ })
+bot.every(60000, () => console.log('1 minuto'))  // ms
 ```
 
 ### Formatos aceptados
@@ -30,12 +30,12 @@ Cualquier [duración](./configuracion#duraciones): un número de milisegundos o 
 ```ts
 // Cada día a las 9:00 AM
 bot.schedule('0 9 * * *', async () => {
-  await bot.send('57300XXXXXXX@s.whatsapp.net', '🌅 Good morning!')
+  await bot.send('57300XXXXXXX@s.whatsapp.net', '🌅 ¡Buenos días!')
 })
 
 // Días laborables a las 9:00 AM
 bot.schedule('0 9 * * 1-5', async () => {
-  await bot.send('57300XXXXXXX@s.whatsapp.net', '💼 Time to work')
+  await bot.send('57300XXXXXXX@s.whatsapp.net', '💼 Hora de trabajar')
 })
 
 // Cada 15 minutos
@@ -79,7 +79,7 @@ host). Pasa una zona IANA para leerlos en otra, por tarea o para todo el bot:
 
 ```ts
 // Por defecto para todas las tareas cron del bot (gana la timeZone de la tarea; 'local' = zona del proceso).
-const bot = new Bot({ provider, scheduler: { timeZone: 'America/Mexico_City' } })
+const bot = new Bot({ provider, lang: 'es', scheduler: { timeZone: 'America/Mexico_City' } })
 
 // Una tarea: 9:00 entre semana, hora de Bogotá, corra donde corra el servidor.
 bot.schedule('0 9 * * 1-5', { timeZone: 'America/Bogota' }, async () => { /* ... */ })
@@ -112,9 +112,9 @@ siempre funciona).
 ## delay — una vez después de X tiempo
 
 ```ts
-bot.delay('10 seconds', () => console.log('⏰ 10s elapsed'))
+bot.delay('10 seconds', () => console.log('⏰ pasaron 10 s'))
 bot.delay('5 minutes', async () => {
-  await bot.send('57300XXXXXXX@s.whatsapp.net', 'All good?')
+  await bot.send('57300XXXXXXX@s.whatsapp.net', '¿Todo bien?')
 })
 ```
 
@@ -151,7 +151,7 @@ import { Bot } from '@botmesh/core'
 import { SQLiteStore } from '@botmesh/sqlite-store'
 
 const store = new SQLiteStore({ file: './data/bot.db' })
-const bot = new Bot({ provider, store, scheduler: { store: store.schedules() } })
+const bot = new Bot({ provider, store, lang: 'es', scheduler: { store: store.schedules() } })
 
 // Los mismos métodos, con las opciones antes del handler.
 bot.schedule('0 9 * * 1-5', { id: 'resumen-matinal', missed: 'run-once' }, async (run) => {
@@ -262,7 +262,7 @@ se conserva y nunca se ejecuta.
 | Opción | Por defecto | Significado |
 |---|---|---|
 | `store` | en memoria | Dónde se guardan los calendarios: el `schedules()` de tu store (ver la tabla de abajo). Sin él las tareas durables funcionan pero no sobreviven a un reinicio, y se avisa una vez en el log. |
-| `lease` | ninguno | Liderazgo opcional, que ahorra viajes al store con muchas réplicas: la réplica que tiene `scheduler:leader` reclama a tiempo y las demás solo reclaman una ejecución que lleva `leaderTtlMs` vencida (una tarea que solo ellas registran, p. ej. durante un despliegue gradual, o un líder caído), así que esa tarea corre hasta `leaderTtlMs` tarde. Un `LeaseProvider` con fencing (`RedisStore#leases()`, `MemoryLeaseProvider`) o un `Coordinator` multi-réplica (`store.coordinator()`); con `BotConfig.coordination` usa ese coordinador por defecto. La corrección nunca depende de él. |
+| `lease` | ninguno | Liderazgo opcional, que ahorra viajes al store con muchas réplicas: la réplica que tiene `scheduler:leader` reclama a tiempo y las demás solo reclaman una ejecución que lleva `leaderTtlMs` vencida (una tarea que solo ellas registran, p. ej. durante un despliegue gradual, o un líder caído), así que esa tarea corre hasta `leaderTtlMs` tarde. Un `LeaseProvider` con fencing (`RedisStore#leases()`, `MemoryLeaseProvider` de `@botmesh/core/spi`) o un `Coordinator` multi-réplica (`store.coordinator()`); con `BotConfig.coordination` usa ese coordinador por defecto. La corrección nunca depende de él. |
 | `owner` | aleatorio | Id de dueño de lease de este proceso. |
 | `tickMs` | `'1s'` | Periodo de sondeo: recoge una ejecución cuyo ejecutor cayó (cuando vence su lease) y reintenta tras errores del store. |
 | `leaderTtlMs` | `'30s'` | TTL del lease de líder. Con un `Coordinator` (que renueva su liderazgo él mismo) es solo la gracia del seguidor; por defecto, el `leaseMs` del coordinador. |
@@ -274,7 +274,7 @@ el prefijo del store:
 | Store | `store.schedules()` | Almacenamiento |
 |---|---|---|
 | `@botmesh/sqlite-store` | `SQLiteScheduleStore` | Tabla `schedules` (más `schedule_fences`); cada llamada es una transacción `BEGIN IMMEDIATE`. |
-| `@botmesh/redis-store` | `RedisScheduleStore` | `{prefix}:sched:{id}`, scripts de compare-and-set. |
+| `@botmesh/redis-store` | `RedisScheduleStore` | `{prefix}:sched:{id}` (layout por defecto; ver [Redis Cluster](./redis-cluster) para el layout `cluster`), scripts de compare-and-set. |
 | `@botmesh/postgres-store` | `PostgresScheduleStore` | Tabla `{tablePrefix}schedules`; cada llamada es una sentencia atómica (los reclamos son `UPDATE … RETURNING`). |
 | `@botmesh/mysql-store` | `MysqlScheduleStore` | Tabla `{tablePrefix}schedules` (ids VARBINARY, hasta 1024 bytes); los reclamos hacen `SELECT … FOR UPDATE` en una transacción corta. |
 | `@botmesh/mongo-store` | `MongoScheduleStore` | Colección `{collectionPrefix}schedules`; comandos de un solo documento (`findOneAndUpdate`), así que sirve un `mongod` standalone. |
@@ -286,7 +286,7 @@ quieres, dale al scheduler un préstamo de líder:
 import { RedisStore } from '@botmesh/redis-store'
 
 const store = new RedisStore({ url: process.env.REDIS_URL, prefix: 'mybot' })
-const bot = new Bot({ provider, store, scheduler: { store: store.schedules(), lease: store.leases() } })
+const bot = new Bot({ provider, store, lang: 'es', scheduler: { store: store.schedules(), lease: store.leases() } })
 ```
 
 El bot arranca su store antes que el scheduler, y las tablas se crean solas

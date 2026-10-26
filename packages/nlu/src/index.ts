@@ -11,7 +11,7 @@
  * import { nluPlugin, whenIntent, IntentEngine } from '@botmesh/nlu'
  *
  * bot.plug(nluPlugin, { intents: { greeting: ['hola', 'buenas'] } })
- * whenIntent(bot, bot.injectTools.nlu as IntentEngine, 'greeting', (ctx) => ctx.reply('👋'))
+ * whenIntent(bot, bot.injectTools.nlu!, 'greeting', (ctx) => ctx.reply('👋'))
  * ```
  */
 

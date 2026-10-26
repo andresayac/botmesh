@@ -119,7 +119,10 @@ export class GatewaySocket {
     const base = this.sessionId ? (this.resumeGatewayUrl ?? this.cfg.gatewayUrl) : this.cfg.gatewayUrl
     const socket = this.cfg.socketFactory(gatewayConnectUrl(base))
     this.socket = socket
-    socket.on('message', (data) => this.onMessage(data))
+    socket.on('message', (data) => {
+      if (this.socket !== socket) return // superseded socket (a SocketLike without removeAllListeners)
+      this.onMessage(data)
+    })
     socket.on('close', (code) => {
       if (this.socket !== socket) return // superseded socket
       this.handleClose(typeof code === 'number' ? code : Number(code) || 1006)

@@ -57,7 +57,7 @@ The [getting started guide](https://andresayac.github.io/botmesh/guide/getting-s
 
 This is a pnpm monorepo with **45 packages**: 36 **Public**, 3 **Experimental** and 6 **Product** and internal ones. They are not all equally mature, and the **Status** column says so plainly:
 
-- **Public**: published on npm and covered by semver from the stable release on (prerelease builds until then).
+- **Public**: published on npm (the 26 promoted in the beta for the first time with it) and covered by semver from the stable release on (prerelease builds until then).
 - **Experimental**: real, tested implementation, but the package is `private`. Not published yet and its API may change.
 - **Product / internal**: real, persistent implementation (`private`) over any core `DurableKv`. Per-tenant isolation and compare-and-set in the backend; the API may still change.
 
@@ -69,8 +69,8 @@ This is a pnpm monorepo with **45 packages**: 36 **Public**, 3 **Experimental** 
 | [`@botmesh/baileys`](packages/baileys-provider) | Public | WhatsApp through Baileys 7 (unofficial, QR or pairing code). |
 | [`@botmesh/meta`](packages/meta-provider) | Public | **Official** WhatsApp Cloud API (webhook, no ban risk, native buttons/lists/templates). |
 | [`@botmesh/telegram`](packages/telegram-provider) | Public | Telegram Bot API (long-poll/webhook, inline keyboards, native polls). |
-| [`@botmesh/messenger`](packages/messenger-provider) | Public | Facebook Messenger (Meta Graph Send API, signed webhooks, postback buttons, generic templates). Published from the beta. |
-| [`@botmesh/instagram`](packages/instagram-provider) | Public | Instagram DMs (Messenger API for Instagram, signed webhooks, quick replies). Published from the beta. |
+| [`@botmesh/messenger`](packages/messenger-provider) | Public | Facebook Messenger (Meta Graph Send API, signed webhooks, postback buttons, generic templates). |
+| [`@botmesh/instagram`](packages/instagram-provider) | Public | Instagram DMs (Messenger API for Instagram, signed webhooks, quick replies). |
 | [`@botmesh/discord`](packages/discord-provider) | Public | Discord (gateway websocket + REST, slash/components). |
 | [`@botmesh/evolution`](packages/evolution-provider) | Public | WhatsApp through [Evolution API](https://github.com/EvolutionAPI/evolution-api) (self-hosted REST gateway, signed webhook). |
 | [`@botmesh/wppconnect`](packages/wppconnect-provider) | Public | WhatsApp through WPPConnect Server (REST + token webhook). |

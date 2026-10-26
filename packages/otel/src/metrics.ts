@@ -9,6 +9,7 @@
 import { definePlugin, type BotMetricsSnapshot, type ConversationCounters, type ConversationEndedEvent, type PluginContext, type PluginSpec } from '@botmesh/core'
 import type { Attributes, MeterProvider, Observable } from '@opentelemetry/api'
 
+import { assertMetricPrefix, buckets, CONVERSATION_BUCKETS_S } from './instruments.js'
 import { loadOtelApi, type OtelApi } from './load.js'
 
 /** Options of {@link registerOtelMetrics} / {@link otelMetricsPlugin}. */
@@ -42,14 +43,15 @@ const OUTCOMES = ['completed', 'ended', 'guarded', 'cancelled', 'timedOut', 'ret
 
 /** Register the bridge on a loaded API (synchronous). Returns the unregister function. */
 export function bridgeMetrics(api: OtelApi, bot: MetricsSource, opts: OtelMetricsOptions = {}): () => void {
-  const meter = (opts.meterProvider ?? api.metrics.getMeterProvider()).getMeter(opts.meterName ?? '@botmesh/otel')
   const p = opts.prefix ?? 'botmesh'
+  assertMetricPrefix(p, 'prefix')
+  const meter = (opts.meterProvider ?? api.metrics.getMeterProvider()).getMeter(opts.meterName ?? '@botmesh/otel')
   const base: Attributes = { 'bot.id': bot.getNamespace().botId, ...opts.attributes }
   const perFlow = opts.perFlow !== false
 
   const inbound = meter.createObservableCounter(`${p}.messages.inbound`, { unit: '{message}', description: 'Inbound messages/interactions accepted (after dedupe and access lists).' })
   const outbound = meter.createObservableCounter(`${p}.messages.outbound`, { unit: '{message}', description: 'Outbound sends, by result (ok | failed).' })
-  const dropped = meter.createObservableCounter(`${p}.dropped`, { unit: '{message}', description: 'Inbound dropped, by reason (duplicate | blocked | handoff).' })
+  const dropped = meter.createObservableCounter(`${p}.dropped`, { unit: '{message}', description: 'Inbound dropped, by reason (duplicate | blocked | handoff, plus echo with echoFilter).' })
   const started = meter.createObservableCounter(`${p}.conversations.started`, { unit: '{conversation}', description: 'Conversations started.' })
   const ended = meter.createObservableCounter(`${p}.conversations.ended`, { unit: '{conversation}', description: 'Conversations ended, by outcome.' })
   const flowStarted = meter.createObservableCounter(`${p}.flow.conversations.started`, { unit: '{conversation}', description: 'Conversations started, by flow.' })
@@ -67,6 +69,8 @@ export function bridgeMetrics(api: OtelApi, bot: MetricsSource, opts: OtelMetric
     result.observe(outbound, m.messages.out, { ...base, result: 'ok' })
     result.observe(outbound, m.messages.outFailed, { ...base, result: 'failed' })
     for (const reason of ['duplicate', 'blocked', 'handoff'] as const) result.observe(dropped, m.dropped[reason], { ...base, reason })
+    // Only present with BotConfig.echoFilter on.
+    if (m.dropped.echo !== undefined) result.observe(dropped, m.dropped.echo, { ...base, reason: 'echo' })
     // A core without presenceSkipped (older snapshot) reports nothing for it.
     if (m.presenceSkipped) {
       result.observe(presence, m.presenceSkipped.typing, { ...base, kind: 'typing' })
@@ -89,7 +93,7 @@ export function bridgeMetrics(api: OtelApi, bot: MetricsSource, opts: OtelMetric
 
   let onEnded: ((e: ConversationEndedEvent) => void) | undefined
   if (opts.conversationDuration !== false) {
-    const duration = meter.createHistogram(`${p}.conversation.duration`, { unit: 's', description: 'Conversation duration, by flow and outcome.' })
+    const duration = meter.createHistogram(`${p}.conversation.duration`, { unit: 's', description: 'Conversation duration, by flow and outcome.', ...buckets(CONVERSATION_BUCKETS_S) })
     onEnded = (e) => { duration.record(Math.max(0, e.durationMs) / 1000, { ...base, flow: e.name, outcome: e.outcome }) }
     bot.on('conversation:ended', onEnded)
   }
@@ -127,7 +131,11 @@ export function otelMetricsPlugin(opts: OtelMetricsOptions = {}): PluginSpec {
       const bot = ctx.bot as unknown as MetricsSource
       if (opts.api) { dispose = bridgeMetrics(opts.api, bot, opts); return }
       void loadOtelApi().then(
-        (api) => { if (!unplugged) dispose = bridgeMetrics(api, bot, opts) },
+        (api) => {
+          if (unplugged) return
+          // Runs outside install(): a throw here would be an unhandled rejection, so log it.
+          try { dispose = bridgeMetrics(api, bot, opts) } catch (err) { ctx.logger.error({ err }, 'otel metrics disabled: the bridge could not be registered') }
+        },
         (err: unknown) => { ctx.logger.error({ err }, 'otel metrics disabled: @opentelemetry/api could not be loaded') },
       )
     },

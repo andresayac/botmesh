@@ -9,6 +9,7 @@ import { noopTracer } from '@botmesh/core/spi'
 import type { Attributes, Context, Link, MeterProvider, Span, TracerProvider } from '@opentelemetry/api'
 
 import { loadOtelApi, type OtelApi } from './load.js'
+import { assertMetricPrefix } from './instruments.js'
 import { METRIC_SOURCE_KEYS, SpanMetrics } from './spanMetrics.js'
 
 /** Options of {@link createOtelTracer} / {@link otelTracer} / {@link lazyOtelTracer}. */
@@ -37,9 +38,12 @@ function toAttributes(attrs: TraceAttributes | undefined): Attributes | undefine
 
 /** One bot span backed by an OTel span. */
 class OtelBotSpan implements BotSpan {
-  private readonly started = performance.now()
   /** Attributes {@link SpanMetrics} reads (only when span metrics are on). */
   private readonly picked?: Map<string, TraceAttributeValue>
+  /** Monotonic start (`performance.now()`), for a span with no caller-given time (metrics only). */
+  private readonly startedMono: number = 0
+  /** Wall-clock start (`Date.now()`), the base of an `end(endTimeMs)` without `startTimeMs` (metrics only). */
+  private readonly startedWall: number = 0
 
   constructor(
     readonly otel: Span,
@@ -47,11 +51,28 @@ class OtelBotSpan implements BotSpan {
     private readonly name: string,
     private readonly metrics?: SpanMetrics,
     initial?: TraceAttributes,
+    /** Epoch ms (`Date.now()` base): `SpanOptions.startTimeMs`, when the caller gave one. */
+    private readonly startTimeMs?: number,
   ) {
     if (metrics) {
       this.picked = new Map()
       if (initial) this.pick(initial)
+      this.startedMono = performance.now()
+      this.startedWall = Date.now()
     }
+  }
+
+  /**
+   * Metric duration that never mixes clocks: with no caller-given time, a pure monotonic
+   * difference (immune to wall-clock steps); once the caller gives `startTimeMs` or
+   * `endTimeMs` (epoch ms, `Date.now()` base), both ends are read on that wall clock.
+   * Never negative.
+   */
+  private durationMs(endTimeMs: number | undefined): number {
+    const d = endTimeMs === undefined && this.startTimeMs === undefined
+      ? performance.now() - this.startedMono
+      : (endTimeMs ?? Date.now()) - (this.startTimeMs ?? this.startedWall)
+    return d > 0 ? d : 0
   }
 
   private pick(attrs: TraceAttributes): void {
@@ -86,7 +107,7 @@ class OtelBotSpan implements BotSpan {
   end(endTimeMs?: number): void {
     this.otel.end(endTimeMs)
     if (this.metrics && this.picked) {
-      try { this.metrics.record(this.name, performance.now() - this.started, this.picked) } catch { /* metrics never break a span */ }
+      try { this.metrics.record(this.name, this.durationMs(endTimeMs), this.picked) } catch { /* metrics never break a span */ }
     }
   }
   isRecording(): boolean { return this.otel.isRecording() }
@@ -103,9 +124,11 @@ export function otelTracer(opts: OtelTracingOptions & { api: OtelApi }): BotTrac
   const provider = opts.tracerProvider ?? api.trace.getTracerProvider()
   const tracer = provider.getTracer(opts.tracerName ?? '@botmesh/otel')
   const sm = opts.spanMetrics ?? true
+  const prefix = typeof sm === 'object' && sm.prefix !== undefined ? sm.prefix : 'botmesh'
+  if (sm !== false) assertMetricPrefix(prefix, 'spanMetrics.prefix')
   const metrics = sm === false
     ? undefined
-    : new SpanMetrics((typeof sm === 'object' && sm.meterProvider) || api.metrics.getMeterProvider(), opts.tracerName ?? '@botmesh/otel', (typeof sm === 'object' && sm.prefix) || 'botmesh')
+    : new SpanMetrics((typeof sm === 'object' && sm.meterProvider) || api.metrics.getMeterProvider(), opts.tracerName ?? '@botmesh/otel', prefix)
 
   const kinds: Record<SpanKind, OtelApi['SpanKind'][keyof OtelApi['SpanKind']]> = {
     internal: api.SpanKind.INTERNAL, server: api.SpanKind.SERVER, client: api.SpanKind.CLIENT,
@@ -136,7 +159,7 @@ export function otelTracer(opts: OtelTracingOptions & { api: OtelApi }): BotTrac
         ...(links?.length ? { links } : {}),
         ...(options.startTimeMs !== undefined ? { startTime: options.startTimeMs } : {}),
       }, parentContext(options.parent))
-      return new OtelBotSpan(span, api, name, metrics, options.attributes)
+      return new OtelBotSpan(span, api, name, metrics, options.attributes, options.startTimeMs)
     },
     withSpan<T>(span: BotSpan, fn: () => T): T {
       if (!(span instanceof OtelBotSpan)) return fn()

@@ -16,7 +16,7 @@ Documents are stored as `JSONB`; the tables are created on `start()`. The packag
 pnpm add @botmesh/postgres-store pg
 ```
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older alpha. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/postgres-store@beta pg` during the beta (`npm view @botmesh/postgres-store dist-tags` lists the tags). Once stable, the plain command above works.
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/postgres-store@beta pg` during the beta (`npm view @botmesh/postgres-store dist-tags` lists the tags). Once stable, the plain command above works.
 
 [`pg`](https://www.npmjs.com/package/pg) `^8.13` is a **peer dependency**, loaded only when the store creates its own pool. You need a PostgreSQL server reachable from the bot (for example `postgres://localhost:5432/botwa`); the database must exist, the store creates its tables. The package's types never name `pg`, so TypeScript projects need no `@types/pg`.
 
@@ -36,7 +36,7 @@ const bot = new Bot({ provider: new BaileysProvider({ session: 'my-bot' }), stor
 await bot.start() // starts the store too: creates the pool and the tables
 ```
 
-Using the store before it is started fails with an error that tells you to call `start()`. After `stop()`, a store that created its own pool can be started again.
+Using the store before it is started fails with an error that tells you to call `start()`, also with an injected `pool`. `stop()` ends only a pool the store created: a store on an injected `pool` keeps working after `stop()`, so several bots can share one store (or one `PostgresDurability`) and stopping one does not break the others, as with the Redis, MySQL and MongoDB stores. After `stop()`, an own-pool store can be started again; a `stop()` that arrives while `start()` is still connecting waits for it and ends the new pool.
 
 ### Bring your own pool
 
@@ -58,12 +58,12 @@ node-postgres emits `'error'` on the pool when an **idle** client loses its conn
 | --- | --- | --- | --- |
 | `connectionString` | `string` | `'postgres://localhost:5432/botwa'` | Connection URL. Ignored when `pool` is given. |
 | `pool` | `PostgresPoolLike \| NativePostgresPool` | none | An existing pool. The store never creates or ends it; `start()` still creates the tables. |
-| `tablePrefix` | `string` | `''` | Prefix for every table (`'mybot_'` → `mybot_messages`), so several bots share one database. Letters, digits and `_` only. |
+| `tablePrefix` | `string` | `''` | Prefix for every table (`'mybot_'` → `mybot_messages`), so several bots share one database. Letters, digits and `_` only, at most 42 characters (PostgreSQL cuts names at 63 bytes). |
 | `maxMessagesPerChat` | `number` | unbounded | Keep only the newest N messages per chat; older rows are pruned on each save. |
 | `purgeBatchSize` | `number` | `1000` | Rows deleted per statement by `bot.purgeExpiredUserData()`; the purge loops until nothing expired is left. |
 | `logger` | `Partial<LoggerLike>` | none | Receives pool end failures and the idle-client errors of a store-created pool (pino, `console` or the bot's logger). |
 
-Invalid numbers throw a `RangeError` and an invalid `tablePrefix` an `Error` from the constructor.
+Invalid numbers and a `tablePrefix` longer than 42 characters throw a `RangeError`, and a `tablePrefix` with other characters an `Error`, from the constructor.
 
 ## Durable scheduled tasks and message processing
 
@@ -94,8 +94,8 @@ bot.schedule('0 9 * * 1-5', { id: 'daily-report', timeZone: 'America/Bogota' }, 
 | --- | --- | --- |
 | `pool` | none | An existing pool (shared with the store). Never ended by the backend. |
 | `connectionString` | `'postgres://localhost:5432/botwa'` | Used to create a pool when `pool` is not given; `stop()` ends it. |
-| `tablePrefix` | `''` | Prefix for the `durable` table. |
-| `logger` | none | Receives the idle-client errors of a pool the backend created. |
+| `tablePrefix` | `''` | Prefix for the `durable` table (same rules as the store's). |
+| `logger` | none | Receives the idle-client errors of a pool the backend created, and a failure to end it on `stop()`. |
 
 ## Table layout
 
@@ -120,7 +120,8 @@ Every name gets the `tablePrefix`. Schema creation is idempotent (`CREATE TABLE 
 | `needs the PostgreSQL driver "pg", which is not installed` | Install the peer dependency (`pnpm add pg`), or pass your own `pool`. |
 | `PostgresStore is not started — call start() before using it` | The bot starts the store; if you use it on its own, `await store.start()` first. |
 | `invalid tablePrefix` | Use a plain SQL identifier prefix (`[A-Za-z_][A-Za-z0-9_]*`). |
-| `code: '22021'` (invalid byte sequence) | An id or key contains U+0000, which PostgreSQL `TEXT` rejects. Ids must not contain it. |
+| `tablePrefix "…" is N characters long; use at most 42` | PostgreSQL truncates table and index names to 63 bytes, and a longer prefix made two tables share one name. Use a shorter prefix. |
+| `code: '22021'` (invalid byte sequence) | An id or key contains U+0000, which PostgreSQL `TEXT` rejects. Ids must not contain it. (A lone UTF-16 surrogate in an id is stored as U+FFFD, so the message is still found, under the replaced id.) |
 | `ECONNREFUSED` / timeouts on Windows with Docker | Use `127.0.0.1` instead of `localhost`: `localhost` resolves to `::1` first and Docker Desktop's IPv6 forwarding can hang. |
 
 ## Behaviour notes

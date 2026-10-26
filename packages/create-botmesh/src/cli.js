@@ -9,7 +9,7 @@
  * Templates: baileys, meta, telegram, ai, games, support, store, restaurant, clinic, ai-full.
  */
 
-import { realpathSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
 import { isAbsolute, relative } from 'node:path'
 import process from 'node:process'
 import { createInterface } from 'node:readline/promises'
@@ -19,6 +19,19 @@ import { scaffold } from './scaffold.js'
 import { TEMPLATE_NAMES, getTemplate } from './templates.js'
 
 const DEFAULT_TEMPLATE = 'baileys'
+
+/** This CLI's own version (lib/cli.js and src/cli.js both sit one level below package.json). */
+const CLI_VERSION = /** @type {{ version: string }} */ (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))).version
+
+/**
+ * The `npm create` command for a CLI version (exported for tests): a prerelease carries its
+ * dist-tag (`1.0.0-beta.1` -> `npm create botmesh@beta`), so the help never names a stale tag.
+ * @param {string} version
+ */
+export function createCommand(version) {
+  const tag = /^\d+\.\d+\.\d+-([0-9A-Za-z]+)/.exec(version)?.[1]
+  return tag ? 'npm create botmesh@' + tag : 'npm create botmesh'
+}
 
 /**
  * Parse CLI arguments (exported for tests — pure, no I/O).
@@ -52,9 +65,10 @@ export function parseArgs(argv) {
 }
 
 function printUsage(log = console.log) {
+  const create = createCommand(CLI_VERSION)
   log('Usage: create-botmesh <dir> [options]')
   log('')
-  log('Scaffold a new @botmesh bot (npm create botmesh@alpha).')
+  log('Scaffold a new @botmesh bot (' + create + ').')
   log('')
   log('Arguments:')
   log('  dir                 target directory; the package name is derived from it')
@@ -68,9 +82,9 @@ function printUsage(log = console.log) {
   log('  -h, --help          show this help')
   log('')
   log('Examples:')
-  log('  npm create botmesh@alpha my-bot')
-  log('  npm create botmesh@alpha my-bot -- --template telegram')
-  log('  npm create botmesh@alpha my-shop -- --template store')
+  log('  ' + create + ' my-bot')
+  log('  ' + create + ' my-bot -- --template telegram')
+  log('  ' + create + ' my-shop -- --template store')
 }
 
 /**

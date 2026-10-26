@@ -6,6 +6,8 @@ export type RagErrorCode =
   | 'MISSING_DEPENDENCY'
   | 'EMBEDDING_FAILED'
   | 'INVALID_INDEX'
+  | 'PERSIST_FAILED'
+  | 'EMBEDDER_CHANGED'
 
 /** Every failure raised by `@botmesh/rag` (loading, embedding, persistence). */
 export class RagError extends Error {

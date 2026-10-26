@@ -94,10 +94,18 @@ describe('PostgresStore#schedules()', () => {
     await expect(s.start()).rejects.toThrow(/not started/)
   })
 
-  it('shares the injected pool', async () => {
+  it('shares the injected pool (once the store is started)', async () => {
     const pool = new FakeSchedulePool()
-    const store = new PostgresStore({ pool: pool as never })
+    // The fake only knows the schedule statements: the store's own DDL is a no-op here.
+    const shared = {
+      query: (text: string, values?: unknown[]) =>
+        text.startsWith('CREATE') && !text.includes('schedules') ? Promise.resolve({ rows: [] }) : pool.query(text, values),
+      end: async () => {},
+    }
+    const store = new PostgresStore({ pool: shared })
     const s = store.schedules()
+    await expect(s.start()).rejects.toThrow(/not started/)
+    await store.start()
     await s.start()
     await s.register({ id: 'x', kind: 'once', spec: '5', nextRunAt: 5 }, 0)
     expect(pool.tables.get('schedules')?.has('x')).toBe(true)

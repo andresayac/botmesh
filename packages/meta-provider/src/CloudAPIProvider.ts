@@ -276,13 +276,18 @@ export class CloudAPIProvider implements IProvider<unknown> {
     }
   }
 
+  /** Set by `stop()`, cleared by `start()`: a stopped provider refuses webhooks with 503 so Meta redelivers them. */
+  private stopped = false
+
   /** No socket to open — the transport is webhook-driven. */
   async start(): Promise<void> {
+    this.stopped = false
     this.fan({ kind: 'connection', update: { state: 'ready' } })
     this.logger.debug('CloudAPIProvider ready — wire your webhook to ingest()')
   }
   /** Emits `closed` after any webhook batch still waiting on an async identity lookup. */
   async stop(): Promise<void> {
+    this.stopped = true
     this.presenceReady = false
     while (this.pending) await this.pending
     this.fan({ kind: 'connection', update: { state: 'closed' } })
@@ -307,7 +312,8 @@ export class CloudAPIProvider implements IProvider<unknown> {
    * and a non-string body is received, a warning is logged.
    *
    * Returns the HTTP status to answer: 200 accepted, 400 not a JSON object (or a
-   * parsed body while `appSecret` is set), 403 bad/missing signature.
+   * parsed body while `appSecret` is set), 403 bad/missing signature, 503 while the
+   * provider is stopped (after `stop()`, until the next `start()`: Meta redelivers it).
    *
    * Identity: users are keyed by phone number (wa_id) when known, otherwise by
    * their business-scoped user id (BSUID — username users). Phone ↔ BSUID pairs
@@ -316,6 +322,8 @@ export class CloudAPIProvider implements IProvider<unknown> {
    * emitted once it settles, preserving webhook order.
    */
   ingest(body: unknown, headers?: Record<string, string | string[] | undefined>): number {
+    // Stopped: nothing may reach the bot. 503 makes Meta redeliver after a restart.
+    if (this.stopped) return 503
     const sig = checkGraphSignature({ body, headers, appSecret: this.config.appSecret, logger: this.logger })
     if (!sig.ok) return sig.status
     const parsed = tryParseGraphBody<GraphWebhookBody>(body)

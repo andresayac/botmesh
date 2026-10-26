@@ -83,7 +83,7 @@ function optionalSubflows(args: Record<string, unknown>): ((id: string) => FlowD
   const subflows = record(args.subflows)
   if (!subflows) return undefined
   return (id: string) => {
-    const found = record(subflows[id])
+    const found = Object.hasOwn(subflows, id) ? record(subflows[id]) : undefined
     return found === undefined ? undefined : (found as unknown as FlowDocument)
   }
 }
@@ -242,7 +242,7 @@ const flowMigrate: ToolDefinition = {
     type: 'object',
     properties: {
       document: DOCUMENT_PROPERTY,
-      target: { type: 'integer', minimum: 0, maximum: 1_000, description: `Target version (default ${FLOW_DOCUMENT_VERSION}).` },
+      target: { type: 'integer', minimum: 0, maximum: FLOW_DOCUMENT_VERSION, description: `Target version (default and maximum ${FLOW_DOCUMENT_VERSION}).` },
     },
     required: ['document'],
     additionalProperties: false,
@@ -252,6 +252,9 @@ const flowMigrate: ToolDefinition = {
     const target = args.target === undefined ? undefined : args.target
     if (target !== undefined && (typeof target !== 'number' || !Number.isInteger(target) || target < 0)) {
       throw new ToolInputError('"target" must be a non-negative integer')
+    }
+    if (typeof target === 'number' && target > FLOW_DOCUMENT_VERSION) {
+      throw new ToolInputError(`"target" must be at most ${FLOW_DOCUMENT_VERSION} (the current flow document version)`)
     }
     try {
       const migrated = migrateFlowDocument(document, undefined, target)
@@ -370,9 +373,16 @@ function docsTools(docsDir: string): ToolDefinition[] {
       async handler(args) {
         const query = args.query
         if (typeof query !== 'string' || query.trim() === '') throw new ToolInputError('"query" must be a non-empty string')
-        const limit = typeof args.limit === 'number' ? args.limit : 8
-        const hits = await searchDocs(docsDir, query, limit)
-        return { text: json({ query, count: hits.length, hits }) }
+        const limit = args.limit === undefined ? 8 : args.limit
+        if (typeof limit !== 'number' || !Number.isInteger(limit) || limit < 1 || limit > 25) {
+          throw new ToolInputError('"limit" must be an integer between 1 and 25')
+        }
+        try {
+          const hits = await searchDocs(docsDir, query, limit)
+          return { text: json({ query, count: hits.length, hits }) }
+        } catch (error) {
+          return { text: error instanceof Error ? error.message : String(error), isError: true }
+        }
       },
     },
     {

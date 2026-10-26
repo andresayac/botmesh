@@ -68,7 +68,7 @@ export interface ModerationRules {
   antiSpam?: AntiSpamRule | false
   wordFilter?: WordFilterRule | false
   linkFilter?: LinkFilterRule | false
-  /** Shorthand for `linkFilter: { action: ['delete', 'kick'] }` (FEATURES #34). */
+  /** Shorthand for `linkFilter: { action: ['delete', 'kick'] }` when no `linkFilter` is set. */
   autoKickOnLink?: boolean
   /** Users exempt from every rule (in addition to provider-reported admins). */
   admins?: readonly UserId[]
@@ -148,7 +148,11 @@ export interface ModerationConfig extends ModerationRules {
   applyTo?: 'groups' | 'all'
   /** Provider handle for delete/kick/admin lookups. */
   provider?: ModerationProvider
-  /** Extra admin check (e.g. your own staff list in a DB). */
+  /**
+   * Extra admin check (e.g. your own staff list in a DB). Called only for a message that
+   * breaks a rule or comes from a muted user; if it throws, the error is logged and the
+   * sender is treated as a non-admin.
+   */
   isAdmin?: (chatId: ChatId, userId: UserId) => boolean | Promise<boolean>
   /** How long provider admin lists are cached (default 5 minutes). */
   adminCacheMs?: number

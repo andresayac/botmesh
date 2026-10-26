@@ -215,7 +215,12 @@ in-memory cosine index with optional JSON persistence.
   `@botmesh/http`.
 - **Index**: `topK`, `minScore` and filters. With `persistPath` it is saved as
   JSON after each change and, on restart, only the chunks whose text changed
-  are embedded again.
+  are embedded again. If you switch to another embedder (a different `id`),
+  the documents added at runtime and a prebuilt index are embedded again with
+  it instead of being dropped; `onError` gets a `RagError('EMBEDDER_CHANGED')`
+  and the old file is kept as `<persistPath>.previous`. If the index cannot be
+  saved while it loads (read-only file), `onError` gets `PERSIST_FAILED` and
+  it is served from memory.
 
 | Option | Default | Description |
 |---|---|---|
@@ -229,7 +234,7 @@ in-memory cosine index with optional JSON persistence.
 | `cwd` | `process.cwd()` | Base directory for relative paths. |
 | `maxFileBytes` | 20 MiB | Max bytes per loaded file. |
 | `retryDelayMs` | `30000` | After a failed ingest, `retrieve()` rejects at once with the same error for this long. |
-| `onError` | — | Non-fatal problems (e.g. a corrupt persisted index set aside and rebuilt). |
+| `onError` | — | Non-fatal problems, always a `RagError`: `INVALID_INDEX` (corrupt index set aside and rebuilt), `EMBEDDER_CHANGED` (re-embedded with another embedder), `PERSIST_FAILED` (could not save while loading; served from memory). |
 
 `createRag()` is synchronous and cheap, so it fits in a synchronous plugin
 install. You can also use it directly:
@@ -250,8 +255,9 @@ await rag.save()
 ```
 
 Every failure is a `RagError` with a `code`: `INVALID_OPTIONS`,
-`UNSUPPORTED_FORMAT`, `LOAD_FAILED`, `MISSING_DEPENDENCY`, `EMBEDDING_FAILED`
-or `INVALID_INDEX`. The index is brute force, meant for thousands of chunks;
+`UNSUPPORTED_FORMAT`, `LOAD_FAILED`, `MISSING_DEPENDENCY`, `EMBEDDING_FAILED`,
+`INVALID_INDEX` or `PERSIST_FAILED` (`EMBEDDER_CHANGED` only reaches
+`onError`). The index is brute force, meant for thousands of chunks;
 for millions, write your own retriever over a vector database. Details in the
 [`@botmesh/rag` README](https://github.com/andresayac/botmesh/tree/main/packages/rag).
 

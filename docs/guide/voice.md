@@ -82,7 +82,7 @@ downloads each voice note, transcribes it and sets:
 | `language` | `string` | — | Language hint for every transcription (e.g. `'es'`). |
 | `useContextLanguage` | `boolean` | `true` | Use `ctx.lang` as the hint when `language` is not set (see [i18n](#language-and-i18n)). |
 | `prompt` | `string` | — | Prompt / vocabulary hint for every transcription. |
-| `filter` | `(ctx) => boolean` | — | Return `false` to skip a message (big groups, unpaid users). |
+| `filter` | `(ctx) => boolean` | — | Return `false` to skip a message (big groups, unpaid users). A filter that throws is logged and skips the transcription. |
 | `priority` | `number` | `100` | Priority of the `before('message')` hook. |
 | `onError` | `(error, ctx) => void` | logs a warning | Called when a transcription fails. |
 
@@ -136,7 +136,7 @@ back to text.
 | `voice` | `string` | — | Voice for the replies. |
 | `instructions` | `string` | — | Style instructions (OpenAI `gpt-4o-mini-tts`). |
 | `triggerTypes` | `('voice' \| 'audio')[]` | `['voice']` | Inbound types that switch a chat to voice replies. |
-| `filter` | `(chatId, text) => boolean` | — | Return `false` to keep a text as text (e.g. a human agent's replies). |
+| `filter` | `(chatId, text) => boolean` | — | Return `false` to keep a text as text (e.g. a human agent's replies). A filter that throws is logged and keeps the text. |
 
 These always stay text:
 
@@ -163,8 +163,9 @@ augmentation, no casts needed):
 | `warmup()` | `Promise<void>` | Resolve the adapters now; rejects with `VoiceConfigError`. |
 | `hasStt` / `hasTts` / `limits` | — | Effective configuration. |
 
-Transcription options: `language`, `prompt`, `signal`. Synthesis options:
-`voice`, `instructions`, `signal`.
+Transcription options: `language`, `prompt`, `signal`, `timeoutMs`. Synthesis
+options: `voice`, `instructions`, `signal`, `timeoutMs`. A per-call `timeoutMs`
+can only tighten `limits.timeoutMs`. `source` may also be a `Uint8Array`.
 
 ```ts
 bot.when(VOICE_NOTE, async (ctx) => {
@@ -231,7 +232,7 @@ voicePlugin({
   stt, tts,
   limits: {
     maxInputBytes: 25 * 1024 * 1024, // max audio size; the download is cut as soon as it goes over
-    maxDurationSec: 300,             // max duration; read from the last OGG page before calling the service
+    maxDurationSec: 300,             // max duration; read from the last OGG page before calling the service (OGG is detected from the bytes, not the declared mimetype)
     maxTextChars: 4096,              // max characters per synthesis
     timeoutMs: 60_000,               // max time per STT/TTS call; also the adapters' HTTP timeout
   },
@@ -241,6 +242,11 @@ voicePlugin({
 The duration is checked **before** paying for a transcription when it is
 known (an explicit `durationSec`, or an OGG file). Other containers are not
 estimated.
+
+Limits are validated when the plugin is plugged (or the `VoiceClient` is
+built): `timeoutMs` must be between 1 and 2147483647 ms (the `setTimeout`
+range), and the other caps must be positive (`Infinity` turns a cap off).
+Anything else throws a `VoiceConfigError` naming the field.
 
 ## Errors
 
@@ -258,7 +264,7 @@ Every error extends `VoiceError` and carries a stable `code`:
 | `VoiceRateLimitedError` | `RATE_LIMITED` | HTTP 429 (`retryAfterMs` from `Retry-After`). |
 | `VoiceError` | `NETWORK` / `BAD_RESPONSE` | Transport failure (also when downloading the message's audio), unsafe URL, or an unexpected answer. |
 
-Error messages and logs never include API keys, audio or transcripts. The service's own error detail is kept (it explains a 400 or a 401), but the request's API key and anything key-shaped (`sk-…`, even masked) are redacted from it first.
+Error messages and logs never include API keys, audio or transcripts. The service's own error detail is kept (it explains a 400 or a 401), but the request's API key and anything key-shaped (`sk-…` or `sk_…`, even masked) are redacted from it first.
 
 ## Testing
 

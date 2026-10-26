@@ -15,7 +15,7 @@ There is no MySQL durability backend (`BotConfig.durability`); use `@botmesh/pos
 pnpm add @botmesh/mysql-store mysql2
 ```
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older alpha. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/mysql-store@beta mysql2` during the beta (`npm view @botmesh/mysql-store dist-tags` lists the tags). Once stable, the plain command above works.
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/mysql-store@beta mysql2` during the beta (`npm view @botmesh/mysql-store dist-tags` lists the tags). Once stable, the plain command above works.
 
 [`mysql2`](https://www.npmjs.com/package/mysql2) `^3.11` is a **peer dependency**, loaded only when the store creates its own pool. You need a MySQL 8.x or MariaDB server reachable from the bot (for example `mysql://localhost:3306/botwa`); the database must exist, the store creates its tables.
 
@@ -35,7 +35,7 @@ const bot = new Bot({ provider: new BaileysProvider({ session: 'my-bot' }), stor
 await bot.start() // starts the store too: creates the pool and the tables
 ```
 
-Discrete connection options work too: `new MysqlStore({ host: 'db.internal', port: 3306, user: 'bot', password: process.env.MYSQL_PASSWORD, database: 'botwa' })`. Using the store before it is started fails with an error that tells you to call `start()`.
+Discrete connection options work too: `new MysqlStore({ host: 'db.internal', port: 3306, user: 'bot', password: process.env.MYSQL_PASSWORD, database: 'botwa' })`. Combined with `uri` they override the matching parts of it, so `new MysqlStore({ uri: process.env.MYSQL_URL, password: process.env.MYSQL_PASSWORD })` keeps the URI's host and database. In a URI, percent-encode reserved characters in the user name and password (`#` → `%23`, `@` → `%40`, `/` → `%2F`, `?` → `%3F`, `:` → `%3A`); a URI with an unencoded `#`, or an `@` after the host (left there by an unencoded `/` or `?` in the password), is rejected. Using the store before it is started fails with an error that tells you to call `start()`.
 
 ### Bring your own pool
 
@@ -52,10 +52,10 @@ const store = new MysqlStore({ pool })
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
-| `uri` | `string` | `'mysql://localhost:3306/botwa'` | Connection URI. Ignored when `pool` is given or when any of the discrete options is set. |
-| `host`, `port`, `user`, `password`, `database` | `string` / `number` | none | Discrete connection options, used instead of `uri` when any is set. |
+| `uri` | `string` | `'mysql://localhost:3306/botwa'` | Connection URI (`mysql://` or `mariadb://`). Ignored when `pool` is given. A malformed URI throws a `TypeError` from the constructor that never repeats the URI (it holds the password). |
+| `host`, `port`, `user`, `password`, `database` | `string` / `number` | none | Discrete connection options. With `uri` they override its matching parts; without it they are the whole config. |
 | `pool` | `MysqlPoolLike \| NativeMysqlPool` | none | An existing pool. The store never creates or closes it; `start()` still creates the tables. |
-| `tablePrefix` | `string` | `''` | Prefix for every table, so several bots share one database. Letters, digits and `_` only. |
+| `tablePrefix` | `string` | `''` | Prefix for every table, so several bots share one database. Letters, digits and `_` only, at most 43 characters (MySQL names are limited to 64). |
 | `maxMessagesPerChat` | `number` | unbounded | Keep only the newest N messages per chat; older rows are pruned on each save. |
 | `purgeBatchSize` | `number` | `1000` | Rows deleted per statement by `bot.purgeExpiredUserData()`; the purge loops until nothing expired is left. |
 | `logger` | `Partial<LoggerLike>` | none | Receives pool close failures and, through `warn` (else `error`), the notice about tables created by an early version (pino, `console` or the bot's logger). |
@@ -114,12 +114,17 @@ ALTER TABLE `{p}cursors` MODIFY `key` VARBINARY(1024) NOT NULL;
 | `MysqlStore: pool is not available — call start() first` | The bot starts the store; if you use it on its own, `await store.start()` first. |
 | `ER_BAD_DB_ERROR` (unknown database) | Create the database first: the store creates tables, not databases. |
 | `CONSTRAINT … failed` on MariaDB | MariaDB stores `JSON` as `LONGTEXT` with a `json_valid()` check, which rejects documents nested deeper than 32 levels (a message's `raw` payload or a checkpoint's state). MySQL has no such limit. |
+| `MysqlStore: cannot connect to MySQL at host:port (database "…"): ECONNREFUSED (…)` | No server is listening there, or a firewall drops the connection. The message names the target and the original error is the `cause` (`err.code` is kept). |
+| ``MysqlStore: `uri` is not a valid URL`` / ``MysqlStore: `uri` contains "#"`` / ``MysqlStore: `uri` has an "@" after the host`` | Fix the URI shape (`mysql://user:password@host:3306/database`) and percent-encode reserved characters in the user name and password. |
+| `No database selected` (`ER_NO_DB_ERROR`) | The URI has no `/database` path, or the discrete options have no `database`. |
+| `RangeError: … key columns hold at most 1024 bytes` | An id or key longer than 1024 bytes in UTF-8 (the `VARBINARY(1024)` columns). Nothing is written. |
+| `RangeError: a ctx.user value is … bytes` | A `ctx.user` value whose JSON is 16 MiB or more (the `MEDIUMTEXT` column). |
 | `ETIMEDOUT` on Windows with Docker | Use `127.0.0.1` instead of `localhost`: `localhost` resolves to `::1` first and Docker Desktop's IPv6 forwarding never delivers the MySQL handshake. |
 
 ## Behaviour notes
 
 - `upsertChat` / `upsertContact` shallow-merge exactly like `MemoryStore` (`{ ...existing, ...patch }`) and **atomically across processes**: each runs a short `SELECT … FOR UPDATE` transaction on a dedicated connection, and a deadlock victim is retried, so concurrent partial updates never lose fields.
-- An auto-committed statement chosen as a deadlock victim (MariaDB's gap locks make concurrent saves and `maxMessagesPerChat` trims of one chat collide) is run again, up to 5 times.
+- An auto-committed statement chosen as a deadlock victim (MariaDB's gap locks make concurrent saves and `maxMessagesPerChat` trims of one chat collide) is run again, up to 5 times. A statement of 1 MiB or more runs on a connection of its own, closed if the statement fails: a statement over the server's `max_allowed_packet` (16 MiB on MariaDB, 64 MiB on MySQL) makes the server drop the connection, and it must not go back to the pool. A statement that could not even be written to its connection (the server had already closed it) is sent again once; nothing that may have reached the server is ever re-sent.
 - `deleteChat(chatId)` removes the chat **and** its message log in one transaction.
 - `getMessagesByChat(chatId, limit)` returns the newest `limit` messages, oldest first (same windowing as the other stores).
 - MySQL's `JSON` type rejects unpaired UTF-16 surrogates (text cut in the middle of an emoji): they are stored as U+FFFD instead of failing the write, in checkpoints too. Well-formed text round-trips unchanged.

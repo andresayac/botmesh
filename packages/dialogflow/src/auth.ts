@@ -40,6 +40,9 @@ const b64url = (input: string | Buffer) => Buffer.from(input).toString('base64ur
 
 /** Validate the credential shape and parse the private key. Throws synchronously. */
 export function parseCredentials(credentials: ServiceAccountCredentials): { credentials: ServiceAccountCredentials; key: KeyObject } {
+  if (typeof credentials === 'string') {
+    throw new DialogflowError('credentials must be the service-account JSON object, not a string: parse it first (JSON.parse(process.env.GOOGLE_CREDENTIALS))', undefined, 'INVALID_CREDENTIALS')
+  }
   if (!credentials || typeof credentials !== 'object') {
     throw new DialogflowError('credentials must be a service-account JSON object', undefined, 'INVALID_CREDENTIALS')
   }
@@ -85,6 +88,12 @@ export type HttpOptions = Pick<SecureFetchOptions, 'fetch' | 'resolver' | 'timeo
 /** Something that yields a bearer token. */
 export interface AccessTokenSource {
   getAccessToken(): Promise<string>
+  /**
+   * Optional: forget a cached token. The client calls it when Dialogflow answers 401 and then
+   * retries the request once with a fresh token (without it, a 401 is not retried). `token` is the
+   * rejected token: a source that already holds a newer one keeps it.
+   */
+  invalidate?(token?: string): void
 }
 
 /** Access tokens for a service account, cached until 60 s before expiry. */
@@ -108,6 +117,14 @@ export class ServiceAccountTokenSource implements AccessTokenSource {
     if (this.cached && this.cached.expiresAt - 60_000 > this.now()) return this.cached.token
     this.inflight ??= this.refresh().finally(() => { this.inflight = undefined })
     return this.inflight
+  }
+
+  /**
+   * Forget the cached token, so the next {@link getAccessToken} call exchanges a new one. With
+   * `token`, only when that is still the cached token (a concurrent 401 does not discard a newer one).
+   */
+  invalidate(token?: string): void {
+    if (token === undefined || this.cached?.token === token) this.cached = undefined
   }
 
   private async refresh(): Promise<string> {

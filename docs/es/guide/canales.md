@@ -240,8 +240,8 @@ pasan a un menú de texto numerado, `ctx.edit` envía un mensaje nuevo,
   (`ctx.sendNative('<id del provider>', payload)`) como vía de escape a la API
   propia del canal, con un payload específico de cada provider. Baileys lo
   rechaza con `UnsupportedContentError`. Discord, Messenger, Instagram,
-  Evolution, WPPConnect, Twilio, Gupshup y HighLevel también rechazan un
-  payload dirigido a otro id de provider en lugar de enviarlo.
+  Evolution, WPPConnect, Twilio, Gupshup, HighLevel, Email y TikTok también
+  rechazan un payload dirigido a otro id de provider en lugar de enviarlo.
 
 ## Contrato común de los canales
 
@@ -294,9 +294,12 @@ Quien escribe un provider las comprueba con los helpers de `@botmesh/core/testin
 - **Un solo esquema de nombres para los helpers de bajo nivel.** El mapeador de errores
   de cada provider es `to<Canal>Error` (`toTelegramError`, `toDiscordError`,
   `toTwilioError`…; los canales de Meta comparten `toGraphError` de
-  `@botmesh/graph-core`); los nombres antiguos `toProviderError` quedan como alias
-  deprecados. `ingest()` devuelve el estado HTTP con el que responder (un `number`);
-  WPPConnect lo devuelve como `Promise<number>` (comprueba el token de forma asíncrona) y
+  `@botmesh/graph-core`). Telegram, TikTok y la Cloud API conservan su antiguo
+  `toProviderError` (y Email su `toEmailProviderError`) como alias deprecados; los canales
+  que se publican por primera vez con la beta solo tienen los nombres nuevos.
+  `ingest()` devuelve el estado HTTP con el que responder (un `number`);
+  WPPConnect lo devuelve como `Promise<number>` (resuelve los LID desconocidos contra el
+  gateway antes de emitir, sin esperar a tus handlers) y
   el `ingest()` de email recibe un mensaje crudo, no un webhook, y devuelve un
   `EmailIngestResult`.
 
@@ -414,6 +417,8 @@ const provider = new CloudAPIProvider({
   `ctx.typing()` y `ctx.delete()` no hacen nada (ver el
   [contrato común de los canales](#contrato-comun-de-los-canales)).
 - El core divide en varios mensajes el texto de más de 4096 caracteres.
+- Con el bot parado, `ingest()` responde `503`, así que Meta reenvía el
+  webhook tras el reinicio.
 - `publishForm()` fija en el Flow la etiqueta de envío por defecto de un
   formulario en el `lang` del provider (por defecto `'en'`; ponle el
   `BotConfig.lang` de tu bot), o en `publishForm(def, { lang })` para un Flow.
@@ -525,6 +530,17 @@ const provider = new MessengerProvider({
 - Más de 3 botones (plantilla de botones) o de 10 filas de lista (plantilla
   genérica) rechazan con `UnsupportedContentError` en vez de descartar opciones.
 - Cada llamada a la Send API vence tras `requestTimeoutMs` (60 s por defecto).
+- No se corta texto: una lista envía su texto antes de la plantilla genérica
+  (que no tiene encabezado), y el texto de botones que pasa de los 640
+  caracteres de la plantilla sale antes como texto plano.
+- Varios adjuntos en un mensaje llegan como un mensaje cada uno (`<mid>`,
+  `<mid>#2`…). Un mensaje editado (suscribe `message_edits`) llega de nuevo
+  con su id original; `isEditedMessage(ctx)` lo distingue.
+- Etiquetas de mensaje: `bot.send(psid, texto, { platformData: { tag: 'HUMAN_AGENT' } })`
+  envía fuera de la ventana de 24 horas (también acepta `messaging_type`,
+  `notification_type` y `persona_id`).
+- Con el bot parado, `ingest()` responde `503`, así que Meta reenvía el
+  webhook tras el reinicio.
 
 ```bash
 pnpm add @botmesh/core @botmesh/messenger
@@ -541,23 +557,30 @@ Facebook (Messenger API for Instagram).
 import { InstagramProvider } from '@botmesh/instagram'
 
 const provider = new InstagramProvider({
-  accessToken: process.env.FB_PAGE_TOKEN!, // token of the connected Page
+  accessToken: process.env.META_PAGE_TOKEN!, // token of the connected Page
   verifyToken: process.env.META_VERIFY_TOKEN!,
   appSecret: process.env.META_APP_SECRET!,
 })
 ```
 
-- Los botones salen como quick replies (como mucho 13; con más rechaza con
-  `UnsupportedContentError`); las listas se degradan a texto numerado. Cada
-  petición a la Send API caduca tras `requestTimeoutMs` (60 s).
+- Los botones salen como quick replies (como mucho 13, títulos cortados a 20
+  caracteres, ids y títulos únicos, sobre un texto no vacío; lo demás rechaza
+  con `UnsupportedContentError` en vez de descartar opciones); las listas se
+  degradan a texto numerado. Cada petición a la Send API caduca tras
+  `requestTimeoutMs` (60 s).
 - Solo DMs (sin grupos); las reacciones llegan pero no se pueden enviar.
 - El texto se limita a 1000 bytes UTF-8 (`maxTextBytes`, además de
   `maxTextLength` 1000), así que el texto no ASCII cabe menos: el texto más
   largo se divide en varios mensajes por bytes, y los trozos de `ctx.stream()`
   también caben.
-- Más de 13 quick replies rechazan con `UnsupportedContentError` en vez de
-  descartar opciones.
-- Cada llamada a la Send API vence tras `requestTimeoutMs` (60 s por defecto).
+- Los adjuntos no llevan pie de foto: el caption de un medio sale como un
+  mensaje de texto justo después del adjunto, y la imagen de una tarjeta después
+  de su texto (una tarjeta solo con imagen envía la imagen; una sin texto ni
+  imagen se rechaza).
+- Un DM con varias fotos llega como un mensaje por foto (ids `<mid>`,
+  `<mid>#2`, `<mid>#3`…).
+- Con el bot parado, `ingest()` responde `503`, así que Meta reenvía el
+  webhook tras el reinicio.
 
 ```bash
 pnpm add @botmesh/core @botmesh/instagram
@@ -607,7 +630,19 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
 - Cada llamada REST vence tras `requestTimeoutMs` (60 s por defecto); las
   subidas de archivos, tras `uploadTimeoutMs` (5 min).
 - Los mensajes de sistema (entradas al servidor, fijados, boosts...) y los de
-  bots no se enrutan.
+  bots no se enrutan. Un mensaje sin texto ni archivo llega como `sticker` (con
+  la imagen del sticker como media) o `unknown` (solo embeds, o el intent Message
+  Content desactivado), nunca como texto vacío.
+- Todo mensaje que envía el provider lleva `allowed_mentions` (por defecto
+  `{ parse: ['users'] }`, opción `allowedMentions`), así que un texto que el bot
+  repite no puede mencionar a `@everyone`, `@here` ni a un rol;
+  `SendOptions.mentions`, `platformData.allowed_mentions` y los payloads `native`
+  lo sustituyen. Una respuesta citada sigue notificando al autor del mensaje
+  citado (`replied_user: true`; `allowedMentions.replied_user: false` responde
+  sin notificar).
+- Los ids van en las URLs REST codificados, y un id vacío, `.` o `..` rechaza
+  con `ProviderError`: un id manipulado nunca llega a otra ruta. Los votos de las
+  encuestas nativas no llegan como eventos.
 - Un mensaje reenviado trae el texto y la media reenviados (de su snapshot),
   no una respuesta citada; si no tiene nada legible llega como `unknown`. Una
   encuesta nativa llega como `type: 'poll'` con la pregunta como cuerpo.
@@ -650,7 +685,14 @@ const provider = new EvolutionProvider({
   `identityPersistence` para mantener los ids estables entre reinicios.
 - Encuestas, reacciones, edición (texto), escribiendo y confirmaciones de
   lectura; botones, listas y cards se degradan a texto numerado; `template`
-  se rechaza.
+  se rechaza, igual que una encuesta que WhatsApp no puede llevar (menos de 2
+  o más de 12 opciones, vacías o repetidas).
+- Si Evolution deja de ofrecer códigos QR antes de vincular el número
+  (`QRCODE_LIMIT`), la actualización `connection` llega como `closed` con
+  motivo `sessionInvalid`: llama otra vez a `start()` para obtener un QR nuevo.
+- Deja desactivado `webhookByEvents` en el webhook de la instancia: con él,
+  Evolution añade el nombre del evento a la URL y una ruta de path exacto
+  responde 404.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/evolution-provider)
 
@@ -683,6 +725,11 @@ const provider = new WPPConnectProvider({
   antes de emitir.
 - `markRead` marca el chat entero como leído; botones y listas se degradan a
   texto numerado.
+- La conexión sigue los webhooks `status-find` del servidor: `isLogged` /
+  `qrReadSuccess` → `ready`, `notLogged` y `qrcode` → `authenticating`, y
+  desvincular el dispositivo desde el teléfono (`disconnectedMobile`) →
+  `closed` con `sessionInvalid`. `bot.stop()` no cierra la sesión en el
+  servidor.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/wppconnect-provider)
 
@@ -710,7 +757,10 @@ const provider = new TwilioProvider({
   listas pasan a texto numerado; `template` se traduce a `ContentSid` +
   `ContentVariables`.
 - `ingestRequest({ url, body, headers })` para URLs que cambian por petición
-  (multi-tenant).
+  (multi-tenant). Con `webhookPath` (la URL se reconstruye con las cabeceras
+  `Host` / `X-Forwarded-*`), pasa la ruta y la query de la petición como
+  tercer argumento de `ingest()` (`@botmesh/server` ya lo hace): así la query
+  con la que llamó Twilio entra en la URL firmada.
 - El error 63016 se traduce a `OutsideSessionWindowError`.
 - Un mensaje con varios adjuntos (`NumMedia` > 1, hasta 10) llega como **un
   mensaje por adjunto**, en orden: el primero conserva el `MessageSid` y el
@@ -741,6 +791,8 @@ const provider = new GoHighLevelProvider({
   así que no hace falta secreto de webhook. `ingest()` necesita el body
   **crudo**.
 - Media solo desde URLs públicas; `template` se traduce a `templateId`.
+- El cuerpo HTML de un Email llega como texto plano en `ctx.body`;
+  `ctx.raw.body` conserva el HTML y `ctx.chat.platformData.subject` el asunto.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/gohighlevel-provider)
 
@@ -766,6 +818,14 @@ const provider = new GupshupProvider({
   10) y después como texto numerado; las listas son nativas hasta 10 filas. El
   botón de la lista de los botones degradados usa `listButtonText` (por defecto
   `'Options'`, máximo 20 caracteres; `'Opciones'` para un bot en español).
+  Las etiquetas más largas se recortan a los límites de WhatsApp (títulos de
+  20/24 caracteres) en vez de ser rechazadas.
+- Con `@botmesh/server`, monta el provider como una ruta: el ingress pasa la
+  URL de la petición a `ingest()`, así que el callback con `?token=` funciona
+  tal cual.
+- Usa un `webhookToken` seguro para URL (`openssl rand -hex 32`). Un secreto
+  base64 pegado tal cual en `?token=` también coincide (un `+` literal no se
+  lee como espacio), igual que su forma codificada con `%`.
 - `chatId` = los dígitos del teléfono del remitente (sin `+`), justo lo que
   espera la API de envío.
 - Media solo desde URLs públicas. Gupshup también documenta restringir por
@@ -800,7 +860,13 @@ const provider = new EmailProvider({
   rebote permanente).
 - El email no autentica `From` por sí mismo: usa
   `requireAuthentication: { authservId }` para aceptar solo correo que tu MTA
-  haya autenticado.
+  haya autenticado. Las cabeceras hostiles quedan contenidas: se descartan las
+  direcciones con caracteres de control, se ignoran los Message-ID enormes y
+  se acota la cadena de `References`.
+- `secure` es TLS implícito (por defecto salvo en el puerto IMAP 143, y solo
+  en el puerto SMTP 465); contra un puerto en texto plano o con STARTTLS,
+  `start()`/`send()` rechazan con un mensaje `TLS handshake failed` que dice
+  qué opción cambiar.
 - Sin IMAP, `ingest(rawMime)` acepta el MIME crudo de un webhook de correo
   entrante y resuelve `{ status, accepted, reason? }`.
 - El transporte creado desde `smtp` se cierra en `stop()` y se reconstruye
@@ -887,9 +953,11 @@ y [Migrar a la API estable](/es/guide/migracion-estable).
   `editedMessages: 'ignore'`.
 - **Helpers renombrados** (los nombres antiguos son alias deprecados hasta v3):
   `pollTimeout` de Telegram (segundos) → `pollTimeoutMs`; `toProviderError` →
-  `toTelegramError`, `toDiscordError`, `toMessengerError`, `toInstagramError`,
-  `toTikTokError`; `toEmailProviderError` → `toEmailError`; el `toProviderError` de
-  `@botmesh/meta` → `toGraphError` de `@botmesh/graph-core`.
+  `toTelegramError`, `toTikTokError`; `toEmailProviderError` → `toEmailError`; el
+  `toProviderError` de `@botmesh/meta` → `toGraphError` de `@botmesh/graph-core`.
+  Discord, Messenger e Instagram quitaron su `toProviderError` de las alphas antes de su
+  primera publicación en npm: usa `toDiscordError`, `toMessengerError` y
+  `toInstagramError`.
 
 :::
 

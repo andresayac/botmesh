@@ -124,8 +124,8 @@ envían el texto de la opción. Los simuladores de Telegram y Discord ya entrega
 que Telegram recibe un voto nativo y Discord el texto de la opción. Un test falla en cuanto un
 provider y el conjunto no coinciden, así que el conjunto se actualiza junto con el provider.
 
-El **bot demo** (`--bot demo`, por defecto) responde a `hola` (o `hi`), `menu`, `ubicacion`
-(una ubicación) y `encuesta` (una encuesta), confirma la media y las ubicaciones que recibe, y pasa todo lo demás a `aiPlugin`
+El **bot demo** (`--bot demo`, por defecto) responde a `hola`, `menu`, `ubicacion` (envía una
+ubicación) y `encuesta` (envía una encuesta), también en inglés (`hi`, `location`, `poll`), confirma la media y las ubicaciones que recibe, y pasa todo lo demás a `aiPlugin`
 con un `MockAIProvider` guionizado (sin API key). `--bot bakery` ejecuta el
 [ejemplo de la panadería](https://github.com/andresayac/botmesh/tree/main/examples/bakery-ai)
 en los mismos canales.
@@ -151,7 +151,6 @@ console.log(sandbox.url)
 
 ```ts
 import { CloudAPIProvider } from '@botmesh/meta'
-import { RateLimitedError } from '@botmesh/core'
 import { WhatsAppSimulator, startHarness } from '@botmesh/sandbox'
 
 const h = await startHarness(
@@ -193,7 +192,7 @@ simuladores validan además cada petición de crear mensaje (y las ediciones y l
 webhook de Discord) contra fragmentos de [twilio-oai](https://github.com/twilio/twilio-oai) y
 [discord-api-spec](https://github.com/discord/discord-api-spec). Esos problemas llevan la
 etiqueta `[openapi]`. Los fragmentos están copiados en `packages/sandbox/src/specs/` con sus
-licencias y commits, así que los tests nunca usan la red. `scripts/vendor-openapi.mjs` los
+licencias y commits, así que los tests nunca usan la red. `packages/sandbox/scripts/vendor-openapi.mjs` los
 regenera desde copias descargadas. Meta, Gupshup, HighLevel, TikTok y Telegram no publican una
 especificación oficial legible por máquina, así que sus esquemas siguen escritos a mano a partir
 de la documentación.
@@ -267,7 +266,7 @@ BOTWA_TEST_CHATWOOT_URL=… BOTWA_TEST_CHATWOOT_TOKEN=… BOTWA_TEST_CHATWOOT_AC
 
 | Suite | Cubre |
 | --- | --- |
-| Evolution API | salud; creación de la instancia con un webhook que envía el secreto compartido; los webhooks de QR y de conexión llegan al bot por `@botmesh/server` y se aceptan; `start()` informa del QR; errores tipados con una instancia sin emparejar y con una API key incorrecta; los webhooks falsificados reciben 401 |
+| Evolution API | salud; creación de la instancia con un webhook que envía el secreto compartido; los webhooks de QR y de conexión llegan al bot por `@botmesh/server` y se aceptan; `start()` informa del QR; una segunda instancia cuyo webhook usa `jwt_key` llega a un provider con `webhookJwtKey`; errores tipados con una instancia sin emparejar, una instancia sin sesión de WhatsApp ("not connected"), una instancia inexistente y una API key incorrecta; los webhooks falsificados reciben 401 |
 | WPPConnect Server | token a partir de la clave secreta; inicio de la sesión con el token del webhook en la query de la URL; el QR llega al bot; errores tipados con una sesión sin emparejar y con una clave incorrecta |
 | Chatwoot | ida y vuelta completa con `@botmesh/chatwoot`: los mensajes del usuario y del bot aparecen en una conversación; la respuesta de un agente publicada por la API de Chatwoot vuelve por el webhook del propio Chatwoot, llega al usuario y pasa el chat a un humano; al resolver la conversación el bot se reanuda |
 | Mailpit | los envíos SMTP de `@botmesh/email` comprobados con la API de Mailpit (identidad, `Auto-Submitted`, adjuntos). La entrada por IMAP la cubre la suite de GreenMail de `@botmesh/email` |

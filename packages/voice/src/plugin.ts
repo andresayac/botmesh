@@ -177,7 +177,7 @@ export function voicePlugin(config: VoicePluginConfig = {}): PluginSpec<VoicePlu
               voiceChats.delete(mctx.from)
             }
           }
-          if (transcribe && (types as string[]).includes(mctx.type) && (!transcribe.filter || transcribe.filter(mctx))) {
+          if (transcribe && (types as string[]).includes(mctx.type) && passes('autoTranscribe.filter', () => !transcribe.filter || transcribe.filter(mctx))) {
             await transcribeInto(mctx, transcribe)
           }
           await next()
@@ -196,7 +196,7 @@ export function voicePlugin(config: VoicePluginConfig = {}): PluginSpec<VoicePlu
         } catch (error) {
           mctx.transcriptError = error
           if (opts.onError) {
-            try { await opts.onError(error, mctx) } catch (hookError) { logger.warn({ err: hookError }, 'voice onError handler threw') }
+            try { await opts.onError(error, mctx) } catch (hookError) { logger.warn({ err: describe(hookError) }, 'voice onError handler threw') }
           } else {
             logger.warn({ err: describe(error), type: mctx.type }, 'voice transcription failed')
           }
@@ -246,7 +246,7 @@ export function voicePlugin(config: VoicePluginConfig = {}): PluginSpec<VoicePlu
             content.text.trim().length > 0 &&
             content.text.length <= maxChars &&
             supportsVoice() &&
-            (!reply.filter || reply.filter(payload.chatId, content.text))
+            passes('autoReplyWithVoice.filter', () => !reply.filter || reply.filter(payload.chatId, content.text))
           ) {
             try {
               const audio = await client.synthesize(content.text, { voice: reply.voice, instructions: reply.instructions })
@@ -259,6 +259,16 @@ export function voicePlugin(config: VoicePluginConfig = {}): PluginSpec<VoicePlu
           }
           await next()
         })
+      }
+
+      /** Run a user filter; one that throws is logged and counts as `false` (skip), never failing the message or the send. */
+      function passes(name: string, filter: () => boolean): boolean {
+        try {
+          return filter()
+        } catch (error) {
+          logger.warn({ err: describe(error) }, `voice ${name} threw; skipping`)
+          return false
+        }
       }
 
       function supportsVoice(): boolean {

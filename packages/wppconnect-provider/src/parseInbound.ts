@@ -254,9 +254,16 @@ function parseParticipants(d: Record<string, unknown>, ctx: ParseContext): Inbou
   return { kind: 'group', event: { chatId, action: action as 'add' | 'remove' | 'promote' | 'demote', participants, ...(actor ? { actor } : {}) } }
 }
 
-const READY = new Set(['isLogged', 'inChat', 'qrReadSuccess', 'CONNECTED', 'successChat', 'chatsAvailable'])
-const INVALID = new Set(['desconnectedMobile', 'deleteToken', 'qrReadError', 'qrReadFail'])
-const CLOSED = new Set(['browserClose', 'serverClose', 'autocloseCalled', 'CLOSED', 'DISCONNECTED'])
+/**
+ * `status-find` values (wppconnect's `StatusFind`). `inChat` is deliberately absent: WA-JS fires it on
+ * `conn.main_ready`, which a fresh, UNPAIRED session also reaches (recorded order: `inChat`,
+ * `notLogged`, `qrcode`), so it is not proof of a login. Logins always report `isLogged` (restored
+ * session) or `qrReadSuccess` (just paired).
+ */
+const READY = new Set(['isLogged', 'qrReadSuccess', 'CONNECTED', 'successChat', 'chatsAvailable'])
+/** `desconnectedMobile` is the spelling of older wppconnect releases. */
+const INVALID = new Set(['disconnectedMobile', 'desconnectedMobile', 'deleteToken', 'qrReadError', 'qrReadFail'])
+const CLOSED = new Set(['browserClose', 'serverClose', 'autocloseCalled', 'phoneNotConnected', 'CLOSED', 'DISCONNECTED'])
 
 function parseStatusFind(d: Record<string, unknown>): InboundEvent | undefined {
   const status = str(d.status)

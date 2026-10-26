@@ -10,7 +10,7 @@
  */
 
 import { deepFreeze } from './freeze.js'
-import { parseExpression, ExpressionError } from './expression.js'
+import { expressionPaths, parseExpression, ExpressionError } from './expression.js'
 import { linearPatternIssue } from './pattern.js'
 import { upgradeV1ToV2 } from './legacy.js'
 
@@ -45,6 +45,11 @@ export const FLOW_DOCUMENT_LIMITS = Object.freeze({
   maxUrlLength: 2048,
   maxHeaders: 20,
   maxHttpBodyBytes: 16_384,
+  /**
+   * Longest answer a text field with a `pattern` may accept (its `maxLength`, default 500):
+   * the linear matcher costs answer length × pattern states per answer.
+   */
+  maxPatternAnswerLength: 1000,
 })
 
 /** Identifier pattern for flow ids, state keys, option keys and goto targets. */
@@ -225,7 +230,7 @@ export const FLOW_DOCUMENT_SCHEMA = deepFreeze({
           required: ['expr'],
           additionalProperties: false,
           properties: { expr: expression, message: text },
-          description: 'The answer is accepted when `expr` is truthy; `$answer` holds the raw answer.',
+          description: 'The answer is accepted when `expr` is truthy. Only $answer (the raw answer), $body, $from, $sender and $isGroup are in scope: c.state is not.',
         },
       },
     },
@@ -270,7 +275,7 @@ export const FLOW_DOCUMENT_SCHEMA = deepFreeze({
         source: {
           oneOf: [
             { type: 'object', required: ['url'], additionalProperties: false, properties: { url: { type: 'string', minLength: 1, maxLength: FLOW_DOCUMENT_LIMITS.maxUrlLength } } },
-            { type: 'object', required: ['stateKey'], additionalProperties: false, properties: { stateKey: identifier } },
+            { type: 'object', required: ['stateKey'], additionalProperties: false, properties: { stateKey: identifier }, description: 'c.state[stateKey] holds an absolute http(s) URL (a string or { url }); anything else, such as a local path, is refused when the step runs.' },
             {
               type: 'object', required: ['latitude', 'longitude'], additionalProperties: false,
               properties: {
@@ -329,7 +334,7 @@ export const FLOW_DOCUMENT_SCHEMA = deepFreeze({
         error: { type: 'string', maxLength: 500 },
         minLength: { type: 'integer', minimum: 0 },
         maxLength: { type: 'integer', minimum: 1 },
-        pattern: { type: 'string', minLength: 1, maxLength: 500, description: 'Regular expression the whole answer must match. Backreferences, lookarounds and repeated groups that repeat or alternate inside (ReDoS) are rejected, and answers are matched in linear time; without maxLength the answer is capped at 500 characters.' },
+        pattern: { type: 'string', minLength: 1, maxLength: 500, description: 'Regular expression the whole answer must match. Backreferences, lookarounds and repeated groups that repeat or alternate inside (ReDoS) are rejected, and answers are matched in linear time; without maxLength the answer is capped at 500 characters, and maxLength may not exceed 1000 when a pattern is set.' },
         multiline: { type: 'boolean' },
         min: { oneOf: [{ type: 'number' }, { type: 'string', maxLength: 20 }] },
         max: { oneOf: [{ type: 'number' }, { type: 'string', maxLength: 20 }] },
@@ -355,7 +360,7 @@ export const FLOW_DOCUMENT_SCHEMA = deepFreeze({
         method: { enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] },
         url: { type: 'string', minLength: 1, maxLength: FLOW_DOCUMENT_LIMITS.maxUrlLength, description: 'Absolute http(s) URL. {{ path }} placeholders are allowed only in the path, query or fragment; their values are percent-encoded and a bare "." or ".." value is refused.' },
         headers: { type: 'object', additionalProperties: { type: 'string', maxLength: 1000 }, maxProperties: FLOW_DOCUMENT_LIMITS.maxHeaders },
-        body: {},
+        body: { description: 'JSON body (not sent with GET). String values may hold {{ path }} placeholders; a string that is exactly one placeholder is replaced by the value itself (null when missing).' },
         stateKey: identifier,
         timeout: duration,
       },
@@ -424,8 +429,8 @@ export function validateFlowDocument(input: unknown): FlowDocumentIssue[] {
   if (input.$schema !== undefined && typeof input.$schema !== 'string') add('/$schema', 'must be a string')
   if (input.version !== FLOW_DOCUMENT_VERSION) add('/version', `must be ${FLOW_DOCUMENT_VERSION} (or 1, migrated on load; see migrateFlowDocument)`)
   checkId(input.id, '/id', add)
-  if (input.name !== undefined && (typeof input.name !== 'string' || input.name.length > 200)) add('/name', 'must be a string of at most 200 characters')
-  if (input.description !== undefined && (typeof input.description !== 'string' || input.description.length > 2000)) add('/description', 'must be a string of at most 2000 characters')
+  if (input.name !== undefined && (typeof input.name !== 'string' || chars(input.name) > 200)) add('/name', 'must be a string of at most 200 characters')
+  if (input.description !== undefined && (typeof input.description !== 'string' || chars(input.description) > 2000)) add('/description', 'must be a string of at most 2000 characters')
   checkTrigger(input.trigger, add)
   if (input.timeout !== undefined) checkTimeout(input.timeout, '/timeout', add)
   if (input.persistent !== undefined && typeof input.persistent !== 'boolean') add('/persistent', 'must be a boolean')
@@ -481,7 +486,7 @@ function checkStep(step: unknown, path: string, depth: number, counter: { steps:
         if (!isObject(step.validate)) add(`${path}/validate`, 'must be an object')
         else {
           extraKeys(step.validate, ['expr', 'message'], `${path}/validate`, add)
-          checkExpression(step.validate.expr, `${path}/validate/expr`, add)
+          checkExpression(step.validate.expr, `${path}/validate/expr`, add, 'validate')
           if (step.validate.message !== undefined) checkText(step.validate.message, `${path}/validate/message`, add)
         }
       }
@@ -505,7 +510,7 @@ function checkStep(step: unknown, path: string, depth: number, counter: { steps:
           if (seen.has(o.key)) add(`${p}/key`, `duplicate option key "${o.key}"`)
           seen.add(o.key)
         }
-        if (typeof o.label !== 'string' || o.label.length === 0 || o.label.length > 200) add(`${p}/label`, 'must be a string of 1-200 characters')
+        if (typeof o.label !== 'string' || o.label.length === 0 || chars(o.label) > 200) add(`${p}/label`, 'must be a string of 1-200 characters')
         nested(o.steps, `${p}/steps`, false)
       })
       break
@@ -545,7 +550,7 @@ function checkStep(step: unknown, path: string, depth: number, counter: { steps:
       checkHttp(step, path, add)
       break
     case 'handoff':
-      if (step.reason !== undefined && (typeof step.reason !== 'string' || step.reason.length > 200)) add(`${path}/reason`, 'must be a string of at most 200 characters')
+      if (step.reason !== undefined && (typeof step.reason !== 'string' || chars(step.reason) > 200)) add(`${path}/reason`, 'must be a string of at most 200 characters')
       if (step.message !== undefined) checkText(step.message, `${path}/message`, add)
       break
     case 'ai':
@@ -569,7 +574,7 @@ function checkMedia(step: Record<string, unknown>, path: string, add: Add): void
     return
   }
   if (step.caption !== undefined) checkText(step.caption, `${path}/caption`, add)
-  if (step.filename !== undefined && (typeof step.filename !== 'string' || step.filename.length === 0 || step.filename.length > 255)) {
+  if (step.filename !== undefined && (typeof step.filename !== 'string' || step.filename.length === 0 || chars(step.filename) > 255)) {
     add(`${path}/filename`, 'must be a string of 1-255 characters')
   }
   const source = step.source
@@ -578,12 +583,14 @@ function checkMedia(step: Record<string, unknown>, path: string, add: Add): void
     extraKeys(source, ['latitude', 'longitude', 'name', 'address'], `${path}/source`, add)
     if (typeof source.latitude !== 'number' || source.latitude < -90 || source.latitude > 90) add(`${path}/source/latitude`, 'must be a number between -90 and 90')
     if (typeof source.longitude !== 'number' || source.longitude < -180 || source.longitude > 180) add(`${path}/source/longitude`, 'must be a number between -180 and 180')
-    if (source.name !== undefined && typeof source.name !== 'string') add(`${path}/source/name`, 'must be a string')
-    if (source.address !== undefined && typeof source.address !== 'string') add(`${path}/source/address`, 'must be a string')
+    if (source.name !== undefined && (typeof source.name !== 'string' || chars(source.name) > 200)) add(`${path}/source/name`, 'must be a string of at most 200 characters')
+    if (source.address !== undefined && (typeof source.address !== 'string' || chars(source.address) > 500)) add(`${path}/source/address`, 'must be a string of at most 500 characters')
     return
   }
   extraKeys(source, ['url', 'stateKey'], `${path}/source`, add)
-  if (source.url !== undefined) {
+  if (source.url !== undefined && source.stateKey !== undefined) {
+    add(`${path}/source`, 'needs a url or a stateKey, not both')
+  } else if (source.url !== undefined) {
     checkUrl(source.url, `${path}/source/url`, add, true)
   } else if (source.stateKey !== undefined) {
     checkId(source.stateKey, `${path}/source/stateKey`, add)
@@ -597,10 +604,10 @@ function checkForm(step: Record<string, unknown>, path: string, add: Add): void 
   if (!isObject(form)) { add(`${path}/form`, 'must be an object'); return }
   extraKeys(form, ['id', 'title', 'intro', 'cta', 'submitLabel', 'fields'], `${path}/form`, add)
   checkId(form.id, `${path}/form/id`, add)
-  if (form.title !== undefined && (typeof form.title !== 'string' || form.title.length > 200)) add(`${path}/form/title`, 'must be a string of at most 200 characters')
+  if (form.title !== undefined && (typeof form.title !== 'string' || chars(form.title) > 200)) add(`${path}/form/title`, 'must be a string of at most 200 characters')
   if (form.intro !== undefined) checkText(form.intro, `${path}/form/intro`, add)
   for (const key of ['cta', 'submitLabel'] as const) {
-    if (form[key] !== undefined && (typeof form[key] !== 'string' || form[key].length === 0 || form[key].length > 100)) add(`${path}/form/${key}`, 'must be a string of 1-100 characters')
+    if (form[key] !== undefined && (typeof form[key] !== 'string' || form[key].length === 0 || chars(form[key]) > 100)) add(`${path}/form/${key}`, 'must be a string of 1-100 characters')
   }
   if (!Array.isArray(form.fields) || form.fields.length === 0 || form.fields.length > FLOW_DOCUMENT_LIMITS.maxFields) {
     add(`${path}/form/fields`, `must be an array of 1-${FLOW_DOCUMENT_LIMITS.maxFields} fields`)
@@ -617,14 +624,14 @@ function checkForm(step: Record<string, unknown>, path: string, add: Add): void 
       if (names.has(field.name)) add(`${p}/name`, `duplicate field name "${field.name}"`)
       names.add(field.name)
     }
-    if (typeof field.label !== 'string' || field.label.length === 0 || field.label.length > 200) add(`${p}/label`, 'must be a string of 1-200 characters')
+    if (typeof field.label !== 'string' || field.label.length === 0 || chars(field.label) > 200) add(`${p}/label`, 'must be a string of 1-200 characters')
     if (typeof field.type !== 'string' || !FIELD_TYPES.has(field.type)) { add(`${p}/type`, `must be one of ${[...FIELD_TYPES].join(', ')}`); return }
     if (field.required !== undefined && typeof field.required !== 'boolean') add(`${p}/required`, 'must be a boolean')
-    if (field.helper !== undefined && (typeof field.helper !== 'string' || field.helper.length > 500)) add(`${p}/helper`, 'must be a string of at most 500 characters')
+    if (field.helper !== undefined && (typeof field.helper !== 'string' || chars(field.helper) > 500)) add(`${p}/helper`, 'must be a string of at most 500 characters')
     if (field.prompt !== undefined) checkText(field.prompt, `${p}/prompt`, add)
-    if (field.error !== undefined && (typeof field.error !== 'string' || field.error.length > 500)) add(`${p}/error`, 'must be a string of at most 500 characters')
+    if (field.error !== undefined && (typeof field.error !== 'string' || chars(field.error) > 500)) add(`${p}/error`, 'must be a string of at most 500 characters')
     if (field.pattern !== undefined) {
-      if (typeof field.pattern !== 'string' || field.pattern.length === 0 || field.pattern.length > 500) add(`${p}/pattern`, 'must be a string of 1-500 characters')
+      if (typeof field.pattern !== 'string' || field.pattern.length === 0 || chars(field.pattern) > 500) add(`${p}/pattern`, 'must be a string of 1-500 characters')
       else {
         let compiles = true
         try { new RegExp(field.pattern) } catch { compiles = false; add(`${p}/pattern`, 'must be a valid regular expression') }
@@ -634,39 +641,97 @@ function checkForm(step: Record<string, unknown>, path: string, add: Add): void 
         if (unsafe) add(`${p}/pattern`, unsafe)
       }
     }
-    if (field.type === 'text') {
-      if (field.minLength !== undefined && (!Number.isInteger(field.minLength) || (field.minLength as number) < 0)) add(`${p}/minLength`, 'must be a non-negative integer')
-      if (field.maxLength !== undefined && (!Number.isInteger(field.maxLength) || (field.maxLength as number) < 1)) add(`${p}/maxLength`, 'must be a positive integer')
-      if (field.multiline !== undefined && typeof field.multiline !== 'boolean') add(`${p}/multiline`, 'must be a boolean')
-    }
-    if (field.type === 'number') {
-      if (field.min !== undefined && typeof field.min !== 'number') add(`${p}/min`, 'must be a number')
-      if (field.max !== undefined && typeof field.max !== 'number') add(`${p}/max`, 'must be a number')
-      if (field.integer !== undefined && typeof field.integer !== 'boolean') add(`${p}/integer`, 'must be a boolean')
-    }
-    if (field.type === 'date') {
-      for (const key of ['min', 'max'] as const) {
-        if (field[key] !== undefined && (typeof field[key] !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(field[key] as string))) add(`${p}/${key}`, 'must be a YYYY-MM-DD date')
-      }
-    }
-    if (field.type === 'select' || field.type === 'multiselect') {
-      const opts = field.options
-      const valid = Array.isArray(opts)
-        ? opts.length >= 1 && opts.every((o) => typeof o === 'string' && o.length > 0)
-        : isObject(opts) && Object.keys(opts).length >= 1 && Object.values(opts).every((v) => typeof v === 'string' && v.length > 0)
-      if (!valid) add(`${p}/options`, 'must be a non-empty array of labels or a { key: label } object')
-      if (field.type === 'multiselect') {
-        if (field.minSelected !== undefined && (!Number.isInteger(field.minSelected) || (field.minSelected as number) < 0)) add(`${p}/minSelected`, 'must be a non-negative integer')
-        if (field.maxSelected !== undefined && (!Number.isInteger(field.maxSelected) || (field.maxSelected as number) < 1)) add(`${p}/maxSelected`, 'must be a positive integer')
-      }
-    }
+    checkFieldBounds(field, p, add)
   })
   if (step.stateKey !== undefined) checkId(step.stateKey, `${path}/stateKey`, add)
   if (step.flatten !== undefined && typeof step.flatten !== 'boolean') add(`${path}/flatten`, 'must be a boolean')
   if (step.mode !== undefined && !['auto', 'native', 'degraded'].includes(step.mode as string)) add(`${path}/mode`, 'must be auto, native or degraded')
-  if (step.nativeId !== undefined && (typeof step.nativeId !== 'string' || step.nativeId.length === 0 || step.nativeId.length > 200)) add(`${path}/nativeId`, 'must be a string of 1-200 characters')
+  if (step.nativeId !== undefined && (typeof step.nativeId !== 'string' || step.nativeId.length === 0 || chars(step.nativeId) > 200)) add(`${path}/nativeId`, 'must be a string of 1-200 characters')
   if (step.timeout !== undefined) checkTimeout(step.timeout, `${path}/timeout`, add)
   checkAttempts(step, path, add)
+}
+
+/**
+ * Shape of the optional field properties (the JSON Schema checks them whatever the field
+ * type, so the validator does too), then the type-specific rules and the bounds no answer
+ * could ever satisfy (`minLength` > `maxLength`, `min` > `max`, an impossible date...).
+ */
+function checkFieldBounds(field: Record<string, unknown>, p: string, add: Add): void {
+  const int = (key: string, min: number) => {
+    const v = field[key]
+    if (v !== undefined && !(Number.isInteger(v) && (v as number) >= min)) add(`${p}/${key}`, min === 0 ? 'must be a non-negative integer' : 'must be a positive integer')
+  }
+  int('minLength', 0)
+  int('maxLength', 1)
+  int('minSelected', 0)
+  int('maxSelected', 1)
+  for (const key of ['multiline', 'integer'] as const) if (field[key] !== undefined && typeof field[key] !== 'boolean') add(`${p}/${key}`, 'must be a boolean')
+  for (const key of ['min', 'max'] as const) {
+    const v = field[key]
+    if (v !== undefined && !(typeof v === 'number' && Number.isFinite(v)) && !(typeof v === 'string' && chars(v) <= 20)) add(`${p}/${key}`, 'must be a number or a string of at most 20 characters')
+  }
+  if (field.options !== undefined && field.type !== 'select' && field.type !== 'multiselect') checkFieldOptions(field.options, p, add)
+  const num = (key: string) => (Number.isInteger(field[key]) ? (field[key] as number) : undefined)
+  switch (field.type) {
+    case 'text': {
+      const min = num('minLength')
+      const max = num('maxLength')
+      if (min !== undefined && max !== undefined && min > max) add(`${p}/minLength`, `must not exceed maxLength (${max})`)
+      const cap = FLOW_DOCUMENT_LIMITS.maxPatternAnswerLength
+      if (field.pattern !== undefined) {
+        if (max !== undefined && max > cap) add(`${p}/maxLength`, `must be at most ${cap} when the field has a pattern (matching costs answer length × pattern size)`)
+        else if (max === undefined && min !== undefined && min > cap) add(`${p}/minLength`, `must be at most ${cap} when the field has a pattern`)
+      }
+      break
+    }
+    case 'number':
+      if (field.min !== undefined && typeof field.min !== 'number') add(`${p}/min`, 'must be a number')
+      if (field.max !== undefined && typeof field.max !== 'number') add(`${p}/max`, 'must be a number')
+      if (typeof field.min === 'number' && typeof field.max === 'number' && field.min > field.max) add(`${p}/min`, `must not exceed max (${field.max})`)
+      break
+    case 'date': {
+      const valid: Partial<Record<'min' | 'max', string>> = {}
+      for (const key of ['min', 'max'] as const) {
+        const v = field[key]
+        if (v === undefined) continue
+        if (typeof v === 'string' && isCalendarDate(v)) valid[key] = v
+        else add(`${p}/${key}`, 'must be a real YYYY-MM-DD date')
+      }
+      if (valid.min !== undefined && valid.max !== undefined && valid.min > valid.max) add(`${p}/min`, `must not be after max (${valid.max})`)
+      break
+    }
+    case 'select':
+    case 'multiselect': {
+      const count = checkFieldOptions(field.options, p, add)
+      if (field.type === 'multiselect' && count !== undefined) {
+        const min = num('minSelected')
+        const max = num('maxSelected')
+        if (min !== undefined && min > count) add(`${p}/minSelected`, `must not exceed the number of options (${count})`)
+        else if (min !== undefined && max !== undefined && min > max) add(`${p}/minSelected`, `must not exceed maxSelected (${max})`)
+      }
+      break
+    }
+  }
+}
+
+/** Options of a select field: 1-20 labels of 1-200 characters. Returns how many, when valid. */
+function checkFieldOptions(opts: unknown, p: string, add: Add): number | undefined {
+  const labels = Array.isArray(opts) ? opts : isObject(opts) ? Object.values(opts) : undefined
+  const limit = FLOW_DOCUMENT_LIMITS.maxOptions
+  if (!labels || labels.length === 0 || labels.length > limit || !labels.every((o) => typeof o === 'string' && o.length > 0 && chars(o) <= 200)) {
+    add(`${p}/options`, `must be an array of 1-${limit} labels or a { key: label } object with 1-${limit} entries (each label 1-200 characters)`)
+    return undefined
+  }
+  return labels.length
+}
+
+/** A real calendar day written as `YYYY-MM-DD` (rejects `2020-13-45`, `2023-02-29`). */
+function isCalendarDate(value: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!m) return false
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])]
+  const date = new Date(Date.UTC(y, mo - 1, d))
+  return date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d
 }
 
 /**
@@ -695,7 +760,7 @@ function checkHttp(step: Record<string, unknown>, path: string, add: Add): void 
       if (Object.keys(step.headers).length > FLOW_DOCUMENT_LIMITS.maxHeaders) add(`${path}/headers`, `must have at most ${FLOW_DOCUMENT_LIMITS.maxHeaders} headers`)
       for (const [name, value] of Object.entries(step.headers)) {
         if (!/^[A-Za-z0-9!#$%&'*+.^_`|~-]+$/.test(name)) add(`${path}/headers/${name}`, 'invalid header name')
-        if (typeof value !== 'string' || value.length > 1000) add(`${path}/headers/${name}`, 'must be a string of at most 1000 characters')
+        if (typeof value !== 'string' || chars(value) > 1000) add(`${path}/headers/${name}`, 'must be a string of at most 1000 characters')
         if (/^(host|content-length|connection|transfer-encoding)$/i.test(name)) add(`${path}/headers/${name}`, 'header is managed by the HTTP client')
       }
     }
@@ -797,7 +862,7 @@ export function unsafePatternReason(source: string): string | undefined {
 }
 
 function checkUrl(v: unknown, path: string, add: Add, media: boolean): void {
-  if (typeof v !== 'string' || v.length === 0 || v.length > FLOW_DOCUMENT_LIMITS.maxUrlLength) {
+  if (typeof v !== 'string' || v.length === 0 || chars(v) > FLOW_DOCUMENT_LIMITS.maxUrlLength) {
     add(path, `must be a string of 1-${FLOW_DOCUMENT_LIMITS.maxUrlLength} characters`)
     return
   }
@@ -808,7 +873,7 @@ function checkUrl(v: unknown, path: string, add: Add, media: boolean): void {
 }
 
 function checkTrigger(trigger: unknown, add: Add): void {
-  const kw = (v: unknown, p: string) => { if (typeof v !== 'string' || v.trim() === '' || v.length > 200) add(p, 'must be a non-empty keyword of at most 200 characters') }
+  const kw = (v: unknown, p: string) => { if (typeof v !== 'string' || v.trim() === '' || chars(v) > 200) add(p, 'must be a non-empty keyword of at most 200 characters') }
   const list = (v: unknown, p: string) => {
     if (!Array.isArray(v) || v.length === 0 || v.length > FLOW_DOCUMENT_LIMITS.maxKeywords) { add(p, `must be an array of 1-${FLOW_DOCUMENT_LIMITS.maxKeywords} keywords`); return }
     v.forEach((k, i) => kw(k, `${p}/${i}`))
@@ -827,7 +892,7 @@ function checkId(v: unknown, path: string, add: Add): void {
 }
 
 function checkText(v: unknown, path: string, add: Add): void {
-  if (typeof v !== 'string' || v.length === 0 || v.length > FLOW_DOCUMENT_LIMITS.maxTextLength) add(path, `must be a string of 1-${FLOW_DOCUMENT_LIMITS.maxTextLength} characters`)
+  if (typeof v !== 'string' || v.length === 0 || chars(v) > FLOW_DOCUMENT_LIMITS.maxTextLength) add(path, `must be a string of 1-${FLOW_DOCUMENT_LIMITS.maxTextLength} characters`)
 }
 
 function checkDuration(v: unknown, path: string, add: Add): boolean {
@@ -843,13 +908,44 @@ function checkTimeout(v: unknown, path: string, add: Add): void {
   }
 }
 
-function checkExpression(v: unknown, path: string, add: Add): void {
+const MESSAGE_VARIABLES: readonly string[] = ['$body', '$from', '$sender', '$isGroup']
+
+/**
+ * Syntax of an expression, then the variables it reads. `ask.validate.expr` runs before the
+ * answer is stored and only sees `$answer` plus the message fields (not `c.state`); every
+ * other expression sees `c.state` plus the message fields (no `$answer`). A read that can
+ * only ever be `undefined` is an author mistake, so it is reported here.
+ */
+function checkExpression(v: unknown, path: string, add: Add, context: 'state' | 'validate' = 'state'): void {
   if (typeof v !== 'string') { add(path, 'must be an expression string'); return }
+  let ast
   try {
-    parseExpression(v)
+    ast = parseExpression(v)
   } catch (error) {
     add(path, error instanceof ExpressionError ? error.message : 'invalid expression')
+    return
   }
+  for (const [root = ''] of expressionPaths(ast)) {
+    if (context === 'validate') {
+      if (root !== '$answer' && !MESSAGE_VARIABLES.includes(root)) {
+        add(path, `"${root}" is not available here: ask.validate.expr only sees $answer, ${MESSAGE_VARIABLES.join(', ')} (c.state is not readable while an answer is validated)`)
+        return
+      }
+    } else if (root === '$answer') {
+      add(path, '$answer is only available in ask.validate.expr; read the stored answer by its stateKey')
+      return
+    } else if (root.startsWith('$') && !MESSAGE_VARIABLES.includes(root)) {
+      add(path, `unknown variable "${root}" (available: ${MESSAGE_VARIABLES.join(', ')} and state keys)`)
+      return
+    }
+  }
+}
+
+/** Length in characters (code points), as JSON Schema `maxLength` counts it: an emoji is 1, not 2. */
+function chars(value: string): number {
+  let count = 0
+  for (const _ of value) count++
+  return count
 }
 
 /** Parse a duration into milliseconds; throws for an invalid value (document must be validated first). */

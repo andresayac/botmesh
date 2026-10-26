@@ -279,7 +279,11 @@ type Divergent<C> = {
 describe('GupshupProvider — IProvider contract', () => {
   it('matches IProvider exactly', () => {
     expectTypeOf<GupshupProvider>().toExtend<IProvider>()
-    expectTypeOf<Divergent<GupshupProvider>>().toEqualTypeOf<never>()
+    // `ingest` adds an optional third argument (the request URL the @botmesh/server
+    // ingress passes); everything else matches IProvider exactly.
+    expectTypeOf<Exclude<Divergent<GupshupProvider>, 'ingest'>>().toEqualTypeOf<never>()
+    expectTypeOf<GupshupProvider['ingest']>().toExtend<NonNullable<P['ingest']>>()
+    expectTypeOf<Parameters<GupshupProvider['ingest']>>().toEqualTypeOf<[rawEvent: unknown, headers?: Record<string, string | string[] | undefined>, requestUrl?: string]>()
   })
 
   it('drives a Bot: callback → handler → reply; button click reaches the handler as body', async () => {

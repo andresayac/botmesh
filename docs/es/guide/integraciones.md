@@ -63,13 +63,13 @@ import { createServer } from 'node:http'
 import { Bot } from '@botmesh/core'
 import { chatwootPlugin } from '@botmesh/chatwoot'
 
-const bot = new Bot({ provider, store, handoff: { allowCommands: ['/bot'] } })
+const bot = new Bot({ provider, store, lang: 'es', handoff: { allowCommands: ['/bot'] } })
 
 const chatwoot = chatwootPlugin({
   baseUrl: 'https://app.chatwoot.com',
-  apiKey: process.env.CHATWOOT_TOKEN!,           // access token of a user/agent
+  apiKey: process.env.CHATWOOT_TOKEN!,           // access token de un usuario/agente
   accountId: 1,
-  inboxId: 2,                                    // an "API" inbox
+  inboxId: 2,                                    // un inbox de tipo "API"
   webhookToken: process.env.CHATWOOT_WEBHOOK_TOKEN!,
   labels: { handoff: ['humano'], resume: ['bot'] },
 })
@@ -82,7 +82,7 @@ bot.when('hablar con humano', async (ctx) => {
 
 // Chatwoot: Settings → Integrations → Webhooks
 //   URL: https://bot.example.com/chatwoot?token=<CHATWOOT_WEBHOOK_TOKEN>
-//   events: message_created, conversation_status_changed
+//   eventos: message_created, conversation_status_changed
 createServer(chatwoot.webhookHandler()).listen(3001)
 await bot.start()
 ```
@@ -103,7 +103,7 @@ app.post('/chatwoot', express.raw({ type: '*/*' }), async (req, res) => {
 | Mensaje entrante (también durante el handoff) | Se publica como `incoming` en la conversación del chat (se crea la primera vez). En grupos, el texto va prefijado con el nombre del participante |
 | El bot envía | Se publica como `outgoing`. Los medios se reflejan como texto (`[image] caption`…) |
 | `ctx.handoff()` / `bot.handoff()` | Conversación en `open`, nota privada (`handoffNote`) y se añaden `labels.handoff`. Si el handoff lo originó el propio Chatwoot (`reason` que empieza por `chatwoot:`), solo se añaden las labels |
-| Respuesta pública de un agente (`message_created`) | `bot.handoff(chatId, { reason: 'chatwoot:agent' })` si `autoHandoff` y el chat no está en handoff; luego `bot.send()` (adjuntos por URL). Nunca se re-refleja; un reenvío del mismo id de mensaje se ignora |
+| Respuesta pública de un agente (`message_created`) | `bot.handoff(chatId, { reason: 'chatwoot:agent' })` si `autoHandoff` y el chat no está en handoff; luego `bot.send()` (adjuntos por URL). Nunca se re-refleja; un reenvío del mismo id de mensaje se ignora. Si el canal lo rechaza (por ejemplo `OutsideSessionWindowError` en la Cloud API), el mensaje queda **fallido** en Chatwoot con el nombre del error, para que el agente lo vea |
 | Conversación resuelta (`conversation_status_changed`, `conversation_resolved`, o `conversation_updated` con cambio de `status`) | `bot.resume(chatId, { reason: 'chatwoot:resolved' })` si el chat está en handoff (`resumeOnResolve`). Solo termina el handoff: no cierra ningún ticket |
 | `bot.resume()` por otra causa | Conversación `resolved` (`resolveOnResume`), se quitan `labels.handoff` y se añaden `labels.resume` |
 
@@ -115,7 +115,15 @@ Cada chat se asocia a un contacto de Chatwoot (`identifier` = id del chat)
 y a una conversación. El mapeo vive en el store del bot a través de la API
 de cursores (`chatwoot:chat:<chatId>`, `chatwoot:conv:<id>`), así que
 sobrevive a reinicios con un store persistente. Los ids de chat solo se
-usan como claves opacas.
+usan como claves opacas. Si el mapeo se pierde (un store nuevo, o un
+reinicio con `MemoryStore`), el plugin encuentra el contacto por
+`identifier` exacto (API de filtros de contactos) y sigue usando su
+conversación más reciente en el inbox, así que los agentes que responden
+ahí siguen llegando al chat.
+
+Una instancia de `chatwootPlugin()` sirve a un bot: enchufar la misma
+instancia en un segundo bot lanza un error (crea una por bot, cada una con
+su URL de webhook).
 
 ### Opciones de Chatwoot
 
@@ -150,7 +158,10 @@ pendiente, útil al apagar y en tests) y `client` (`ChatwootClient`).
   error sin `webhookToken`, `webhookSecret` o `insecureNoWebhookAuth: true`.
   Reserva esta última para un endpoint que no sea accesible desde fuera.
 - El token se acepta en `?token=`, `x-chatwoot-token` o
-  `Authorization: Bearer`. La firma HMAC-SHA256 va en
+  `Authorization: Bearer`. Chatwoot (comprobado en 4.7) no firma los
+  webhooks de cuenta, así que pon el token en la URL del webhook;
+  `webhookSecret` es para un emisor o proxy que firme como se describe a
+  continuación. La firma HMAC-SHA256 va en
   `x-chatwoot-signature` (hex, admite el prefijo `sha256=`) y se calcula
   sobre `${timestamp}.${rawBody}`, con `x-chatwoot-timestamp` (segundos)
   dentro de `webhookToleranceSec` (300). Una firma sobre el body solo no
@@ -164,7 +175,8 @@ pendiente, útil al apagar y en tests) y `client` (`ChatwootClient`).
   protección anti-SSRF, timeouts y sin seguir redirecciones, así que el
   `api_access_token` nunca llega a otro origen. Un Chatwoot self-hosted en
   la LAN necesita `http.allowPrivateHosts` (y `http.allowHttp` para HTTP
-  plano).
+  plano): una `baseUrl` `http://` sin `http.allowHttp` lanza al crear el
+  plugin, y un host privado bloqueado se reporta indicando la opción.
 - Con `syncMode: 'all'` todas las conversaciones se copian a Chatwoot. Usa
   `syncMode: 'handoff'` si solo los chats escalados deben salir del bot.
 
@@ -172,8 +184,12 @@ pendiente, útil al apagar y en tests) y `client` (`ChatwootClient`).
 
 - Los medios entrantes se reflejan como texto (`[image] caption`), no se
   suben como adjuntos.
-- Un chat, una conversación. Si Chatwoot responde 404 para la conversación
-  mapeada, se crea otra.
+- Un chat, una conversación. Si la conversación mapeada ya no existe
+  (Chatwoot responde 404, o 422 mientras aún borra un contacto), se crea
+  otra y el mensaje va ahí.
+- Marcar como fallida una respuesta rechazada usa la API de estado de
+  mensajes, que Chatwoot solo ofrece en inboxes de canal API (el tipo que
+  este plugin necesita de todos modos).
 - Si el store no tiene cursores, el mapeo vive en memoria (se avisa en el
   log al instalar).
 
@@ -191,8 +207,8 @@ bot.plug(ticketsPlugin({
   closedMessage: 'Estamos fuera de horario; te respondemos al abrir (ticket #{{id}})',
   assignMessage: '{{assignee}} atiende tu ticket #{{id}}',
   closeMessage: 'Ticket #{{id}} cerrado. ¡Gracias!',
-  handoffOnAssign: true,   // bot.handoff(chatId) on assign
-  resumeOnClose: true,     // bot.resume(chatId) on close
+  handoffOnAssign: true,   // bot.handoff(chatId) al asignar
+  resumeOnClose: true,     // bot.resume(chatId) al cerrar
   onAssign: async (ticket) => notifyAgent(ticket),
 }))
 
@@ -201,7 +217,7 @@ bot.when('soporte', async (ctx) => {
   if (!ticket.created) await ctx.reply(`Ya tienes el ticket #${ticket.id}`)
 })
 
-// Agent panel / your own API
+// Panel de agentes / tu propia API
 const tickets = bot.injectTools.tickets!
 await tickets.assign('1', 'ana')
 await tickets.close('1', { reason: 'resuelto' })
@@ -258,6 +274,19 @@ memoria no cambia. `TicketDesk` también se puede usar sin bot:
 
 - No hay interfaz ni identidad de agentes: `assignee` es un string libre.
   Construye el panel sobre `bot.injectTools.tickets` y protégelo tú.
+- Con `handoffOnAssign`, solo la primera asignación pasa el chat a un
+  humano: una reasignación mantiene el handoff y su `meta.assignee` (lee el
+  ticket para saber el agente actual), y desasignar (`assignee: null`)
+  devuelve el ticket a la cola pero deja el chat en handoff. Llama tú a
+  `bot.resume(chatId)` si el bot debe volver a responder.
+- `meta` tiene que ser un objeto JSON plano (sin `Date`, `Map`, instancias
+  de clases, funciones ni `BigInt`); cualquier otra cosa se rechaza antes
+  de guardar el ticket. Una propiedad con valor `undefined` se descarta,
+  como en JSON, así que `{ email: user?.email }` o `{ ...prev, clave: undefined }`
+  (para quitar una clave) funcionan; un `undefined` dentro de un array se
+  rechaza.
+- En modo compartido cada llamada relee el índice y todos los tickets
+  activos, así que su coste crece con el número de tickets abiertos.
 - `list()` con un filtro que pueda incluir `closed` recorre todos los ids
   desde 1 hasta el último.
 - El almacenamiento por defecto (los cursores del store) no tiene
@@ -288,16 +317,16 @@ Moderación de grupos que corre antes que cualquier handler.
 import { Bot } from '@botmesh/core'
 import { moderationPlugin } from '@botmesh/moderation'
 
-const bot = new Bot({ provider })            // groupMode 'all' (the default)
+const bot = new Bot({ provider, lang: 'es' }) // groupMode 'all' (el de por defecto)
 
 bot.plug(moderationPlugin({
-  provider,                                   // enables delete/kick/admins when supported
+  provider,                                   // activa delete/kick/admins si el provider los admite
   antiSpam: { maxMessages: 5, windowMs: 10_000, action: 'warn' },
   wordFilter: { banned: ['spam', 'estafa', /bit\.ly\/\w+/i], action: 'delete' },
   autoKickOnLink: true,                       // = linkFilter: { action: ['delete', 'kick'] }
   warnings: { max: 3, then: 'kick' },
   groups: {
-    [grupoStaff]: false,                      // no moderation here
+    [grupoStaff]: false,                      // sin moderación aquí
     [grupoVentas]: { wordFilter: { banned: ['gratis'] } },
   },
 }))
@@ -324,6 +353,12 @@ interacciones y los mensajes propios del bot nunca se moderan.
 - Las palabras se comparan sin mayúsculas ni tildes (la `ñ` sigue siendo
   distinta de la `n`) y como palabra completa; las RegExp se prueban sobre
   el texto crudo.
+- Antes de buscar palabras y enlaces se quitan los caracteres invisibles
+  (espacios de ancho cero, guion suave, controles bidi) y las formas de
+  compatibilidad como `ｓｐａｍ` (ancho completo) se leen como letras
+  normales, así que no sirven para esconder una palabra o una invitación.
+  El formato de WhatsApp alrededor de un enlace (`_cursiva_`, `*negrita*`,
+  `~tachado~`) tampoco lo esconde.
 - Invitaciones reconocidas: WhatsApp (`chat.whatsapp.com/…`), Telegram
   (`t.me/+…`, `t.me/joinchat/…`) y Discord (`discord.gg/…`,
   `discord.com/invite/…`). `allowInvites` compara el código exacto.
@@ -350,7 +385,11 @@ Los administradores se saltan todas las reglas (`adminBypass`, por defecto
 `true`): los ids de `admins`, quien apruebe `isAdmin(chatId, userId)` y la
 lista de `provider.groups.getAdmins(chatId)`, en caché durante
 `adminCacheMs` (por defecto 5 min) e invalidada con los eventos de grupo
-`promote`/`demote`. Cuando alguien sale (`remove`), se olvidan sus
+`promote`/`demote`. Los administradores solo se consultan para un mensaje
+que rompe una regla o viene de un usuario silenciado. Si `isAdmin` lanza,
+el remitente cuenta como no administrador (y se registra un aviso); si
+`getAdmins` falla, se conserva la última lista conocida y se vuelve a
+preguntar al provider tras 30 segundos como mucho. Cuando alguien sale (`remove`), se olvidan sus
 advertencias, su silencio y su ventana de spam. El estado no crece sin
 límite en un bot de larga duración: los silencios vencidos y las listas de
 administradores caducadas se barren, y se guardan como mucho
@@ -360,6 +399,13 @@ descarta el del usuario advertido hace más tiempo.
 `ctx.tools.moderation`: `mute`, `unmute`, `isMuted`, `warnings`,
 `resetWarnings`, `kick` (resuelve un `ActionResult`), `setGroupRules`
 (`false` desactiva, `undefined` quita el override) e `invalidateAdmins`.
+
+La configuración se valida al llamar a `moderationPlugin()` y en
+`setGroupRules`: una acción desconocida, un contador o una ventana no
+positivos o un campo de tipo incorrecto lanzan un `TypeError`/`RangeError`
+que nombra el campo. `{name}` en el texto de la advertencia es el nombre
+visible del remitente sin caracteres de control ni bidi, en una sola línea
+y con 64 caracteres como mucho.
 
 ::: warning `groupMode` corre antes
 El filtro `groupMode` del bot corre **antes** de los hooks
@@ -392,26 +438,26 @@ y todas las peticiones salen por `secureFetch`.
 import { Bot, flow } from '@botmesh/core'
 import { dialogflowPlugin, whenDialogflowIntent } from '@botmesh/dialogflow'
 
-const bot = new Bot({ provider })
+const bot = new Bot({ provider, lang: 'es' })
 
-bot.plug(dialogflowPlugin({                         // dialogflowContext es un alias obsoleto
-  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS!), // service-account JSON
+bot.plug(dialogflowPlugin({
+  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS!), // JSON de la cuenta de servicio
   languageCode: 'es',
-  fulfillment: 'unrouted',     // reply with the agent's text when the intent has no route
+  fulfillment: 'unrouted',     // responde con el texto del agente si la intención no tiene ruta
 }))
 
 const df = bot.injectTools.dialogflow!
 
-// Handler: receives the normalized result
+// Handler: recibe el resultado normalizado
 whenDialogflowIntent(bot, df, 'order.status', (ctx, r) =>
   ctx.reply(`Buscando el pedido ${String(r.parameters.order)}…`))
 
-// Flow: the parameters are copied into c.state before the first step
+// Flow: los parámetros se copian a c.state antes del primer paso
 whenDialogflowIntent(bot, df, 'book.table', flow('reserva')
   .say((_ctx, c) => `Reserva para ${String(c.state.people)} personas`)
   .ask('¿A nombre de quién?', 'name'))
 
-bot.onMessage((ctx) => ctx.reply('No te entendí'))   // unrouted messages land here
+bot.onMessage((ctx) => ctx.reply('No te entendí'))   // aquí caen los mensajes sin ruta
 ```
 
 Las rutas también pueden ir en la config:
@@ -428,12 +474,19 @@ Para CX, añade `cx: { agentId, location, environment? }`.
    menos `minConfidence`, se ejecuta el destino; si no, el mensaje sigue
    hacia los demás matchers y el catch-all.
 3. No se envían a Dialogflow: mensajes vacíos, interacciones, comandos
-   (`commandPrefix`, por defecto `'/'`), mensajes de un chat en
+   (`commandPrefix`, por defecto `'/'`), textos de más de `maxTextLength`
+   (256 caracteres, el límite de la API), mensajes de un chat en
    [handoff](/es/guide/handoff), mensajes de un usuario dentro de una
    conversación activa (`skipActiveConversation`, por defecto `true`) y lo
    que rechace `filter`.
-4. Si `detectIntent` falla, se registra en el log, se llama a
-   `onError(error, ctx)` y el mensaje sigue su camino.
+4. Si `detectIntent` (o `filter`) falla, se registra en el log, se llama a
+   `onError(error, ctx)` y el mensaje sigue su camino. Un `401` descarta el
+   access token en caché y reintenta una vez con uno nuevo.
+
+Mientras a una intención de ES le faltan parámetros obligatorios, el
+resultado trae `allRequiredParamsPresent: false` y la pregunta del agente en
+`messages`. La ruta se ejecuta igual, así que comprueba ese campo en el
+handler si la intención depende del rellenado de parámetros de Dialogflow.
 
 `fulfillment: 'all'` también responde con el texto del agente a los
 resultados de fallback / no-match, así que esos mensajes nunca llegan a tu
@@ -445,26 +498,30 @@ un LLM debe responder lo que Dialogflow no entiende.
 | Opción | Por defecto | Descripción |
 | --- | --- | --- |
 | `credentials` | — | JSON de la cuenta de servicio (`client_email`, `private_key`, `project_id`…) |
-| `tokenSource` | — | `{ getAccessToken() }`, alternativa a `credentials` |
+| `tokenSource` | — | `{ getAccessToken(), invalidate?(token) }`, alternativa a `credentials` (con `invalidate`, un `401` se reintenta una vez) |
 | `projectId` | `credentials.project_id` | Proyecto de Google Cloud |
 | `languageCode` / `languageFor(ctx)` | `'en'` | Idioma de las consultas, global / por mensaje |
 | `queryParams(ctx)` | — | `queryParams` crudos por mensaje |
 | `cx` | — | `{ agentId, location, environment? }` cambia a CX |
 | `location` / `environment` | global / draft | Solo ES: agente regional o entorno publicado |
-| `minConfidence` | `0` | Confianza mínima para rutear |
-| `sessionScope` / `sessionKey(ctx)` | `'chat'` | Una sesión por chat, por participante en grupos (`'participant'`) o tu propia clave |
+| `minConfidence` | `0` | Confianza mínima para rutear, entre 0 y 1 |
+| `sessionScope` / `sessionKey(ctx)` | `'participant'` | En grupos, una sesión por participante (como las conversaciones) o por grupo (`'chat'`); o tu propia clave. Un chat privado es una sesión |
 | `routes` | — | Intención → handler o flow |
 | `fulfillment` | `'off'` | `'unrouted'` o `'all'` responden solos con los textos del agente |
 | `commandPrefix` | `'/'` | `false` también envía los comandos |
+| `maxTextLength` | `256` | Los textos más largos no se envían (la API los rechaza) |
 | `skipActiveConversation` | `true` | No consultar dentro de una conversación |
-| `filter(ctx)` | — | Devuelve `false` para saltarte un mensaje |
+| `filter(ctx)` | — | Devuelve `false` para saltarte un mensaje (si lanza, el mensaje no se envía y se llama a `onError`) |
 | `priority` | `0` | Prioridad del before-hook |
-| `onError(error, ctx)` | — | Fallos de `detectIntent` |
+| `onError(error, ctx)` | — | Fallos de `detectIntent` y de `filter` |
 | `http` | — | `{ fetch, resolver, timeoutMs, maxBytes }` para `secureFetch` |
 
 ### Seguridad y privacidad
 
-- Unas credenciales inválidas lanzan `DialogflowError` de forma
+- Unas credenciales inválidas (`code: 'INVALID_CREDENTIALS'`) y unas
+  opciones inválidas (`code: 'INVALID_CONFIG'`: `minConfidence` fuera de 0–1,
+  un `fulfillment` o `sessionScope` desconocido, un `commandPrefix` vacío,
+  una `location` mal formada…) lanzan `DialogflowError` de forma
   **síncrona** al hacer `bot.plug()`. El access token se pide de forma
   perezosa con el primer mensaje, se guarda en caché y se renueva poco
   antes de caducar.
@@ -472,7 +529,7 @@ un LLM debe responder lo que Dialogflow no entiende.
   como id de sesión de Dialogflow, así que ni los ids de chat ni los
   números de teléfono se envían a Google. El **texto** del mensaje sí.
 - Guarda el JSON de la cuenta de servicio en un secreto, nunca en el repo.
-- Los parámetros que se copian a `c.state` omiten `__proto__`, `constructor` y
+- Los parámetros (en el resultado y al copiarse a `c.state`) omiten `__proto__`, `constructor` y
   `prototype`: vienen de un servicio remoto y no deben llegar al prototipo del
   objeto de estado.
 - Un destino de ruta que no sea una función handler, un builder `flow()` o un
@@ -521,8 +578,12 @@ whenIntent(bot, nlu, 'pedido.estado', async (ctx, match) => {
 - `engine.match(text)` devuelve `{ intent, confidence, entities? }` o `null`;
   `engine.rank(text)` puntúa todas las intenciones (útil para depurar una
   frase); `engine.define(intent, utterances)` añade frases en caliente.
-- La comparación normaliza mayúsculas, tildes y puntuación (`¡HOLA!` equivale
-  a `hola`) y puntúa por palabras en común. Una frase exacta, o una con
+- La comparación normaliza mayúsculas, tildes, puntuación, letras de ancho
+  completo y caracteres invisibles (`¡HOLA!` equivale a `hola`) y puntúa por
+  palabras en común; los signos vocálicos de escrituras como el devanagari se
+  quedan en su palabra. Una frase con solo emojis o puntuación lanza en
+  `define()`: nunca podría coincidir. La puntuación separa palabras, así que un
+  id como `A-1` no llena un único slot. Una frase exacta, o una con
   marcadores `{slot}` que encaja con todo el mensaje, puntúa `1`; cada slot
   captura una palabra.
 - Alcance: sin lematización, sinónimos ni embeddings. Dale a cada intención

@@ -7,7 +7,7 @@
  *
  * @example
  * ```ts
- * import { nluPlugin, whenIntent, type IntentEngine } from '@botmesh/nlu'
+ * import { nluPlugin, whenIntent } from '@botmesh/nlu'
  *
  * bot.plug(nluPlugin, {
  *   threshold: 0.5,
@@ -17,7 +17,7 @@
  *   },
  * })
  *
- * const nlu = bot.injectTools.nlu as IntentEngine
+ * const nlu = bot.injectTools.nlu!
  * whenIntent(bot, nlu, 'greeting', (ctx) => ctx.reply('¡Hola! 👋'))
  * ```
  */
@@ -37,11 +37,20 @@ export const nluPlugin = definePlugin<NluPluginConfig>({
   version: '0.1.0',
   description: 'Lightweight local intent matching for @botmesh/core — no external services.',
   install(ctx, config = {}) {
+    const intents: unknown = config.intents ?? {}
+    if (typeof intents !== 'object' || intents === null || Array.isArray(intents)) {
+      throw new Error(
+        `nluPlugin: intents must be an object like { greeting: ['hi', 'hello'] }, got ${Array.isArray(intents) ? 'an array' : typeof intents}`,
+      )
+    }
     const engine = new IntentEngine({ threshold: config.threshold })
-    for (const [intent, utterances] of Object.entries(config.intents ?? {})) {
+    for (const [intent, utterances] of Object.entries(intents as Record<string, string[]>)) {
       engine.define(intent, utterances)
     }
     ctx.tools.nlu = engine
+    ctx.onDispose(() => {
+      if (ctx.tools.nlu === engine) delete ctx.tools.nlu
+    })
     ctx.logger.debug({ intents: engine.intents(), threshold: engine.threshold }, 'nlu engine installed')
   },
 })

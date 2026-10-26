@@ -14,7 +14,7 @@ to your Evolution server over HTTP and receives its webhooks.
   are linked inside the provider; the same person always produces the same
   `senderId`, even when a later message arrives with the LID only.
 - **Content:** text, image, video, audio, voice note, document, sticker,
-  location, contact, poll, reaction; `buttons`/`list`/`card` degrade to
+  location, contact, poll (2 to 12 unique options, checked before sending), reaction; `buttons`/`list`/`card` degrade to
   numbered text; `native` for any `/message/*` endpoint.
 - **Actions:** media download, mark as read, typing/recording,
   delete for everyone, edit text.
@@ -28,7 +28,7 @@ to your Evolution server over HTTP and receives its webhooks.
 pnpm add @botmesh/core @botmesh/evolution
 ```
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older alpha. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/evolution@beta` during the beta (`npm view @botmesh/evolution dist-tags` lists the tags). Once stable, the plain command above works.
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build (or to none). Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/evolution@beta` during the beta (`npm view @botmesh/evolution dist-tags` lists the tags). Once stable, the plain command above works.
 
 You also need a running Evolution API v2 server (tested with `v2.3.4`) and an instance
 paired with a WhatsApp number. Node.js 22 or later, ESM only.
@@ -87,7 +87,7 @@ the signature, expiry and the `app: 'evolution'` / `action: 'webhook'` claims.
 | `allowUnsignedWebhooks` | `false` | Isolated local development only. Without a secret or JWT, the constructor fails. |
 | `selfId` | — | Own JID; when missing, it is read from `/instance/fetchInstances` or from `connection.update`. |
 | `http` | — | `allowHttp` (by default yes when `baseUrl` is `http://`), `allowPrivateHosts` (default `true`: the gateway is usually local), `timeoutMs` (30 s), `maxBytes` (64 MiB), `resolver`, `fetch`. |
-| `identityCacheSize` | `10000` | Maximum size of the LID↔PN map (LRU). |
+| `identityCacheSize` | `10000` | Maximum size of the LID↔PN map (LRU): a positive integer, or `Infinity` for no bound. |
 | `identityPersistence` | — | Durable LID↔PN map (synchronous `get`/`set`). Without it, the canonical id of a contact first seen with the LID only may change after a restart. |
 | `convertAudioToMp4` | `false` | Ask Evolution for audio as MP4 when downloading. |
 | `logger` | pino at `error` | Any `LoggerLike` (pino, `console`, ...). |
@@ -104,13 +104,16 @@ unknown events, so Evolution does not retry), `401` (invalid credential) or `400
 | --- | --- |
 | `messages.upsert` | `message` (or `reaction` when it is a `reactionMessage`) |
 | `messages.update` | `status` (`SERVER_ACK`→`sent`, `DELIVERY_ACK`→`delivered`, `READ`/`PLAYED`→`read`, `ERROR`→`failed`) |
-| `connection.update` | `connection` (`open`→`ready`, `close` 401→`sessionInvalid`, 440→`sessionTakenOver`) |
+| `connection.update` | `connection` (`open`→`ready`; `close` 401/500/411→`sessionInvalid`, 440/403→`sessionTakenOver`, other codes→`transient`; `refused` (QR code limit reached without pairing)→`closed`/`sessionInvalid`: call `start()` again for a new QR) |
 | `qrcode.updated` | `connection` `authenticating` with the QR in `authPayload` |
 | `call` | `call` |
 | `group-participants.update` | `group` |
 
 Names are accepted in any form (`MESSAGES_UPSERT`, `messages-upsert`,
-`messages.upsert`, useful with `webhookByEvents`).
+`messages.upsert`). With `webhookByEvents: true` Evolution appends the event to the
+URL (`/webhook/evolution/messages-upsert`), so an exact-path route (such as
+`@botmesh/server`'s) answers 404 to every event: keep `byEvents: false`, or route the
+whole prefix to `ingest()`.
 
 ## Media
 
@@ -131,16 +134,22 @@ and any other `MediaSource` (Buffer, path, stream) travels as base64.
 | 400/404 with `exists: false` (number not on WhatsApp) | `RecipientUnreachableError` |
 | 401/403 | `ProviderError` "Unauthorized — check the Evolution apiKey" |
 | 404 | `ProviderError` "Instance or resource not found" |
+| `Cannot read properties of undefined (reading 'onWhatsApp')` (instance never connected) or HTTP 500 `Connection Closed` (instance logged out) | `ProviderError` "The Evolution instance is not connected to WhatsApp: call start() and pair it" |
 | network failure | `ProviderError` naming the cause (`ECONNREFUSED`, `TIMEOUT`...), never the API key |
 
-A `template` send rejects with `UnsupportedContentError`.
+A `template` send, and a poll with fewer than 2 or more than 12 options, an empty
+question or option, or repeated options, reject with `UnsupportedContentError`.
+
+`deleteMessage(ref)` deletes for everyone. A ref from this provider carries the
+native key; a ref without it (read back from a store) is taken as the bot's own
+message (`fromMe: true`).
 
 ## Limitations
 
 - Native buttons and lists are unreliable on WhatsApp Web: they are sent as numbered
 text. For Evolution's own, use
 `ctx.sendNative('evolution', { endpoint: 'sendButtons', body: {...} })`.
-- Poll votes (`pollUpdates`) are not emitted as `poll-vote` yet.
+- Poll votes (`pollUpdates`) are not emitted as `'poll'` events yet (Baileys and Telegram emit them).
 - If a person's first message arrives with the LID only and without a twin, that LID
   stays as their canonical id. Without `identityPersistence` the map lives in
   memory, so after a restart the same person may get the phone-number id instead.
@@ -160,6 +169,10 @@ text. For Evolution's own, use
 | `start()` rejects with *Unauthorized — check the Evolution apiKey* | The `apikey` is wrong: use the global `AUTHENTICATION_API_KEY` or the instance token. |
 | `start()` rejects with *Instance or resource not found* | The `instance` name does not exist on that server: create it first (`POST /instance/create`). |
 | Sends reject with a `TIMEOUT` `ProviderError` | The instance is not paired: scan the QR from the `connection` update (`authPayload`) or the Evolution manager. |
+| Sends reject with *The Evolution instance is not connected to WhatsApp* | The instance has no WhatsApp session (created with `qrcode: false`, or logged out). Call `bot.start()` to get a QR and pair it. |
+| The bot gets `connection` `closed`/`sessionInvalid` while waiting for the QR | Evolution stopped offering QR codes (`QRCODE_LIMIT`). Call `bot.start()` again for a new one. |
+| `ingest()` answers `400` to Evolution's own webhooks | The route handed it no body (no body parser) or something other than the JSON envelope. The warning in the log says what it received. |
+| No webhook reaches the bot, the server logs 404 | The instance webhook has `webhookByEvents: true`, which adds `/<event-name>` to the URL. Set it to `false`. |
 | The same contact gets a different `senderId` after a restart | Their first message came with the LID only. Pass `identityPersistence` backed by durable storage. |
 | `ctx.media` fails for a large file | Raise `http.maxBytes` (64 MiB by default) or enable `webhookBase64` on the instance. |
 
@@ -167,8 +180,9 @@ text. For Evolution's own, use
 
 Covered by unit and end-to-end tests with a fake Evolution server, and by an opt-in suite
 against a real Evolution API `v2.3.4` container (health, instance creation with an
-authenticated webhook, QR delivery through the webhook, typed errors for an unpaired
-instance and a wrong key). Pairing a real number and the message round trip with
+authenticated webhook, QR delivery through the webhook with the shared secret and with
+`jwt_key`, typed errors for an unpaired instance, an instance without a session, an
+unknown instance and a wrong key). Pairing a real number and the message round trip with
 WhatsApp are not covered by the automated suites: try them on a test number before
 going to production. Evolution and WhatsApp Web are unofficial; read the
 [security guide](https://andresayac.github.io/botmesh/guide/security) and WhatsApp's terms before using a personal number.

@@ -158,7 +158,8 @@ export class VectorIndex {
         throw new RagError('INVALID_INDEX', 'malformed index entry')
       }
     }
-    index.upsert(d.entries)
+    // A hand-built (or older) index may lack the text hash: recompute it so a rebuild can reuse the vector.
+    index.upsert(d.entries.map((e) => (typeof e.hash === 'string' && e.hash ? e : { ...e, hash: hashText(e.text) })))
     return index
   }
 

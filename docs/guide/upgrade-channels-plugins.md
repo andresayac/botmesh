@@ -168,6 +168,15 @@ New on npm in the beta (they were private before). If you used them from the mon
   the providers' main entry.
 - The `debug` option was removed: pass a `logger` (`pino({ level: 'debug' })`).
 - Invalid options throw a `TypeError` (it was a plain `Error`; the messages are the same).
+  Also, `baseUrl` no longer accepts credentials (`user:pass@`), a query string or a
+  fragment, `identityCacheSize` must be a positive integer (or `Infinity`), and
+  `http.timeoutMs` / `http.maxBytes` are checked when the provider is built, not on the
+  first request.
+- Only an `http(s)` URL is handed to the gateway to download. `{ url }` is always a link, as
+  on Meta and Telegram: it accepts `http(s)` or a base64 `data:` URI (sent inline), and a local
+  path or `file:` URL there rejects with `UnsupportedContentError` instead of being read (it
+  used to be passed as is, and the gateway tried to open that path on its own host). Send a
+  local file as `{ path }` or a plain path string; the bot reads it and sends it as base64.
 
 ## Plugins promoted to npm
 
@@ -190,7 +199,12 @@ that used them from the monorepo (`workspace:*`) needs these changes:
   `foldText`).
 - **`@botmesh/dialogflow`:** `dialogflowPlugin` is the canonical name and
   `dialogflowContext` a deprecated alias. `languageCode` defaults to `'en'` (it was
-  `'es'`): set it to your agent's language.
+  `'es'`): set it to your agent's language. In groups, `sessionScope` defaults to
+  `'participant'` (one Dialogflow session per member, like conversations); set
+  `sessionScope: 'chat'` to keep one session per group. Mistyped options
+  (`minConfidence: 80`, an unknown `fulfillment`…) now throw `DialogflowError`
+  (`INVALID_CONFIG`) at `bot.plug()`, and texts over 256 characters are no longer
+  sent (`maxTextLength`).
 - **Frozen data:** `DEFAULT_VOICE_LIMITS`, `SUPPORTED_EXTENSIONS` (rag),
   `TICKET_PRIORITIES` and `TICKET_STATUSES` can no longer be mutated; copy them first.
 - **`@botmesh/chatwoot`:** a webhook signature without `x-chatwoot-timestamp` is rejected
@@ -206,13 +220,18 @@ beta. `@botmesh/discord`, `@botmesh/email` and `@botmesh/flow-schema` are on npm
 beta; `@botmesh/tiktok` and the product packages are still private.
 
 - **`@botmesh/discord`:** `ctx.interaction.id` (`interactionId`) is the bare interaction id;
-  the token stays in the provider. `acknowledgeInteraction()` still accepts the old
-  `"<id>:<token>"` form. Interactions the bot does not acknowledge within `autoAcknowledgeMs` (2 s; `autoAckMs` is its deprecated alias)
-  are deferred for it; set `autoAcknowledgeMs: false` to keep doing it yourself.
+  the token stays in the provider, and the alpha `"<id>:<token>"` form of
+  `acknowledgeInteraction()` was removed before the first publish (only ids the
+  provider received are known). Interactions the bot does not acknowledge within
+  `autoAcknowledgeMs` (2 s; the alpha `autoAckMs` alias was removed) are deferred for it;
+  set `autoAcknowledgeMs: false` to keep doing it yourself. Sent messages carry
+  `allowed_mentions: { parse: ['users'] }` unless set (`allowedMentions` changes it), so
+  `@everyone`, `@here` and role mentions no longer ping by default.
   Message edits (`MESSAGE_UPDATE`) now arrive as messages with the original `ref.id`
   (`isEditedMessage(ctx)`; `editedMessages: 'ignore'` drops them).
-- **Error mappers renamed** (old names are deprecated aliases): `toDiscordError`,
-  `toTikTokError`, `toEmailError`.
+- **Error mappers renamed** (old names are deprecated aliases): `toTikTokError`,
+  `toEmailError`. `toDiscordError` has no alias: `toProviderError` was removed from
+  `@botmesh/discord` before its first publish.
 - **Product stores:** `InboxStore.erase`, `ContactStore.erase` and `DeploymentStore.prune`
   are new required methods, and `DeploymentStore.list` / `InboxStore.listNotes` accept an
   `after` cursor. A custom store must add them (the shared conformance suites in

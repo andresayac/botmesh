@@ -37,7 +37,7 @@ export interface MessengerProviderConfig {
    * `http:` URLs are only accepted with `mediaDownload.allowHttp`.
    */
   mediaRefHosts?: string[]
-  /** The bot's own Page-Scoped User id (for fromMe/mention logic). Optional. */
+  /** The Page id: a message whose sender is this id is marked `fromMe` (the bot's `selfId`). Optional. */
   selfId?: string
   /** Page id (or 'me') that owns the Send API endpoint. Default 'me'. */
   pageId?: string

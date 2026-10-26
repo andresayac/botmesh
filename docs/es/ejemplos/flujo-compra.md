@@ -143,8 +143,8 @@ bot › 📦 Pedido hecho: $75, envío a Calle Falsa 123, Springfield.
   "Sí"; comparte `c.state`, así que el último `.say()` lee `street` y
   `city`. `flow([])` no tiene trigger: solo corre desde aquí.
 - **`goto: 'comprar'`** sale del flujo actual y arranca el indicado (aquí,
-  la misma tienda desde el principio). `bot.lint()` avisa de un `goto` a un
-  flujo que no está registrado.
+  la misma tienda desde el principio). `bot.lint()` marca como error
+  (`goto-target-missing`) un `goto` a un flujo que no está registrado.
 - **Un `.say()` con función** puede calcular y guardar valores
   (`c.state.total`) para los pasos siguientes.
 - **`.timeout('2m')`** se aplica a cada espera del flujo; cuando vence, el

@@ -52,6 +52,8 @@ export interface MysqlScheduleStoreOptions {
 const MAX_ID_BYTES = 1024
 const MAX_SPEC_BYTES = 2048
 const MAX_OWNER_BYTES = 512
+/** MySQL names are at most 64 characters: `{prefix}schedules`. */
+const MAX_PREFIX_LENGTH = 64 - 'schedules'.length
 const ER_DUP_ENTRY = 1062
 const ER_LOCK_DEADLOCK = 1213
 const CLAIM_ATTEMPTS = 3
@@ -139,6 +141,11 @@ export class MysqlScheduleStore implements ScheduleStore {
     const prefix = opts.tablePrefix ?? ''
     if (!/^[A-Za-z0-9_]*$/.test(prefix)) {
       throw new Error(`MysqlScheduleStore: invalid tablePrefix ${JSON.stringify(prefix)} (only [A-Za-z0-9_] allowed)`)
+    }
+    if (prefix.length > MAX_PREFIX_LENGTH) {
+      throw new RangeError(
+        `MysqlScheduleStore: tablePrefix is ${prefix.length} characters; it can be at most ${MAX_PREFIX_LENGTH} characters (MySQL names are limited to 64)`,
+      )
     }
     const pool = opts.pool as Partial<MysqlScheduleQueryable> | undefined
     if (!pool || typeof pool.query !== 'function' || typeof pool.getConnection !== 'function') {

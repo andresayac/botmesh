@@ -21,9 +21,9 @@ bot.plug(aiPlugin({
   provider: 'openai',
   model: 'gpt-5-mini',
   memory: {
-    maxFacts: 50,      // oldest facts are dropped first
-    ttl: '90d',        // each fact expires after 90 days (re-stating it renews it)
-    autoExtract: true, // after each reply, the model extracts new facts (strict JSON)
+    maxFacts: 50,      // se descartan primero los hechos más antiguos
+    ttl: '90d',        // cada hecho caduca a los 90 días (re-afirmarlo lo renueva)
+    autoExtract: true, // tras cada respuesta, el modelo extrae hechos nuevos (JSON estricto)
   },
 }))
 ```
@@ -104,11 +104,11 @@ bot.when('qué sabes de mí', async (ctx) => {
 })
 
 const ai = bot.injectTools.ai
-await ai.remember(userId, 'Cliente VIP')               // resolves with the facts that were new
+await ai.remember(userId, 'Cliente VIP')               // resuelve con los hechos que eran nuevos
 await ai.remember(userId, ['Vegano', 'Alérgico a los frutos secos'], { ttl: '30d' })
-await ai.forget(userId, 'Cliente VIP')                 // one fact: true if it existed
-await ai.forget(userId)                                // every fact
-await bot.deleteSubject(userId)                        // right to erasure: memory included
+await ai.forget(userId, 'Cliente VIP')                 // un hecho: true si existía
+await ai.forget(userId)                                // todos los hechos
+await bot.deleteSubject(userId)                        // derecho de supresión: memoria incluida
 ```
 
 | Método | Descripción |
@@ -180,9 +180,9 @@ bot.when('ayuda', async (ctx) => {
     isGroup: ctx.isGroup,
   })
   r.text      // respuesta (con las fuentes añadidas si appendSources está activo)
-  r.answer    // the model's raw answer, as stored in the history
-  r.citations // passages retrieved for this turn
-  r.facts     // user facts injected into this turn
+  r.answer    // la respuesta cruda del modelo, tal como se guarda en el historial
+  r.citations // pasajes recuperados para este turno
+  r.facts     // hechos del usuario inyectados en este turno
   await ctx.reply(r.text)
 })
 ```
@@ -220,7 +220,13 @@ Durante la beta, añade el dist-tag `@beta` (`pnpm add @botmesh/rag@beta`). No d
   de `@botmesh/http`.
 - **Índice**: `topK`, `minScore` y filtros. Con `persistPath` se guarda en JSON
   tras cada cambio y, al reiniciar, solo se vuelven a embeber los fragmentos
-  cuyo texto cambió.
+  cuyo texto cambió. Si cambias de embedder (otro `id`), los documentos
+  añadidos en tiempo de ejecución y un índice precompilado se vuelven a
+  embeber con él en lugar de perderse; `onError` recibe un
+  `RagError('EMBEDDER_CHANGED')` y el archivo anterior se conserva como
+  `<persistPath>.previous`. Si el índice no se puede guardar al cargarlo
+  (archivo de solo lectura), `onError` recibe `PERSIST_FAILED` y se sirve
+  desde memoria.
 
 | Opción | Por defecto | Descripción |
 |---|---|---|
@@ -234,7 +240,7 @@ Durante la beta, añade el dist-tag `@beta` (`pnpm add @botmesh/rag@beta`). No d
 | `cwd` | `process.cwd()` | Directorio base de las rutas relativas. |
 | `maxFileBytes` | 20 MiB | Tamaño máximo por archivo cargado. |
 | `retryDelayMs` | `30000` | Tras una ingesta fallida, `retrieve()` rechaza al momento con el mismo error durante este tiempo. |
-| `onError` | — | Problemas no fatales (p. ej. un índice guardado corrupto que se aparta y se reconstruye). |
+| `onError` | — | Problemas no fatales, siempre un `RagError`: `INVALID_INDEX` (índice corrupto apartado y reconstruido), `EMBEDDER_CHANGED` (re-embebido con otro embedder), `PERSIST_FAILED` (no se pudo guardar al cargar; se sirve desde memoria). |
 
 `createRag()` es síncrono y barato, así que cabe en un `install` síncrono de
 plugin. También puedes usarlo directamente:
@@ -255,8 +261,9 @@ await rag.save()
 ```
 
 Todo fallo es un `RagError` con un `code`: `INVALID_OPTIONS`,
-`UNSUPPORTED_FORMAT`, `LOAD_FAILED`, `MISSING_DEPENDENCY`, `EMBEDDING_FAILED`
-o `INVALID_INDEX`. El índice es de fuerza bruta, pensado para miles de
+`UNSUPPORTED_FORMAT`, `LOAD_FAILED`, `MISSING_DEPENDENCY`, `EMBEDDING_FAILED`,
+`INVALID_INDEX` o `PERSIST_FAILED` (`EMBEDDER_CHANGED` solo llega a
+`onError`). El índice es de fuerza bruta, pensado para miles de
 fragmentos; para millones, escribe tu propio retriever sobre una base
 vectorial. Detalles en el
 [README de `@botmesh/rag`](https://github.com/andresayac/botmesh/tree/main/packages/rag).
@@ -272,7 +279,7 @@ import { AIClient, ContextManager, MemoryManager } from '@botmesh/ai'
 import { MockAIProvider } from '@botmesh/ai/testing'
 import { createTestBot } from '@botmesh/core/testing'
 
-const { bot } = await createTestBot()
+const { bot } = await createTestBot({ lang: 'es' })
 const mock = new MockAIProvider({ reply: 'Tarda 3 días [1].' })
 const ai = new AIClient(mock, new ContextManager(bot.getStore()), {
   memory: new MemoryManager((id) => bot.user(id)),
@@ -283,7 +290,7 @@ await ai.remember('user-1', 'Prefiere español')
 const r = await ai.replyInChatDetailed('chat-1', '¿envío?', { userId: 'user-1' })
 r.text  // 'Tarda 3 días [1].\n\nSources: [1] faq' (sin chat, los textos integrados salen en inglés)
 r.facts // ['Prefiere español']
-mock.calls[0]?.system // contains the facts and the numbered context
+mock.calls[0]?.system // contiene los hechos y el contexto numerado
 ```
 
 ## Siguientes pasos

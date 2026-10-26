@@ -225,7 +225,7 @@ Deprecated aliases kept for a soft path (removal planned for v3): `ctx.say/answe
 `addKeyword`, `bot.sendText/sendTo`, `bot.use(plugin)`, `bot.useFlow`,
 `bot.triggerFlow`, `bot.enterConversation(name, ctx)`, `onImage`…`onPoll`, `Config`,
 `Whitelist`, `ConversationFn`, `durability.journal`, `storeConfig`, broadcast
-`maxRetries`, the transcript helpers on the main entry, Discord `autoAckMs`, the
+`maxRetries`, the transcript helpers on the main entry, the
 eslint-plugin `BotWa*` types and the `botwa` hub manifest field.
 
 ## Integration
@@ -252,7 +252,8 @@ merge, `pnpm build && pnpm typecheck && pnpm test` passed. Test totals (no serve
   timeouts, unreadable local media, the Gupshup list label and the Telegram
   `retry_after` cap. Kept: Discord's token map (bare `interactionId`, token never
   leaves the provider) with the learnt application id and the rejection when no id is
-  known, `autoAcknowledgeMs` as the option (`autoAckMs` deprecated alias), REST 60 s /
+  known, `autoAcknowledgeMs` as the option (the alpha `autoAckMs` alias and `"<id>:<token>"`
+  form were removed before the first publish), REST 60 s /
   uploads 5 min, autocomplete never deferred; graph-core's `graphRequest` for
   Messenger and Instagram; one local-media helper per provider; meta `v26.0` with the
   numeric `phoneNumberId` fix and the `played` status.

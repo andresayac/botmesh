@@ -64,19 +64,21 @@ nlu.match('zzz qqq')                // → null (nothing crosses the threshold)
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `threshold` | `number` | `0.5` | Minimum confidence for `match()` to return a result. Must be in `[0, 1]`; anything else throws. |
-| `intents` | `Record<string, string[]>` | — | `nluPlugin` only: intents to define at install, `{ name: [utterance, …] }`. |
+| `intents` | `Record<string, string[]>` | — | `nluPlugin` only: intents to define at install, `{ name: [utterance, …] }`. Anything but a plain object throws. |
+
+The config is typed: `bot.plug(nluPlugin, { threshhold: 0.9 })` is a compile error, and a config declared as `NluPluginConfig` can be passed as is.
 
 ## API
 
 | Member | Description |
 | --- | --- |
-| `engine.define(intent, utterances)` | Adds example phrases to an intent (chainable). Calling it again for the same intent **appends**. Throws on an empty name or an empty list. |
-| `engine.match(text, threshold?)` | The best intent at or above the threshold, or `null`. The per-call threshold follows the same rule as the option. |
-| `engine.rank(text)` | Every intent with a positive score, best first. Useful for debugging and "did you mean…?" menus. |
+| `engine.define(intent, utterances)` | Adds example phrases to an intent (chainable). Calling it again for the same intent **appends**. Throws, leaving the intent unchanged, on an empty name, an empty list, a non-string entry, a phrase with no letters or digits (only emoji or punctuation: it could never match), adjacent slots, a slot name used twice or the reserved slot name `__proto__`. |
+| `engine.match(text, threshold?)` | The best intent at or above the threshold, or `null`. The per-call threshold follows the same rule as the option. `text` must be a string (anything else throws a `TypeError`). |
+| `engine.rank(text)` | Every intent with a positive score, best first. Useful for debugging and "did you mean…?" menus. The engine remembers the scores of the last text, so several `whenIntent` handlers on one engine score a message once (`define()` clears it); the results are copies you may change. |
 | `engine.intents()` / `engine.threshold` | Intent names in definition order, and the configured threshold. |
 | `nluPlugin` | Installs an engine as `ctx.tools.nlu` (typed by importing the package; `bot.injectTools.nlu` outside handlers). |
-| `whenIntent(bot, engine, intent, handler)` | Runs `handler(ctx, match)` only when the text's **best** match is `intent`. Returns an unsubscribe function, like `bot.when`. |
-| `normalizeText(text)` | The normalization the engine applies (accents, case and punctuation removed, whitespace collapsed). |
+| `whenIntent(bot, engine, intent, handler)` | Runs `handler(ctx, match)` only when the text's **best** match is `intent`. Returns an unsubscribe function, like `bot.when`. Throws a `TypeError` when `engine` is missing (for example `bot.injectTools.nlu` before plugging `nluPlugin`), `intent` is empty or `handler` is not a function. |
+| `normalizeText(text)` | The normalization the engine applies (accents, case, punctuation and invisible characters removed, full-width letters folded, whitespace collapsed). |
 
 ```ts
 interface IntentMatch {
@@ -103,15 +105,22 @@ Limits (by design): slots are single-token and the pattern is anchored to the wh
 message. Two slots must be separated by a space or a word: `define()` throws on adjacent
 slots such as `'{a}{b}'` (ambiguous, and slow to match on long tokens). Slots glued by
 a word inside one token (`'{qty}x{item}'`) are allowed: the first slot stops at the first
-character of the glue, so `3xbox` gives `qty: '3'`, `item: 'box'`. If the input doesn't line up with the pattern (extra words, different order),
+character of the glue, so `3xbox` gives `qty: '3'`, `item: 'box'`. Punctuation splits words before slots are matched, so an order id such as `A-1` becomes
+two words (`a 1`) and does not fill a single slot; use an utterance with two slots (`'my order {prefix} {number}'`)
+or ask for the id in a conversation step. An utterance that is only a slot (`'{name}'`) matches **every** one-word
+message with confidence `1`: keep it for intents that really are a catch-all. If the input doesn't line up with the pattern (extra words, different order),
 the utterance still participates in normal token-overlap scoring — it just won't
 extract entities.
 
 ## How matching works
 
-1. **Normalize** both utterances and input: NFD-decompose and strip diacritics,
-   lowercase, replace every non-alphanumeric character with a space, collapse
-   whitespace (`¡HOLA, SEÑOR!` → `hola senor`).
+1. **Normalize** both utterances and input: NFKD-decompose (full-width letters and
+   ligatures fold to plain ones: `ＨＯＬＡ` → `hola`), strip accents and other
+   optional diacritics (Latin accents, Hebrew points, Arabic harakat), remove invisible
+   format characters (zero-width spaces, soft hyphens), lowercase, replace every character
+   that is not a letter, a digit or a script's own combining mark with a space, collapse
+   whitespace (`¡HOLA, SEÑOR!` → `hola senor`). Vowel signs of scripts such as
+   Devanagari or Thai stay part of their word (`नमस्ते` is one word). Emoji are ignored.
 2. **Score each utterance** against the input:
    - Exact normalized equality → `1`.
    - Slot utterance whose anchored regex matches the whole input → `1` (captures entities).
@@ -121,13 +130,19 @@ extract entities.
      score = 0.3 × jaccard + 0.5 × coverage + 0.2 × contains
      ```
 
-     - `jaccard` = `|input ∩ utterance| / |input ∪ utterance|` (bag-of-tokens overlap),
+     - `jaccard` = `|input ∩ utterance| / |input ∪ utterance|` (the utterance's distinct words against every word of the input: a word repeated in the utterance counts once, while a word or phrase repeated in the input lowers the score, so it never reaches `1` without an exact match),
      - `coverage` = fraction of the utterance's tokens present in the input,
-     - `contains` = `1` when the whole normalized utterance appears as a substring of
-       the input, else `0`.
+     - `contains` = `1` when the whole normalized utterance appears in the input as whole
+       words (`my order` is in `hi my order 5`, not in `my orders`), else `0`.
 3. **Best utterance wins** per intent; best intent wins overall. Results below
    `threshold` yield `null`. Matching is fully deterministic — confidence ties resolve
    to the earliest-defined intent.
+
+What semver covers: an exact (normalized) phrase or a fully lined-up slot pattern scores `1`,
+`match()` never returns a result under the threshold, and results are deterministic. The exact
+scores of partial matches and the normalization details may be tuned in minor releases
+(always to make matching more accurate); check `engine.rank()` after upgrading if you rely
+on a threshold close to a phrase's score.
 
 Tips for good accuracy: provide several short utterances per intent using the words
 your users actually type; avoid intents that share most of their vocabulary.
@@ -141,7 +156,9 @@ your users actually type; avoid intents that share most of their vocabulary.
 | A slot is not captured | Slots take **one** word and the whole message must line up with the pattern. Extra words still score through token overlap, but without `entities`. |
 | `define()` throws "adjacent slots" | `'{a}{b}'` is ambiguous (and slow on long words): separate the slots with a space or a word. |
 | `whenIntent` never fires but `match()` works | Another handler registered earlier caught the message (a command, an active conversation or a more specific trigger wins). See the dispatch order in the triggers guide. |
-| `ctx.tools.nlu` is `undefined` | `nluPlugin` was not plugged into this bot. |
+| `define()` throws "no letters or digits" | The phrase is only emoji or punctuation, which normalization removes, so it could never match. Use words (`'thumbs up'`, `'ok'`). |
+| An id like `A-1` is not captured | Punctuation splits it into two words. Use two slots (`{prefix} {number}`) or ask for the id in a conversation step. |
+| `ctx.tools.nlu` is `undefined` | `nluPlugin` was not plugged into this bot, or it was unplugged (unplugging removes it). |
 
 ## Links
 

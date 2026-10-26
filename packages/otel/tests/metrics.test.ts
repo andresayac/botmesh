@@ -60,6 +60,26 @@ describe('bot.metrics() → OpenTelemetry', () => {
     await bot.stop()
   })
 
+  it('reports echoes dropped by echoFilter as reason=echo, and nothing for echo without the filter', async () => {
+    const provider = new MockProvider()
+    const bot = new Bot({ provider })
+    const withEcho = {
+      metrics: () => { const s = bot.metrics(); return { ...s, dropped: { ...s.dropped, echo: 3 } } },
+      getNamespace: () => bot.getNamespace(),
+      on: bot.on.bind(bot),
+      off: bot.off.bind(bot),
+    }
+    const m = memoryMetrics()
+    const dispose = bridgeMetrics(api, withEcho as Parameters<typeof bridgeMetrics>[1], { meterProvider: m.meterProvider })
+    expect(value(await m.points('botmesh.dropped'), { reason: 'echo' })).toBe(3)
+    dispose()
+    const plain = memoryMetrics()
+    const disposePlain = bridgeMetrics(api, bot, { meterProvider: plain.meterProvider })
+    const reasons = (await plain.points('botmesh.dropped')).map((p) => p.attributes.reason)
+    expect(reasons).not.toContain('echo')
+    disposePlain()
+  })
+
   it('records conversation durations from conversation:ended; dispose removes the listener', async () => {
     const m = memoryMetrics()
     const provider = new MockProvider()

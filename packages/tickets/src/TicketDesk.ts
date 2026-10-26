@@ -100,9 +100,49 @@ const PRIORITY_RANK: Record<TicketPriority, number> = { urgent: 0, high: 1, norm
 
 function clone<T>(v: T): T { return structuredClone(v) }
 
-function parseIndex(raw: string | undefined): string[] {
-  const parsed: unknown = raw ? JSON.parse(raw) : []
+/** `JSON.parse` that names the storage key when the stored value is corrupt. */
+function parseStored(key: string, raw: string): unknown {
+  try {
+    return JSON.parse(raw)
+  } catch {
+    throw new Error(`tickets: the value stored at ${JSON.stringify(key)} is not valid JSON; repair or delete that key`)
+  }
+}
+
+function parseIndex(key: string, raw: string | undefined): string[] {
+  const parsed: unknown = raw ? parseStored(key, raw) : []
   return Array.isArray(parsed) ? parsed.map(String) : []
+}
+
+/**
+ * `meta` must be a plain object that survives a JSON round trip (tickets are stored as JSON).
+ * An object property whose value is `undefined` is allowed (JSON drops it, so
+ * `{ email: user?.email }` or `{ ...prev, key: undefined }` work); `undefined` inside an
+ * array is not, because JSON would silently turn it into `null`.
+ */
+function assertMeta(meta: unknown, operation: string): asserts meta is Record<string, unknown> {
+  const proto = meta !== null && typeof meta === 'object' ? Object.getPrototypeOf(meta) : undefined
+  if (proto === undefined || (proto !== Object.prototype && proto !== null)) {
+    throw new TypeError(`tickets.${operation}: meta must be a plain object`)
+  }
+  const bad = (v: unknown): boolean => {
+    if (v === null || typeof v === 'string' || typeof v === 'boolean') return false
+    if (typeof v === 'number') return !Number.isFinite(v)
+    if (Array.isArray(v)) return v.some(bad)
+    if (typeof v === 'object') {
+      const p = Object.getPrototypeOf(v)
+      return (p !== Object.prototype && p !== null) || Object.values(v).some((x) => x !== undefined && bad(x))
+    }
+    return true
+  }
+  if (bad(meta)) {
+    throw new TypeError(`tickets.${operation}: meta must be JSON-serializable (plain objects, arrays, strings, finite numbers, booleans and null; undefined properties are dropped)`)
+  }
+}
+
+/** A validated `meta` as it will be stored: a JSON copy, so `undefined` properties are gone in memory too. */
+function storedMeta(meta: Record<string, unknown>): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(meta)) as Record<string, unknown>
 }
 
 /** The ticket a chat's `open:<chatId>` claim names (`''` or garbage = no claim). */
@@ -145,6 +185,13 @@ export class TicketDesk implements TicketsApi {
   private lock: Promise<unknown> = Promise.resolve()
 
   constructor(private readonly opts: TicketDeskOptions) {
+    const storage: Partial<TicketKeyValue> | undefined = opts?.storage
+    if (!storage || typeof storage !== 'object') {
+      throw new TypeError('TicketDesk: options.storage is required, e.g. new TicketDesk({ storage: memoryTicketStorage() })')
+    }
+    if (typeof storage.get !== 'function' || typeof storage.set !== 'function') {
+      throw new TypeError('TicketDesk: options.storage must implement get() and set() (see TicketKeyValue)')
+    }
     this.storage = opts.storage
     this.now = opts.now ?? Date.now
     this.prefix = opts.keyPrefix ?? 'tickets:'
@@ -194,6 +241,7 @@ export class TicketDesk implements TicketsApi {
   }
 
   isOpen(date: Date = new Date(this.now())): boolean {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) throw new TypeError('tickets.isOpen: date must be a valid Date')
     return this.hours === undefined ? true : isWithinWorkingHours(this.hours, date, this.opts.timezone)
   }
 
@@ -204,6 +252,7 @@ export class TicketDesk implements TicketsApi {
     if (typeof input.subject !== 'string') throw new Error('tickets.create: subject must be a string')
     const priority = input.priority ?? 'normal'
     assertPriority(priority)
+    if (input.meta !== undefined) assertMeta(input.meta, 'create')
 
     const { result, created } = await this.serial('create', async () => {
       const reuse = this.opts.reuseOpen !== false
@@ -218,7 +267,7 @@ export class TicketDesk implements TicketsApi {
       const claimed = parseClaim(claimRaw)
       if (claimed && claimed.chatId === input.chatId) {
         const storedRaw = await this.storage.get(`${this.prefix}t:${claimed.id}`)
-        const stored = storedRaw ? JSON.parse(storedRaw) as Ticket : undefined
+        const stored = storedRaw ? parseStored(`${this.prefix}t:${claimed.id}`, storedRaw) as Ticket : undefined
         if (stored?.status !== 'closed') {
           // Open, or still being written by the replica that claimed it: finish that write.
           const entry = await this.materialize(claimed)
@@ -236,7 +285,7 @@ export class TicketDesk implements TicketsApi {
         subject: input.subject,
         priority,
         status: 'open',
-        ...(input.meta !== undefined ? { meta: clone(input.meta) } : {}),
+        ...(input.meta !== undefined ? { meta: storedMeta(input.meta) } : {}),
         createdAt: at,
         updatedAt: at,
       }
@@ -279,6 +328,9 @@ export class TicketDesk implements TicketsApi {
   }
 
   private async apply(id: string, patch: TicketPatch, closeReason?: string): Promise<Ticket> {
+    if (!patch || typeof patch !== 'object') throw new TypeError('tickets.update: patch must be an object')
+    if (patch.subject !== undefined && typeof patch.subject !== 'string') throw new TypeError('tickets.update: subject must be a string')
+    if (patch.meta !== undefined) assertMeta(patch.meta, 'update')
     if (patch.priority !== undefined) assertPriority(patch.priority)
     if (patch.status !== undefined) assertStatus(patch.status)
     if (patch.assignee !== undefined && patch.assignee !== null && (typeof patch.assignee !== 'string' || patch.assignee === '')) {
@@ -292,7 +344,7 @@ export class TicketDesk implements TicketsApi {
       const next: Ticket = { ...cur }
       if (patch.subject !== undefined) next.subject = patch.subject
       if (patch.priority !== undefined) next.priority = patch.priority
-      if (patch.meta !== undefined) next.meta = clone(patch.meta)
+      if (patch.meta !== undefined) next.meta = storedMeta(patch.meta)
       if (patch.assignee !== undefined) {
         if (patch.assignee === null) {
           delete next.assignee
@@ -336,6 +388,9 @@ export class TicketDesk implements TicketsApi {
   }
 
   close(id: string, opts: { reason?: string } = {}): Promise<Ticket> {
+    if (opts?.reason !== undefined && typeof opts.reason !== 'string') {
+      return Promise.reject(new TypeError('tickets.close: reason must be a string'))
+    }
     return this.apply(id, { status: 'closed' }, opts.reason)
   }
 
@@ -351,7 +406,7 @@ export class TicketDesk implements TicketsApi {
     this.loaded ??= (async () => {
       const seqRaw = await this.storage.get(`${this.prefix}seq`)
       const seq = Number(seqRaw)
-      const ids = parseIndex(await this.storage.get(`${this.prefix}index`))
+      const ids = parseIndex(`${this.prefix}index`, await this.storage.get(`${this.prefix}index`))
       const map = new Map<string, Ticket>()
       const raws = new Map<string, string>()
       // Older indexes may still list closed tickets: they are simply not kept in memory.
@@ -408,7 +463,7 @@ export class TicketDesk implements TicketsApi {
     }
     for (let attempt = 0; attempt < this.maxRetries; attempt++) {
       const raw = await this.storage.get(key)
-      const next = [...new Set(edit(parseIndex(raw)))]
+      const next = [...new Set(edit(parseIndex(key, raw)))]
       if (await this.storage.setIf!(key, raw, JSON.stringify(next))) return
     }
     throw new TicketContentionError(operation)
@@ -427,7 +482,7 @@ export class TicketDesk implements TicketsApi {
     await this.editIndex('create', (ids) => [...ids, ticket.id])
     if (await this.write(key, undefined, raw)) return [ticket, raw]
     const current = await this.storage.get(key)
-    return current ? [JSON.parse(current) as Ticket, current] : RETRY
+    return current ? [parseStored(key, current) as Ticket, current] : RETRY
   }
 
   /** Keep an active ticket (and its raw witness) in memory. */
@@ -446,8 +501,9 @@ export class TicketDesk implements TicketsApi {
   private async readMany(ids: string[]): Promise<Array<[Ticket, string]>> {
     const out: Array<[Ticket, string]> = []
     for (let i = 0; i < ids.length; i += READ_BATCH) {
-      const raws = await Promise.all(ids.slice(i, i + READ_BATCH).map((id) => this.storage.get(`${this.prefix}t:${id}`)))
-      for (const raw of raws) if (raw) out.push([JSON.parse(raw) as Ticket, raw])
+      const keys = ids.slice(i, i + READ_BATCH).map((id) => `${this.prefix}t:${id}`)
+      const raws = await Promise.all(keys.map((key) => this.storage.get(key)))
+      raws.forEach((raw, j) => { if (raw) out.push([parseStored(keys[j]!, raw) as Ticket, raw]) })
     }
     return out
   }

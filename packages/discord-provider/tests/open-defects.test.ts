@@ -47,7 +47,7 @@ afterEach(async () => {
 describe('the interaction token stays inside the provider', () => {
   it('interactionId is the interaction id only, and raw / ref.native carry no token', async () => {
     mockFetch()
-    const { interactions, click } = await booted({ autoAckMs: false })
+    const { interactions, click } = await booted({ autoAcknowledgeMs: false })
     click('175928847299117063')
     const i = interactions[0]!
     expect(i.interactionId).toBe('175928847299117063')
@@ -56,7 +56,7 @@ describe('the interaction token stays inside the provider', () => {
 
   it('acknowledgeInteraction(id) and send(..., { interactionId }) use the remembered token', async () => {
     const calls = mockFetch()
-    const { p, click } = await booted({ autoAckMs: false, appId: 'APP' })
+    const { p, click } = await booted({ autoAcknowledgeMs: false, appId: 'APP' })
     click('111')
     await p.acknowledgeInteraction('111', { text: 'ok' })
     expect(calls.at(-1)!.url).toBe('https://discord.com/api/v10/interactions/111/TOKEN-111/callback')
@@ -64,16 +64,20 @@ describe('the interaction token stays inside the provider', () => {
     expect(calls.at(-1)!.url).toContain('/webhooks/APP/TOKEN-111')
   })
 
-  it('still accepts the old "<id>:<token>" form', async () => {
+  it('no longer accepts the alpha "<id>:<token>" form (a token never comes from bot code)', async () => {
     const calls = mockFetch()
-    const { p } = await booted({ autoAckMs: false })
-    await p.acknowledgeInteraction('IID:TT')
-    expect(calls.at(-1)!.url).toBe('https://discord.com/api/v10/interactions/IID/TT/callback')
+    const { p } = await booted({ autoAcknowledgeMs: false })
+    await expect(p.acknowledgeInteraction('IID:TT')).rejects.toBeInstanceOf(ProviderError)
+    expect(calls).toEqual([])
+  })
+
+  it('the deprecated autoAckMs alias is gone: it no longer configures the auto-ack', () => {
+    expect(() => new DiscordProvider({ token: 'T', autoAckMs: 5000 } as never)).not.toThrow()
   })
 
   it('rejects an id it has no token for (expired or from another process)', async () => {
     mockFetch()
-    const { p } = await booted({ autoAckMs: false })
+    const { p } = await booted({ autoAcknowledgeMs: false })
     await expect(p.acknowledgeInteraction('999')).rejects.toBeInstanceOf(ProviderError)
   })
 })
@@ -81,7 +85,7 @@ describe('the interaction token stays inside the provider', () => {
 describe('auto-acknowledge before the 3 s deadline', () => {
   it('defers a component interaction the bot did not answer in time (type 6), a command with type 5', async () => {
     const calls = mockFetch()
-    const { click } = await booted({ autoAckMs: 20 })
+    const { click } = await booted({ autoAcknowledgeMs: 20 })
     click('201')
     click('202', 2, { name: 'menu' })
     await vi.waitFor(() => expect(calls.filter((c) => c.url.endsWith('/callback'))).toHaveLength(2))
@@ -92,7 +96,7 @@ describe('auto-acknowledge before the 3 s deadline', () => {
 
   it('does not auto-ack an interaction the bot already acknowledged; a later text goes out as a followup', async () => {
     const calls = mockFetch()
-    const { p, click } = await booted({ autoAckMs: 20, appId: 'APP' })
+    const { p, click } = await booted({ autoAcknowledgeMs: 20, appId: 'APP' })
     click('301')
     await p.acknowledgeInteraction('301')
     click('302')
@@ -111,7 +115,7 @@ describe('REST timeout', () => {
     vi.stubGlobal('fetch', vi.fn((_url: string, init?: RequestInit) => new Promise((_resolve, reject) => {
       init?.signal?.addEventListener('abort', () => reject(init.signal!.reason), { once: true })
     })))
-    const { p } = await booted({ autoAckMs: false, requestTimeoutMs: 30 })
+    const { p } = await booted({ autoAcknowledgeMs: false, requestTimeoutMs: 30 })
     const err = await p.send('C1', { kind: 'text', text: 'x' }).catch((e: unknown) => e)
     expect(err).toBeInstanceOf(ProviderError)
     expect((err as Error).message).toMatch(/timed out after 30ms/)

@@ -63,8 +63,9 @@ export function parseInbound(body: GupshupCallback, now: () => number = Date.now
     const id = str(ev.gsId) ?? str(ev.id)
     if (!status || !id) return []
     const recipient = str(ev.destination)
-    const code = ev.payload?.code
-    const reason = ev.payload?.reason
+    const inner = isRecord(ev.payload) ? ev.payload : {}
+    const code = typeof inner['code'] === 'number' && Number.isFinite(inner['code']) ? inner['code'] : undefined
+    const reason = typeof inner['reason'] === 'string' ? inner['reason'] : undefined
     return [{
       kind: 'status',
       status: {

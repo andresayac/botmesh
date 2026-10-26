@@ -55,7 +55,7 @@ describe('Discord + Bot end to end', () => {
       await wait(30)
       expect(calls).toHaveLength(1)
       expect(calls[0]!.url).toBe('https://discord.com/api/v10/channels/C1/messages')
-      expect(calls[0]!.body).toEqual({ content: '¡Hola <@U1>! 🎉' })
+      expect(calls[0]!.body).toEqual({ content: '¡Hola <@U1>! 🎉', allowed_mentions: { parse: ['users'] } })
     } finally {
       await bot.stop()
     }

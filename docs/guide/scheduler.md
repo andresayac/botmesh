@@ -253,7 +253,7 @@ kept and never run.
 | Option | Default | Meaning |
 |---|---|---|
 | `store` | in memory | Where schedules persist: the `schedules()` of your store (see the table below). Without it durable tasks work but do not survive a restart, and a warning is logged once. |
-| `lease` | none | Optional leadership, which saves store round-trips with many replicas: the replica holding `scheduler:leader` claims on time, and the others only claim an occurrence left overdue for `leaderTtlMs` (a task only they registered, e.g. during a rolling deploy, or a dead leader), so such a task runs up to `leaderTtlMs` late. Either a fenced `LeaseProvider` (`RedisStore#leases()`, `MemoryLeaseProvider`) or a multi-replica `Coordinator` (`store.coordinator()`); with `BotConfig.coordination` it defaults to that coordinator. Correctness never depends on it. |
+| `lease` | none | Optional leadership, which saves store round-trips with many replicas: the replica holding `scheduler:leader` claims on time, and the others only claim an occurrence left overdue for `leaderTtlMs` (a task only they registered, e.g. during a rolling deploy, or a dead leader), so such a task runs up to `leaderTtlMs` late. Either a fenced `LeaseProvider` (`RedisStore#leases()`, `MemoryLeaseProvider` from `@botmesh/core/spi`) or a multi-replica `Coordinator` (`store.coordinator()`); with `BotConfig.coordination` it defaults to that coordinator. Correctness never depends on it. |
 | `owner` | random | This process's lease-owner id. |
 | `tickMs` | `'1s'` | Poll period: picks up an occurrence whose runner crashed (once its lease expires) and retries after store errors. |
 | `leaderTtlMs` | `'30s'` | TTL of the leader lease. With a `Coordinator` (which renews its leadership itself) it is only the follower's grace; default: the coordinator's `leaseMs`. |
@@ -265,7 +265,7 @@ connection and prefix:
 | Store | `store.schedules()` | Storage |
 |---|---|---|
 | `@botmesh/sqlite-store` | `SQLiteScheduleStore` | Table `schedules` (plus `schedule_fences`); each call is a `BEGIN IMMEDIATE` transaction. |
-| `@botmesh/redis-store` | `RedisScheduleStore` | `{prefix}:sched:{id}`, compare-and-set scripts. |
+| `@botmesh/redis-store` | `RedisScheduleStore` | `{prefix}:sched:{id}` (default layout; see [Redis Cluster](./redis-cluster) for the `cluster` layout), compare-and-set scripts. |
 | `@botmesh/postgres-store` | `PostgresScheduleStore` | Table `{tablePrefix}schedules`; every call is one atomic statement (`UPDATE … RETURNING` claims). |
 | `@botmesh/mysql-store` | `MysqlScheduleStore` | Table `{tablePrefix}schedules` (VARBINARY ids, up to 1024 bytes); claims run `SELECT … FOR UPDATE` in a short transaction. |
 | `@botmesh/mongo-store` | `MongoScheduleStore` | Collection `{collectionPrefix}schedules`; single-document commands (`findOneAndUpdate`), so a standalone `mongod` works. |

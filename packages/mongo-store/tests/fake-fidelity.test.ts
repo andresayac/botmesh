@@ -63,6 +63,17 @@ describe('FakeMongo fidelity', () => {
     expect([...col.docs.keys()]).toEqual(['d1', 'd3'])
   })
 
+  it('like js-bson, an array named after an Object.prototype member reads back raw unless fieldsAsRaw has no prototype', async () => {
+    await col.updateOne({ _id: 'a' }, { $set: { v: { constructor: [{ x: 1 }], toString: [{ y: 1 }], other: [{ z: 1 }] } } }, { upsert: true })
+    const plain = await col.findOne({ _id: 'a' }) as unknown as { v: Record<string, unknown[]> }
+    const field = (name: string): unknown[] => plain.v[name]!
+    expect(Buffer.isBuffer(field('constructor')[0])).toBe(true)
+    expect(Buffer.isBuffer(field('toString')[0])).toBe(true)
+    expect(plain.v.other).toEqual([{ z: 1 }])
+    const safe = await col.findOne({ _id: 'a' }, { fieldsAsRaw: Object.create(null) as Record<string, unknown> }) as unknown as { v: unknown }
+    expect(safe.v).toEqual({ constructor: [{ x: 1 }], toString: [{ y: 1 }], other: [{ z: 1 }] })
+  })
+
   it('stores bytes as BSON Binary: Buffer back only with promoteBuffers', async () => {
     const bytes = Buffer.from([0, 1, 255])
     await col.insertOne({ _id: 'a', raw: { b: bytes, u8: new Uint8Array([7]) }, list: [Buffer.from('x')] })

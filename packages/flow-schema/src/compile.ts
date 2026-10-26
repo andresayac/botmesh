@@ -32,8 +32,8 @@ import {
 } from '@botmesh/core'
 import { upgradeLoadedDocument } from './migrate.js'
 import { pauseControls, runFormStep } from '@botmesh/core/spi'
-import { secureFetch, type SecureFetchOptions, type SecureFetchResponse } from '@botmesh/http'
-import { evaluateCondition, hasTemplate, parseExpression, renderTemplate, type ExpressionNode } from './expression.js'
+import { assertSafeTarget, secureFetch, type HostResolver, type SecureFetchOptions, type SecureFetchResponse } from '@botmesh/http'
+import { evaluateCondition, hasTemplate, parseExpression, renderTemplate, resolvePath, soleTemplatePath, type ExpressionNode } from './expression.js'
 import { compileFormPattern } from './pattern.js'
 import {
   FLOW_DOCUMENT_LIMITS,
@@ -63,8 +63,27 @@ export interface CompileFlowOptions {
   fetch?: (url: string, options: SecureFetchOptions) => Promise<SecureFetchResponse>
   /** Bounds of `http` steps: default 10 s and 64 KiB of response. */
   http?: { timeoutMs?: number; maxBytes?: number; allowHttp?: boolean }
+  /** Target policy of `media` steps whose source is `{ stateKey }` (see {@link FlowMediaPolicy}). */
+  media?: FlowMediaPolicy
   /** Flow timeout passed to a nested form's waits (default: the form's own option). */
   formTimeoutMs?: number
+}
+
+/**
+ * Target policy of a `media` step that reads its URL from `c.state` (an end user's answer
+ * or an `http` response). The provider (or a self-hosted gateway such as Evolution or
+ * WPPConnect) downloads that URL from inside your network, so by default only `https:`
+ * URLs whose host resolves to public addresses are sent, like `@botmesh/http`'s
+ * `assertSafeTarget`. URLs written in the document itself are the author's and are not
+ * checked.
+ */
+export interface FlowMediaPolicy {
+  /** Also accept plain `http:` URLs (default: `https:` only). */
+  allowHttp?: boolean
+  /** Accept hosts that are or resolve to private, loopback or link-local addresses (default false). */
+  allowPrivateHosts?: boolean
+  /** DNS resolver used for the check (default `resolveHost` from `@botmesh/http`). */
+  resolver?: HostResolver
 }
 
 /** The original JSON step a compiled step came from, when it was produced by the compiler. */
@@ -84,12 +103,38 @@ export function flowDocumentSource(flow: CompiledFlow): FlowDocument | undefined
  */
 export function compileFlowDocument(input: unknown, options: CompileFlowOptions = {}): CompiledFlow {
   // A version 1 document is migrated first, so its `retries` keep their v1 meaning.
+  checkCompileOptions(options)
   input = upgradeLoadedDocument(input)
   const issues = validateFlowDocument(input)
   if (issues.length) throw new FlowDocumentError(issues)
   const scoped = memoizedResolver(options)
   checkInlinedSize(input as FlowDocument, scoped)
   return compileValid(input as FlowDocument, scoped, [])
+}
+
+/** Refuse option values that would only fail later, at every request or form wait. */
+function checkCompileOptions(options: CompileFlowOptions): void {
+  const positive = (value: unknown, name: string) => {
+    if (value !== undefined && !(typeof value === 'number' && Number.isFinite(value) && value > 0)) {
+      throw new TypeError(`compileFlowDocument: ${name} must be a positive number of milliseconds (got ${String(value)})`)
+    }
+  }
+  positive(options.http?.timeoutMs, 'http.timeoutMs')
+  positive(options.formTimeoutMs, 'formTimeoutMs')
+  const maxBytes = options.http?.maxBytes
+  if (maxBytes !== undefined && !(Number.isSafeInteger(maxBytes) && maxBytes >= 0)) {
+    throw new TypeError(`compileFlowDocument: http.maxBytes must be a non-negative integer (got ${String(maxBytes)})`)
+  }
+  if (options.resolveSubflow !== undefined && typeof options.resolveSubflow !== 'function') throw new TypeError('compileFlowDocument: resolveSubflow must be a function')
+  if (options.fetch !== undefined && typeof options.fetch !== 'function') throw new TypeError('compileFlowDocument: fetch must be a function')
+  const media = options.media
+  if (media !== undefined) {
+    if (typeof media !== 'object' || media === null) throw new TypeError('compileFlowDocument: media must be an object')
+    for (const flag of ['allowHttp', 'allowPrivateHosts'] as const) {
+      if (media[flag] !== undefined && typeof media[flag] !== 'boolean') throw new TypeError(`compileFlowDocument: media.${flag} must be a boolean`)
+    }
+    if (media.resolver !== undefined && typeof media.resolver !== 'function') throw new TypeError('compileFlowDocument: media.resolver must be a function')
+  }
 }
 
 /** Subflows already resolved and validated during one compilation. */
@@ -205,7 +250,7 @@ function compileTopStep(step: FlowStepDocument, options: CompileFlowOptions, sta
       return withSource({
         kind: 'media',
         type: step.type as FlowMediaKind,
-        source: mediaSourceOf(step.source, step.type),
+        source: mediaSourceOf(step.source, step.type, options.media),
         ...(step.caption !== undefined ? { caption: step.caption } : {}),
         ...(step.filename !== undefined ? { opts: { filename: step.filename } } : {}),
       }, step)
@@ -360,7 +405,7 @@ async function run(program: readonly Prepared[], ctx: RuntimeMessage, c: Convers
         await run(evaluateCondition(step.test, scopeOf(ctx, c)) ? step.then : step.else, ctx, c, options)
         break
       case 'media':
-        await sendMedia(ctx, step, scopeOf(ctx, c))
+        await sendMedia(ctx, step, scopeOf(ctx, c), options.media)
         break
       case 'form':
         await runFormStep(step.form, ctx, c, step.opts, options.formTimeoutMs)
@@ -426,7 +471,7 @@ function waitOptions(timeout: FlowDuration | undefined): WaitOptions | undefined
   return timeout === undefined ? undefined : { timeout: toMs(timeout) }
 }
 
-function mediaSourceOf(source: FlowMediaDocumentSource, type: string): FlowMediaSource {
+function mediaSourceOf(source: FlowMediaDocumentSource, type: string, policy: FlowMediaPolicy | undefined): FlowMediaSource {
   if (type === 'location') {
     const loc = source as Extract<FlowMediaDocumentSource, { latitude: number }>
     return { lat: loc.latitude, lng: loc.longitude, ...(loc.name !== undefined ? { name: loc.name } : {}) } satisfies FlowLocation
@@ -434,14 +479,7 @@ function mediaSourceOf(source: FlowMediaDocumentSource, type: string): FlowMedia
   if ('url' in source) return (source as { url: string }).url
   if (!isStateSource(source)) throw new TypeError('media step: source must be a url, a stateKey or coordinates')
   const key = source.stateKey
-  return ((_ctx: RuntimeMessage, c: ConversationControls) => {
-    const value = c.state[key]
-    if (typeof value === 'string') return value
-    if (typeof value === 'object' && value !== null && typeof (value as { url?: unknown }).url === 'string') {
-      return { url: (value as { url: string }).url }
-    }
-    throw new Error(`media step: c.state.${key} must be a URL string or { url } (got ${typeof value})`)
-  }) as unknown as FlowMediaSource
+  return (async (_ctx: RuntimeMessage, c: ConversationControls) => ({ url: await stateMediaUrl(c.state[key], key, policy) })) as unknown as FlowMediaSource
 }
 
 /** The MessageContext members an action needs beyond the narrow `RuntimeMessage`. */
@@ -457,16 +495,16 @@ interface RichContext extends RuntimeMessage {
   tools?: unknown
 }
 
-async function sendMedia(ctx: RuntimeMessage, step: Extract<Prepared, { kind: 'media' }>, scope: Record<string, unknown>): Promise<void> {
+async function sendMedia(ctx: RuntimeMessage, step: Extract<Prepared, { kind: 'media' }>, scope: Record<string, unknown>, policy: FlowMediaPolicy | undefined): Promise<void> {
   const rich = ctx as RichContext
-  const raw = 'stateKey' in step.source ? resolveMediaSource(step.source, scope) : step.source
+  const raw = 'stateKey' in step.source ? await resolveMediaSource(step.source, scope, policy) : step.source
   if (step.type === 'location') {
     const loc = raw as Extract<FlowMediaDocumentSource, { latitude: number }>
     if (typeof rich.location !== 'function') throw new Error('media step: this context cannot send a location')
     await rich.location(loc.latitude, loc.longitude, loc.name)
     return
   }
-  const media: MediaSource = typeof raw === 'string' ? raw : { url: (raw as { url: string }).url }
+  const media: MediaSource = { url: (raw as { url: string }).url }
   const caption = step.caption !== undefined ? renderTemplate(step.caption, scope) : undefined
   const send = async () => {
     switch (step.type) {
@@ -497,13 +535,36 @@ function isStateSource(source: FlowMediaDocumentSource | { stateKey: string }): 
   return typeof source === 'object' && source !== null && 'stateKey' in source
 }
 
-function resolveMediaSource(source: FlowMediaDocumentSource | { stateKey: string }, scope: Record<string, unknown>): FlowMediaDocumentSource {
+async function resolveMediaSource(source: FlowMediaDocumentSource | { stateKey: string }, scope: Record<string, unknown>, policy: FlowMediaPolicy | undefined): Promise<FlowMediaDocumentSource> {
   if (!isStateSource(source)) return source
-  const value = scope[source.stateKey]
-  if (typeof value === 'string') return { url: value }
-  if (typeof value === 'object' && value !== null && typeof (value as { url?: unknown }).url === 'string') return value as { url: string }
-  if (typeof value === 'object' && value !== null && typeof (value as { latitude?: unknown }).latitude === 'number') return value as FlowMediaDocumentSource
-  throw new Error(`media step: c.state.${source.stateKey} must be a URL string, { url } or a location`)
+  return { url: await stateMediaUrl(scope[source.stateKey], source.stateKey, policy) }
+}
+
+/**
+ * The media URL stored in `c.state[key]` (a string or `{ url }`), only when it is an
+ * absolute https URL (http with `allowHttp`) whose host is public (see {@link FlowMediaPolicy}).
+ * State values can come from an end user's answer or an `http` response; providers read a
+ * plain string that is not a URL as a LOCAL FILE PATH (Baileys even streams a non-http
+ * `{ url }` from disk), and gateways download the URL from inside the operator's network:
+ * anything else is refused. The value (host included) never goes into the error (it may be
+ * personal data).
+ */
+async function stateMediaUrl(value: unknown, key: string, policy: FlowMediaPolicy = {}): Promise<string> {
+  const raw = typeof value === 'string' ? value : typeof value === 'object' && value !== null && typeof (value as { url?: unknown }).url === 'string' ? (value as { url: string }).url : undefined
+  if (raw === undefined) throw new Error(`media step: c.state.${key} must be an http(s) URL string or { url } (got ${value === null ? 'null' : typeof value})`)
+  let url: URL
+  try { url = new URL(raw.trim()) } catch { throw new Error(`media step: c.state.${key} is not an absolute http(s) URL`) }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error(`media step: c.state.${key} must use http or https (got ${url.protocol})`)
+  if (url.protocol === 'http:' && policy.allowHttp !== true) throw new Error(`media step: c.state.${key} must use https (set media.allowHttp to accept http)`)
+  if (url.username || url.password) throw new Error(`media step: c.state.${key} must not carry credentials`)
+  // With private hosts allowed there is nothing to judge: skip the DNS lookup.
+  if (policy.allowPrivateHosts === true) return url.href
+  try {
+    await assertSafeTarget(url, { allowHttp: policy.allowHttp === true, ...(policy.resolver ? { resolver: policy.resolver } : {}) })
+  } catch {
+    throw new Error(`media step: c.state.${key} points to a host that is not allowed (private, loopback or unresolvable)`)
+  }
+  return url.href
 }
 
 function formDefinitionOf(form: FlowFormDocument): FormDefinition {
@@ -592,23 +653,63 @@ function encodeUrlValue(value: string): string {
 
 async function httpStep(step: Extract<Prepared, { kind: 'http' }>, scope: Record<string, unknown>, options: CompileFlowOptions): Promise<unknown> {
   const url = renderTemplate(step.url, scope, encodeUrlValue)
-  const headers = Object.fromEntries(Object.entries(step.headers ?? {}).map(([k, v]) => [k, renderTemplate(v, scope)]))
+  const headers = Object.fromEntries(Object.entries(step.headers ?? {}).map(([k, v]) => {
+    const value = renderTemplate(v, scope)
+    // A rendered value (often user data) must not split the header; the value is not echoed.
+    if (/[\r\n\0]/.test(value)) throw new Error(`http step: header "${k}" renders with a line break or NUL character`)
+    return [k, value]
+  }))
   const hasBody = step.body !== undefined && step.method !== 'GET'
   const fetch = options.fetch ?? secureFetch
   const response = await fetch(url, {
     method: step.method,
     headers,
-    ...(hasBody ? { body: JSON.stringify(step.body) } : {}),
+    ...(hasBody ? { body: JSON.stringify(renderBody(step.body, scope)) } : {}),
     timeoutMs: step.timeoutMs ?? options.http?.timeoutMs ?? 10_000,
     maxBytes: options.http?.maxBytes ?? 64 * 1024,
     ...(options.http?.allowHttp === true ? { allowHttp: true } : {}),
   })
+  if (!response.response.ok) throw new Error(`http step: ${step.method} ${describeUrl(step.url)} answered HTTP ${response.response.status}`)
   const text = response.body.toString('utf8')
   const type = response.response.headers.get('content-type') ?? ''
   if (type.includes('json')) {
-    try { return JSON.parse(text) } catch { throw new Error(`http step: ${step.method} ${url} returned invalid JSON`) }
+    try { return JSON.parse(text) } catch { throw new Error(`http step: ${step.method} ${describeUrl(step.url)} returned invalid JSON`) }
   }
   return text
+}
+
+/**
+ * The JSON body of an `http` step with its placeholders rendered: a string that is exactly
+ * one `{{ path }}` becomes the value itself (number, object... `null` when missing), any
+ * other string is rendered as text. Rendered values are never parsed again as templates.
+ */
+function renderBody(value: unknown, scope: Record<string, unknown>): unknown {
+  if (typeof value === 'string') {
+    const sole = soleTemplatePath(value)
+    if (sole) return toJsonValue(resolvePath(scope, sole))
+    return hasTemplate(value) ? renderTemplate(value, scope) : value
+  }
+  if (Array.isArray(value)) return value.map((item) => renderBody(item, scope))
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [key, item] of Object.entries(value)) Object.defineProperty(out, key, { value: renderBody(item, scope), enumerable: true, writable: true, configurable: true })
+    return out
+  }
+  return value
+}
+
+/** A state value as JSON can carry it (`undefined` and functions become `null`). */
+function toJsonValue(value: unknown): unknown {
+  return value === undefined || typeof value === 'function' || typeof value === 'symbol' ? null : value
+}
+
+/**
+ * The request as errors (and so logs) show it: the document's URL template without
+ * credentials, query or fragment. Never the rendered URL, which carries user values and
+ * query secrets such as `?api_key=`.
+ */
+function describeUrl(template: string): string {
+  return template.replace(/[?#].*$/s, '').replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/@]*@/i, '$1')
 }
 
 interface AILike {

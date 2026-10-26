@@ -6,16 +6,20 @@
 
 import type { MessageContext } from '@botmesh/core'
 import { DialogflowClient, toSessionId, type DialogflowClientConfig, type DialogflowResult } from './client.js'
+import { checkConfidence, checkOneOf } from './validate.js'
 
 /** The bits of a message context the session mapping reads. */
 export type SessionSubject = Pick<MessageContext, 'from' | 'sender' | 'isGroup'>
 
 export interface DialogflowContextOptions {
-  /** One session per chat (default) or, in groups, per participant. */
+  /**
+   * In groups, one Dialogflow session per participant (default, like conversations) or one shared
+   * by the whole group (`'chat'`). A DM is always one session.
+   */
   sessionScope?: 'chat' | 'participant'
   /** Custom session key (overrides `sessionScope`). It is hashed before use. */
   sessionKey?: (ctx: SessionSubject) => string
-  /** Minimum confidence for routing (default `0`). */
+  /** Minimum confidence for routing, between 0 and 1 (default `0`). */
   minConfidence?: number
   /** Language per message (default: the client's `languageCode`). */
   languageFor?: (ctx: MessageContext) => string | undefined
@@ -33,6 +37,8 @@ export class DialogflowContext {
     clientOrConfig: DialogflowClient | DialogflowClientConfig,
     private readonly options: DialogflowContextOptions = {},
   ) {
+    checkConfidence(options.minConfidence)
+    checkOneOf(options.sessionScope, ['chat', 'participant'], 'sessionScope')
     this.client = clientOrConfig instanceof DialogflowClient ? clientOrConfig : new DialogflowClient(clientOrConfig)
     this.minConfidence = options.minConfidence ?? 0
   }
@@ -40,7 +46,7 @@ export class DialogflowContext {
   /** The raw (un-hashed) session key of a message. */
   sessionKeyFor(ctx: SessionSubject): string {
     if (this.options.sessionKey) return this.options.sessionKey(ctx)
-    if (ctx.isGroup && this.options.sessionScope === 'participant') return `${ctx.from}\u0000${ctx.sender}`
+    if (ctx.isGroup && this.options.sessionScope !== 'chat') return `${ctx.from}\u0000${ctx.sender}`
     return ctx.from
   }
 

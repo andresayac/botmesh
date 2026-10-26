@@ -136,7 +136,7 @@ needed:
 import { createServer } from 'node:http'
 import { createIngress, createNodeHandler } from '@botmesh/server'
 
-const ingress = createIngress({ routes: [{ path: '/telegram', provider, body: 'text' }], bot })
+const ingress = createIngress({ routes: [{ path: '/telegram', provider }], bot })
 createServer(createNodeHandler(ingress)).listen(3000)
 ```
 

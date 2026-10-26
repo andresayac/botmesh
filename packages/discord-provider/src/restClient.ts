@@ -41,6 +41,19 @@ export const DEFAULT_UPLOAD_TIMEOUT_MS = 300_000
  */
 const UNREACHABLE_CODES = new Set([10_003, 10_013, 50_001, 50_007])
 
+/**
+ * One REST path segment from an id or token. Ids reach the URL from bot code
+ * (`ctx.chatId`, a stored ref, an interaction id), so a value is percent-encoded and
+ * a `.`/`..` segment or an empty one rejects: a crafted id must never resolve to
+ * another route (`../guilds/{id}`, `?`, `#`) that the bot token would authorize.
+ */
+export function pathSegment(value: unknown, what: string): string {
+  if (typeof value !== 'string' || value === '' || value === '.' || value === '..') {
+    throw new ProviderError(`Invalid Discord ${what}: ${JSON.stringify(typeof value === 'string' ? value.slice(0, 40) : typeof value)}`)
+  }
+  return encodeURIComponent(value)
+}
+
 /** Translate a Discord REST error into a typed provider error. */
 export function toDiscordError(chatId: ChatId, status: number, body: DiscordApiErrorBody): ProviderError {
   const msg = body.message ?? 'Discord API error'
@@ -52,7 +65,11 @@ export function toDiscordError(chatId: ChatId, status: number, body: DiscordApiE
     return new RateLimitedError(ms, detail)
   }
   // 40003: "You are opening direct messages too fast" (a per-account rate limit).
-  if (body.code === 40_003) return new RateLimitedError(body.retry_after ? Math.ceil(body.retry_after * 1000) : 5_000, detail)
+  if (body.code === 40_003) {
+    const sec = body.retry_after
+    const ms = typeof sec === 'number' && Number.isFinite(sec) && sec > 0 ? Math.min(86_400_000, Math.ceil(sec * 1000)) : 5_000
+    return new RateLimitedError(ms, detail)
+  }
   if (status === 403 || (body.code !== undefined && UNREACHABLE_CODES.has(body.code))) {
     return new RecipientUnreachableError(chatId, detail)
   }
@@ -60,12 +77,6 @@ export function toDiscordError(chatId: ChatId, status: number, body: DiscordApiE
   if (status === 413 || body.code === 40_005) return new PayloadTooLargeError(detail)
   return new ProviderError(detail)
 }
-
-/**
- * @deprecated Use {@link toDiscordError} (channel-prefixed like every provider's error
- * mapper). Removal planned for v3.
- */
-export const toProviderError: typeof toDiscordError = toDiscordError
 
 export class DiscordRestClient {
   constructor(private readonly cfg: DiscordRestClientConfig) {}
@@ -136,7 +147,7 @@ export class DiscordRestClient {
 
   /** POST /channels/{channelId}/messages (JSON or multipart when files). */
   async sendMessage(channelId: ChatId, payload: Record<string, unknown>, files?: DiscordFile[]): Promise<DiscordMessageResponse> {
-    return this.request('POST', `channels/${channelId}/messages`, {
+    return this.request('POST', `channels/${pathSegment(channelId, 'channel id')}/messages`, {
       chatId: channelId,
       ...(files?.length ? { form: DiscordRestClient.toForm(payload, files) } : { json: payload }),
     }) as Promise<DiscordMessageResponse>
@@ -144,14 +155,14 @@ export class DiscordRestClient {
 
   /** POST /webhooks/{appId}/{interactionToken} — followup inside an interaction. */
   async sendFollowup(appId: string, interactionToken: string, payload: Record<string, unknown>, files?: DiscordFile[]): Promise<DiscordMessageResponse> {
-    return this.request('POST', `webhooks/${appId}/${interactionToken}`, {
+    return this.request('POST', `webhooks/${pathSegment(appId, 'application id')}/${pathSegment(interactionToken, 'interaction token')}`, {
       ...(files?.length ? { form: DiscordRestClient.toForm(payload, files) } : { json: payload }),
     }) as Promise<DiscordMessageResponse>
   }
 
   /** PATCH /channels/{channelId}/messages/{messageId}. */
   async editMessage(channelId: ChatId, messageId: string, payload: Record<string, unknown>, files?: DiscordFile[]): Promise<DiscordMessageResponse> {
-    return this.request('PATCH', `channels/${channelId}/messages/${messageId}`, {
+    return this.request('PATCH', `channels/${pathSegment(channelId, 'channel id')}/messages/${pathSegment(messageId, 'message id')}`, {
       chatId: channelId,
       ...(files?.length ? { form: DiscordRestClient.toForm(payload, files) } : { json: payload }),
     }) as Promise<DiscordMessageResponse>
@@ -159,27 +170,27 @@ export class DiscordRestClient {
 
   /** DELETE /channels/{channelId}/messages/{messageId}. */
   async deleteMessage(channelId: ChatId, messageId: string): Promise<void> {
-    await this.request('DELETE', `channels/${channelId}/messages/${messageId}`, { chatId: channelId })
+    await this.request('DELETE', `channels/${pathSegment(channelId, 'channel id')}/messages/${pathSegment(messageId, 'message id')}`, { chatId: channelId })
   }
 
   /** PUT /channels/{channelId}/messages/{messageId}/reactions/{emoji}/@me. */
   async putReaction(channelId: ChatId, messageId: string, emoji: string): Promise<void> {
-    await this.request('PUT', `channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}/@me`, { chatId: channelId })
+    await this.request('PUT', `channels/${pathSegment(channelId, 'channel id')}/messages/${pathSegment(messageId, 'message id')}/reactions/${pathSegment(emoji, 'emoji')}/@me`, { chatId: channelId })
   }
 
   /** DELETE /channels/{channelId}/messages/{messageId}/reactions/{emoji}/@me. */
   async deleteOwnReaction(channelId: ChatId, messageId: string, emoji: string): Promise<void> {
-    await this.request('DELETE', `channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}/@me`, { chatId: channelId })
+    await this.request('DELETE', `channels/${pathSegment(channelId, 'channel id')}/messages/${pathSegment(messageId, 'message id')}/reactions/${pathSegment(emoji, 'emoji')}/@me`, { chatId: channelId })
   }
 
   /** POST /channels/{channelId}/typing. */
   async triggerTyping(channelId: ChatId): Promise<void> {
-    await this.request('POST', `channels/${channelId}/typing`, { chatId: channelId })
+    await this.request('POST', `channels/${pathSegment(channelId, 'channel id')}/typing`, { chatId: channelId })
   }
 
   /** POST /interactions/{interactionId}/{token}/callback (type 4 or 6). */
   async ackInteraction(interactionId: string, token: string, callback: Record<string, unknown>): Promise<void> {
-    await this.request('POST', `interactions/${interactionId}/${token}/callback`, { json: callback })
+    await this.request('POST', `interactions/${pathSegment(interactionId, 'interaction id')}/${pathSegment(token, 'interaction token')}/callback`, { json: callback })
   }
 
   /** Plain HTTPS GET (Discord CDN media urls need no auth). */

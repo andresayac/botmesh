@@ -1,8 +1,8 @@
 # @botmesh/graph-core
 
-Shared **Meta Graph API** helpers for the Meta transports of [`@botmesh/core`](https://github.com/andresayac/botmesh/tree/main/packages/core): [`@botmesh/meta`](https://www.npmjs.com/package/@botmesh/meta) (WhatsApp Cloud API), Messenger and Instagram. The three platforms verify webhooks the same way, sign them the same way and return the same Graph error codes; this package holds that logic once.
+Shared **Meta Graph API** helpers for the Meta transports of [`@botmesh/core`](https://github.com/andresayac/botmesh/tree/main/packages/core): [`@botmesh/meta`](https://www.npmjs.com/package/@botmesh/meta) (WhatsApp Cloud API), [`@botmesh/messenger`](https://www.npmjs.com/package/@botmesh/messenger) and [`@botmesh/instagram`](https://www.npmjs.com/package/@botmesh/instagram). The three platforms verify webhooks the same way, sign them the same way and return the same Graph error codes; this package holds that logic once.
 
-**You do not need it to build a bot**: it is installed as a dependency of `@botmesh/meta`. Use it directly when you write your own Graph integration or webhook endpoint and want the same signature checks and error mapping.
+**You do not need it to build a bot**: it is installed as a dependency of `@botmesh/meta`, `@botmesh/messenger` and `@botmesh/instagram`. Use it directly when you write your own Graph integration or webhook endpoint and want the same signature checks and error mapping.
 
 ## Install
 

@@ -16,7 +16,7 @@
 import { chunkDocument, resolveChunkOptions, type ChunkOptions } from './chunking.js'
 import { resolveEmbedder, type EmbeddingsConfig } from './embeddings/resolve.js'
 import { RagError } from './errors.js'
-import { rename } from 'node:fs/promises'
+import { copyFile, rename } from 'node:fs/promises'
 import { loadPaths, type PdfParser } from './loaders.js'
 import type { Embedder, RagChunk, RagDocument, RagMetadata, RetrievedChunk } from './types.js'
 import { hashText, VectorIndex, type IndexEntry } from './VectorIndex.js'
@@ -47,7 +47,12 @@ export interface RagOptions extends ChunkOptions {
    * every query. `ready()` / `warmup()` always retry. Default 30000.
    */
   retryDelayMs?: number
-  /** Non-fatal problems, e.g. a corrupt persisted index that was discarded and rebuilt. */
+  /**
+   * Non-fatal problems (always a {@link RagError}): a corrupt persisted index that was
+   * set aside and rebuilt (`INVALID_INDEX`), an index built with another embedder that
+   * was re-embedded (`EMBEDDER_CHANGED`), or an index that could not be saved while
+   * ingesting and is served from memory (`PERSIST_FAILED`).
+   */
   onError?: (err: unknown) => void
   /** @internal clock (tests). */
   now?: () => number
@@ -68,6 +73,16 @@ export interface AddTextOptions {
   /** `'markdown'` enables heading-aware chunking. Default `'text'`. */
   format?: 'markdown' | 'text'
   metadata?: RagMetadata
+}
+
+function assertTopK(topK: unknown): void {
+  if (!Number.isSafeInteger(topK) || (topK as number) < 1) throw new RagError('INVALID_OPTIONS', `topK must be a positive integer (got ${String(topK)})`)
+}
+
+function assertMinScore(minScore: unknown): void {
+  if (typeof minScore !== 'number' || !Number.isFinite(minScore)) {
+    throw new RagError('INVALID_OPTIONS', `minScore must be a finite number, a cosine score in [-1, 1] (got ${String(minScore)})`)
+  }
 }
 
 const citationOf = (c: RagChunk): string => (c.section ? `${c.source} › ${c.section}` : c.source)
@@ -107,7 +122,14 @@ export class Rag {
     this.chunking = resolveChunkOptions(options)
     this.topK = options.topK ?? 3
     this.minScore = options.minScore ?? 0
-    if (!Number.isSafeInteger(this.topK) || this.topK < 1) throw new RagError('INVALID_OPTIONS', 'topK must be a positive integer')
+    if (options.documents !== undefined && !Array.isArray(options.documents)) {
+      throw new RagError('INVALID_OPTIONS', "documents must be an array of paths and/or { id, text, source } objects, e.g. documents: ['./docs']")
+    }
+    assertTopK(this.topK)
+    assertMinScore(this.minScore)
+    if (options.maxFileBytes !== undefined && (!Number.isSafeInteger(options.maxFileBytes) || options.maxFileBytes < 1)) {
+      throw new RagError('INVALID_OPTIONS', 'maxFileBytes must be a positive integer (bytes)')
+    }
     this.retryDelayMs = options.retryDelayMs ?? 30_000
     if (!Number.isFinite(this.retryDelayMs) || this.retryDelayMs < 0) throw new RagError('INVALID_OPTIONS', 'retryDelayMs must be >= 0')
     this.now = options.now ?? Date.now
@@ -154,7 +176,7 @@ export class Rag {
     } catch (err) {
       if (!rebuildable || !(err instanceof RagError) || err.code !== 'INVALID_INDEX') throw err
       await rename(path, `${path}.corrupt`).catch(() => {})
-      try { this.options.onError?.(err) } catch { /* reporting must not break ingest */ }
+      this.report(err)
       return undefined
     }
   }
@@ -162,25 +184,88 @@ export class Rag {
   private async ingestInitial(): Promise<void> {
     const configured = this.options.documents ?? []
     const persisted = await this.loadPersisted(configured.length > 0)
-    const usable = persisted && persisted.embedder === this.embedder.id ? persisted : undefined
-    if (usable) for (const e of usable.all()) this.cache.set(e.hash, e.vector)
+    const sameSpace = persisted !== undefined && persisted.embedder === this.embedder.id
+    if (persisted && sameSpace) for (const e of persisted.all()) this.cache.set(e.hash, e.vector)
     if (configured.length === 0) {
-      // No corpus configured: serve the persisted index as-is (prebuilt index).
-      if (usable) this.index = usable
+      // No corpus configured: serve the persisted index as-is (prebuilt index), re-embedding
+      // its chunks when it was built with another embedder.
+      if (persisted && sameSpace) this.index = persisted
+      else if (persisted) {
+        const next = new VectorIndex(this.embedder.id)
+        next.upsert(await this.reembed(persisted.all()))
+        this.index = next
+      }
       this.pruneCache()
+      if (persisted && !sameSpace) await this.replaceForeignIndex(persisted.embedder)
       return
     }
     const docs = await this.loadDocuments(configured)
     const { entries, embedded } = await this.embedDocuments(docs)
     const next = new VectorIndex(this.embedder.id)
     next.upsert(entries)
-    // Keep documents added at runtime (a configured document with the same id wins).
+    // Keep documents added at runtime (a configured document with the same id wins);
+    // with another embedder their chunks are embedded again rather than lost.
     const configuredIds = new Set(docs.map((d) => d.id))
-    if (usable) next.upsert(usable.all().filter((e) => e.runtime && !configuredIds.has(e.docId)))
+    const runtime = persisted ? persisted.all().filter((e) => e.runtime && !configuredIds.has(e.docId)) : []
+    next.upsert(sameSpace ? runtime : await this.reembed(runtime))
+    const usable = sameSpace ? persisted : undefined
     const changed = embedded > 0 || !usable || usable.size !== next.size || next.all().some((e) => usable.get(e.id)?.hash !== e.hash)
     this.index = next
     this.pruneCache()
-    if (changed) await this.persist()
+    if (persisted && !sameSpace) await this.replaceForeignIndex(persisted.embedder)
+    else if (changed) await this.persistOrReport()
+  }
+
+  private report(err: unknown): void {
+    try { this.options.onError?.(err) } catch { /* reporting must not break ingest */ }
+  }
+
+  /**
+   * The persisted index was built with another embedder and has just been re-embedded:
+   * report the switch, keep the old file as `<persistPath>.previous` (its vectors may
+   * have been expensive) and only then overwrite it. When the copy fails the old file
+   * is left untouched and the re-embedded index is served from memory.
+   */
+  private async replaceForeignIndex(previousEmbedder: string): Promise<void> {
+    const path = this.options.persistPath!
+    const previous = `${path}.previous`
+    this.report(new RagError('EMBEDDER_CHANGED',
+      `index ${path} was built with embedder "${previousEmbedder}"; re-embedded with "${this.embedder.id}" (previous file kept as ${previous})`))
+    try {
+      await copyFile(path, previous)
+    } catch (cause) {
+      this.report(new RagError('PERSIST_FAILED', `could not keep a copy of ${path} as ${previous}; the index is served from memory and the file is left as it was`, { cause }))
+      return
+    }
+    await this.persistOrReport()
+  }
+
+  /** Persist during ingest: a failed save is reported and the index is served from memory. */
+  private async persistOrReport(): Promise<void> {
+    try {
+      await this.persist()
+    } catch (err) {
+      this.report(err)
+    }
+  }
+
+  /** Index entries with vectors from this embedder (cached ones reused). */
+  private async reembed(entries: readonly IndexEntry[]): Promise<IndexEntry[]> {
+    const items = entries.map((e) => ({ hash: hashText(e.text), text: e.text }))
+    await this.ensureVectors(items)
+    return entries.map((e, i) => ({ ...e, hash: items[i]!.hash, vector: this.cache.get(items[i]!.hash)! }))
+  }
+
+  /** Embed the texts whose hash has no cached vector; returns how many were embedded. */
+  private async ensureVectors(items: readonly { hash: string; text: string }[], signal?: AbortSignal): Promise<number> {
+    const textByHash = new Map<string, string>()
+    for (const { hash, text } of items) if (!this.cache.has(hash)) textByHash.set(hash, text)
+    if (textByHash.size === 0) return 0
+    const missing = [...textByHash.keys()]
+    const vectors = await this.embedder.embed(missing.map((h) => textByHash.get(h)!), signal ? { signal } : {})
+    if (!Array.isArray(vectors) || vectors.length !== missing.length) throw new RagError('EMBEDDING_FAILED', 'embedder returned a wrong number of vectors')
+    missing.forEach((h, i) => this.cache.set(h, vectors[i]!))
+    return missing.length
   }
 
   /**
@@ -193,6 +278,7 @@ export class Rag {
   }
 
   private async loadDocuments(items: ReadonlyArray<string | RagDocument>): Promise<RagDocument[]> {
+    if (!Array.isArray(items)) throw new RagError('INVALID_OPTIONS', 'expected an array of paths and/or { id, text, source } documents')
     const paths = items.filter((d): d is string => typeof d === 'string')
     const docs = items.filter((d): d is RagDocument => typeof d !== 'string')
     for (const d of docs) {
@@ -214,19 +300,22 @@ export class Rag {
   private async embedDocuments(docs: readonly RagDocument[], signal?: AbortSignal): Promise<{ entries: IndexEntry[]; embedded: number }> {
     const chunks = docs.flatMap((d) => chunkDocument(d, this.chunking))
     const hashes = chunks.map((c) => hashText(c.text))
-    const missing = [...new Set(hashes.filter((h) => !this.cache.has(h)))]
-    if (missing.length) {
-      const textByHash = new Map(chunks.map((c, i) => [hashes[i]!, c.text]))
-      const vectors = await this.embedder.embed(missing.map((h) => textByHash.get(h)!), signal ? { signal } : {})
-      if (vectors.length !== missing.length) throw new RagError('EMBEDDING_FAILED', 'embedder returned a wrong number of vectors')
-      missing.forEach((h, i) => this.cache.set(h, vectors[i]!))
-    }
+    const embedded = await this.ensureVectors(chunks.map((c, i) => ({ hash: hashes[i]!, text: c.text })), signal)
     const entries = chunks.map((c, i) => ({ ...c, hash: hashes[i]!, vector: this.cache.get(hashes[i]!)! }))
-    return { entries, embedded: missing.length }
+    return { entries, embedded }
   }
 
   private async persist(): Promise<void> {
-    if (this.options.persistPath) await this.index.save(this.options.persistPath)
+    if (this.options.persistPath) await this.saveTo(this.options.persistPath)
+  }
+
+  /** Save the index, failing with `RagError('PERSIST_FAILED')` (the cause keeps the fs error). */
+  private async saveTo(path: string): Promise<void> {
+    try {
+      await this.index.save(path)
+    } catch (cause) {
+      throw new RagError('PERSIST_FAILED', `could not save the index to ${path}`, { cause })
+    }
   }
 
   /** Add (or replace, by id) documents. Resolves with the number of chunks indexed. */
@@ -261,6 +350,10 @@ export class Rag {
 
   /** Add a string as a document. */
   addText(text: string, options: AddTextOptions): Promise<number> {
+    if (typeof text !== 'string') return Promise.reject(new RagError('INVALID_OPTIONS', 'addText(text, { source }): text must be a string'))
+    if (!options || typeof options.source !== 'string' || !options.source) {
+      return Promise.reject(new RagError('INVALID_OPTIONS', 'addText(text, { source }): source (the citation label, e.g. a file name or URL) must be a non-empty string'))
+    }
     const doc: RagDocument = { id: options.id ?? options.source, source: options.source, text, format: options.format ?? 'text' }
     if (options.metadata) doc.metadata = { ...options.metadata }
     return this.addDocuments([doc])
@@ -282,13 +375,15 @@ export class Rag {
     await this.ready()
     const target = path ?? this.options.persistPath
     if (!target) throw new RagError('INVALID_OPTIONS', 'save() needs a path (or persistPath)')
-    await this.serial(() => this.index.save(target))
+    await this.serial(() => this.saveTo(target))
   }
 
   /** The `topK` chunks most similar to `query`, best first, with citation labels. */
   async retrieve(query: string, options: RetrieveOptions = {}): Promise<RetrievedChunk[]> {
     // Fail fast for a while after a failed ingest (don't re-embed the corpus per query).
     if (!this.init && this.failure && this.now() - this.failure.at < this.retryDelayMs) throw this.failure.error
+    if (options.topK !== undefined) assertTopK(options.topK)
+    if (options.minScore !== undefined) assertMinScore(options.minScore)
     await abortable(this.ready(), options.signal)
     if (typeof query !== 'string' || !query.trim() || this.index.size === 0) return []
     const [vector] = await this.embedder.embed([query], options.signal ? { signal: options.signal } : {})
@@ -301,6 +396,8 @@ export class Rag {
     })
     return hits.map(({ entry, score }) => {
       const { vector: _v, hash: _h, runtime: _r, ...chunk } = entry
+      // A copy: a caller mutating the hit (or its metadata) must not change the index.
+      if (chunk.metadata) chunk.metadata = { ...chunk.metadata }
       return { ...chunk, score, citation: citationOf(chunk) }
     })
   }
