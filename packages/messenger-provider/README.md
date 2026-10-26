@@ -16,7 +16,7 @@ pnpm add @botmesh/core @botmesh/messenger
 
 1. An app at [developers.facebook.com](https://developers.facebook.com) with the **Messenger** product and a connected Facebook Page.
 2. A **Page Access Token** with `pages_messaging` (generated in the app's Messenger section).
-3. Configure the Page **webhook** pointing at your server: subscribe the `messages` field with a `verify_token` you choose and, recommended, the app's `app_secret`.
+3. Configure the Page **webhook** pointing at your server: subscribe the `messages`, `messaging_postbacks` and (for inbound reactions) `message_reactions` fields with a `verify_token` you choose and the app's `app_secret`.
 
 ## Usage
 
@@ -64,6 +64,11 @@ app.listen(3000)
 | `graphUrl` | `https://graph.facebook.com` | Graph base URL. |
 | `pageId` | `me` | Page id (or `me`). |
 | `selfId` | — | The bot's PSID (for `fromMe`). |
+| `allowUnsignedWebhooks` | `false` | Isolated local development only: accept webhooks without `appSecret`. |
+| `mediaDownload` | — | `secureFetch` policy for inbound attachment downloads (`maxBytes`, `timeoutMs`, ...). |
+| `mediaRefHosts` | Meta CDN hosts | Hosts whose attachment URLs may be journaled for durable replays. |
+
+An empty `accessToken` or `verifyToken` (an unset env var) fails in the constructor.
 
 ## What it supports
 
@@ -75,7 +80,7 @@ app.listen(3000)
 | **Lists** (`generic` template, one element per row) | ✅ native |
 | Inbound quick replies / postbacks → interactions (`kind: 'button'`) | ✅ |
 | Inbound location (`type: 'location'`) and quoted replies (`quoted`) | ✅ |
-| Inbound reactions (`message.reaction` → `reaction` event) | ✅ |
+| Inbound reactions (`message_reactions` webhook → `reaction` event; `emoji` is the character, `removed` on `unreact`) | ✅ |
 | Typing (`typing_on`/`typing_off`) and read receipt (`mark_seen`) | ✅ |
 | Inbound media download (`MediaRef.token` is the attachment URL) | ✅ |
 | Polls, stickers, location, contact, templates, sending reactions | ❌ (`UnsupportedContentError` — no Send API endpoint) |
@@ -87,6 +92,9 @@ app.listen(3000)
 - **Quotes/replies (`quoted`) are ignored:** the Send API has no first-class reply context.
 - **Outbound reactions:** there is no public endpoint — `kind: 'reaction'` throws `UnsupportedContentError`. Inbound ones are normalized.
 - `acknowledgeInteraction` is a no-op: Messenger postbacks need no ack.
+- **Text length:** the Send API caps `text` at 2000 characters; `capabilities.maxTextLength` says so, which sizes the `ctx.stream()` chunks.
+- **Native payloads:** `ctx.sendNative('messenger', message)` posts a Send API `message` object as-is; native content addressed to another provider id is rejected with `UnsupportedContentError`.
+- **Malformed webhooks** never throw: fields of the wrong type are ignored, so `ingest()` always answers a status.
 - **Identity:** `chatId`/`senderId` are the PSID (`sender.id`) — stable per page↔user pair.
 
 ## Errors
