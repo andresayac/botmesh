@@ -4,6 +4,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### `@botmesh/postgres-store`: endurecimiento tras la prueba de release contra PostgreSQL real (2026-10)
+- Un `tablePrefix` de más de 42 caracteres lanza `RangeError` en `PostgresStore`, `PostgresScheduleStore` y `PostgresDurability`: PostgreSQL trunca los nombres a 63 bytes y con un prefijo largo `chats`/`checkpoints` y `contacts`/`conversations` acababan en la misma tabla sin ningún error (`CREATE TABLE IF NOT EXISTS` se saltaba la segunda).
+- Un `stop()` que llega mientras `start()` aún conecta espera a que termine y cierra el pool nuevo (antes el store quedaba arrancado con el pool abierto). Igual en `PostgresDurability`.
+- Con un `pool` inyectado, usar el store (o `PostgresDurability`) antes de `start()` o tras `stop()` falla con el error "not started — call start()" que documenta el README, en lugar de un error de tabla inexistente. `PostgresDurability.start()` no hace nada si ya está arrancado, y su `stop()` manda al `logger.error` un fallo al cerrar su propio pool en lugar de rechazar.
+- `getMessage` encuentra un mensaje cuyo id o chat tiene un surrogate UTF-16 suelto (se guarda como U+FFFD); antes lo daba por inexistente.
+- Changeset `postgres-store-hardening.md` (patch). Nuevos tests unitarios (`tests/hardening.test.ts`) y de integración real.
+
 ### Integración de los 26 paquetes promovidos en `main` (2026-10)
 - Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
 - Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).

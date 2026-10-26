@@ -53,6 +53,7 @@ import { PostgresUserData } from './userData.js'
 import { PostgresScheduleStore } from './schedules.js'
 import { jsonbSafeString, toJsonb } from './jsonb.js'
 import { createPgPool } from './driver.js'
+import { assertTablePrefix } from './prefix.js'
 
 /**
  * SQL predicate: the row's message is the one with `ref.id = <a>` and
@@ -101,7 +102,9 @@ export interface PostgresStoreOptions {
   /**
    * Identifier prefix applied to every table name (e.g. 'mybot_' →
    * 'mybot_messages'), so apps/bots can share one database/schema. Default: ''.
-   * Must be a plain SQL identifier prefix (letters, digits, underscores).
+   * Must be a plain SQL identifier prefix (letters, digits, underscores) of at most
+   * 42 characters: PostgreSQL truncates names to 63 bytes, and a longer prefix made
+   * table names collide. The constructor throws otherwise.
    */
   tablePrefix?: string
   /**
@@ -133,9 +136,6 @@ export interface PostgresStoreOptions {
    */
   logger?: Partial<LoggerLike>
 }
-
-/** tablePrefix is interpolated into SQL identifiers — allow only plain identifiers. */
-const TABLE_PREFIX_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
 
 /**
  * The BIGINT sort key for a message timestamp. `StoredMessage.timestamp` is any
@@ -171,6 +171,8 @@ export class PostgresStore implements IStore {
   private pool?: PostgresPoolLike
   /** The own pool being created (the driver loads lazily), shared by concurrent `start()` calls. */
   private opening?: Promise<PostgresPoolLike>
+  /** The `start()` in progress, which `stop()` waits for (else it could not end the pool being opened). */
+  private starting?: Promise<void>
   private started = false
   private readonly userData: PostgresUserData
 
@@ -184,11 +186,7 @@ export class PostgresStore implements IStore {
     this.connectionString = opts.connectionString ?? 'postgres://localhost:5432/botwa'
     this.maxMessagesPerChat = opts.maxMessagesPerChat
     const prefix = opts.tablePrefix ?? ''
-    if (prefix !== '' && !TABLE_PREFIX_RE.test(prefix)) {
-      throw new Error(
-        `PostgresStore: invalid tablePrefix ${JSON.stringify(prefix)} — use a plain SQL identifier prefix (letters, digits, underscores, e.g. 'mybot_')`,
-      )
-    }
+    assertTablePrefix('PostgresStore', prefix)
     this.prefix = prefix
     this.injectedPool = opts.pool as PostgresPoolLike | undefined
     this.pool = this.injectedPool
@@ -232,7 +230,8 @@ export class PostgresStore implements IStore {
   /** Single funnel for all DB access: parameterized statements only. */
   private async query<T = Record<string, unknown>>(text: string, values?: unknown[]): Promise<{ rows: T[] }> {
     const pool = this.pool
-    if (!pool) {
+    // An injected pool exists from the constructor, but the tables only after start().
+    if (!pool || !this.started) {
       throw new Error('PostgresStore is not started — call start() before using it')
     }
     return (await pool.query(text, values)) as { rows: T[] }
@@ -309,7 +308,9 @@ export class PostgresStore implements IStore {
     )
     const row = rows[0]
     const msg = row ? this.asJson<StoredMessage>(row.msg) : undefined
-    return msg?.ref?.id === ref.id && msg?.ref?.chatId === ref.chatId ? msg : undefined
+    // The stored copy holds U+FFFD where the id had a lone surrogate (JSONB sanitizing; the
+    // TEXT key gets the same through UTF-8), so compare against the sanitized ref.
+    return msg?.ref?.id === jsonbSafeString(ref.id) && msg?.ref?.chatId === jsonbSafeString(ref.chatId) ? msg : undefined
   }
 
   async getMessagesByChat(chatId: string, limit = 50): Promise<StoredMessage[]> {
@@ -566,6 +567,10 @@ export class PostgresStore implements IStore {
    */
   async start(): Promise<void> {
     if (this.started) return
+    return (this.starting ??= this.doStart().finally(() => { this.starting = undefined }))
+  }
+
+  private async doStart(): Promise<void> {
     if (!this.pool) this.pool = await (this.opening ??= this.createOwnPool().finally(() => { this.opening = undefined }))
     for (const stmt of this.schemaStatements()) await this.createSchemaObject(this.pool, stmt)
     this.started = true
@@ -599,9 +604,11 @@ export class PostgresStore implements IStore {
   /**
    * Ends the pool ONLY when the store created it; injected pools are
    * caller-managed and left open. After stop() an own-pool store can be
-   * started again (a fresh pool + idempotent schema pass).
+   * started again (a fresh pool + idempotent schema pass). A `start()` still in
+   * progress is awaited first, so the pool it is opening is ended too.
    */
   async stop(): Promise<void> {
+    await this.starting?.catch(() => undefined)
     this.started = false
     if (this.injectedPool) return
     const pool = this.pool

@@ -24,24 +24,25 @@ import type { DurableKv, LoggerLike } from '@botmesh/core'
 import { KvDurability, type DurableKvEntry, type DurableKvIndex, type DurableTable } from '@botmesh/core/spi'
 import type { NativePostgresPool, PostgresPoolLike } from './PostgresStore.js'
 import { createPgPool } from './driver.js'
+import { assertTablePrefix } from './prefix.js'
 
 export interface PostgresDurabilityOptions {
   /** An existing pool (shared with `PostgresStore`, or a fake in tests). The backend never ends it. */
   pool?: PostgresPoolLike | NativePostgresPool
   /** Used to create a pool when `pool` is not given. Default `postgres://localhost:5432/botwa`. */
   connectionString?: string
-  /** Table-name prefix (plain SQL identifier prefix). Default `''` → table `durable`. */
+  /** Table-name prefix (plain SQL identifier prefix, at most 42 characters). Default `''` → table `durable`. */
   tablePrefix?: string
   /**
    * Receives the connection errors of idle clients of a pool this backend creates
-   * (`connectionString`, no `pool`): the pool replaces the dead client on the next query.
+   * (`connectionString`, no `pool`), which the pool replaces on the next query, and a
+   * failure to end that pool on `stop()`.
    * An injected pool's 'error' events are the caller's to handle (node-postgres crashes
    * the process without a listener).
    */
   logger?: Partial<LoggerLike>
 }
 
-const TABLE_PREFIX_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
 const CATALOG_RACE_CODES = new Set(['23505', '42P07', '42710'])
 /** Largest BIGINT sort key we ever compare against (stands in for +∞). */
 const MAX_KEY = Number.MAX_SAFE_INTEGER
@@ -57,14 +58,15 @@ export class PostgresDurableKv implements DurableKv {
   private pool?: PostgresPoolLike
   /** The own pool being created (the driver loads lazily), shared by concurrent `start()` calls. */
   private opening?: Promise<PostgresPoolLike>
+  /** The `start()` in progress, which `stop()` waits for (else it could not end the pool being opened). */
+  private starting?: Promise<void>
+  private started = false
   private readonly owned: boolean
   readonly table: string
 
   constructor(private readonly opts: PostgresDurabilityOptions = {}) {
     const prefix = opts.tablePrefix ?? ''
-    if (prefix !== '' && !TABLE_PREFIX_RE.test(prefix)) {
-      throw new Error(`PostgresDurability: invalid tablePrefix ${JSON.stringify(prefix)} — use a plain SQL identifier prefix`)
-    }
+    assertTablePrefix('PostgresDurability', prefix)
     this.table = `${prefix}durable`
     this.pool = opts.pool as PostgresPoolLike | undefined
     this.owned = !opts.pool
@@ -80,7 +82,13 @@ export class PostgresDurableKv implements DurableKv {
     ]
   }
 
+  /** Creates the pool (unless one was injected) and the table. Concurrent calls share one run. */
   async start(): Promise<void> {
+    if (this.started) return
+    return (this.starting ??= this.doStart().finally(() => { this.starting = undefined }))
+  }
+
+  private async doStart(): Promise<void> {
     if (!this.pool) this.pool = await (this.opening ??= this.createOwnPool().finally(() => { this.opening = undefined }))
     for (const statement of this.schemaStatements()) {
       for (let attempt = 1; ; attempt++) {
@@ -94,6 +102,7 @@ export class PostgresDurableKv implements DurableKv {
         }
       }
     }
+    this.started = true
   }
 
   private async createOwnPool(): Promise<PostgresPoolLike> {
@@ -107,16 +116,26 @@ export class PostgresDurableKv implements DurableKv {
     return pool
   }
 
+  /**
+   * Ends the pool only when this backend created it (a `start()` still in progress is
+   * awaited first). A failure to end it goes to `logger.error`. It can be started again.
+   */
   async stop(): Promise<void> {
-    if (this.owned && this.pool) {
-      const pool = this.pool
-      this.pool = undefined
+    await this.starting?.catch(() => undefined)
+    this.started = false
+    if (!this.owned || !this.pool) return
+    const pool = this.pool
+    this.pool = undefined
+    try {
       await pool.end()
+    } catch (err) {
+      this.opts.logger?.error?.({ err }, 'PostgresDurability failed to end pool')
     }
   }
 
   private q(text: string, values: unknown[]): Promise<{ rows: unknown[]; rowCount?: number | null }> {
-    if (!this.pool) throw new Error('PostgresDurability is not started — the bot starts it (or call start())')
+    // An injected pool exists from the constructor, but the table only after start().
+    if (!this.pool || !this.started) throw new Error('PostgresDurability is not started — the bot starts it (or call start())')
     return this.pool.query(text, values)
   }
 
