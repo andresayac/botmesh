@@ -1,10 +1,20 @@
 # @botmesh/twilio
 
-> **Experimental — not yet published on npm.** Real, tested implementation, but the package is `private`: its API may change. Use it from this monorepo (`workspace:*`).
+**Twilio Programmable Messaging** transport for [`@botmesh/core`](https://github.com/andresayac/botmesh/tree/main/packages/core): **WhatsApp and SMS/MMS** with the same class. Inbound webhook verified with **`X-Twilio-Signature`** (HMAC-SHA1 over the exact URL + the sorted POST parameters) and sending through the REST API (`POST /2010-04-01/Accounts/{sid}/Messages.json`). It opens no socket.
 
-**Twilio Programmable Messaging** transport for [`@botmesh/core`](../core): **WhatsApp and SMS/MMS** with the same class. Inbound webhook verified with **`X-Twilio-Signature`** (HMAC-SHA1 over the exact URL + the sorted POST parameters) and sending through the REST API (`POST /2010-04-01/Accounts/{sid}/Messages.json`). It opens no socket.
+No Twilio SDK: every request goes through [`@botmesh/http`](https://www.npmjs.com/package/@botmesh/http)'s `secureFetch` (timeouts, size limits, anti-SSRF).
 
-No Twilio SDK: every request goes through [`@botmesh/http`](../http)'s `secureFetch` (timeouts, size limits, anti-SSRF).
+## Install
+
+```bash
+pnpm add @botmesh/core @botmesh/twilio
+```
+
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build (or to none). Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/twilio@beta` during the beta (`npm view @botmesh/twilio dist-tags` lists the tags). Once stable, the plain command above works.
+
+You need a Twilio account SID and auth token, and a WhatsApp sender (the
+Twilio Sandbox for WhatsApp works for development) and/or an SMS number.
+Point the incoming-message webhook of that sender at your server.
 
 ## Usage
 
@@ -71,3 +81,51 @@ WhatsApp users identified by a business-scoped user ID (BSUID, e.g. `From=whatsa
 ## Errors
 
 `429`/`20429`/`63018` → `RateLimitedError` · `21211`/`21610`/`21614`… → `RecipientUnreachableError` · `63016` → `OutsideSessionWindowError` · `21617`/`11751` → `PayloadTooLargeError` · the rest → `TwilioApiError` (`status`, `code`, `moreInfo`).
+
+## Options
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `accountSid` | required | Account SID (`AC…`). |
+| `authToken` | required | Signs every webhook and, without an API key, authenticates REST calls. |
+| `apiKeySid` / `apiKeySecret` | — | API key (`SK…`) for REST calls; webhooks still verify with `authToken`. |
+| `whatsappFrom` | — | Default WhatsApp sender (`whatsapp:+…`). |
+| `smsFrom` | — | Default SMS/MMS sender (E.164 or alphanumeric id). |
+| `messagingServiceSid` | — | Messaging Service (`MG…`), used when no number fits the chat. |
+| `webhookUrl` | — | The **exact** public URL configured in Twilio (query string included). |
+| `webhookPath` | — | Alternative to `webhookUrl`: rebuild the URL from `X-Forwarded-*`/`Host` (only behind your own proxy). |
+| `statusCallback` | — | Status callback URL sent with every message (delivery receipts). |
+| `allowUnsignedWebhooks` | `false` | Skip signature checks. Isolated local development only. |
+| `apiBaseUrl` / `messagingBaseUrl` | `https://api.twilio.com` / `https://messaging.twilio.com` | Endpoints (a proxy or a local simulator). |
+| `http` | `@botmesh/http` defaults | `secureFetch` options for every request (`timeoutMs`, `maxBytes`, ...). |
+| `selfId` | — | The bot's own id (a sender number). |
+| `logger` | pino, `error` level | Any `LoggerLike`. `debug: true` is deprecated: pass a logger. |
+
+## Entries
+
+- `@botmesh/twilio`: `TwilioProvider`, `TwilioApiError`, `toTwilioError`,
+  `computeTwilioSignature`/`verifyTwilioSignature` (to check a signature in your
+  own route or test), `TWILIO_MAX_BODY` and the config types. Covered by semver.
+- `@botmesh/twilio/internal`: the webhook parser and the outbound mapper, for tests
+  and custom tooling. **No semver**: they may change in any release.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| Every webhook is rejected | The signature URL does not match what Twilio called: set `webhookUrl` to the exact URL in the console (scheme, host, port, path and query), or use `ingestRequest({ url })`. Pass the **raw** body (`express.raw`), never a re-serialized object. |
+| Sends reject with `OutsideSessionWindowError` (63016) | WhatsApp's 24-hour window closed: send an approved template (`kind: 'template'` with a `ContentSid`). |
+| A media send rejects with `UnsupportedContentError` | Twilio only takes media by **public URL**; upload the file somewhere public first. |
+| The same person shows up as two chats | WhatsApp (`whatsapp:+…`) and SMS (`+…`) are separate chats by design. |
+| Buttons arrive as a numbered list | Twilio's interactive messages need Content Templates; plain sends degrade to numbered text. |
+| Sends reject with `RateLimitedError` | Twilio answered 429 / 20429 / 63018: back off for `retryAfterMs`. |
+
+## Notes
+
+- Timestamps are epoch **milliseconds**.
+- ESM only, Node.js 22 or later.
+
+## Links
+
+- [Channels guide](https://andresayac.github.io/botmesh/guide/channels#botmesh-twilio) · [Session window](https://andresayac.github.io/botmesh/guide/session-window) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/twilio-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/twilio-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

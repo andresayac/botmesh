@@ -46,6 +46,10 @@ export interface TwilioProviderConfig {
   http?: ProviderHttpOptions
   /** The bot's own id (a sender number). Optional. */
   selfId?: string
+  /**
+   * @deprecated Pass a `logger` (any `LoggerLike`, e.g. `pino({ level: 'debug' })`)
+   * instead. Removal planned for v3.
+   */
   debug?: boolean
   logger?: LoggerLike
 }

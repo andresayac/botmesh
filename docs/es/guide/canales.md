@@ -17,7 +17,7 @@ cada uno y qué puede y qué no puede hacer. Instala el core y el canal que
 necesites:
 
 ```bash
-pnpm add @botmesh/core @botmesh/baileys   # o @botmesh/meta, @botmesh/telegram
+pnpm add @botmesh/core @botmesh/baileys   # o @botmesh/meta, @botmesh/telegram, @botmesh/discord, @botmesh/twilio...
 ```
 
 Mientras botmesh esté en prerelease, añade a cada paquete el dist-tag de la
@@ -40,20 +40,20 @@ teléfono ni una URL pública.
 | `@botmesh/telegram` | `telegram-provider` | En npm | Telegram Bot API |
 | `@botmesh/messenger` | `messenger-provider` | En npm (desde la beta) | Facebook Messenger (Send API) |
 | `@botmesh/instagram` | `instagram-provider` | En npm (desde la beta) | DMs de Instagram (Messenger API for Instagram) |
-| `@botmesh/discord` | `discord-provider` | Aún no en npm | Discord (gateway + REST) |
+| `@botmesh/discord` | `discord-provider` | En npm (desde la beta) | Discord (gateway + REST) |
 | `@botmesh/evolution` | `evolution-provider` | En npm (desde la beta) | Evolution API v2 (gateway de WhatsApp self-hosted) |
 | `@botmesh/wppconnect` | `wppconnect-provider` | En npm (desde la beta) | WPPConnect Server (gateway de WhatsApp self-hosted) |
-| `@botmesh/twilio` | `twilio-provider` | Aún no en npm | Twilio Programmable Messaging (WhatsApp + SMS/MMS) |
-| `@botmesh/gohighlevel` | `gohighlevel-provider` | Aún no en npm | HighLevel (LeadConnector) Conversations API |
-| `@botmesh/gupshup` | `gupshup-provider` | Aún no en npm | Gupshup WhatsApp API |
-| `@botmesh/email` | `email-provider` | Aún no en npm | Email (IMAP IDLE + SMTP) |
+| `@botmesh/twilio` | `twilio-provider` | En npm (desde la beta) | Twilio Programmable Messaging (WhatsApp + SMS/MMS) |
+| `@botmesh/gohighlevel` | `gohighlevel-provider` | En npm (desde la beta) | HighLevel (LeadConnector) Conversations API |
+| `@botmesh/gupshup` | `gupshup-provider` | En npm (desde la beta) | Gupshup WhatsApp API |
+| `@botmesh/email` | `email-provider` | En npm (desde la beta) | Email (IMAP IDLE + SMTP) |
 | `@botmesh/tiktok` | `tiktok-provider` | Aún no en npm | TikTok API for Business (comentarios + Business Messaging) |
 
-Los canales **En npm** se instalan con `pnpm add` y siguen semver (los
-marcados "desde la beta" se publican por primera vez con la beta). Los
-demás llevan `"private": true` en su `package.json`: están implementados y con
-tests, pero **no se publican en npm** y su API todavía puede cambiar. Úsalos
-desde un clon del monorepo (`"workspace:*"`). Lo mismo vale para
+Los canales **En npm** se instalan con `pnpm add` y siguen semver (durante
+la beta, añade el dist-tag `@beta`; los marcados "desde la beta" se publican por
+primera vez con ella). `@botmesh/tiktok` lleva `"private": true` en su
+`package.json`: está implementado y con tests, pero **no se publica en npm** y
+su API todavía puede cambiar. Úsalo desde un clon del monorepo (`"workspace:*"`). Lo mismo vale para
 [`@botmesh/server`](/es/guide/servidor) y el [sandbox](/es/guide/sandbox).
 
 ## Elegir un canal
@@ -553,7 +553,7 @@ pnpm add @botmesh/core @botmesh/instagram
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/instagram-provider)
 
-### `@botmesh/discord` (aún no en npm)
+### `@botmesh/discord`
 
 Gateway de Discord (WebSocket) para los eventos y REST para enviar.
 
@@ -674,7 +674,7 @@ const provider = new WPPConnectProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/wppconnect-provider)
 
-### `@botmesh/twilio` (aún no en npm)
+### `@botmesh/twilio`
 
 Twilio Programmable Messaging: **WhatsApp y SMS/MMS** con una sola clase.
 Webhooks verificados con `X-Twilio-Signature`, que cubre la URL pública
@@ -707,7 +707,7 @@ const provider = new TwilioProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/twilio-provider)
 
-### `@botmesh/gohighlevel` (aún no en npm)
+### `@botmesh/gohighlevel`
 
 HighLevel (GoHighLevel / LeadConnector) Conversations API. Entrada por el
 webhook `InboundMessage` (Ed25519, `X-GHL-Signature`), salida con
@@ -732,7 +732,7 @@ const provider = new GoHighLevelProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/gohighlevel-provider)
 
-### `@botmesh/gupshup` (aún no en npm)
+### `@botmesh/gupshup`
 
 Gupshup WhatsApp API: endpoints de envío v1 y callbacks v2. Gupshup no firma
 los callbacks, así que se autentican con un token compartido en la URL del
@@ -753,7 +753,7 @@ const provider = new GupshupProvider({
 - Los botones salen como quick replies (hasta 3), después como lista (hasta
   10) y después como texto numerado; las listas son nativas hasta 10 filas. El
   botón de la lista de los botones degradados usa `listButtonText` (por defecto
-  `'Opciones'`, máximo 20 caracteres).
+  `'Options'`, máximo 20 caracteres; `'Opciones'` para un bot en español).
 - `chatId` = los dígitos del teléfono del remitente (sin `+`), justo lo que
   espera la API de envío.
 - Media solo desde URLs públicas. Gupshup también documenta restringir por
@@ -761,7 +761,7 @@ const provider = new GupshupProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/gupshup-provider)
 
-### `@botmesh/email` (aún no en npm)
+### `@botmesh/email`
 
 Email: **IMAP IDLE** para recibir y **SMTP** para responder. Cada hilo de
 correo es un chat, así que los flujos con `ask()` continúan cuando el cliente

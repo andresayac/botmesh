@@ -2,7 +2,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import pino from 'pino'
 import { Bot } from '@botmesh/core'
 import type { InboundEvent, InboundMessage } from '@botmesh/core'
-import { DiscordProvider, isEditedMessage, parseDispatch } from '../src/index.js'
+import { DiscordProvider, isEditedMessage } from '../src/index.js'
+import { parseDispatch } from '../src/internal.js'
 import { fakeSocketFactory, wait } from './_fakeSocket.js'
 
 const original = {

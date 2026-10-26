@@ -235,7 +235,9 @@ every transport.
 | Facebook Messenger | `@botmesh/messenger` | Published (from the beta) | Send API, webhook, postback buttons and generic templates |
 | Instagram DMs | `@botmesh/instagram` | Published (from the beta) | Messenger API for Instagram, webhook, quick replies |
 | WhatsApp via Evolution API / WPPConnect | `@botmesh/evolution`, `@botmesh/wppconnect` | Published (from the beta) | Your self-hosted WhatsApp Web gateway, REST + authenticated webhook |
-| Discord, email, Twilio and more | `@botmesh/discord`, … | Experimental | Not on npm yet; see [Channels](./channels) |
+| Discord | `@botmesh/discord` | Published (from the beta) | Gateway websocket + REST, buttons, select menus and slash commands |
+| WhatsApp + SMS (Twilio), Gupshup, HighLevel, email | `@botmesh/twilio`, `@botmesh/gupshup`, `@botmesh/gohighlevel`, `@botmesh/email` | Published (from the beta) | See [Channels](./channels) |
+| TikTok | `@botmesh/tiktok` | Experimental | Not on npm yet; see [Channels](./channels) |
 
 The official WhatsApp Cloud API, for example:
 

@@ -184,6 +184,10 @@ export interface EmailProviderConfig {
   /** Options for `secureFetch` when an outbound attachment is a URL. */
   http?: SecureFetchOptions
   logger?: LoggerLike
+  /**
+   * @deprecated Pass a `logger` (any `LoggerLike`, e.g. `pino({ level: 'debug' })`)
+   * instead. Removal planned for v3.
+   */
   debug?: boolean
 }
 

@@ -71,13 +71,13 @@ This is a pnpm monorepo with **45 packages**: 36 **Public**, 3 **Experimental** 
 | [`@botmesh/telegram`](packages/telegram-provider) | Public | Telegram Bot API (long-poll/webhook, inline keyboards, native polls). |
 | [`@botmesh/messenger`](packages/messenger-provider) | Public | Facebook Messenger (Meta Graph Send API, signed webhooks, postback buttons, generic templates). Published from the beta. |
 | [`@botmesh/instagram`](packages/instagram-provider) | Public | Instagram DMs (Messenger API for Instagram, signed webhooks, quick replies). Published from the beta. |
-| [`@botmesh/discord`](packages/discord-provider) | Experimental | Discord (gateway websocket + REST, slash/components). |
+| [`@botmesh/discord`](packages/discord-provider) | Public | Discord (gateway websocket + REST, slash/components). |
 | [`@botmesh/evolution`](packages/evolution-provider) | Public | WhatsApp through [Evolution API](https://github.com/EvolutionAPI/evolution-api) (self-hosted REST gateway, signed webhook). |
 | [`@botmesh/wppconnect`](packages/wppconnect-provider) | Public | WhatsApp through WPPConnect Server (REST + token webhook). |
-| [`@botmesh/twilio`](packages/twilio-provider) | Experimental | WhatsApp and SMS through Twilio Programmable Messaging (`X-Twilio-Signature` webhooks). |
-| [`@botmesh/gupshup`](packages/gupshup-provider) | Experimental | WhatsApp through Gupshup (API v1 + v2 callbacks). |
-| [`@botmesh/gohighlevel`](packages/gohighlevel-provider) | Experimental | GoHighLevel / LeadConnector (Conversations API + signed `InboundMessage` webhooks). |
-| [`@botmesh/email`](packages/email-provider) | Experimental | Email: inbound IMAP IDLE + outbound SMTP, threading, loop and bounce protection. |
+| [`@botmesh/twilio`](packages/twilio-provider) | Public | WhatsApp and SMS through Twilio Programmable Messaging (`X-Twilio-Signature` webhooks). |
+| [`@botmesh/gupshup`](packages/gupshup-provider) | Public | WhatsApp through Gupshup (API v1 + v2 callbacks). |
+| [`@botmesh/gohighlevel`](packages/gohighlevel-provider) | Public | GoHighLevel / LeadConnector (Conversations API + signed `InboundMessage` webhooks). |
+| [`@botmesh/email`](packages/email-provider) | Public | Email: inbound IMAP IDLE + outbound SMTP, threading, loop and bounce protection. |
 | [`@botmesh/tiktok`](packages/tiktok-provider) | Experimental | TikTok API for Business: DMs (Business Messaging) and replies to comments on your own videos. |
 | **Stores (persistence)** | | |
 | [`@botmesh/sqlite-store`](packages/sqlite-store) | Public | SQLite (`better-sqlite3`, WAL). |

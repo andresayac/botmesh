@@ -21,7 +21,7 @@ features:
     details: |
       Un motor, muchos providers: @botmesh/baileys (WhatsApp Web),
       @botmesh/meta (Cloud API oficial de WhatsApp), @botmesh/telegram,
-      @botmesh/messenger y @botmesh/instagram, más Discord y otros experimentales. Cambiar de
+      @botmesh/messenger, @botmesh/instagram, Discord, Twilio, email y más. Cambiar de
       canal es cambiar una línea.
     icon: 🔌
     link: /es/guide/canales

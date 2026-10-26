@@ -1,8 +1,14 @@
 # @botmesh/gohighlevel
 
-> **Experimental — not yet published on npm.** Real, tested implementation, but the package is `private`: its API may change. Use it from this monorepo (`workspace:*`).
+**HighLevel (GoHighLevel / LeadConnector) Conversations API** transport for [`@botmesh/core`](https://github.com/andresayac/botmesh/tree/main/packages/core). A bot that answers CRM contacts on the channel they used: **SMS, WhatsApp, Email, Facebook, Instagram, Live chat, GMB or a Custom provider**. Inbound through the `InboundMessage` webhook (signed with **Ed25519, `X-GHL-Signature`**), outbound through `POST /conversations/messages`. No SDK: every request goes through [`@botmesh/http`](https://www.npmjs.com/package/@botmesh/http)'s `secureFetch`.
 
-**HighLevel (GoHighLevel / LeadConnector) Conversations API** transport for [`@botmesh/core`](../core). A bot that answers CRM contacts on the channel they used: **SMS, WhatsApp, Email, Facebook, Instagram, Live chat, GMB or a Custom provider**. Inbound through the `InboundMessage` webhook (signed with **Ed25519, `X-GHL-Signature`**), outbound through `POST /conversations/messages`.
+## Install
+
+```bash
+pnpm add @botmesh/core @botmesh/gohighlevel
+```
+
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build (or to none). Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/gohighlevel@beta` during the beta (`npm view @botmesh/gohighlevel dist-tags` lists the tags). Once stable, the plain command above works.
 
 ## Requirements
 
@@ -59,3 +65,48 @@ Inbound: messages (with attachments as `ctx.media`), `CALL` calls → `call` eve
 ## Errors
 
 `429` → `RateLimitedError` · `404` or 400/422 for DND/opt-out/nonexistent contact → `RecipientUnreachableError` · `413` → `PayloadTooLargeError` · the rest → `GoHighLevelApiError` (`status`).
+
+## Options
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `accessToken` | required | Private Integration Token or location OAuth token (sent as Bearer). |
+| `locationId` | required | Sub-account id. Webhooks for another location are acknowledged and dropped. |
+| `defaultChannel` | `'SMS'` | Channel used to reply before the contact has written. |
+| `apiVersion` | `'2021-04-15'` | `Version` header of the Conversations API. |
+| `baseUrl` | `https://services.leadconnectorhq.com` | API base (a proxy or a local simulator). |
+| `publicKey` | HighLevel's key (`GHL_WEBHOOK_PUBLIC_KEY`) | Ed25519 key (PEM) that verifies `X-GHL-Signature`; override only if HighLevel rotates it. |
+| `legacyPublicKey` | — | RSA key for the retired `X-WH-Signature`; leave unset unless you still receive it. |
+| `allowUnsignedWebhooks` | `false` | Accept webhooks without a signature. Isolated local development only. |
+| `http` | `@botmesh/http` defaults | `secureFetch` options for every request. |
+| `selfId` | — | The bot's own id (a HighLevel user id). |
+| `logger` | pino, `error` level | Any `LoggerLike`. `debug: true` is deprecated: pass a logger. |
+
+## Entries
+
+- `@botmesh/gohighlevel`: `GoHighLevelProvider`, `GoHighLevelApiError`, `toGhlError`,
+  `verifyGhlSignature`, `GHL_WEBHOOK_PUBLIC_KEY`, the config types and the webhook
+  body type (`GhlWebhookBody`, the shape of `ctx.raw`). Covered by semver.
+- `@botmesh/gohighlevel/internal`: the webhook parser and the outbound mapper, for tests
+  and custom tooling. **No semver**: they may change in any release.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| Every webhook is answered `401` | The signature does not verify: pass the **raw** body (`express.raw`), never a parsed object. If HighLevel rotated its key, pass the new one as `publicKey`. |
+| Webhooks answered `200` but nothing reaches the bot | The event is for another `locationId`, is an `OutboundMessage` echo, or is not an `InboundMessage`. Check the app's webhook subscriptions. |
+| Sends reject with `ProviderError` 401/403 | The token lacks the `conversations` / `conversations/message` write scopes, or belongs to another location. |
+| Sends reject with `RecipientUnreachableError` | The contact is in DND, opted out or does not exist. |
+| The bot replies by SMS to a WhatsApp contact | The contact has not written yet in this process: set `defaultChannel`, or pass `platformData: { type: 'WhatsApp' }`. |
+| A media send rejects with `UnsupportedContentError` | HighLevel only takes attachments by **public URL**. |
+
+## Notes
+
+- Timestamps are epoch **milliseconds**.
+- ESM only, Node.js 22 or later.
+
+## Links
+
+- [Channels guide](https://andresayac.github.io/botmesh/guide/channels#botmesh-gohighlevel) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/gohighlevel-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/gohighlevel-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

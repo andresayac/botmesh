@@ -39,6 +39,10 @@ export interface GoHighLevelProviderConfig {
   http?: ProviderHttpOptions
   /** The bot's own id (a HighLevel user id). Optional. */
   selfId?: string
+  /**
+   * @deprecated Pass a `logger` (any `LoggerLike`, e.g. `pino({ level: 'debug' })`)
+   * instead. Removal planned for v3.
+   */
   debug?: boolean
   logger?: LoggerLike
 }

@@ -1,7 +1,6 @@
 {
   "name": "@botmesh/twilio",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "Twilio transport for @botmesh/core — WhatsApp + SMS over the Programmable Messaging REST API, X-Twilio-Signature webhooks.",
   "main": "lib/index.js",
@@ -10,6 +9,10 @@
     ".": {
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
+    },
+    "./internal": {
+      "types": "./lib/internal.d.ts",
+      "default": "./lib/internal.js"
     }
   },
   "engines": {
@@ -30,7 +33,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/twilio-provider"
   },
-  "homepage": "https://github.com/andresayac/botmesh/tree/main/packages/twilio-provider#readme",
+  "homepage": "https://andresayac.github.io/botmesh/guide/channels#botmesh-twilio",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },
@@ -44,8 +47,8 @@
     "typecheck": "tsc -p tsconfig.test.json"
   },
   "dependencies": {
-    "@botmesh/core": "workspace:*",
-    "@botmesh/http": "workspace:*",
+    "@botmesh/core": "workspace:^",
+    "@botmesh/http": "workspace:^",
     "pino": "^10.3.1"
   },
   "devDependencies": {

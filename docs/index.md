@@ -21,7 +21,7 @@ features:
     details: |
       One engine, many providers: @botmesh/baileys (WhatsApp Web),
       @botmesh/meta (official WhatsApp Cloud API), @botmesh/telegram,
-      @botmesh/messenger and @botmesh/instagram, plus experimental Discord and more.
+      @botmesh/messenger, @botmesh/instagram, Discord, Twilio, email and more.
       Switching channels changes one line.
     icon: 🔌
     link: /guide/channels
