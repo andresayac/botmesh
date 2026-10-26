@@ -56,6 +56,8 @@ Then ask your agent to "validate this flow document with botmesh" or "draw the g
 
 An invalid document is a **successful** call with `valid: false` and the `issues`; `isError` is reserved for a bad request (missing or mistyped arguments, a version that cannot be migrated, a path outside the docs directory).
 
+Arguments are checked against each tool's advertised `inputSchema` before it runs, so an unknown key, a missing required one or an out-of-range value fails with a message that names it (`invalid arguments for flow_validate: unknown argument "doc" (accepted: "document")`). Every tool is annotated `readOnlyHint: true`, `idempotentHint: true`, `openWorldHint: false`.
+
 ## Options
 
 | Option | Default | What it does |
@@ -79,7 +81,7 @@ await serveStream(process.stdin, { server, write: (line) => { process.stdout.wri
 | Export | What it is for |
 | --- | --- |
 | `createMcpServer(options?)` | A server: `tools` and `handle(message)` (returns the response, or `null` for a notification). Options: `docsDir`, `name`, `version`, `instructions`. |
-| `serveStream(input, { server, write, reportError? })` | Serves newline-delimited JSON-RPC from any async iterable. |
+| `serveStream(input, { server, write, reportError?, maxMessageLength? })` | Serves newline-delimited JSON-RPC (and batches) from any async iterable. A line longer than `maxMessageLength` (`DEFAULT_MAX_MESSAGE_LENGTH`, 16 Mi characters) answers `-32600` without being buffered. |
 | `runStdio(options?)` | What the `botmesh-mcp` bin runs: `process.stdin` / `process.stdout`, diagnostics on stderr. |
 | `MCP_PROTOCOL_VERSIONS`, `MCP_PROTOCOL_VERSION` | Supported revisions (`2025-06-18`, `2025-03-26`, `2024-11-05`) and the one answered to an unknown request. |
 | `MCP_SERVER_NAME`, `MCP_SERVER_VERSION`, `MCP_INSTRUCTIONS`, `EXAMPLE_FLOW_DOCUMENT` | Server identity, the `initialize` instructions and the example document. |

@@ -10,7 +10,7 @@
  * outranks a word that appears on every page (`durabilidad`). No ranking model, no fuzzy
  * guessing.
  */
-import { readdir, readFile, realpath } from 'node:fs/promises'
+import { readdir, readFile, realpath, stat } from 'node:fs/promises'
 import { join, relative, resolve, sep } from 'node:path'
 
 /** Directories never indexed: generated output and internal design notes. */
@@ -127,8 +127,27 @@ export async function markdownFiles(root: string): Promise<string[]> {
     }
   }
 
-  await walk(absolute)
+  try {
+    await walk(absolute)
+  } catch (error) {
+    if (isMissing(error) && !(await exists(absolute))) throw new Error(`docs directory not found: ${root}`)
+    throw error
+  }
   return out.sort()
+}
+
+const isMissing = (error: unknown): boolean => {
+  const code = (error as { code?: unknown } | null)?.code
+  return code === 'ENOENT' || code === 'ENOTDIR'
+}
+
+const exists = async (path: string): Promise<boolean> => {
+  try {
+    await stat(path)
+    return true
+  } catch {
+    return false
+  }
 }
 
 /** Read and split every markdown file of a docs tree. */
@@ -150,7 +169,10 @@ function snippetOf(body: string, terms: readonly string[]): string {
   let index = folded.findIndex((line) => terms.some((term) => line.includes(term)))
   if (index < 0) index = folded.findIndex((line) => line.trim() !== '')
   const line = (lines[index] ?? '').trim()
-  return line.length <= 220 ? line : `${line.slice(0, 217)}…`
+  if (line.length <= 220) return line
+  // Never cut between the two halves of a surrogate pair (an emoji would become invalid UTF-16).
+  const cut = /[\uD800-\uDBFF]/.test(line[216] ?? '') ? 216 : 217
+  return `${line.slice(0, cut)}…`
 }
 
 /**
@@ -232,9 +254,14 @@ export async function readDocPage(root: string, requested: string): Promise<{ pa
     throw new Error(`path escapes the docs directory: ${requested}`)
   }
   if (!target.endsWith('.md')) throw new Error(`only .md files can be read: ${requested}`)
-  // Links (symlinks, junctions) are followed by the OS: compare the real paths too.
-  const realRoot = await realpath(absoluteRoot)
-  const realTarget = await realpath(target).catch(() => target)
+  // Links (symlinks, junctions) are followed by the OS: compare the real paths too. Errors
+  // name the requested (relative) path, never the absolute one.
+  const realRoot = await realpath(absoluteRoot).catch((error: unknown) => {
+    throw isMissing(error) ? new Error(`docs directory not found: ${root}`) : error
+  })
+  const realTarget = await realpath(target).catch((error: unknown) => {
+    throw isMissing(error) ? new Error(`page not found: ${requested}`) : error
+  })
   if (realTarget !== realRoot && !realTarget.startsWith(`${realRoot}${sep}`)) {
     throw new Error(`path escapes the docs directory: ${requested}`)
   }

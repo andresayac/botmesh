@@ -74,32 +74,76 @@ export function errorResponse(id: JsonRpcId | null, code: number, message: strin
   return { jsonrpc: JSONRPC_VERSION, id, error }
 }
 
-/** One protocol message as a single line (no trailing newline). */
-export function encodeMessage(message: JsonRpcResult | JsonRpcFailure): string {
+/** One protocol message (or a batch of them) as a single line (no trailing newline). */
+export function encodeMessage(message: JsonRpcResult | JsonRpcFailure | ReadonlyArray<JsonRpcResult | JsonRpcFailure>): string {
   return JSON.stringify(message)
 }
 
-/** Reassembles newline-delimited messages from arbitrary chunks. */
-export class LineDecoder {
-  private buffer = ''
+/** A line dropped because it was longer than the decoder's `maxLineLength`. */
+export interface OversizedLine {
+  readonly oversized: true
+  /** Characters the line had (counted up to its end, never kept in memory). */
+  readonly length: number
+}
 
-  push(chunk: string): string[] {
-    this.buffer += chunk
-    const lines: string[] = []
+/**
+ * Reassembles newline-delimited messages from arbitrary chunks.
+ *
+ * With a `maxLineLength`, a line that grows past it is discarded while it streams in (memory
+ * stays bounded) and reported once, in order, as an {@link OversizedLine} when it ends.
+ * Only the new chunk is scanned for the newline, so a long line costs linear time.
+ */
+export class LineDecoder {
+  private parts: string[] = []
+  private length = 0
+  private discarding = false
+
+  constructor(readonly maxLineLength: number = Number.POSITIVE_INFINITY) {}
+
+  push(chunk: string): Array<string | OversizedLine> {
+    const out: Array<string | OversizedLine> = []
+    let start = 0
     for (;;) {
-      const index = this.buffer.indexOf('\n')
-      if (index < 0) break
-      const line = this.buffer.slice(0, index).replace(/\r$/, '')
-      this.buffer = this.buffer.slice(index + 1)
-      if (line.trim() !== '') lines.push(line)
+      const index = chunk.indexOf('\n', start)
+      if (index < 0) {
+        this.append(chunk.slice(start))
+        break
+      }
+      this.append(chunk.slice(start, index))
+      start = index + 1
+      this.emit(out)
     }
-    return lines
+    return out
   }
 
   /** Lines left when the stream ends mid-line (a client that did not end with `\n`). */
-  flush(): string[] {
-    const rest = this.buffer.replace(/\r$/, '')
-    this.buffer = ''
-    return rest.trim() === '' ? [] : [rest]
+  flush(): Array<string | OversizedLine> {
+    const out: Array<string | OversizedLine> = []
+    this.emit(out)
+    return out
+  }
+
+  private append(piece: string): void {
+    if (piece === '') return
+    this.length += piece.length
+    if (this.discarding) return
+    if (this.length > this.maxLineLength) {
+      this.discarding = true
+      this.parts = []
+      return
+    }
+    this.parts.push(piece)
+  }
+
+  private emit(out: Array<string | OversizedLine>): void {
+    if (this.discarding) {
+      out.push({ oversized: true, length: this.length })
+    } else {
+      const line = this.parts.join('').replace(/\r$/, '')
+      if (line.trim() !== '') out.push(line)
+    }
+    this.parts = []
+    this.length = 0
+    this.discarding = false
   }
 }
