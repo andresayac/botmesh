@@ -34,7 +34,8 @@ if (validateFlowDocument(document).length === 0) bot.registerFlow(compileFlowDoc
 A stored document cannot execute code, read local files or escape its scope: expressions read own properties only, templates resolve paths only, URLs must be http(s), `http` requests go through `@botmesh/http` (anti-SSRF, redirects, timeout and size) and the `ai` step can only restrict already-configured tools, never add new ones.
 
 - `http` URLs accept `{{ path }}` placeholders only in the path, query or fragment; values are percent-encoded and a bare `.`/`..` is refused, so user input can neither redirect the request (and its headers) to another host nor climb the path.
-- Form field `pattern`s are checked for catastrophic backtracking (nested repetition, alternation inside a repeated group, backreferences) and a text field with a `pattern` but no `maxLength` is capped at 500 characters.
+- Form field `pattern`s are checked for catastrophic backtracking (nested repetition, alternation inside a repeated group, backreferences, lookarounds) and the compiled field matches answers with a linear-time automaton instead of the backtracking `RegExp` engine; a text field with a `pattern` but no `maxLength` is capped at 500 characters.
+- A flow may reach at most `FLOW_DOCUMENT_LIMITS.maxInlinedSteps` (5000) steps once its `subflow` steps are inlined, so a diamond of shared subflows cannot blow up compile time or memory.
 - Nested `delay` steps end with the conversation (`bot.stop()`, `/reset`, abort) instead of keeping a timer alive.
 
 ## Integration

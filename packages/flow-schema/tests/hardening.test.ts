@@ -1,9 +1,10 @@
-/**
+﻿/**
  * Hardening regressions found by the pre-stable review: things a document author or an
  * end user could abuse (URL templates, regex patterns, digests) and resources that must
  * not outlive the bot.
  */
 import { describe, expect, it } from 'vitest'
+import { validateFormValues, type FormDefinition } from '@botmesh/core'
 import { createTestBot } from '@botmesh/core/testing'
 import { ExpressionError, FlowDocumentError, compileFlowDocument, evaluateExpression, exportFlowDocument, flowDigest, parseExpression, renderTemplate, sameFlow, validateFlowDocument, type FlowDocument } from '../src/index.js'
 
@@ -62,7 +63,7 @@ describe('http step URL templates', () => {
 describe('form field patterns (ReDoS)', () => {
   const form = (pattern: string): FlowDocument => doc([{
     kind: 'form',
-    form: { id: 'f', fields: [{ name: 'code', label: 'Código', type: 'text', pattern }] },
+    form: { id: 'f', fields: [{ name: 'code', label: 'CÃ³digo', type: 'text', pattern }] },
   }])
 
   it('rejects patterns with nested unbounded quantifiers or backreferences', () => {
@@ -84,6 +85,104 @@ describe('form field patterns (ReDoS)', () => {
     expect(step.form.fields[0]!.maxLength).toBe(500)
     const own = compileFlowDocument(doc([{ kind: 'form', form: { id: 'f', fields: [{ name: 'c', label: 'C', type: 'text', pattern: '[a-z]+', maxLength: 20 }] } }]))
     expect((own.steps[0] as unknown as { form: { fields: Array<{ maxLength?: number }> } }).form.fields[0]!.maxLength).toBe(20)
+  })
+
+  /** Run an answer through the core's own form validation, as a live conversation would. */
+  function check(pattern: string, answer: string): { ok: boolean; ms: number } {
+    const flow = compileFlowDocument(form(pattern))
+    const def = (flow.steps[0] as unknown as { form: FormDefinition }).form
+    const started = performance.now()
+    const result = validateFormValues(def, { code: answer })
+    return { ok: result.ok, ms: performance.now() - started }
+  }
+
+  it('keeps answers cheap for the patterns the static check cannot see through (adjacent quantifiers, repeated alternations, nested bounded repeats)', () => {
+    const attacks: Array<[string, string]> = [
+      ['.*.*.*.*.*.*.*.*.*x', 'a'.repeat(500)],
+      ['(?:a|a)'.repeat(40), `${'a'.repeat(40)}b`],
+      ['(?:(?:a|a){1,9}){1,9}', `${'a'.repeat(60)}b`],
+      [`${'\\d*'.repeat(8)}x`, '1'.repeat(500)],
+      ['[a-z]*[a-z]*[a-z]*[a-z]*[a-z]*@', 'a'.repeat(500)],
+    ]
+    for (const [pattern, answer] of attacks) {
+      if (validateFlowDocument(form(pattern)).length) continue // rejected up front: also fine
+      const { ok, ms } = check(pattern, answer)
+      expect(ok, pattern).toBe(false)
+      expect(ms, pattern).toBeLessThan(250)
+    }
+  })
+
+  it('matches answers exactly like the native regular expression would', () => {
+    const cases: Array<[string, string[]]> = [
+      ['[A-Z]{3}-\\d{4}', ['ABC-1234', 'abc-1234', 'ABC-123', 'ABCD-1234']],
+      ['\\d{6,10}', ['12345', '123456', '1234567890', '12345678901']],
+      ['(\\+57)?\\d{10}', ['3001234567', '+573001234567', '+57300123456', '57300123456']],
+      ['[^@\\s]+@[^@\\s]+\\.[a-z]{2,}', ['ana@example.com', 'ana@example.c', 'a b@x.co', '@x.co', 'ana@x.co.uk']],
+      ['(foo|bar)?baz', ['baz', 'foobaz', 'barbaz', 'foobarbaz']],
+      ['a|b', ['a', 'b', 'ab']],
+      ['^a$|^b$', ['a', 'b', 'ab']],
+      ['\\bword\\b', ['word', 'words']],
+      ['x{2,}y?', ['x', 'xx', 'xxxxy', 'xxyy']],
+      ['.+', ['anything', 'line\nbreak']],
+      ['[\\]a-]+', [']-a', 'b']],
+      ['\\x41\\u0042\\t!', ['AB\t!', 'AB !']],
+      ['a{', ['a{', 'a']],
+      ['(?<code>\\d{2})-(?:x|y)?[xy]*', ['12-xyx', '12-', '1-x']],
+      ['[]', ['a', 'b']],
+      ['[^]{3}', ['abc', 'a\nb', 'a']],
+    ]
+    for (const [pattern, answers] of cases) {
+      expect(validateFlowDocument(form(pattern)), pattern).toEqual([])
+      const native = new RegExp(`^(?:${pattern})$`)
+      for (const answer of answers) expect(check(pattern, answer).ok, `${pattern} vs ${JSON.stringify(answer)}`).toBe(native.test(answer))
+    }
+  })
+
+  it('rejects lookarounds and expansions too large to match in linear time', () => {
+    for (const pattern of ['(?=a)a', '(?!b)a', '(?<=a)b', '(?<!a)b', '(?:(?:a{1000}){1000}){1000}']) {
+      const issues = validateFlowDocument(form(pattern))
+      expect(issues.map((i) => i.path), pattern).toContain('/steps/0/form/fields/0/pattern')
+    }
+  })
+
+  it('keeps the original pattern text on the compiled field (introspection and export)', () => {
+    const flow = compileFlowDocument(form('[A-Z]{3}-\\d{4}'))
+    const field = (flow.steps[0] as unknown as { form: FormDefinition }).form.fields[0] as { pattern?: RegExp | string }
+    expect(typeof field.pattern === 'string' ? field.pattern : field.pattern?.source).toBe('[A-Z]{3}-\\d{4}')
+    expect(exportFlowDocument(flow)).toEqual(form('[A-Z]{3}-\\d{4}'))
+  })
+})
+
+describe('subflow expansion', () => {
+  /** N flows where each one calls the next `fanout` times: the inlined tree grows as fanout^N. */
+  function diamond(n: number, fanout: number, nested = false): Map<string, FlowDocument> {
+    const docs = new Map<string, FlowDocument>()
+    for (let i = 0; i < n; i++) {
+      const calls = Array.from({ length: fanout }, () => ({ kind: 'subflow' as const, flowId: `f${i + 1}` }))
+      const steps: FlowDocument['steps'] = i === n - 1
+        ? [{ kind: 'say', text: 'leaf' }]
+        : nested ? [{ kind: 'condition', if: 'true', then: calls }] : calls
+      docs.set(`f${i}`, { version: 1, id: `f${i}`, trigger: `t${i}`, steps })
+    }
+    return docs
+  }
+
+  it('refuses a document whose subflows expand past the limit, quickly and before inlining', () => {
+    for (const nested of [false, true]) {
+      const docs = diamond(16, 3, nested)
+      const started = performance.now()
+      let error: unknown
+      try { compileFlowDocument(docs.get('f0'), { resolveSubflow: (id) => docs.get(id) }) } catch (e) { error = e }
+      expect(performance.now() - started, `nested=${nested}`).toBeLessThan(1000)
+      expect(error, `nested=${nested}`).toBeInstanceOf(FlowDocumentError)
+      expect((error as FlowDocumentError).issues[0]!.message).toMatch(/expand/)
+    }
+  })
+
+  it('still compiles shared subflows that stay within the limit', () => {
+    const docs = diamond(4, 3)
+    const flow = compileFlowDocument(docs.get('f0'), { resolveSubflow: (id) => docs.get(id) })
+    expect(flow.steps).toHaveLength(3)
   })
 })
 
@@ -121,8 +220,8 @@ describe('fuzz', () => {
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rnd() * xs.length)]!
 
   it('parseExpression only ever throws ExpressionError and evaluation never throws', () => {
-    const atoms = ['a', 'b.c', '$body', '__proto__', 'constructor', '1', '1e400', '"x"', "'y'", 'true', 'null', 'len(', 'oneOf(', 'number(', ')', '(', ',', '&&', '||', '==', '!=', '<', '>=', '+', '-', '!', '.', String.fromCharCode(92), '"', '🤖', ' ']
-    const scope = { a: 'ñ', b: { c: [1, 2] }, $body: '1,5', n: 3 }
+    const atoms = ['a', 'b.c', '$body', '__proto__', 'constructor', '1', '1e400', '"x"', "'y'", 'true', 'null', 'len(', 'oneOf(', 'number(', ')', '(', ',', '&&', '||', '==', '!=', '<', '>=', '+', '-', '!', '.', String.fromCharCode(92), '"', 'ðŸ¤–', ' ']
+    const scope = { a: 'Ã±', b: { c: [1, 2] }, $body: '1,5', n: 3 }
     for (let i = 0; i < 5000; i++) {
       const src = Array.from({ length: 1 + Math.floor(rnd() * 12) }, () => pick(atoms)).join(rnd() < 0.5 ? ' ' : '')
       let ast
@@ -136,7 +235,7 @@ describe('fuzz', () => {
   })
 
   it('every valid random document compiles and exports back to itself', () => {
-    const text = () => pick(['hola', '{{ name }}', 'ñandú 🤖', 'x'.repeat(10)])
+    const text = () => pick(['hola', '{{ name }}', 'Ã±andÃº ðŸ¤–', 'x'.repeat(10)])
     const id = () => pick(['a', 'b', 'name', 'k1', 'x.y', 'z:1'])
     const step = (depth: number): unknown => {
       const kinds = depth > 2 ? ['say', 'ask', 'goto', 'end', 'delay'] : ['say', 'ask', 'choose', 'goto', 'end', 'delay', 'condition', 'media', 'guard', 'handoff', 'http']

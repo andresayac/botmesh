@@ -10,6 +10,7 @@
  */
 
 import { parseExpression, ExpressionError } from './expression.js'
+import { linearPatternIssue } from './pattern.js'
 
 /** Current (and only) flow document format version. */
 export const FLOW_DOCUMENT_VERSION = 1 as const
@@ -20,6 +21,8 @@ export const FLOW_DOCUMENT_SCHEMA_ID = 'https://botmesh.dev/schemas/flow-documen
 /** Structural limits of a flow document (also enforced by the validator). */
 export const FLOW_DOCUMENT_LIMITS = Object.freeze({
   maxSteps: 500,
+  /** Steps a flow may reach once its `subflow` steps are inlined (shared subflows count every time). */
+  maxInlinedSteps: 5000,
   maxDepth: 8,
   maxTextLength: 4096,
   maxOptions: 20,
@@ -314,7 +317,7 @@ export const FLOW_DOCUMENT_SCHEMA = Object.freeze({
         error: { type: 'string', maxLength: 500 },
         minLength: { type: 'integer', minimum: 0 },
         maxLength: { type: 'integer', minimum: 1 },
-        pattern: { type: 'string', minLength: 1, maxLength: 500, description: 'Regular expression the whole answer must match. Backreferences and repeated groups that repeat or alternate inside (ReDoS) are rejected; without maxLength the answer is capped at 500 characters.' },
+        pattern: { type: 'string', minLength: 1, maxLength: 500, description: 'Regular expression the whole answer must match. Backreferences, lookarounds and repeated groups that repeat or alternate inside (ReDoS) are rejected, and answers are matched in linear time; without maxLength the answer is capped at 500 characters.' },
         multiline: { type: 'boolean' },
         min: { oneOf: [{ type: 'number' }, { type: 'string', maxLength: 20 }] },
         max: { oneOf: [{ type: 'number' }, { type: 'string', maxLength: 20 }] },
@@ -605,7 +608,9 @@ function checkForm(step: Record<string, unknown>, path: string, add: Add): void 
       else {
         let compiles = true
         try { new RegExp(field.pattern) } catch { compiles = false; add(`${p}/pattern`, 'must be a valid regular expression') }
-        const unsafe = compiles ? unsafePatternReason(field.pattern) : undefined
+        // Defense in depth: the compiled field matches with a linear-time engine
+        // (pattern.ts), which also refuses syntax outside its regular subset.
+        const unsafe = compiles ? unsafePatternReason(field.pattern) ?? linearPatternIssue(field.pattern) : undefined
         if (unsafe) add(`${p}/pattern`, unsafe)
       }
     }

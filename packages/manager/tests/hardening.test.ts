@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Pre-stable hardening: subflows of config-backed bots, portable file names, and a seeded
  * fuzz of the `/v1` REST API (auth, tenancy, envelopes, no 500s, no crash).
  */
@@ -57,6 +57,31 @@ describe('config-backed bots with subflows', () => {
     expect(manager.has('b2')).toBe(false)
   })
 
+  it('a diamond of subflows (exponential when inlined) is refused fast at createBot() and at restore()', async () => {
+    // f0 calls f1 three times, f1 calls f2 three times...: 3^15 inlined steps from a few KB of JSON.
+    const flows: FlowDocument[] = Array.from({ length: 16 }, (_, i) => ({
+      version: 1,
+      id: `f${i}`,
+      trigger: `t${i}`,
+      steps: i === 15 ? [{ kind: 'say', text: 'leaf' }] : Array.from({ length: 3 }, () => ({ kind: 'subflow' as const, flowId: `f${i + 1}` })),
+    }))
+    const store = new MemoryBotConfigStore()
+    const factory = () => new Bot({ provider: new MockProvider() })
+    const manager = new BotManager({ configStore: store, factory })
+    let started = performance.now()
+    const error = await manager.createBot({ id: 'diamond', flows, autoStart: false }).catch((e: unknown) => e)
+    expect(performance.now() - started).toBeLessThan(2000)
+    expect((error as ManagerError).code).toBe('INVALID')
+    expect(JSON.stringify((error as ManagerError).details)).toMatch(/expand/)
+
+    // A record stored by an older version fails that one bot at restore, without blocking the process.
+    await store.put({ id: 'diamond', tenantId: 'default', flows, desiredState: 'stopped', version: 1, createdAt: 0, updatedAt: 0 })
+    started = performance.now()
+    const outcome = await new BotManager({ configStore: store, factory }).restore()
+    expect(performance.now() - started).toBeLessThan(2000)
+    expect(outcome.diamond).not.toBe('stopped')
+  })
+
   it('removeFlow() refuses to drop a flow another stored flow uses as a subflow (restore would break)', async () => {
     const store = new MemoryBotConfigStore()
     const factory = () => new Bot({ provider: new MockProvider() })
@@ -112,7 +137,7 @@ describe('FileBotConfigStore on case-insensitive file systems', () => {
   })
 })
 
-/* ── REST fuzz ──────────────────────────────────────────────────────────── */
+/* â”€â”€ REST fuzz â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 interface Res { status: number; headers: Record<string, string>; body: any; raw: string }
 
@@ -155,7 +180,7 @@ function prng(seed: number) {
   return { next, int, pick }
 }
 
-const WEIRD = ['', 'acme-bot', 'beta-bot', 'ACME-BOT', '..', '%2e%2e', '%2F', 'a%2Fb', '%', '%E0%A4%A', '%00', 'x'.repeat(300), 'ñandú', '🤖', '__proto__', 'constructor', 'main', 'bot-1', '-1', ' ', '%20']
+const WEIRD = ['', 'acme-bot', 'beta-bot', 'ACME-BOT', '..', '%2e%2e', '%2F', 'a%2Fb', '%', '%E0%A4%A', '%00', 'x'.repeat(300), 'Ã±andÃº', 'ðŸ¤–', '__proto__', 'constructor', 'main', 'bot-1', '-1', ' ', '%20']
 
 function randomJson(r: ReturnType<typeof prng>, depth = 0): unknown {
   const k = r.int(depth > 3 ? 5 : 8)
@@ -215,12 +240,12 @@ describe('REST API fuzz', () => {
         headers['content-type'] = r.pick(contentTypes)
       }
       if (r.next() < 0.1) headers['x-request-id'] = r.pick(['ok-id', 'bad id with spaces', 'x'.repeat(200), '<script>'])
-      if (r.next() < 0.1) headers['idempotency-key'] = r.pick(['k1', 'k2', '', 'é', 'x'.repeat(201)])
+      if (r.next() < 0.1) headers['idempotency-key'] = r.pick(['k1', 'k2', '', 'Ã©', 'x'.repeat(201)])
 
       const res = await call(api, method, url, headers, payload)
       const label = `#${i} ${who} ${method} ${url} ${payload?.slice(0, 80) ?? ''}`
       expect(res.status, label).toBeGreaterThanOrEqual(200)
-      expect(res.status, `${label} → ${res.raw.slice(0, 300)}`).toBeLessThan(500)
+      expect(res.status, `${label} â†’ ${res.raw.slice(0, 300)}`).toBeLessThan(500)
       expect(res.headers['x-request-id'], label).toMatch(/^[A-Za-z0-9._:-]{1,128}$/)
       if (res.status >= 400) {
         expect(res.body?.error?.code, label).toEqual(expect.any(String))
