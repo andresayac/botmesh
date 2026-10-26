@@ -107,11 +107,14 @@ The bot selects the mailbox and stays in IDLE: the server notifies every new ema
 Without IMAP, `ingest()` accepts the raw MIME (Buffer/string) from SES, Mailgun ("raw MIME"), a Postfix pipe, etc., and returns `{ status, accepted, reason? }` (`413` when it exceeds `maxInboundBytes`; also limit the body in your HTTP server):
 
 ```ts
-app.post('/inbound-email', async (req, res) => {
-  const result = await provider.ingest(req.rawBody)
+// RAW body (a Buffer), capped at the provider's maxInboundBytes (40 MiB by default).
+app.post('/inbound-email', express.raw({ type: '*/*', limit: '40mb' }), async (req, res) => {
+  const result = await provider.ingest(req.body)
   res.sendStatus(result.status)
 })
 ```
+
+With [`@botmesh/server`](../server), mount it as a route with a larger `maxBodyBytes` instead.
 
 ## Typed errors
 

@@ -380,11 +380,11 @@ export class TwilioProvider implements IProvider<TwilioWebhookParams> {
       const permanent = res.status >= 400 && res.status < 500 && res.status !== 429
       if (permanent) this.typingSuppressedUntil.set(chatId, now + TYPING_SUPPRESS_MS)
       this.logger.debug(
-        { chatId, status: res.status, code: err.code, message: err.message, suppressedMs: permanent ? TYPING_SUPPRESS_MS : 0 },
+        { status: res.status, code: err.code, suppressedMs: permanent ? TYPING_SUPPRESS_MS : 0 }, // no chat id or API text: both can carry the phone number
         'Twilio typing indicator rejected (ignored)',
       )
     } catch (error) {
-      this.logger.debug({ chatId, err: error instanceof Error ? error.message : String(error) }, 'Twilio typing indicator failed (ignored)')
+      this.logger.debug({ err: error instanceof Error ? error.message : String(error) }, 'Twilio typing indicator failed (ignored)')
     }
   }
 
