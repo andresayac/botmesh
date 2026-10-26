@@ -34,3 +34,28 @@ describe('a timeout while reading the body of an error response', () => {
     expect(err).toMatchObject({ code: 'TIMEOUT' })
   })
 })
+
+describe('timeoutMs bounds the whole request, not only the body', () => {
+  it('rejects with TIMEOUT when a custom fetch ignores the signal and never answers', async () => {
+    const started = Date.now()
+    const err = await secureFetch('https://cdn.example/x', { fetch: () => new Promise<Response>(() => {}), resolver: async () => ['93.184.216.34'], timeoutMs: 100 }).catch((e: unknown) => e)
+    expect(err).toMatchObject({ code: 'TIMEOUT' })
+    expect(Date.now() - started).toBeLessThan(1500)
+  })
+
+  it('rejects with TIMEOUT when DNS resolution never settles', async () => {
+    const started = Date.now()
+    const err = await secureFetch('https://cdn.example/x', { fetch: async () => new Response('ok'), resolver: () => new Promise<string[]>(() => {}), timeoutMs: 100 }).catch((e: unknown) => e)
+    expect(err).toMatchObject({ code: 'TIMEOUT' })
+    expect(Date.now() - started).toBeLessThan(1500)
+  })
+
+  it("rejects with the caller's abort reason while DNS or the fetch hangs", async () => {
+    const ctrl = new AbortController()
+    const reason = new Error('caller gave up')
+    const pending = secureFetch('https://cdn.example/x', { fetch: () => new Promise<Response>(() => {}), resolver: async () => ['93.184.216.34'], signal: ctrl.signal, timeoutMs: 10_000 }).catch((e: unknown) => e)
+    setTimeout(() => ctrl.abort(reason), 20)
+    expect(await pending).toBe(reason)
+  })
+})
+

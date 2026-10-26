@@ -47,7 +47,7 @@ export interface SecureFetchOptions extends RequestInit {
   allowHttp?: boolean
   /** Permit loopback/private/link-local destinations. Intended only for tests or controlled networks. */
   allowPrivateHosts?: boolean
-  /** Total time allowed for one request, including body consumption. Defaults to 15 seconds. */
+  /** Total time allowed for one request: DNS resolution, every redirect hop, the response headers and body consumption, even with a custom `fetch` or `resolver` that ignores the abort signal. Defaults to 15 seconds. */
   timeoutMs?: number
   /** Maximum accepted body size in bytes. Defaults to 16 MiB. */
   maxBytes?: number
@@ -106,7 +106,8 @@ export async function secureFetch(input: string | URL, options: SecureFetchOptio
 
   try {
     for (let redirects = 0; ; redirects += 1) {
-      const addresses = await assertSafeTarget(url, { allowHttp, allowPrivateHosts, resolver })
+      // DNS (the default lookup or a custom resolver) counts against the deadline too.
+      const addresses = await untilAborted(assertSafeTarget(url, { allowHttp, allowPrivateHosts, resolver }), controller.signal)
       // Pin the socket to the exact address we just validated so undici cannot
       // re-resolve the hostname to a different (private) IP between check and
       // connect — the DNS-rebinding SSRF hole. Skipped for a caller-supplied
@@ -116,7 +117,7 @@ export async function secureFetch(input: string | URL, options: SecureFetchOptio
       if (dispatcher) dispatchers.push(dispatcher)
       let response: Response
       try {
-        response = await fetchImpl(url.href, {
+        const pending = fetchImpl(url.href, {
           ...init,
           method,
           body,
@@ -125,6 +126,12 @@ export async function secureFetch(input: string | URL, options: SecureFetchOptio
           signal: controller.signal,
           ...(dispatcher ? { dispatcher } : {}),
         } as RequestInit)
+        // A caller-supplied fetch may ignore the signal: the deadline holds anyway,
+        // and a response that shows up after it is released, never read.
+        response = await untilAborted(pending, controller.signal).catch((error: unknown) => {
+          if (controller.signal.aborted) void pending.then((late) => late.body?.cancel().catch(() => {}), () => {})
+          throw error
+        })
       } catch (error) {
         if (controller.signal.aborted && controller.signal.reason instanceof SecureHttpError) throw controller.signal.reason
         throw error
@@ -135,7 +142,7 @@ export async function secureFetch(input: string | URL, options: SecureFetchOptio
         if (!location) return { url, response, body: await readBody(response, maxBytes, controller.signal) }
         // A followed redirect's body is never read: release it now, or its
         // connection stays busy (a server that never ends it would stall us).
-        await response.body?.cancel().catch(() => {})
+        await untilAborted(response.body?.cancel() ?? Promise.resolve(), controller.signal).catch(() => {})
         if (redirects >= maxRedirects) throw new SecureHttpError('too many redirects', 'TOO_MANY_REDIRECTS')
         const previousOrigin = url.origin
         url = parseUrl(location, url)
