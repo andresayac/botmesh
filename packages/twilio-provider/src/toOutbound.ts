@@ -66,12 +66,13 @@ export function toOutbound(content: OutboundContent): TwilioOutboundParams {
       if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
         throw new UnsupportedContentError('native', 'Twilio native payload must be an object of Messages API params')
       }
-      const out: TwilioOutboundParams = {}
+      const entries: Array<[string, string | string[]]> = []
       for (const [key, value] of Object.entries(payload as Record<string, unknown>)) {
         if (value === undefined || value === null) continue
-        out[key] = Array.isArray(value) ? value.map((v) => String(v)) : typeof value === 'object' ? JSON.stringify(value) : String(value)
+        entries.push([key, Array.isArray(value) ? value.map((v) => String(v)) : typeof value === 'object' ? JSON.stringify(value) : String(value)])
       }
-      return out
+      // fromEntries defines own properties: a `__proto__` key stays a param, never a prototype.
+      return Object.fromEntries(entries)
     }
     default:
       throw new UnsupportedContentError(content.kind, `Twilio cannot send '${content.kind}' content`)

@@ -45,13 +45,13 @@ app.post('/twilio/webhook', express.raw({ type: '*/*' }), (req, res) => {
 app.listen(3000)
 ```
 
-- **Signature URL:** `webhookUrl` is used. If the URL changes per request (multi-tenant), use `provider.ingestRequest({ url, body, headers })` with the full URL Twilio called. Alternative: `webhookPath` + the `X-Forwarded-Proto/Host` headers (only behind your own proxy). Variants with and without the default port are accepted, as the SDKs do.
+- **Signature URL:** `webhookUrl` is used. If the URL changes per request (multi-tenant), use `provider.ingestRequest({ url, body, headers })` with the full URL Twilio called. Alternative: `webhookPath` + the `X-Forwarded-Proto/Host` headers (only behind your own proxy); pass the request's path and query as the third argument, `provider.ingest(req.body, req.headers, req.originalUrl)` (`@botmesh/server` does it for you), and a query string Twilio called with (`?tenant=a`) is signed too when `webhookPath` has none. Variants with and without the default port are accepted, as the SDKs do.
 - **JSON webhooks** (`bodySHA256` in the query) are verified too.
 - `allowUnsignedWebhooks: true` disables verification (isolated local development only).
 
 ## Identity
 
-`chatId` = `senderId` = Twilio's `From` as-is: `whatsapp:+573001112233` on WhatsApp, `+573001112233` on SMS. The same person on WhatsApp and SMS is **two different chats** (different channels). The reply goes out from the number that received the message (accounts with several numbers), otherwise from `whatsappFrom`/`smsFrom`, and otherwise from `messagingServiceSid`.
+`chatId` = `senderId` = Twilio's `From` as-is: `whatsapp:+573001112233` on WhatsApp, `+573001112233` on SMS. The same person on WhatsApp and SMS is **two different chats** (different channels). The reply goes out from the number that received the message (accounts with several numbers), otherwise from `whatsappFrom`/`smsFrom`, and otherwise from `messagingServiceSid`. To pick the sender of one send, pass it in `platformData`: `bot.send(chatId, content, { platformData: { From: 'whatsapp:+14155238886' } })`.
 
 ## Content
 
@@ -114,6 +114,8 @@ WhatsApp users identified by a business-scoped user ID (BSUID, e.g. `From=whatsa
 | Symptom | Cause and fix |
 | --- | --- |
 | Every webhook is rejected | The signature URL does not match what Twilio called: set `webhookUrl` to the exact URL in the console (scheme, host, port, path and query), or use `ingestRequest({ url })`. Pass the **raw** body (`express.raw`), never a re-serialized object. |
+| The constructor throws `... contains whitespace` | `accountSid`, `authToken`, the API key or `webhookUrl` carries a stray space or newline (often from an env file); every webhook would fail its signature check and every send its authentication. |
+| Sends reject with `TwilioApiError` 20003 (HTTP 401) | `accountSid` and `authToken` (or `apiKeySid` + `apiKeySecret`) do not belong to the same account. |
 | Sends reject with `OutsideSessionWindowError` (63016) | WhatsApp's 24-hour window closed: send an approved template (`kind: 'template'` with a `ContentSid`). |
 | A media send rejects with `UnsupportedContentError` | Twilio only takes media by **public URL**; upload the file somewhere public first. |
 | The same person shows up as two chats | WhatsApp (`whatsapp:+…`) and SMS (`+…`) are separate chats by design. |

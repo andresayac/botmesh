@@ -58,6 +58,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 - `GatewayIntents` añade `GuildScheduledEvents`, `AutoModerationConfiguration`, `AutoModerationExecution`, `GuildMessagePolls` y `DirectMessagePolls`.
 - Antes de la primera publicación se quitan los alias alfa: `toProviderError` (usa `toDiscordError`), la opción `autoAckMs` (usa `autoAcknowledgeMs`) y la forma `"<id>:<token>"` de `acknowledgeInteraction()`.
 
+### Prueba de salida de `@botmesh/twilio` (2026-10)
+- `@botmesh/twilio`: los parámetros del webhook con nombre de miembro de `Object.prototype` (`constructor`, `toString`, `__proto__`…) se guardan como parámetros propios; antes se leía el miembro heredado o se cambiaba el prototipo del objeto, y una petición bien firmada daba 403. Lo mismo para el payload `native`.
+- `@botmesh/twilio`: con `webhookPath`, `ingest(body, headers, requestUrl)` usa la query de la petición (Twilio la firma) cuando `webhookPath` no lleva una; `@botmesh/server` ya pasa ese tercer argumento. Antes, una URL de consola con `?tenant=a` daba 403 en todas las peticiones.
+- `@botmesh/twilio`: el constructor rechaza espacios o saltos de línea en `accountSid`, `authToken`, `apiKeySid`, `apiKeySecret` y `webhookUrl` (cada webhook fallaría la firma y cada envío la autenticación) y un `smsFrom` con prefijo `whatsapp:`; un 401 de la API REST dice qué credenciales revisar.
+- `@botmesh/core/testing`: `ChaosProvider` y `RecordingProvider` vuelven a implementar `IProvider` con `exactOptionalPropertyTypes` y `skipLibCheck: false` (TS2420 en el `.d.ts` publicado); nuevo test que compila `src/` con esa opción.
+- README de `@botmesh/twilio`, guías de canales y servidor (EN/ES) y `llms.txt` actualizados.
+
 ### Integración de los 26 paquetes promovidos en `main` (2026-10)
 - Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
 - Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).

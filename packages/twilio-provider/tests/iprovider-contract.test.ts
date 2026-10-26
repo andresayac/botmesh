@@ -25,7 +25,10 @@ type DivergentMethods<C> = {
 describe('TwilioProvider — IProvider contract', () => {
   it('is assignable to IProvider with interface-exact method parameters', () => {
     expectTypeOf<TwilioProvider>().toExtend<IProvider>()
-    expectTypeOf<DivergentMethods<TwilioProvider>>().toEqualTypeOf<never>()
+    // `ingest` adds one optional trailing `requestUrl` (what @botmesh/server passes); the rest is exact.
+    expectTypeOf<DivergentMethods<Omit<TwilioProvider, 'ingest'>>>().toEqualTypeOf<never>()
+    expectTypeOf<Parameters<TwilioProvider['ingest']>>()
+      .toEqualTypeOf<[...Parameters<NonNullable<IProvider<Raw>['ingest']>>, requestUrl?: string]>()
   })
 
   it('drives a Bot: signed webhook → handler → REST reply to the same chat', async () => {

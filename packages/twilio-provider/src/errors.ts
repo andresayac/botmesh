@@ -41,7 +41,10 @@ export function toTwilioError(
   retryAfter?: number,
 ): ProviderError {
   const code = typeof body.code === 'number' ? body.code : undefined
-  const message = `Twilio ${code ?? `HTTP ${status}`}: ${body.message ?? 'request failed'}`
+  const hint = status === 401
+    ? ' (check `accountSid` and `authToken`, or `apiKeySid` + `apiKeySecret`: they must belong to the same account)'
+    : ''
+  const message = `Twilio ${code ?? `HTTP ${status}`}: ${body.message ?? 'request failed'}${hint}`
   if (status === 429 || (code !== undefined && RATE_LIMIT_CODES.has(code))) {
     return new RateLimitedError(retryAfter ?? 1000, message)
   }

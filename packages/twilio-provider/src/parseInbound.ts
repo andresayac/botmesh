@@ -23,7 +23,7 @@ import type { InboundEvent, InboundLocation, MediaRef, MessageType } from '@botm
 import type { TwilioWebhookParams } from './types.js'
 
 function one(params: TwilioWebhookParams, key: string): string | undefined {
-  const value = params[key]
+  const value = Object.hasOwn(params, key) ? params[key] : undefined
   const out = Array.isArray(value) ? value[0] : value
   return out === undefined || out === '' ? undefined : out
 }

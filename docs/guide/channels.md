@@ -724,7 +724,10 @@ const provider = new TwilioProvider({
   lists become numbered text; `template` maps to `ContentSid` +
   `ContentVariables`.
 - `ingestRequest({ url, body, headers })` for per-request URLs
-  (multi-tenant).
+  (multi-tenant). With `webhookPath` (URL rebuilt from the `Host` /
+  `X-Forwarded-*` headers), pass the request's path and query as the third
+  argument of `ingest()` (`@botmesh/server` does): a query string Twilio
+  called with is then part of the signed URL.
 - Error 63016 maps to `OutsideSessionWindowError`.
 - A message with several attachments (`NumMedia` > 1, up to 10) arrives as
   **one message per attachment**, in order: the first keeps the `MessageSid`
