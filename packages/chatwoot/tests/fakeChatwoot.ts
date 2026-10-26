@@ -19,6 +19,11 @@ export class FakeChatwoot {
   contacts: Array<{ id: number; name: string; identifier?: string; source_id: string; last_activity_at?: number; /** Inboxes the contact is linked to (default [2]). */ inboxes?: number[] }> = []
   /** Conversation ids Chatwoot is still deleting: messages answer 422, the conversation itself 404. */
   deleting = new Set<number>()
+  /**
+   * What GET /conversations/:id answers for a conversation in `deleting`. Real Chatwoot 4.7
+   * answers 404 or, while the contact is already nil, often 500.
+   */
+  deletingProbeStatus = 404
   conversations = new Map<number, FakeConversation>()
   /** Next responses forced to an HTTP status (by method+path regex). */
   failures: Array<{ match: RegExp; status: number; times: number }> = []
@@ -76,7 +81,10 @@ export class FakeChatwoot {
     }
     if (method === 'GET' && (m = /^\/conversations\/(\d+)$/.exec(p))) {
       const conv = this.conversations.get(Number(m[1]))
-      if (!conv || this.deleting.has(conv.id)) return json({ error: 'not found' }, 404)
+      if (!conv) return json({ error: 'not found' }, 404)
+      if (this.deleting.has(conv.id)) {
+        return this.deletingProbeStatus === 404 ? json({ error: 'not found' }, 404) : json({ error: 'Internal Server Error' }, this.deletingProbeStatus)
+      }
       return json({ id: conv.id, status: conv.status, inbox_id: 2 })
     }
     if (method === 'PATCH' && (m = /^\/conversations\/(\d+)\/messages\/(\d+)$/.exec(p))) {

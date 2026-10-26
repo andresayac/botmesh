@@ -170,6 +170,8 @@ const RESOLVED_REASON = 'chatwoot:resolved'
 const AGENT_REASON = 'chatwoot:agent'
 const MAX_OWN_IDS = 2000
 const MAX_SEEN_AGENT_IDS = 5000
+/** Body of the 422 Chatwoot 4.7 returns for a message to a conversation whose contact was deleted. */
+const NIL_CONTACT_422 = /undefined method .*for nil\b/i
 
 type Json = Record<string, unknown>
 const obj = (v: unknown): Json => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Json) : {})
@@ -306,11 +308,17 @@ export function chatwootPlugin(config: ChatwootPluginConfig): ChatwootPlugin {
     if (!(error instanceof ChatwootApiError)) return false
     if (error.status === 404) return true
     if (error.status !== 422) return false
+    // Chatwoot 4.7 answers 422 "undefined method 'blocked?' for nil" while it destroys a
+    // deleted contact's conversations; in that window the probe below answers 404 or,
+    // often, 500. A 5xx probe only counts as gone together with that nil-contact error,
+    // so a real validation error during an outage is not re-linked.
+    const nilContact = NIL_CONTACT_422.test(error.responseBody)
     try {
       await client.getConversation(conversationId)
       return false
     } catch (probe) {
-      return probe instanceof ChatwootApiError && probe.status === 404
+      if (!(probe instanceof ChatwootApiError)) return false
+      return probe.status === 404 || (nilContact && probe.status >= 500)
     }
   }
 

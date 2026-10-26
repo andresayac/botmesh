@@ -104,6 +104,48 @@ describe('chatwoot — a conversation being deleted', () => {
     await bot.stop()
   })
 
+  it('re-links when the probe after the nil-contact 422 answers 500 (real Chatwoot 4.7)', async () => {
+    // While the contact is already nil, GET /conversations/:id often fails with 500
+    // instead of 404: the first message after the delete was still lost.
+    const onError = vi.fn()
+    const fake = new FakeChatwoot()
+    fake.deletingProbeStatus = 500
+    const { plugin } = setup({ onError }, fake)
+    const { bot, chat } = await createTestBot()
+    bot.plug(plugin)
+    await chat.send('uno')
+    await plugin.flush()
+    const first = fake.onlyConversation()
+    fake.deleting.add(first.id)
+    fake.deleteContact(first.contactId)
+    fake.conversations.set(first.id, first)
+    await chat.send('dos')
+    await plugin.flush()
+    expect(onError).not.toHaveBeenCalled()
+    const fresh = await plugin.conversationOf(CHAT)
+    expect(fresh).not.toBe(first.id)
+    expect(fake.messagesOf(fresh!).map((m) => m.content)).toEqual(['dos'])
+    await bot.stop()
+  })
+
+  it('does not re-link on a generic 422 when the probe answers 500', async () => {
+    const onError = vi.fn()
+    const { fake, plugin } = setup({ onError })
+    const { bot, chat } = await createTestBot()
+    bot.plug(plugin)
+    await chat.send('uno')
+    await plugin.flush()
+    const conv = fake.onlyConversation().id
+    fake.failures.push({ match: /POST .*\/messages$/, status: 422, times: 1 })
+    fake.failures.push({ match: /GET .*\/conversations\/\d+$/, status: 500, times: 1 })
+    await chat.send('dos')
+    await plugin.flush()
+    expect(onError).toHaveBeenCalledTimes(1)
+    expect((onError.mock.calls[0][0] as ChatwootApiError).status).toBe(422)
+    expect(fake.onlyConversation().id).toBe(conv)
+    await bot.stop()
+  })
+
   it('does not re-link on a 422 for a conversation that still exists (a real validation error)', async () => {
     const onError = vi.fn()
     const { fake, plugin } = setup({ onError })
