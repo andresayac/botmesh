@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { toDiscordError, toProviderError } from '../src/index.js'
+import * as main from '../src/index.js'
+import { toDiscordError } from '../src/index.js'
 
 describe('error mapper naming', () => {
-  it('exports the channel-prefixed toDiscordError, with toProviderError as its deprecated alias', () => {
+  it('exports only the channel-prefixed toDiscordError (no toProviderError alias)', () => {
     expect(typeof toDiscordError).toBe('function')
-    expect(toProviderError).toBe(toDiscordError)
+    expect('toProviderError' in main).toBe(false)
   })
 })

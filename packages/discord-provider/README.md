@@ -77,12 +77,12 @@ Once an interaction is acknowledged, a later call with `text` sends it as a
 followup and a call without text is a no-op. The followup needs the
 application id: `appId`, or else the one Discord sends on READY and on each
 interaction; when none is known, the call rejects with `ProviderError`
-instead of dropping the text. The old `"<id>:<token>"` form is still accepted.
+instead of dropping the text. Only ids the provider received are known: the
+token is never passed in.
 
 As a backstop (for example an interaction that never reaches a bot handler),
 the provider itself defers any interaction still unanswered after
-`autoAcknowledgeMs` (default `2000`; `autoAckMs` is a deprecated alias;
-autocomplete is never deferred). `autoAcknowledgeMs: false` turns that off.
+`autoAcknowledgeMs` (default `2000`; autocomplete is never deferred). `autoAcknowledgeMs: false` turns that off.
 
 REST requests time out after `requestTimeoutMs` (default 60000) and file uploads
 after `uploadTimeoutMs` (default 300000). More than 25 buttons or 25 select
@@ -106,7 +106,7 @@ non-resumable INVALID_SESSION, and a definitive stop on fatal codes
 | **Buttons** (`components`: rows of 5, up to 25 buttons; URL buttons style 5) | ✅ native |
 | **Lists** → select menu (type 3); the interaction carries the chosen row id in `data` | ✅ native |
 | Card → embed (`title`/`description`/`image`) | ✅ |
-| **Polls** (24h poll) | ✅ |
+| **Polls** (24h poll; votes are not delivered as events) | ✅ send |
 | Reactions (PUT `.../reactions/{emoji}/@me`; one per message, `react('')` removes it: see below) | ✅ |
 | Typing, editing and deleting messages | ✅ |
 | Inbound edits (`MESSAGE_UPDATE` with `edited_timestamp`) → message with the original `ref.id`; `isEditedMessage(ctx)`, `editedMessages: 'ignore'` drops them | ✅ |
@@ -135,10 +135,23 @@ each message (in-memory LRU, `reactionMemory`, 1000 messages by default):
   `UnsupportedContentError` instead of guessing. With `reactionMemory: 0`
   there is no replacement either: each emoji adds up to the previous ones.
 
+## Mentions
+
+Discord pings whatever the content mentions unless the message says otherwise. A
+bot that echoes text (a user's message, an AI answer) could then ping
+`@everyone`, `@here` or a role. The provider adds `allowed_mentions` to every
+message that sets none, `{ parse: ['users'] }` by default: `<@user>` mentions
+still notify, `@everyone`, `@here` and role mentions do not.
+
+- `allowedMentions` changes that default (`{ parse: [] }` pings nobody,
+  `{ parse: ['users', 'roles', 'everyone'] }` is Discord's own behaviour).
+- `SendOptions.mentions` sends `{ users: [...] }` (only those users),
+  `platformData.allowed_mentions` replaces it for one send, and a `native`
+  payload is sent exactly as written.
+
 ## Typed errors
 
-REST failures (HTTP ≥ 400) map to `@botmesh/core` errors (`toDiscordError`;
-`toProviderError` is its deprecated alias):
+REST failures (HTTP ≥ 400) map to `@botmesh/core` errors (`toDiscordError`):
 `429` → `RateLimitedError` (with `retryAfterMs` from `retry_after`), `403` →
 `RecipientUnreachableError` (also codes 10003 *Unknown Channel*,
 10013 *Unknown User*, 50001 *Missing Access* and 50007 *Cannot send messages to
@@ -147,10 +160,18 @@ this user*), `413`/code 40003 → `PayloadTooLargeError`, the rest →
 rejected with `UnsupportedContentError` (Discord cannot remove a reaction
 without knowing which one).
 
+Ids reach REST URLs as single path segments: each one is percent-encoded and an
+empty, `.` or `..` id rejects with `ProviderError` (`Invalid Discord channel id`),
+so a crafted `chatId` or message id can never reach another route with the bot
+token.
+
 ## Identity
 
 `chatId` is the channel snowflake (`channel_id`) and `senderId` the user's
 (`author.id` / `member.user.id`) — stable, with no member-vs-user ambiguity.
+A message with no text and no file is a `sticker` (with the sticker image as
+media when it has one) or `unknown` (embeds only, or the Message Content intent
+is off), never an empty `text` that would answer an `ask()`.
 Bot messages (including the bot's own) and system messages (member joins,
 pins, boosts, thread notices: any `type` other than 0 *default* and 19
 *reply*) are ignored. Malformed gateway frames are dropped with a warning and
@@ -160,12 +181,13 @@ an error thrown by a dispatch handler is logged, never raised into the socket.
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `token` | required | Bot token (Developer Portal → Bot → Reset Token). An empty value throws in the constructor. |
+| `token` | required | Bot token (Developer Portal → Bot → Reset Token), without the `Bot ` prefix. An empty value or one starting with `Bot ` throws in the constructor; surrounding whitespace (a trailing newline from a secrets file) is trimmed. |
 | `intents` | `Guilds \| GuildMessages \| MessageContent` (`DEFAULT_INTENTS`) | Gateway intents bitmask; add `GatewayIntents.DirectMessages` for DMs. |
 | `appId` | learnt from READY / the interaction | Application id for interaction followups. |
 | `selfId` | learnt from READY | The bot's own user id (`fromMe`). |
 | `editedMessages` | `'deliver'` | `'ignore'` drops `MESSAGE_UPDATE` edits. |
-| `autoAcknowledgeMs` | `2000` | Defer an interaction nobody answered after this many ms (below 3000); `false` turns it off. `autoAckMs` is a deprecated alias. |
+| `autoAcknowledgeMs` | `2000` | Defer an interaction nobody answered after this many ms (below 3000); `false` turns it off. |
+| `allowedMentions` | `{ parse: ['users'] }` | `allowed_mentions` of every message that sets none (see [Mentions](#mentions)). |
 | `reactionMemory` | `1000` | Messages whose bot reaction is remembered (see [Bot reactions](#bot-reactions)); `0` disables replace/remove. |
 | `requestTimeoutMs` | `60000` | Client timeout per REST request. |
 | `uploadTimeoutMs` | `300000` | Client timeout of a request that uploads files. |
@@ -179,7 +201,9 @@ an error thrown by a dispatch handler is logged, never raised into the socket.
 ## Entries
 
 - `@botmesh/discord`: `DiscordProvider`, `isEditedMessage`, `toDiscordError`,
-  `GatewayIntents`, `DEFAULT_INTENTS`, `DISCORD_MEDIA_HOSTS` and the config types.
+  `GatewayIntents`, `DEFAULT_INTENTS`, `DISCORD_MEDIA_HOSTS` and the config types
+  (`DiscordProviderConfig`, `DiscordAllowedMentions`, `SocketLike`, `SocketFactory`,
+  `DiscordApiErrorBody`).
   Covered by semver.
 - `@botmesh/discord/internal`: the gateway socket, REST client, payload mappers,
   protocol constants and Discord payload types, for tests and custom tooling.

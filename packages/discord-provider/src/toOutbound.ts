@@ -33,7 +33,8 @@ function mediaPayload(content: OutboundContent & { caption?: string }, file: Dis
   }
   // A snowflake-typed string, as discord-api-spec's MessageAttachmentRequest declares ("0" = files[0]).
   const attachment: Record<string, unknown> = { id: '0', filename: file.name }
-  if (content.caption) attachment.description = content.caption
+  // `description` is the alt text: Discord caps it at 1024 characters (the caption itself goes in `content`).
+  if (content.caption) attachment.description = cut(content.caption, MAX_ALT_TEXT)
   return {
     payload: {
       ...(content.caption ? { content: content.caption } : {}),
@@ -43,6 +44,8 @@ function mediaPayload(content: OutboundContent & { caption?: string }, file: Dis
   }
 }
 
+/** Discord: an attachment `description` (alt text) holds at most 1024 characters. */
+const MAX_ALT_TEXT = 1024
 /** Discord: at most 5 buttons per action row and 5 action rows per message. */
 const BUTTONS_PER_ROW = 5
 const MAX_ROWS = 5

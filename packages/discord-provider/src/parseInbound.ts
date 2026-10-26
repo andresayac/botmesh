@@ -93,7 +93,7 @@ const REFERENCE_FORWARD = 1
 const isForward = (d: DiscordMessagePayload): boolean =>
   rec<{ type?: unknown }>(d.message_reference)?.type === REFERENCE_FORWARD
 
-function describeContent(d: DiscordMessagePayload): { type: MessageType; body: string; media?: MediaRef } {
+function describeContent(d: DiscordMessagePayload): { type: MessageType; body: string; media?: MediaRef | undefined } {
   const poll = rec<NonNullable<DiscordMessagePayload['poll']>>(d.poll)
   if (poll) return { type: 'poll', body: str(rec<{ text?: unknown }>(poll.question)?.text) ?? '' }
   if (isForward(d)) {
@@ -104,7 +104,34 @@ function describeContent(d: DiscordMessagePayload): { type: MessageType; body: s
     // answer an ask() or trigger WELCOME.
     return described.type === 'text' && described.body === '' ? { type: 'unknown', body: '' } : described
   }
-  return describeAttachment(d)
+  const described = describeAttachment(d)
+  if (described.type !== 'text' || described.body !== '') return described
+  // No text and no file: a sticker, or something unreadable (embeds only, or the
+  // Message Content intent is off). Never an empty text, which would answer an
+  // ask() or trigger WELCOME.
+  const sticker = rec<{ id?: unknown; name?: unknown; format_type?: unknown }>(arr(d.sticker_items)[0])
+  if (sticker) return { type: 'sticker', body: '', media: stickerMedia(sticker) }
+  return { type: 'unknown', body: '' }
+}
+
+/** Sticker image extensions by `format_type` (3 LOTTIE is JSON: no image to download). */
+const STICKER_EXT: Record<number, { ext: string; mime: string }> = {
+  1: { ext: 'png', mime: 'image/png' },
+  2: { ext: 'png', mime: 'image/png' },
+  4: { ext: 'gif', mime: 'image/gif' },
+}
+
+/** The CDN image of a sticker (`media.discordapp.net/stickers/{id}.{ext}`), when it has one. */
+function stickerMedia(s: { id?: unknown; name?: unknown; format_type?: unknown }): MediaRef | undefined {
+  const id = str(s.id)
+  const format = typeof s.format_type === 'number' ? STICKER_EXT[s.format_type] : undefined
+  if (!id || !/^\d{1,32}$/.test(id) || !format) return undefined
+  return {
+    kind: 'sticker',
+    mimetype: format.mime,
+    filename: `${str(s.name) ?? id}.${format.ext}`,
+    token: `https://media.discordapp.net/stickers/${id}.${format.ext}`,
+  }
 }
 
 function describeAttachment(
@@ -210,7 +237,8 @@ function parseInteractionCreate(d: DiscordInteractionPayload | undefined): Inbou
   // there is no chat to route to (never emit an empty chatId).
   const chatId = str(d.channel_id) ?? str(rec<{ id?: unknown }>(d.channel)?.id)
   if (!chatId) return undefined
-  const isGroup = str(d.guild_id) !== undefined
+  const guildId = str(d.guild_id)
+  const isGroup = guildId !== undefined
   const timestamp = snowflakeTimestamp(id)
   const data = rec<NonNullable<DiscordInteractionPayload['data']>>(d.data)
 
@@ -251,7 +279,7 @@ function parseInteractionCreate(d: DiscordInteractionPayload | undefined): Inbou
     // The interaction id (a snowflake); acknowledgeInteraction looks its token up.
     interactionId: id,
     ref: { id: str(rec<{ id?: unknown }>(d.message)?.id) ?? id, chatId, native: safe },
-    chat: { id: chatId, kind: isGroup ? 'group' : 'dm', isGroup, isBroadcast: false },
+    chat: { id: chatId, kind: isGroup ? 'group' : 'dm', isGroup, isBroadcast: false, ...(guildId ? { platformData: { guildId } } : {}) },
     senderInfo: {
       id: userId,
       username: str(user.username),

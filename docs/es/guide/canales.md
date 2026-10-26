@@ -607,7 +607,17 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
 - Cada llamada REST vence tras `requestTimeoutMs` (60 s por defecto); las
   subidas de archivos, tras `uploadTimeoutMs` (5 min).
 - Los mensajes de sistema (entradas al servidor, fijados, boosts...) y los de
-  bots no se enrutan.
+  bots no se enrutan. Un mensaje sin texto ni archivo llega como `sticker` (con
+  la imagen del sticker como media) o `unknown` (solo embeds, o el intent Message
+  Content desactivado), nunca como texto vacío.
+- Todo mensaje que envía el provider lleva `allowed_mentions` (por defecto
+  `{ parse: ['users'] }`, opción `allowedMentions`), así que un texto que el bot
+  repite no puede mencionar a `@everyone`, `@here` ni a un rol;
+  `SendOptions.mentions`, `platformData.allowed_mentions` y los payloads `native`
+  lo sustituyen.
+- Los ids van en las URLs REST codificados, y un id vacío, `.` o `..` rechaza
+  con `ProviderError`: un id manipulado nunca llega a otra ruta. Los votos de las
+  encuestas nativas no llegan como eventos.
 - Un mensaje reenviado trae el texto y la media reenviados (de su snapshot),
   no una respuesta citada; si no tiene nada legible llega como `unknown`. Una
   encuesta nativa llega como `type: 'poll'` con la pregunta como cuerpo.

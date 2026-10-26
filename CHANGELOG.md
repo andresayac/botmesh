@@ -4,6 +4,17 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### Revisión de publicación de `@botmesh/discord` (2026-10)
+- **Seguridad:** los ids (canal, mensaje, interacción, aplicación) y el token de la interacción entran en las URLs REST codificados como un único segmento; un id vacío, `.` o `..` rechaza con `ProviderError`. Antes un `chatId` o un id de mensaje manipulado (`../guilds/{id}`, `?`, `#`) llegaba a otra ruta con el token del bot (p. ej. `deleteMessage` terminaba en `DELETE /guilds/{id}`).
+- **Seguridad:** todo mensaje que envía el provider lleva `allowed_mentions` (por defecto `{ parse: ['users'] }`, nueva opción `allowedMentions` y tipo `DiscordAllowedMentions`): un texto repetido (mensaje de usuario, respuesta de IA) ya no notifica a `@everyone`, `@here` ni a roles. `SendOptions.mentions`, `platformData.allowed_mentions` y los payloads `native` lo sustituyen.
+- Un pie de foto de más de 1024 caracteres ya no hace fallar la subida: el texto alternativo (`description`) se recorta al límite de Discord.
+- Un mensaje sin texto ni archivo llega como `sticker` (con la imagen del sticker como media) o `unknown` (solo embeds, o sin el intent Message Content), nunca como texto vacío que contestaba un `ask()`. Las interacciones en servidores llevan `chat.platformData.guildId` como los mensajes.
+- Un segundo `start()` sin `stop()` cierra el gateway anterior en vez de dejarlo vivo; los frames de un socket ya sustituido se ignoran aunque el `SocketLike` no tenga `removeAllListeners`.
+- Configuración: un `undefined` explícito (variable de entorno sin definir) conserva los valores por defecto de `intents`, URLs, versión de API y backoff (antes rompía la URL y el IDENTIFY); `appId`, `selfId`, `logger` y esos campos admiten `undefined` con `exactOptionalPropertyTypes`. Un token con el prefijo `Bot `, un `reconnectDelayMs` negativo o no finito y unos `intents` no enteros fallan en el constructor con un mensaje claro; el token se recorta (salto de línea final de un archivo de secretos).
+- El código 40003 con un `retry_after` inválido da un `RateLimitedError` positivo y acotado a 24 h.
+- `GatewayIntents` añade `GuildScheduledEvents`, `AutoModerationConfiguration`, `AutoModerationExecution`, `GuildMessagePolls` y `DirectMessagePolls`.
+- Antes de la primera publicación se quitan los alias alfa: `toProviderError` (usa `toDiscordError`), la opción `autoAckMs` (usa `autoAcknowledgeMs`) y la forma `"<id>:<token>"` de `acknowledgeInteraction()`.
+
 ### Integración de los 26 paquetes promovidos en `main` (2026-10)
 - Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
 - Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).

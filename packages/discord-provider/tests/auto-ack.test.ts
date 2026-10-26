@@ -82,7 +82,7 @@ describe('Discord interaction auto-acknowledgement', () => {
       await wait(150)
       expect(callbacks(calls)).toHaveLength(1)
       const followup = calls.find((c) => c.url === 'https://discord.com/api/v10/webhooks/APP/tok-1234567890123456792')
-      expect(followup?.body).toEqual({ content: 'Listo' })
+      expect(followup?.body).toEqual({ content: 'Listo', allowed_mentions: { parse: ['users'] } })
     } finally { await bot.stop() }
   })
 
@@ -96,7 +96,7 @@ describe('Discord interaction auto-acknowledgement', () => {
       sockets[0].serverSend(click('1234567890123456795'))
       await wait(150)
       const followup = calls.find((c) => c.url === 'https://discord.com/api/v10/webhooks/987654321098765432/tok-1234567890123456795')
-      expect(followup?.body).toEqual({ content: 'Listo' })
+      expect(followup?.body).toEqual({ content: 'Listo', allowed_mentions: { parse: ['users'] } })
     } finally { await bot.stop() }
   })
 
