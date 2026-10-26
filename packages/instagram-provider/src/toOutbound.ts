@@ -179,9 +179,26 @@ export interface OutboundPart {
 const MAX_TEXT_BYTES = 1000
 
 /**
+ * A card is its text (with buttons as quick replies) and then its image. The text goes first and
+ * is the primary part: if it fails nothing else has gone out, so a retry never sends the image
+ * twice. A card with an image but no text sends the image alone as the primary part; a card with
+ * neither is rejected before any call.
+ */
+function cardParts(content: Extract<OutboundContent, { kind: 'card' }>): OutboundPart[] {
+  const image = content.imageUrl !== undefined && content.imageUrl !== '' ? attachment('image', mediaUrl(content.imageUrl, 'card')) : undefined
+  const hasText = [content.title, content.body].some((s) => typeof s === 'string' && s.trim() !== '')
+  if (!hasText && !content.buttons?.length) {
+    if (image) return [{ message: image, primary: true }]
+    throw new UnsupportedContentError('card', 'Instagram cannot send an empty card: give it a title, a body or an imageUrl.')
+  }
+  const main = { message: toOutbound(content), primary: true }
+  return image ? [main, { message: image, primary: false }] : [main]
+}
+
+/**
  * Every Send API message for `content`, in order. Instagram attachments carry no caption and
  * quick-reply messages no image, so a media caption follows its attachment as text (split at
- * 1000 bytes) and a card image precedes the card text.
+ * 1000 bytes) and a card image follows the card text (see `cardParts`).
  */
 export function toOutboundParts(content: OutboundContent): OutboundPart[] {
   const main = { message: toOutbound(content), primary: true }
@@ -189,8 +206,6 @@ export function toOutboundParts(content: OutboundContent): OutboundPart[] {
     const captions = splitMessage(content.caption, { maxBytes: MAX_TEXT_BYTES, format: 'plain' })
     return [main, ...captions.map((text) => ({ message: { text }, primary: false }))]
   }
-  if (content.kind === 'card' && content.imageUrl !== undefined && content.imageUrl !== '') {
-    return [{ message: attachment('image', mediaUrl(content.imageUrl, 'card')), primary: false }, main]
-  }
+  if (content.kind === 'card') return cardParts(content)
   return [main]
 }

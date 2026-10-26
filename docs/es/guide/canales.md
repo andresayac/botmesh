@@ -558,8 +558,9 @@ const provider = new InstagramProvider({
   largo se divide en varios mensajes por bytes, y los trozos de `ctx.stream()`
   también caben.
 - Los adjuntos no llevan pie de foto: el caption de un medio sale como un
-  mensaje de texto justo después del adjunto, y la imagen de una tarjeta antes
-  de su texto.
+  mensaje de texto justo después del adjunto, y la imagen de una tarjeta después
+  de su texto (una tarjeta solo con imagen envía la imagen; una sin texto ni
+  imagen se rechaza).
 - Un DM con varias fotos llega como un mensaje por foto (ids `<mid>`,
   `<mid>#2`, `<mid>#3`…).
 - Con el bot parado, `ingest()` responde `503`, así que Meta reenvía el

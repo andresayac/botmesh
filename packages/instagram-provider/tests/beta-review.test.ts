@@ -64,14 +64,36 @@ describe('captions', () => {
     expect(texts.join('')).toBe(caption)
   })
 
-  it('a card image goes out before the card text (it was dropped)', async () => {
+  it('a card image goes out after the card text (it was dropped)', async () => {
     const calls = graphFetch()
     const res = await new InstagramProvider(cfg).send('U', { kind: 'card', title: 'Croissant', body: '2,50 €', imageUrl: 'https://cdn.example.com/c.jpg', buttons: [{ id: 'buy', title: 'Comprar' }] })
     expect(calls.map((c) => c.body.message)).toEqual([
-      { attachment: { type: 'image', payload: { url: 'https://cdn.example.com/c.jpg', is_reusable: true } } },
       { text: 'Croissant\n2,50 €', quick_replies: [{ content_type: 'text', title: 'Comprar', payload: 'buy' }] },
+      { attachment: { type: 'image', payload: { url: 'https://cdn.example.com/c.jpg', is_reusable: true } } },
     ])
-    expect(res.ref.id).toBe('mid.2')
+    expect(res.ref.id).toBe('mid.1')
+  })
+
+  it('a failed card text rejects before the image goes out (a retry never sends the image twice)', async () => {
+    const calls = graphFetch((body) => typeof (body.message as { text?: unknown } | undefined)?.text === 'string')
+    await expect(new InstagramProvider(cfg).send('U', { kind: 'card', title: 'T', imageUrl: 'https://cdn.example.com/c.jpg' })).rejects.toThrow()
+    expect(calls).toHaveLength(1)
+    expect(calls[0]!.body.message).toEqual({ text: 'T' })
+  })
+
+  it('a card with an image and no text sends only the image as the main message', async () => {
+    const calls = graphFetch()
+    const res = await new InstagramProvider(cfg).send('U', { kind: 'card', title: '', body: '  ', imageUrl: 'https://cdn.example.com/c.jpg' })
+    expect(calls.map((c) => c.body.message)).toEqual([
+      { attachment: { type: 'image', payload: { url: 'https://cdn.example.com/c.jpg', is_reusable: true } } },
+    ])
+    expect(res.ref.id).toBe('mid.1')
+  })
+
+  it('a card with neither text nor image is rejected without calling Graph', async () => {
+    const calls = graphFetch()
+    await expect(new InstagramProvider(cfg).send('U', { kind: 'card', title: '' })).rejects.toBeInstanceOf(UnsupportedContentError)
+    expect(calls).toHaveLength(0)
   })
 
   it('a failed caption does not fail (and so never re-sends) the delivered attachment', async () => {

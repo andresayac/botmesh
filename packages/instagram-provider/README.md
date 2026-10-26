@@ -81,7 +81,7 @@ The same two routes work in any framework (or with the [webhook server](https://
 | Buttons (`ctx.buttons`) | ✅ as **quick replies** (max 13, titles cut to 20 characters, unique ids and titles, a non-empty text) |
 | Quick reply or postback tap → interaction (`kind: 'button'`, `data` is the button `id`) | ✅ |
 | Lists | ⚠️ degraded to numbered text (Instagram has no lists) |
-| Cards (`card`) | ⚠️ the image (`imageUrl`) first, then the text with its buttons as quick replies |
+| Cards (`card`) | ⚠️ the text with its buttons as quick replies, then the image (`imageUrl`); an image-only card sends just the image |
 | Inbound reactions (`kind: 'reaction'`) | ✅ |
 | Typing and read receipts (`sender_action`) | ✅ |
 | Inbound media download (`MediaRef.token` is the attachment URL) | ✅ |
@@ -93,7 +93,7 @@ The same two routes work in any framework (or with the [webhook server](https://
 
 - **Identity:** `chatId` and `senderId` are the sender's IGSID (Instagram-scoped user id), stable and opaque. The account's own messages arrive as echoes (`is_echo`) and are not emitted; a message the user unsends (`is_deleted`) is not emitted as a new one.
 - **Media by public URL only:** upload files to public hosting and pass the URL (`'https://…'` or `{ url }`). A `Buffer`, a path or a stream rejects with `UnsupportedContentError`.
-- **Captions and card images are extra messages:** the caption goes out as text after the attachment (split at 1000 bytes), and a card image before the card text. The send result points at the attachment (caption) or the card text; if that extra message fails, it is logged as a warning and the send still resolves, so a retry never sends the main message twice.
+- **Captions and card images are extra messages:** the caption goes out as text after the attachment (split at 1000 bytes), and a card image after the card text (an image-only card sends just the image; a card with neither is rejected). The send result points at the attachment (caption) or the card text, which always goes out first; if that extra message fails, it is logged as a warning and the send still resolves, so a retry never sends the main message twice.
 - **Replies are not threaded on send:** `options.quoted` is ignored.
 - `acknowledgeInteraction()` is a no-op: quick replies need no ack.
 

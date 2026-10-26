@@ -539,7 +539,8 @@ const provider = new InstagramProvider({
   1000), so non-ASCII text fits less: longer text is split into several
   messages by bytes, and the `ctx.stream()` chunks fit too.
 - Attachments carry no caption: a media caption goes out as a text message
-  right after the attachment, and a card image before the card text.
+  right after the attachment, and a card image after the card text (an
+  image-only card sends just the image; one with neither is rejected).
 - A DM with several photos arrives as one message per photo (ids `<mid>`,
   `<mid>#2`, `<mid>#3`…).
 - While the bot is stopped, `ingest()` answers `503`, so Meta redelivers the

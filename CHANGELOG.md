@@ -5,7 +5,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 ## [Unreleased]
 
 ### `@botmesh/instagram`: revisión de beta (2026-10)
-- **Captions y tarjetas:** el caption de una imagen, vídeo o documento se perdía; ahora sale como mensaje de texto justo después del adjunto (dividido a 1000 bytes). La imagen (`imageUrl`) de una tarjeta también se perdía; ahora sale antes del texto de la tarjeta. Si esa parte extra falla se registra un aviso (sin el texto) y el envío se resuelve igual, así que un reintento nunca repite el mensaje principal.
+- **Captions y tarjetas:** el caption de una imagen, vídeo o documento se perdía; ahora sale como mensaje de texto justo después del adjunto (dividido a 1000 bytes). La imagen (`imageUrl`) de una tarjeta también se perdía; ahora sale después del texto de la tarjeta (o sola si la tarjeta no tiene texto), así que si falla el texto la imagen no ha salido y un reintento no la duplica; una tarjeta sin texto ni imagen se rechaza con `UnsupportedContentError`. Si esa parte extra falla se registra un aviso (sin el texto) y el envío se resuelve igual, así que un reintento nunca repite el mensaje principal.
 - **Varias fotos en un DM:** solo llegaba el primer adjunto; ahora cada adjunto es un mensaje (`<mid>`, `<mid>#2`, `<mid>#3`…, ids estables en un reenvío; como mucho 20 por mensaje). El texto del usuario ya no se pierde junto a una publicación compartida o un adjunto de tipo desconocido.
 - **Parada:** con el bot parado, `ingest()` respondía `200` y el mensaje se perdía; ahora responde `503` y Meta lo reenvía tras `bot.start()`.
 - **`selfId`:** un mensaje cuyo remitente es la propia cuenta llega con `fromMe: true` (antes la opción no tenía efecto).
