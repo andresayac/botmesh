@@ -151,6 +151,16 @@ function ms(value: number | string | undefined, fallback: number, field: string)
   return n
 }
 
+/** Shortest lease the heartbeat (every third of it, at least every 5 ms) can keep alive. */
+const MIN_LEASE_MS = 20
+
+/** A lease duration (default 60 s); shorter than {@link MIN_LEASE_MS} would expire under its own heartbeat. */
+function leaseMs(value: number | string | undefined, field: string): number {
+  const n = ms(value, 60_000, field)
+  if (n < MIN_LEASE_MS) throw new ConfigValidationError(field, `a duration of at least ${MIN_LEASE_MS} ms (a heartbeat renews it every third; seconds are typical)`, value)
+  return n
+}
+
 function int(value: number | undefined, fallback: number, field: string, min: number): number {
   if (value === undefined) return fallback
   if (typeof value !== 'number' || !Number.isInteger(value) || value < min) throw new ConfigValidationError(field, `an integer >= ${min}`, value)
@@ -255,7 +265,7 @@ export class DurableEngine implements DurabilityControl {
     if (!this.reclaimOwn) {
       deps.logger.debug({ instanceId: this.instanceId }, 'durability.instanceId not set on a shared backend: a restart waits for its old leases to expire')
     }
-    this.inboxLeaseMs = Math.max(1, ms(config.inbox?.leaseMs, 60_000, 'durability.inbox.leaseMs'))
+    this.inboxLeaseMs = leaseMs(config.inbox?.leaseMs, 'durability.inbox.leaseMs')
     this.maxAttempts = int(config.inbox?.maxAttempts, 5, 'durability.inbox.maxAttempts', 1)
     this.inboxBackoff = config.inbox?.backoff
     this.retries = int(config.outbox?.retries, 5, 'durability.outbox.retries', 0)
@@ -268,7 +278,7 @@ export class DurableEngine implements DurabilityControl {
     if (div !== 'send' && div !== 'skip') throw new ConfigValidationError('durability.outbox.onDiverged', "'send' | 'skip'", div)
     this.onDiverged = div
     this.maxPayloadBytes = int(config.outbox?.maxPayloadBytes, 1024 * 1024, 'durability.outbox.maxPayloadBytes', 1)
-    this.outboxLeaseMs = Math.max(1, ms(config.outbox?.leaseMs, 60_000, 'durability.outbox.leaseMs'))
+    this.outboxLeaseMs = leaseMs(config.outbox?.leaseMs, 'durability.outbox.leaseMs')
     this.pollMs = Math.max(10, ms(config.pollMs, 1_000, 'durability.pollMs'))
     this.retentionMs = ms(config.retention, 7 * 24 * 3600_000, 'durability.retention')
     this.failOpen = config.failOpen === true

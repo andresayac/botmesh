@@ -107,7 +107,9 @@ export class AppendLog {
       }
       if (typeof parsed?.s !== 'number' || !('e' in parsed)) { torn = true; break }
       offset = nl + 1
-      complete = Buffer.byteLength(text.slice(0, offset), 'utf8')
+      // Running total (the line plus its newline): measuring the whole prefix again for
+      // every line made a long log quadratic to read.
+      complete += Buffer.byteLength(line, 'utf8') + 1
       if (parsed.s > lastSeq) lastSeq = parsed.s
       if (parsed.s > afterSeq) entries.push({ s: parsed.s, entry: parsed.e as T })
     }
