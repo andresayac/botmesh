@@ -36,12 +36,12 @@ export { toMediaUpload, toBuffer as mediaToBuffer, makeSticker, transcodeToOpus,
 export type { StickerOptions, RemoteMediaConfig, WAMediaUpload } from './MediaProcessor.js'
 
 // Low-level normalizers (advanced)
-export { toInbound } from './toInbound.js'
+export { toInbound, isEditedMessage } from './toInbound.js'
 export { toOutbound } from './toOutbound.js'
 
 // reconnect classification (advanced)
 export { classifyDisconnect, backoffDelay, MAX_RECONNECT_ATTEMPTS } from './reconnect.js'
-export type { DisconnectAction } from './reconnect.js'
+export type { DisconnectAction, ReconnectPolicy } from './reconnect.js'
 
 // Session path validation (advanced/self-hosted tooling)
 export {

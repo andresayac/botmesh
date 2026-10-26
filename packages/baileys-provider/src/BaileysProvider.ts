@@ -46,7 +46,7 @@ import {
   RecipientUnreachableError,
   PayloadTooLargeError,
 } from '@botmesh/core'
-import { classifyDisconnect, backoffDelay, MAX_RECONNECT_ATTEMPTS } from './reconnect.js'
+import { classifyDisconnect, backoffDelay, resolveReconnectPolicy, type ReconnectPolicy } from './reconnect.js'
 import { putBounded } from './boundedMap.js'
 import { assertBrowserConfig, resolveBrowser, type BrowserConfig } from './browser.js'
 import { IdentityStore, canonicalKey, type IdentityKey } from './identity.js'
@@ -55,7 +55,7 @@ import {
   PollTracker, POLL_CACHE_MAX, decryptVote, fromStoredPoll, pollCreationOf, pollUpdateOf, recordVote, tally, toStoredPoll,
   type PollStore, type TrackedPoll,
 } from './polls.js'
-import { contextInfoOf, isSystemMessage, toInbound } from './toInbound.js'
+import { contextInfoOf, editedMessageOf, isSystemMessage, toInbound } from './toInbound.js'
 import { parseBaileysMediaRef, serializeBaileysMediaRef } from './mediaRef.js'
 import { toCallEvent } from './toCallEvent.js'
 import { toOutbound } from './toOutbound.js'
@@ -102,7 +102,18 @@ export interface BaileysProviderConfig {
   syncFullHistory?: boolean
   ignoreNewsletters?: boolean
   ignoreBroadcasts?: boolean
-  reconnect?: boolean
+  /**
+   * Reconnect after a transient close. `false` never reconnects; `true` (default) uses
+   * the default policy; an object tunes it: `{ maxAttempts (10), baseMs (1000), capMs (30000) }`
+   * (exponential backoff from `baseMs`, capped at `capMs`, giving up after `maxAttempts`).
+   */
+  reconnect?: boolean | ReconnectPolicy
+  /**
+   * Message edits (a user editing a message they sent): `'deliver'` (default) emits them
+   * as messages that keep the ORIGINAL `ref.id` with the new text (`isEditedMessage()`
+   * tells them apart); `'ignore'` drops them. Only text edits are delivered.
+   */
+  editedMessages?: 'deliver' | 'ignore'
   qr?: QrConfig
   /**
    * Phone number (international format) for pairing-code login instead of QR.
@@ -240,6 +251,8 @@ export class BaileysProvider implements IProvider<WAMessage> {
   private retired = new WeakSet<object>()
   /** Digits of `config.pairingCode`, or undefined for QR mode. */
   private readonly pairingPhone: string | undefined
+  /** The validated reconnect policy (`config.reconnect`). */
+  private readonly reconnectPolicy: Required<ReconnectPolicy>
 
   constructor(config: BaileysProviderConfig = {}) {
     this.config = config
@@ -252,6 +265,10 @@ export class BaileysProvider implements IProvider<WAMessage> {
     resolveSessionDirectory(this.config.sessionsDir, this.config.session)
     assertBrowserConfig(config.browser)
     this.pairingPhone = pairingNumber(config.pairingCode)
+    this.reconnectPolicy = resolveReconnectPolicy(config.reconnect)
+    if (config.editedMessages !== undefined && config.editedMessages !== 'deliver' && config.editedMessages !== 'ignore') {
+      throw new TypeError(`BaileysProvider: editedMessages must be 'deliver' or 'ignore', got ${JSON.stringify(config.editedMessages)}`)
+    }
     if (Array.isArray(config.browser)) {
       this.logger.warn(
         { browser: config.browser },
@@ -581,6 +598,16 @@ export class BaileysProvider implements IProvider<WAMessage> {
     // An encrypted vote is a poll-vote event, never a message.
     if (pollUpdateOf(message)) { await this.onPollVote(message); return }
     if (type !== 'notify' || message.key?.fromMe) return
+    // A text edit: delivered as the original message (same ref.id) with the new text.
+    const edited = editedMessageOf(message)
+    if (edited) {
+      if (this.config.editedMessages === 'ignore') return
+      await this.seedIdentity(message.key)
+      const inbound = toInbound(edited, this.identity)
+      if (inbound.type !== 'text' || !inbound.ref.id) return
+      this.fan({ kind: 'message', message: { ...inbound, raw: message, ref: { ...inbound.ref, native: edited } } })
+      return
+    }
     // Reactions, deletes, edits, stubs: not user messages (reactions arrive as `messages.reaction`).
     if (isSystemMessage(message)) return
     // Seed identity from the authoritative mapping for bare-LID keys.
@@ -945,12 +972,12 @@ export class BaileysProvider implements IProvider<WAMessage> {
         return
       }
       if (action === 'reconnect-now') { this.scheduleReconnect(0); return }
-      if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-        this.logger.error({ statusCode, detail: message, attempts: this.reconnectAttempts }, `giving up after ${MAX_RECONNECT_ATTEMPTS} reconnect attempts`)
+      if (this.reconnectAttempts >= this.reconnectPolicy.maxAttempts) {
+        this.logger.error({ statusCode, detail: message, attempts: this.reconnectAttempts }, `giving up after ${this.reconnectPolicy.maxAttempts} reconnect attempts`)
         this.fan({ kind: 'connection', update: { state: 'closed', reason: 'transient', detail: { code: statusCode, message: 'reconnect exhausted' } } })
         return
       }
-      const delay = backoffDelay(this.reconnectAttempts)
+      const delay = backoffDelay(this.reconnectAttempts, this.reconnectPolicy.baseMs, this.reconnectPolicy.capMs)
       this.reconnectAttempts++
       this.logger.warn({ statusCode, detail: message, attempt: this.reconnectAttempts, delayMs: delay }, 'connection closed — reconnecting with backoff')
       this.scheduleReconnect(delay)
@@ -985,15 +1012,15 @@ export class BaileysProvider implements IProvider<WAMessage> {
    */
   private onReconnectStartFailed(error: unknown): void {
     if (this.isShuttingDown) return
-    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    if (this.reconnectAttempts >= this.reconnectPolicy.maxAttempts) {
       this.logger.error(
         { err: error, attempts: this.reconnectAttempts },
-        `giving up: start() failed ${MAX_RECONNECT_ATTEMPTS} times during reconnect`,
+        `giving up: start() failed ${this.reconnectPolicy.maxAttempts} times during reconnect`,
       )
       this.fan({ kind: 'connection', update: { state: 'closed', reason: 'transient', detail: { message: 'reconnect exhausted' } } })
       return
     }
-    const delay = backoffDelay(this.reconnectAttempts)
+    const delay = backoffDelay(this.reconnectAttempts, this.reconnectPolicy.baseMs, this.reconnectPolicy.capMs)
     this.reconnectAttempts++
     this.logger.warn({ err: error, attempt: this.reconnectAttempts, delayMs: delay }, 'reconnect start() failed — retrying with backoff')
     this.scheduleReconnect(delay)

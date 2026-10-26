@@ -155,14 +155,19 @@ import { BaileysProvider } from '@botmesh/baileys'
 const provider = new BaileysProvider({ session: 'my-bot' })
 ```
 
-- Socket owned by the provider, with reconnection and backoff.
+- Socket owned by the provider, with reconnection and backoff
+  (`reconnect: { maxAttempts, baseMs, capMs }` tunes it, `false` turns it
+  off).
 - LID and phone-number forms of a user are merged into one stable
   `senderId`.
 - No native buttons or lists (WhatsApp Web dropped them): use `choose()`
   menus or `ctx.poll()`.
 - Anti-ban send rate limiting is on by default (`rateLimit`).
-- Reactions, deletes and edits arrive as events, never as messages, so a
-  catch-all handler or an open `ask` does not take them as text.
+- Reactions and deletes arrive as events, never as messages, so a
+  catch-all handler or an open `ask` does not take them as text. A **text
+  edit** arrives as a message with the new text and the original `ref.id`,
+  like on Telegram: `isEditedMessage(ctx)` (from `@botmesh/baileys`) tells it
+  apart, and `editedMessages: 'ignore'` drops edits.
 - `ctx.voice()` and `ctx.sticker()` accept URLs and streams (downloaded with
   the same SSRF checks as other media); `ctx.poll()` needs 2 to 12 unique
   options.

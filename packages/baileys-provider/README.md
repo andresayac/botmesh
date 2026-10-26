@@ -4,7 +4,7 @@ The **WhatsApp via [Baileys 7](https://github.com/WhiskeySockets/Baileys)** tran
 
 > **Unofficial client.** Baileys implements the WhatsApp Web protocol by reverse engineering; neither WhatsApp nor Meta endorses it. Automating an account may break the [WhatsApp Terms of Service](https://www.whatsapp.com/legal/terms-of-service) and end in **a banned number**. Use a dedicated number, write only to people who asked you to (opt-in), do not send bulk messages and keep the rate limiter on. If you need an official route with no ban risk, use [`@botmesh/meta`](https://github.com/andresayac/botmesh/tree/main/packages/meta-provider) (WhatsApp Cloud API).
 
-- **Ingress:** own socket with reconnect and backoff; Baileys events are translated into neutral `InboundEvent`s: messages, reactions, poll votes (decrypted by the provider), group changes, calls and presence. Protocol stanzas (reactions, deletes, edits, placeholders for messages that failed to decrypt) never reach the bot as messages.
+- **Ingress:** own socket with reconnect and backoff; Baileys events are translated into neutral `InboundEvent`s: messages, reactions, poll votes (decrypted by the provider), group changes, calls and presence. Protocol stanzas (reactions, deletes, placeholders for messages that failed to decrypt) never reach the bot as messages. A text edit is delivered as a message with the new text and the original `ref.id` (`isEditedMessage(ctx)` tells it apart; `editedMessages: 'ignore'` drops edits).
 - **Outbound:** text, image, video, audio, voice note (transcoded to Opus), document, sticker (converted with `sharp`, with its pack name and author), location, contact, **native polls** and reactions. Buttons, lists and cards degrade to numbered text.
 - **Actions:** read receipts, typing/recording, deleting messages and downloading inbound media.
 - **Stable identity:** the provider resolves WhatsApp's LID/PN duality before emitting every event, so the core always sees the same `senderId` for the same person.
@@ -61,7 +61,8 @@ interface BaileysProviderConfig {
   pairingCode?: string        // phone in international format: pair with a code instead of a QR
   qr?: QrConfig               // how to show the QR (terminal, small size by default)
   rateLimit?: RateLimitConfig // anti-ban send pacing (on by default)
-  reconnect?: boolean         // true by default
+  reconnect?: boolean | { maxAttempts?: number; baseMs?: number; capMs?: number } // true by default
+  editedMessages?: 'deliver' | 'ignore' // text edits as messages with the original ref.id ('deliver' by default)
   browser?: BrowserConfig     // device identity; better leave it alone (see below)
   markOnlineOnConnect?: boolean // false by default: the phone keeps receiving notifications
   syncFullHistory?: boolean     // false by default
@@ -148,7 +149,7 @@ When the socket closes, the provider emits `connection` with `state: 'closed'` a
 | 515 `restartRequired` | Normal restart after pairing | Reconnects instantly | `transient` |
 | Everything else (428, 408, 503…) | Transient drop | Exponential backoff: 1 s, 2 s, 4 s… up to 30 s, at most 10 attempts | `transient` |
 
-If `start()` fails during a reconnect (for example, no network), it is retried with the same backoff and the same cap. When the attempts run out, through transient drops or failed starts, a final `closed` is emitted with `detail.message: 'reconnect exhausted'`. With `reconnect: false` it never retries. The counter goes back to zero every time the connection opens.
+If `start()` fails during a reconnect (for example, no network), it is retried with the same backoff and the same cap. When the attempts run out, through transient drops or failed starts, a final `closed` is emitted with `detail.message: 'reconnect exhausted'`. With `reconnect: false` it never retries. The counter goes back to zero every time the connection opens. Tune the policy with an object: `reconnect: { maxAttempts: 20, baseMs: 2_000, capMs: 60_000 }` (an invalid value throws a `RangeError` at construction).
 
 ### Outbound media
 
@@ -172,12 +173,12 @@ The provider resolves it with an `IdentityStore` **before** emitting every event
 - In a reaction, `senderId` is **whoever reacts** and `ref.id` is the reacted message (previously the author of that message was reported, by mistake).
 - Mentions (`mentions`) and the author of the quoted message (`quoted.senderId`) are canonical too: in a group addressed by LID, WhatsApp mentions and quotes with LIDs, and the provider swaps them for the PN when it knows it (querying the mapping store if needed). That way `ctx.quoted?.senderId === provider.selfId` detects a reply to a message sent by the bot. The quote and the mentions are also read from captions of photos, videos and documents, and `quoted.ref` points at the quoted message (usable as `quoted` to reply in the thread).
 - Wrapped messages (disappearing mode, *view once*, document with caption) are unwrapped before being classified, so they arrive with their real `type`, `body` and `media`.
-- Baileys upserts every stanza before processing it. Those that are not something a person wrote (reactions, which arrive as the `reaction` event instead; deletes, edits and chat settings; sender-key distributions; placeholders for messages that failed to decrypt; group notice stubs) are not emitted as messages, so they never reach a catch-all handler or an `ask`. Reactions in statuses, broadcast lists and channels are dropped like their messages (`ignoreBroadcasts`/`ignoreNewsletters`).
+- Baileys upserts every stanza before processing it. Those that are not something a person wrote (reactions, which arrive as the `reaction` event instead; deletes and chat settings; sender-key distributions; placeholders for messages that failed to decrypt; group notice stubs) are not emitted as messages, so they never reach a catch-all handler or an `ask`. A text edit is the exception: it arrives as a message with the original `ref.id` (see `editedMessages`). Reactions in statuses, broadcast lists and channels are dropped like their messages (`ignoreBroadcasts`/`ignoreNewsletters`).
 - `provider.selfId` is the bot's normalized PN (`573000000000@s.whatsapp.net`, without the device suffix `:12` that `creds.me.id` stores), the same id its own reactions and votes carry. With `groupMode: 'mentions'`, the core compares mentions against `selfId`, so the bot answers whether it is mentioned by its number or by its LID.
 - In `group`, the provider translates Baileys' `modify` action (number change) into `action: 'update'`, but rc14 never gets to emit it: while processing the number change, Baileys runs `JSON.parse` on the notice's raw JIDs and throws before emitting the event. In practice, with rc14 a number change produces no `group` event at all.
 - When sending to a LID, the provider uses the PN if it knows it and, otherwise, sends directly to the LID.
 
-For advanced cases, `IdentityStore`, `provider.getPNForLID(lid)` and the JID helpers (`isPn`, `isLid`, `normalizeJid`, `sameUser`…) are exported.
+For advanced cases, `IdentityStore`, `provider.getPNForLID(lid)` and the JID helpers (`isPn`, `isLid`, `normalizeJid`, `sameUser`…) are exported. `toJid(number)` builds a user JID and `toJid({ groupId })` a group JID; it throws a `TypeError` for input without digits and for `{ groupId, userId }` (a group participant has no JID of its own).
 
 ### Contacts with a username (2026)
 
