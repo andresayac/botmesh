@@ -80,6 +80,8 @@ export function toProviderError(chatId: ChatId, errorCode: number | undefined, d
   if (errorCode === 413 || (errorCode === 400 && TOO_LARGE_400.test(desc))) return new PayloadTooLargeError(desc)
   if (errorCode === 400 && UNREACHABLE_400.test(desc)) return new RecipientUnreachableError(chatId, desc)
   if (errorCode === 401) return new ProviderError(`Unauthorized — check the bot token (${desc})`)
+  // The Bot API answers 404 for a malformed token (and a wrong `baseUrl` path does too).
+  if (errorCode === 404) return new ProviderError(`${desc} — check the bot token and baseUrl`)
   return new ProviderError(desc)
 }
 
@@ -125,6 +127,15 @@ export class TelegramProvider implements IProvider<unknown> {
   private readonly draftStops = new Map<string, { onStop: () => void; at: number }>()
 
   constructor(config: TelegramProviderConfig) {
+    // Fail at once on a missing token (e.g. `process.env.TELEGRAM_TOKEN` before .env exists)
+    // instead of polling `/botundefined/getMe`. The value itself is never echoed.
+    if (typeof config?.token !== 'string' || config.token.trim() === '') {
+      throw new TypeError(
+        'TelegramProvider requires `token`: the bot token from @BotFather ' +
+          '(e.g. new TelegramProvider({ token: process.env.TELEGRAM_TOKEN }) with TELEGRAM_TOKEN set in .env). ' +
+          `Got ${config?.token === undefined ? 'undefined' : typeof config.token === 'string' ? 'an empty string' : 'a ' + typeof config.token}.`,
+      )
+    }
     this.config = {
       token: config.token,
       baseUrl: (config.baseUrl ?? 'https://api.telegram.org').replace(/\/+$/, ''),
