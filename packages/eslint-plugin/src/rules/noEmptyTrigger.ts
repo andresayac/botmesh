@@ -3,7 +3,8 @@
  * `{ pattern: '' }`) never matches what you expect: the default match is
  * normalized equality, and an empty `contains` pattern captures every message.
  * Checked in `flow(...)` / `addKeyword(...)`, `bot.when(...)` and the
- * `trigger` option of `bot.conversation(name, fn, { trigger })`.
+ * `trigger` option of `bot.conversation(name, fn, { trigger })`. `flow([])` is
+ * allowed: it is the idiom for a sub-flow with no trigger of its own.
  */
 
 import type { Rule } from 'eslint'
@@ -51,7 +52,13 @@ export const noEmptyTrigger: Rule.RuleModule = {
     return {
       CallExpression(node: ESTree.CallExpression) {
         const name = calleeName(node)
-        if (node.callee.type === 'Identifier' && name && FLOW_FACTORIES.has(name)) return report(node.arguments[0])
+        if (node.callee.type === 'Identifier' && name && FLOW_FACTORIES.has(name)) {
+          // `flow([])` is the trigger-less sub-flow idiom (run from a choose `then`, `.use()` or a
+          // goto), not a mistake; `bot.lint()` reports the ones nothing reaches.
+          const trigger = node.arguments[0]
+          if (trigger?.type === 'ArrayExpression' && trigger.elements.length === 0) return
+          return report(trigger)
+        }
         if (node.callee.type !== 'MemberExpression') return
         if (name === 'when') return report(node.arguments[0])
         if (name === 'conversation') {

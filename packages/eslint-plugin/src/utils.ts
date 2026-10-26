@@ -77,18 +77,27 @@ export function chainTop(call: ESTree.CallExpression): ESTree.CallExpression {
   }
 }
 
-/** Method names of every link of the chain that `call` belongs to (root call name included). */
-export function chainMethodNames(call: ESTree.CallExpression): string[] {
-  const names: string[] = []
+/** Every call of the chain that `call` belongs to, outermost first (root call included). */
+export function chainCalls(call: ESTree.CallExpression): ESTree.CallExpression[] {
+  const calls: ESTree.CallExpression[] = []
   let current: ESTree.Node = chainTop(call)
   while (current.type === 'CallExpression') {
-    const name = calleeName(current)
-    if (name) names.push(name)
+    calls.push(current)
     const callee: ESTree.Node = current.callee
     if (callee.type === 'MemberExpression') current = callee.object
     else break
   }
-  return names
+  return calls
+}
+
+/** Method names of every link of the chain that `call` belongs to (root call name included). */
+export function chainMethodNames(call: ESTree.CallExpression): string[] {
+  return chainCalls(call).flatMap((c) => calleeName(c) ?? [])
+}
+
+/** `a?.b` → `a.b`: strips the `ChainExpression` wrapper optional chaining adds. */
+export function unwrapChain(node: ESTree.Node): ESTree.Node {
+  return node.type === 'ChainExpression' ? node.expression : node
 }
 
 /** Names that start a flow-DSL chain. */

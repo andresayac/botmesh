@@ -12,7 +12,7 @@
 import type { Rule, Scope } from 'eslint'
 import type * as ESTree from 'estree'
 
-import { memberPropertyName } from '../utils.js'
+import { memberPropertyName, unwrapChain } from '../utils.js'
 
 interface Options {
   contextNames?: string[]
@@ -50,7 +50,8 @@ export const preferCtxUser: Rule.RuleModule = {
     const sourceCode = context.sourceCode
 
     /** `ctx.from` / `ctx.sender` / `ctx.senderId` → its text, else undefined. */
-    const idKey = (node: ESTree.Node | undefined): string | undefined => {
+    const idKey = (key: ESTree.Node | undefined): string | undefined => {
+      const node = key && unwrapChain(key) // `ctx?.from`
       if (!node || node.type !== 'MemberExpression' || node.object.type !== 'Identifier') return undefined
       const prop = memberPropertyName(node)
       if (!prop || !ID_PROPS.has(prop) || !ctxNames.has(node.object.name)) return undefined

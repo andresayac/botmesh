@@ -9,7 +9,7 @@
 import type { Rule } from 'eslint'
 import type * as ESTree from 'estree'
 
-import { memberPropertyName, tailName } from '../utils.js'
+import { memberPropertyName, tailName, unwrapChain } from '../utils.js'
 
 interface Options {
   /** Regex (source) the receiver name must match. Default: names ending in "runtime" (case-insensitive). */
@@ -39,11 +39,28 @@ export const noAwaitRuntimeEnter: Rule.RuleModule = {
   },
   create(context) {
     const options = (context.options[0] ?? {}) as Options
-    const receiverRe = new RegExp(options.receiverPattern ?? 'runtime$', 'i')
+    const pattern = options.receiverPattern ?? 'runtime$'
+    let receiverRe: RegExp
+    try {
+      receiverRe = new RegExp(pattern, 'i')
+    } catch (error) {
+      throw new TypeError(
+        `botmesh/no-await-runtime-enter: receiverPattern ${JSON.stringify(pattern)} is not a valid regular expression ` +
+          `(${(error as Error).message}). Pass a RegExp source such as "runtime$".`,
+      )
+    }
 
-    const check = (expr: ESTree.Node, reportNode: ESTree.Node) => {
-      if (expr.type !== 'CallExpression' || expr.callee.type !== 'MemberExpression') return
-      if (memberPropertyName(expr.callee) !== 'enter') return
+    const check = (node: ESTree.Node, reportNode: ESTree.Node) => {
+      let expr = unwrapChain(node)
+      // `runtime.enter(...).catch(...)` (or .then/.finally, optional calls too) still settles
+      // only when the whole conversation does: look through the chain to the `enter()` call.
+      for (;;) {
+        if (expr.type !== 'CallExpression' || expr.callee.type !== 'MemberExpression') return
+        const name = memberPropertyName(expr.callee)
+        if (name === 'enter') break
+        if (name !== 'then' && name !== 'catch' && name !== 'finally') return
+        expr = unwrapChain(expr.callee.object)
+      }
       const receiver = tailName(expr.callee.object)
       if (!receiver || !receiverRe.test(receiver)) return
       context.report({ node: reportNode, messageId: 'awaited', data: { receiver } })
@@ -59,11 +76,6 @@ export const noAwaitRuntimeEnter: Rule.RuleModule = {
       },
       ArrowFunctionExpression(node: ESTree.ArrowFunctionExpression) {
         if (node.body.type !== 'BlockStatement') check(node.body, node.body)
-      },
-      // `await runtime.enter(...).catch(...)` (or .then/.finally) still waits for the whole conversation.
-      'AwaitExpression > CallExpression > MemberExpression.callee'(node: ESTree.MemberExpression) {
-        const name = memberPropertyName(node)
-        if (name === 'then' || name === 'catch' || name === 'finally') check(node.object, node.object)
       },
     }
   },

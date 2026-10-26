@@ -48,17 +48,17 @@ The rules are syntactic and need no type information, so they work on JavaScript
 | Preset | Contents |
 | --- | --- |
 | `configs.recommended` | Errors: `no-v1-api`, `no-await-runtime-enter`, `no-async-plugin-install`, `no-empty-trigger`. Warnings: `require-timeout-on-ask`, `prefer-ctx-user-over-global-state`. |
-| `configs.strict` | Every rule as an error; `require-timeout-on-ask` also checks `waitText`, `waitMedia`, `choose` and `waitAny`. |
+| `configs.strict` | Every rule as an error; `require-timeout-on-ask` also checks `waitText`, `waitMedia`, `waitLocation`, `choose`, `waitAny` and flow `.form()`. |
 
 ## Rules
 
 | Rule | What it catches | Options |
 | --- | --- | --- |
 | `botmesh/no-v1-api` | The v1 / builderbot API that does not exist in v2: `.addAnswer()`, `.addAction()`, `{ capture: true }`, `flowDynamic()`, `gotoFlow()`, `endFlow()`. The message names the replacement. | none |
-| `botmesh/no-await-runtime-enter` | `await runtime.enter(...)` (or returning its promise from a handler): it resolves when the conversation **ends**, so it blocks the chat queue. Start it with `void runtime.enter(...).catch(...)`. | `{ receiverPattern }` (default `runtime$`) |
+| `botmesh/no-await-runtime-enter` | `await runtime.enter(...)` (or returning its promise from a handler, with or without `.catch()`/`.then()` chained): it resolves when the conversation **ends**, so it blocks the chat queue. Start it with `void runtime.enter(...).catch(...)`. | `{ receiverPattern }` (default `runtime$`) |
 | `botmesh/no-async-plugin-install` | An `async install()` in `definePlugin({...})`, a plugin object literal or a plugin class: `bot.plug()` does not await it. | none |
-| `botmesh/no-empty-trigger` | `''`, `'   '`, `[]`, `['']` or `{ pattern: '' }` as a trigger of `flow()`, `addKeyword()`, `bot.when()` or a conversation. | none |
-| `botmesh/require-timeout-on-ask` | An answer wait without a timeout (`.ask()` without `{ timeout }` or a `.timeout()` in the chain; `c.ask()` and, when configured, `c.waitText` / `c.waitMedia` / `c.choose` / `c.waitAny`). | `{ methods, allowFlowTimeout }` (default `['ask']`, `true`) |
+| `botmesh/no-empty-trigger` | `''`, `'   '`, `[]`, `['']` or `{ pattern: '' }` as a trigger of `flow()`, `addKeyword()`, `bot.when()` or a conversation. `flow([])`, the trigger-less sub-flow idiom, is allowed. | none |
+| `botmesh/require-timeout-on-ask` | An answer wait without an explicit timeout (it falls back to `conversation.timeout` or the built-in 5 minutes) or with a timeout of `0` (never expires): `.ask()` without `{ timeout }` or a `.timeout()` in the chain, `c.ask()` and, when configured, `c.waitText` / `c.waitMedia` / `c.waitLocation` / `c.choose` / `c.waitAny` (which takes `{ timeoutMs }`) and flow `.choose()` / `.form()`. | `{ methods, allowFlowTimeout }` (default `['ask']`, `true`) |
 | `botmesh/prefer-ctx-user-over-global-state` | `globalState` (v1) and module-level `Map`s or objects indexed by `ctx.from`, `ctx.sender` or `ctx.senderId`: lost on restart and not shared between replicas. Use `ctx.user`. | `{ contextNames }` (default `['ctx']`) |
 
 Every rule links to its section of the [guide](https://andresayac.github.io/botmesh/guide/eslint) (`meta.docs.url`), so editors show the documentation link next to the finding.
@@ -79,6 +79,7 @@ Types: `BotMeshPlugin` and `BotMeshConfigs` (`BotWaPlugin` / `BotWaConfigs` are 
 
 - **The preset seems ignored:** the presets are flat-config objects. Put them as items of the exported array (`export default [botmesh.configs.recommended]`); a legacy `.eslintrc` cannot load them.
 - **`require-timeout-on-ask` does not warn:** when the options argument is not an object literal (a variable or a spread), the rule cannot see it and stays silent on purpose.
+- **TypeScript files are not linted:** ESLint only picks up `.js`/`.mjs`/`.cjs` by default. Add `files: ['src/**/*.{js,ts}']` to the preset and `typescript-eslint`'s parser for the `.ts` files (see the [guide](https://andresayac.github.io/botmesh/guide/eslint#usage)).
 - **A rule fires outside your bot code:** the rules key on botmesh names (`flow`, `addKeyword`, `bot.when`, `runtime.enter`). Scope the config with `files`, for example `{ ...botmesh.configs.recommended, files: ['src/bot/**'] }`.
 
 ## Links

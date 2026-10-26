@@ -94,7 +94,7 @@ tester.run('no-empty-trigger', rule('no-empty-trigger'), {
   invalid: [
     { code: "flow('')", errors: [{ messageId: 'empty', data: { reason: 'an empty string' } }] },
     { code: "addKeyword('   ')", errors: [{ messageId: 'empty' }] },
-    { code: 'addKeyword([])', errors: [{ messageId: 'empty', data: { reason: 'an empty array' } }] },
+    { code: 'bot.when([], h)', errors: [{ messageId: 'empty', data: { reason: 'an empty array' } }] },
     { code: "bot.when(['', ' '], h)", errors: [{ messageId: 'empty', data: { reason: 'an array of empty strings' } }] },
     { code: "bot.when({ pattern: '', match: 'contains' }, h)", errors: [{ messageId: 'empty' }] },
     { code: 'bot.when(``, h)', errors: [{ messageId: 'empty' }] },
@@ -119,14 +119,14 @@ tester.run('require-timeout-on-ask', rule('require-timeout-on-ask'), {
     'ask("?")',
   ],
   invalid: [
-    { code: "flow('a').ask('?', 'k')", errors: [{ messageId: 'missing', data: { method: 'ask', flowHint: " or add `.timeout('10m')` to the flow" } }] },
+    { code: "flow('a').ask('?', 'k')", errors: [{ messageId: 'missing', data: { method: 'ask', example: "{ timeout: '5m' }", flowHint: " or add `.timeout('10m')` to the flow" } }] },
     { code: "flow('a').ask('?', 'k', { validate: (t) => true })", errors: [{ messageId: 'missing' }] },
-    { code: "bot.conversation('x', async (c) => { await c.ask('?') })", errors: [{ messageId: 'missing', data: { method: 'ask', flowHint: '' } }] },
+    { code: "bot.conversation('x', async (c) => { await c.ask('?') })", errors: [{ messageId: 'missing', data: { method: 'ask', example: "{ timeout: '5m' }", flowHint: '' } }] },
     { code: "bot.conversation('x', async (c) => { await c.ask('?', { retries: 2 }) })", errors: [{ messageId: 'missing' }] },
     {
       code: "flow('a').ask('?', 'k').timeout('10m')",
       options: [{ allowFlowTimeout: false }],
-      errors: [{ messageId: 'missing', data: { method: 'ask', flowHint: '' } }],
+      errors: [{ messageId: 'missing', data: { method: 'ask', example: "{ timeout: '5m' }", flowHint: '' } }],
     },
     {
       code: "bot.conversation('x', async (c) => { await c.waitText(); await c.waitMedia(['image']); await c.choose('?', { 1: 'a' }) })",
@@ -136,7 +136,7 @@ tester.run('require-timeout-on-ask', rule('require-timeout-on-ask'), {
     {
       code: "flow('a').choose('?', { 1: 'a' }, 'k')",
       options: [{ methods: ['choose'] }],
-      errors: [{ messageId: 'missing', data: { method: 'choose', flowHint: " or add `.timeout('10m')` to the flow" } }],
+      errors: [{ messageId: 'missing', data: { method: 'choose', example: "{ timeout: '5m' }", flowHint: " or add `.timeout('10m')` to the flow" } }],
     },
   ],
 })
