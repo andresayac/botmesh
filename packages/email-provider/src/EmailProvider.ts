@@ -275,7 +275,15 @@ export class EmailProvider implements IProvider<EmailRaw> {
     this.running = false
     await this.ingress?.stop()
     this.ingress = undefined
-    try { this.transport?.close?.() } catch { /* ignore */ }
+    // Close only a transport built from `smtp`, and forget it: a closed nodemailer pool
+    // queues mail forever, so the next send after start() builds a fresh one. An
+    // injected `smtpTransport` belongs to the caller and stays open.
+    if (this.transport && this.transport !== this.config.smtpTransport) {
+      const owned = this.transport
+      this.transport = undefined
+      this.transportPromise = undefined
+      try { owned.close?.() } catch { /* ignore */ }
+    }
     if (wasRunning) this.emitConnection('closed')
   }
 
@@ -297,6 +305,7 @@ export class EmailProvider implements IProvider<EmailRaw> {
   }
 
   private getTransport(): Promise<SmtpTransportLike> {
+    this.transport ??= this.config.smtpTransport
     if (this.transport) return Promise.resolve(this.transport)
     if (!this.config.smtp) {
       return Promise.reject(new ProviderError('EmailProvider cannot send: configure `smtp` (or pass `smtpTransport`)'))

@@ -35,8 +35,7 @@ import type {
   UserId,
 } from '@botmesh/core'
 import { ProviderError } from '@botmesh/core'
-import { secureFetch } from '@botmesh/http'
-import { BoundedMap, header, request, retryAfterMs, type HeaderBag } from './http.js'
+import { BoundedMap, fetchTyped, header, request, retryAfterMs, type HeaderBag } from './http.js'
 import { parseInbound } from './parseInbound.js'
 import { GHL_WEBHOOK_PUBLIC_KEY, verifyGhlSignature } from './signature.js'
 import { toOutbound } from './toOutbound.js'
@@ -54,6 +53,17 @@ import type { GhlChannel, GhlErrorBody, GhlSendResponse, GhlWebhookBody, GoHighL
 
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')
+}
+
+/** Parse a configured PEM key, naming the option when it is not one. */
+function pemKey(option: 'publicKey' | 'legacyPublicKey', pem: string): KeyObject {
+  try {
+    return createPublicKey(pem)
+  } catch (err) {
+    throw new Error(
+      `GoHighLevelProvider: \`${option}\` is not a valid PEM public key (-----BEGIN PUBLIC KEY-----…): ${err instanceof Error ? err.message : String(err)}`,
+    )
+  }
 }
 
 /** Channels (lower-cased {@link GhlChannel}) that render no text markup. */
@@ -87,8 +97,8 @@ export class GoHighLevelProvider implements IProvider<GhlWebhookBody> {
       defaultChannel: config.defaultChannel ?? 'SMS',
     }
     // Parsed once (and validated at construction, not on the first webhook).
-    this.publicKey = createPublicKey(config.publicKey ?? GHL_WEBHOOK_PUBLIC_KEY)
-    this.legacyPublicKey = config.legacyPublicKey ? createPublicKey(config.legacyPublicKey) : undefined
+    this.publicKey = pemKey('publicKey', config.publicKey ?? GHL_WEBHOOK_PUBLIC_KEY)
+    this.legacyPublicKey = config.legacyPublicKey ? pemKey('legacyPublicKey', config.legacyPublicKey) : undefined
     this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
     if (config.allowUnsignedWebhooks) {
       this.logger.warn('GoHighLevelProvider unsigned webhook mode explicitly enabled; never expose this endpoint publicly.')
@@ -261,7 +271,7 @@ export class GoHighLevelProvider implements IProvider<GhlWebhookBody> {
     const token = ref.token as { url?: unknown } | string | undefined
     const url = typeof token === 'string' ? token : typeof token?.url === 'string' ? token.url : undefined
     if (!url) throw new ProviderError('downloadMedia requires the attachment URL (MediaRef.token.url)')
-    const { response, body } = await secureFetch(url, { ...this.config.http, method: 'GET' })
+    const { response, body } = await fetchTyped(url, { ...this.config.http, method: 'GET' })
     if (!response.ok) throw new ProviderError(`HighLevel media download failed: HTTP ${response.status}`)
     return body
   }

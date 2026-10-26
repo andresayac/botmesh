@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createHash, createHmac } from 'node:crypto'
-import { computeTwilioSignature, parseFormParams, verifyTwilioSignature } from '../src/signature.js'
+import { computeTwilioSignature, paramsFromObject, parseFormParams, verifyTwilioSignature } from '../src/signature.js'
 
 // Reference vector from twilio-node spec/validation.spec.js.
 const AUTH_TOKEN = '12345'
@@ -70,5 +70,15 @@ describe('X-Twilio-Signature', () => {
 
   it('parses form bodies, keeping repeated keys as arrays and decoding +/%XX', () => {
     expect(parseFormParams('Body=hola+mundo%21&MediaUrl=a&MediaUrl=b')).toEqual({ Body: 'hola mundo!', MediaUrl: ['a', 'b'] })
+  })
+})
+
+describe('paramsFromObject (already-parsed bodies)', () => {
+  it('stringifies hostile shapes a body parser can produce without throwing', () => {
+    const odd = [1, 'b'] as unknown[]
+    Object.defineProperty(odd, 'constructor', { value: -0, enumerable: false })
+    const bare = Object.create(null) as Record<string, unknown>
+    bare['x'] = 1
+    expect(paramsFromObject({ A: odd, B: bare, C: [bare], D: 5, E: true })).toEqual({ A: ['1', 'b'], B: '{"x":1}', C: ['{"x":1}'], D: '5', E: 'true' })
   })
 })

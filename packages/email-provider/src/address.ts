@@ -16,9 +16,16 @@ export interface EmailAddress {
   address: string
 }
 
-/** Canonical form of an address: trimmed, angle brackets removed, lower-cased. */
+/**
+ * Canonical form of an address: trimmed, angle brackets removed, lower-cased.
+ * The trailing `>` run is cut with a backwards scan: `/>+$/` is quadratic on a
+ * run of `>` that something else follows.
+ */
 export function normalizeAddress(address: string): string {
-  return address.trim().replace(/^<+/, '').replace(/>+$/, '').trim().toLowerCase()
+  const t = address.trim().replace(/^<+/, '')
+  let end = t.length
+  while (end > 0 && t.charCodeAt(end - 1) === 62) end--
+  return t.slice(0, end).trim().toLowerCase()
 }
 
 /** Split on `sep` outside quotes, angle brackets and comments. */
@@ -58,19 +65,38 @@ function unquote(s: string): string {
   return t
 }
 
+/**
+ * Remove `(comments)`: each `(` up to the next `)`; an unclosed one stays as
+ * text. Linear, unlike `/\([^)]*\)/g`, which rescans the rest of the header
+ * from every `(` that no `)` follows (minutes for a hostile From header).
+ */
+function stripComments(value: string): string {
+  let out = ''
+  let i = 0
+  for (;;) {
+    const open = value.indexOf('(', i)
+    const close = open === -1 ? -1 : value.indexOf(')', open + 1)
+    if (close === -1) return out + value.slice(i)
+    out += value.slice(i, open)
+    i = close + 1
+  }
+}
+
 function parseMailbox(token: string): EmailAddress | undefined {
   const t = token.trim()
   if (!t) return undefined
   const lt = t.lastIndexOf('<')
-  const gt = t.lastIndexOf('>')
-  if (lt !== -1 && gt > lt) {
+  // The angle address ends at the first `>` after its `<` (an addr-spec has
+  // none): anything after it is not part of the address.
+  const gt = lt === -1 ? -1 : t.indexOf('>', lt + 1)
+  if (gt !== -1) {
     const address = t.slice(lt + 1, gt).trim()
     if (!address.includes('@')) return undefined
-    const rawName = t.slice(0, lt).replace(/\([^)]*\)/g, '').trim()
+    const rawName = stripComments(t.slice(0, lt)).trim()
     const name = rawName ? decodeEncodedWords(unquote(rawName)).trim() : ''
     return { name: name || undefined, address }
   }
-  const bare = t.replace(/\([^)]*\)/g, '').trim()
+  const bare = stripComments(t).trim()
   if (!bare.includes('@') || /\s/.test(bare)) return undefined
   return { name: undefined, address: bare }
 }

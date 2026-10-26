@@ -52,8 +52,15 @@ export function attachmentKind(url: string): MediaRef['kind'] {
   return 'document'
 }
 
+/** A non-empty string field (numbers are stringified); anything else is dropped. */
+function str(value: unknown): string | undefined {
+  if (typeof value === 'string') return value || undefined
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  return undefined
+}
+
 function timestampOf(body: GhlWebhookBody, now: () => number): number {
-  const parsed = body.dateAdded ? Date.parse(body.dateAdded) : NaN
+  const parsed = typeof body.dateAdded === 'string' ? Date.parse(body.dateAdded) : NaN
   return Number.isFinite(parsed) ? parsed : now()
 }
 
@@ -64,17 +71,21 @@ export interface ParsedGhl {
 }
 
 export function parseInbound(body: GhlWebhookBody, now: () => number = Date.now): ParsedGhl {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return { events: [] }
   if (body.type !== 'InboundMessage') return { events: [] }
   if (body.direction !== undefined && body.direction !== 'inbound') return { events: [] }
   const contactId = typeof body.contactId === 'string' && body.contactId ? body.contactId : undefined
   if (!contactId) return { events: [] }
-  const id = body.messageId ?? body.webhookId ?? ''
+  const id = str(body.messageId) ?? str(body.webhookId) ?? ''
+  const conversationId = str(body.conversationId)
+  const from = str(body.from)
+  const to = str(body.to)
 
   if (isCall(body)) {
     return {
       events: [{
         kind: 'call',
-        event: { id, from: contactId, status: body.callStatus ?? body.status ?? 'unknown', chatId: contactId, isGroup: false },
+        event: { id, from: contactId, status: str(body.callStatus) ?? str(body.status) ?? 'unknown', chatId: contactId, isGroup: false },
       }],
     }
   }
@@ -82,12 +93,12 @@ export function parseInbound(body: GhlWebhookBody, now: () => number = Date.now)
   const channel = channelOf(body)
   const platformData: Record<string, unknown> = {
     ...(channel ? { channel } : {}),
-    ...(body.conversationId ? { conversationId: body.conversationId } : {}),
-    ...(body.locationId ? { locationId: body.locationId } : {}),
-    ...(body.from ? { from: body.from } : {}),
-    ...(body.to ? { to: body.to } : {}),
+    ...(conversationId ? { conversationId } : {}),
+    ...(typeof body.locationId === 'string' && body.locationId ? { locationId: body.locationId } : {}),
+    ...(from ? { from } : {}),
+    ...(to ? { to } : {}),
   }
-  const attachments = Array.isArray(body.attachments) ? body.attachments.filter((a): a is string => typeof a === 'string' && a.length > 0) : []
+  const attachments = Array.isArray(body.attachments) ? Array.from(body.attachments as unknown[]).filter((a): a is string => typeof a === 'string' && a.length > 0) : []
   let type: MessageType = 'text'
   let media: MediaRef | undefined
   if (attachments.length > 0) {
@@ -102,9 +113,9 @@ export function parseInbound(body: GhlWebhookBody, now: () => number = Date.now)
     events: [{
       kind: 'message',
       message: {
-        ref: { id, chatId: contactId, native: { messageId: body.messageId, conversationId: body.conversationId, channel } },
+        ref: { id, chatId: contactId, native: { messageId: id || undefined, conversationId, channel } },
         chat: { id: contactId, kind: 'dm', isGroup: false, isBroadcast: false, platformData },
-        senderInfo: { id: contactId, platformData: { ...(body.from ? { address: body.from } : {}), ...(channel ? { channel } : {}) } },
+        senderInfo: { id: contactId, platformData: { ...(from ? { address: from } : {}), ...(channel ? { channel } : {}) } },
         from: contactId, sender: contactId, chatId: contactId, senderId: contactId,
         isGroup: false,
         isBroadcast: false,

@@ -497,7 +497,7 @@ describe('TwilioProvider — media & typing', () => {
     provider.ingest(body, headers)
     await expect(provider.typing(WA_TEXT.From)).resolves.toBeUndefined()
     expect(calls).toHaveLength(1)
-    expect(debug).toContainEqual(expect.objectContaining({ chatId: WA_TEXT.From, status: 400 }))
+    expect(debug).toContainEqual(expect.objectContaining({ status: 400, code: 20001 }))
     // Suppressed for this chat: no request at all while the backoff lasts…
     await provider.typing(WA_TEXT.From)
     tick(60_000)

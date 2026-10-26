@@ -1,11 +1,11 @@
 /**
  * Small transport helpers shared by the provider: header lookup, the
  * numbered-text fallback for buttons / lists, and the REST call wrapper over
- * `secureFetch` (@botmesh/http).
+ * `secureFetch` (@botmesh/http) that turns transport failures into typed errors.
  */
 
-import { secureFetch, type SecureFetchOptions } from '@botmesh/http'
-import type { ListSection } from '@botmesh/core'
+import { SecureHttpError, secureFetch, type SecureFetchOptions } from '@botmesh/http'
+import { PayloadTooLargeError, ProviderError, type ListSection } from '@botmesh/core'
 
 export type HeaderBag = Record<string, string | string[] | undefined>
 
@@ -45,13 +45,41 @@ export interface HttpResult {
   body: Buffer
 }
 
+/**
+ * `secureFetch` whose transport failures (DNS, TLS, reset, timeout, policy
+ * refusals) reject with a typed {@link ProviderError} carrying the original as
+ * `cause`; an oversized response becomes a {@link PayloadTooLargeError}.
+ */
+export async function fetchTyped(url: string, init: SecureFetchOptions): Promise<{ response: Response; body: Buffer }> {
+  try {
+    return await secureFetch(url, init)
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
+    const wrapped = err instanceof SecureHttpError && err.code === 'RESPONSE_TOO_LARGE'
+      ? new PayloadTooLargeError(`HighLevel response too large: ${detail}`)
+      : new ProviderError(`HighLevel request failed: ${init.method ?? 'GET'} ${safePath(url)}: ${detail}`)
+    ;(wrapped as { cause?: unknown }).cause = err
+    throw wrapped
+  }
+}
+
+/** Origin + path of a URL for error messages: never its query (signed media URLs carry tokens there). */
+function safePath(url: string): string {
+  try {
+    const u = new URL(url)
+    return `${u.origin}${u.pathname}`
+  } catch {
+    return '<invalid url>'
+  }
+}
+
 /** One REST call through `secureFetch`; never throws on HTTP status (callers map errors). */
 export async function request(
   url: string,
   init: { method: string; headers: Record<string, string>; body?: string },
   http: ProviderHttpOptions | undefined,
 ): Promise<HttpResult> {
-  const { response, body } = await secureFetch(url, { ...http, ...init })
+  const { response, body } = await fetchTyped(url, { ...http, ...init })
   let json: Record<string, unknown> = {}
   if (body.length > 0) {
     try {

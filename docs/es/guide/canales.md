@@ -520,6 +520,9 @@ const provider = new EmailProvider({
   haya autenticado.
 - Sin IMAP, `ingest(rawMime)` acepta el MIME crudo de un webhook de correo
   entrante y resuelve `{ status, accepted, reason? }`.
+- El transporte creado desde `smtp` se cierra en `stop()` y se reconstruye
+  en el siguiente envío (también con pool); un `smtpTransport` inyectado es
+  tuyo y `stop()` nunca lo cierra.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/email-provider)
 

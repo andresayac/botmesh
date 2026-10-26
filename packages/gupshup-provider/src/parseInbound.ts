@@ -35,11 +35,16 @@ const MEDIA_TYPES: Record<string, MediaRef['kind']> = {
 
 const INTERACTIVE_TYPES = new Set(['quick_reply', 'button_reply', 'list_reply'])
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 const STATUS_MAP: Record<string, 'sent' | 'delivered' | 'read' | 'failed'> = {
   sent: 'sent', delivered: 'delivered', read: 'read', failed: 'failed',
 }
 
 export function parseInbound(body: GupshupCallback, now: () => number = Date.now): InboundEvent<GupshupCallback>[] {
+  if (!isRecord(body)) return []
   const timestamp = typeof body.timestamp === 'number' && Number.isFinite(body.timestamp) ? body.timestamp : now()
 
   if (body.type === 'message-event') {
@@ -138,8 +143,11 @@ export function parseInbound(body: GupshupCallback, now: () => number = Date.now
     location = toInboundLocation({ latitude: inner['latitude'], longitude: inner['longitude'], name: inner['name'], address: inner['address'] })
   } else if (type === 'contact') {
     messageType = 'contact'
-    const contacts = Array.isArray(inner['contacts']) ? (inner['contacts'] as Array<{ name?: { formatted_name?: string } }>) : []
-    text = contacts.map((c) => c.name?.formatted_name).filter(Boolean).join(', ')
+    const contacts: unknown[] = Array.isArray(inner['contacts']) ? inner['contacts'] : []
+    text = contacts
+      .map((c) => (isRecord(c) && isRecord(c['name']) ? str(c['name']['formatted_name']) : undefined))
+      .filter(Boolean)
+      .join(', ')
   }
 
   const quotedId = str(msg.context?.gsId) ?? str(msg.context?.id)

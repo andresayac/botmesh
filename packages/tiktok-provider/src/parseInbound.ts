@@ -70,6 +70,11 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
+/** A string field, or '' (TikTok text fields are strings; anything else is dropped). */
+function strField(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
 function decodeContent(content: unknown): Record<string, unknown> | undefined {
   if (isRecord(content)) return content
   if (typeof content !== 'string') return undefined
@@ -113,7 +118,7 @@ function parseComment(c: TikTokCommentUpdate, body: TikTokWebhookBody, raw: TikT
   const commentId = idString(c.comment_id)
   const videoId = idString(c.video_id)
   const parentId = idString(c.parent_comment_id)
-  const senderId = c.unique_identifier ?? ''
+  const senderId = idString(c.unique_identifier)
   if (!commentId || !videoId || !senderId) return []
   const threadId = parentId || commentId
   const chatId = commentChatId(videoId, threadId)
@@ -126,7 +131,7 @@ function parseComment(c: TikTokCommentUpdate, body: TikTokWebhookBody, raw: TikT
       surface: 'comment',
       videoId,
       commentId: threadId,
-      commentType: c.comment_type ?? (parentId ? 'reply' : 'comment'),
+      commentType: strField(c.comment_type) || (parentId ? 'reply' : 'comment'),
       ...(parentId ? { parentCommentId: parentId } : {}),
     },
   }
@@ -142,7 +147,7 @@ function parseComment(c: TikTokCommentUpdate, body: TikTokWebhookBody, raw: TikT
     isBroadcast: false,
     fromMe: !!options.selfUniqueIdentifier && senderId === options.selfUniqueIdentifier,
     type: 'text',
-    body: c.text ?? '',
+    body: strField(c.text),
     timestamp: eventTime(c.timestamp, body),
     mentions: [],
     raw,
@@ -158,7 +163,7 @@ function dmChat(chatId: string, conversationId: string, m: TikTokDirectMessage):
     kind: 'dm',
     isGroup: false,
     isBroadcast: false,
-    ...(m.from ? { name: m.from } : {}),
+    ...(strField(m.from) ? { name: strField(m.from) } : {}),
     platformData: { surface: 'dm', conversationId },
   }
 }
@@ -166,69 +171,75 @@ function dmChat(chatId: string, conversationId: string, m: TikTokDirectMessage):
 function dmSender(m: TikTokDirectMessage, senderId: string): SenderInfo {
   return {
     id: senderId,
-    ...(m.from ? { username: m.from } : {}),
+    ...(strField(m.from) ? { username: strField(m.from) } : {}),
     platformData: {
       surface: 'dm',
       ...(typeof m.is_follower === 'boolean' ? { isFollower: m.is_follower } : {}),
-      ...(m.message_tag?.source ? { source: m.message_tag.source } : {}),
+      ...(isRecord(m.message_tag) && strField(m.message_tag.source) ? { source: strField(m.message_tag.source) } : {}),
     },
   }
 }
 
 function personalSender(m: { from_user?: { id?: string; role?: string }; unique_identifier?: string }): string {
-  if (m.from_user?.role === 'personal_account' && m.from_user.id) return m.from_user.id
-  return m.unique_identifier ?? m.from_user?.id ?? ''
+  const user = isRecord(m.from_user) ? m.from_user : undefined
+  const userId = idString(user?.['id'])
+  if (user?.['role'] === 'personal_account' && userId) return userId
+  return idString(m.unique_identifier) || userId
 }
 
 function mediaFor(m: TikTokDirectMessage, conversationId: string, messageId: string): { type: MessageType; media?: MediaRef; body: string } {
   switch (m.type) {
     case 'text':
-      return { type: 'text', body: m.text?.body ?? '' }
+      return { type: 'text', body: strField(isRecord(m.text) ? m.text['body'] : undefined) }
     case 'image':
     case 'video': {
-      const mediaId = (m.type === 'image' ? m.image : m.video)?.media_id
+      const holder: unknown = m.type === 'image' ? m.image : m.video
+      const mediaId = idString(isRecord(holder) ? holder['media_id'] : undefined)
       if (!mediaId) return { type: 'unknown', body: '' }
       const token: TikTokMediaToken = { mediaId, messageId, conversationId, mediaType: m.type === 'image' ? 'IMAGE' : 'VIDEO' }
       return { type: m.type, body: '', media: { kind: m.type, token } }
     }
     case 'sticker':
     case 'emoji': {
-      const url = (m.type === 'sticker' ? m.sticker : m.emoji)?.url
+      const holder: unknown = m.type === 'sticker' ? m.sticker : m.emoji
+      const url = strField(isRecord(holder) ? holder['url'] : undefined)
       return url ? { type: 'sticker', body: '', media: { kind: 'sticker', token: { url } } } : { type: 'unknown', body: '' }
     }
     case 'share_post':
-      return { type: 'unknown', body: m.share_post?.embed_url ?? '' }
+      return { type: 'unknown', body: strField(isRecord(m.share_post) ? m.share_post['embed_url'] : undefined) }
     default:
       return { type: 'unknown', body: '' }
   }
 }
 
 function parseDirectMessage(m: TikTokDirectMessage, body: TikTokWebhookBody, raw: TikTokInboundRaw, options: ParseWebhookOptions): InboundEvent<TikTokInboundRaw>[] {
-  const conversationId = m.conversation_id ?? ''
+  const conversationId = idString(m.conversation_id)
   const senderId = personalSender(m)
   if (!conversationId || !senderId) return []
-  const messageId = m.message_id ?? ''
+  const messageId = idString(m.message_id)
   const chatId = options.conversationChatId?.({ conversationId, peerId: senderId, messageId, direction: 'in' }) ?? conversationChatId(conversationId)
   const timestamp = eventTime(m.timestamp, body)
   const chat = dmChat(chatId, conversationId, m)
   const senderInfo = dmSender(m, senderId)
 
   if (m.type === 'reaction') {
-    return (m.reaction ?? [])
-      .filter((r) => r.original_msg_id)
+    const reactions: unknown[] = Array.isArray(m.reaction) ? m.reaction : []
+    return reactions
+      .filter((r): r is Record<string, unknown> => isRecord(r) && idString(r['original_msg_id']) !== '')
       .map((r) => ({
         kind: 'reaction' as const,
         reaction: {
-          ref: { id: r.original_msg_id ?? '', chatId },
-          emoji: r.emoji ?? r.ai_emoji_url ?? '',
-          senderId: r.unique_identifier ?? senderId,
-          ...(r.operation === 'REMOVE' ? { removed: true } : {}),
+          ref: { id: idString(r['original_msg_id']), chatId },
+          emoji: strField(r['emoji']) || strField(r['ai_emoji_url']),
+          senderId: idString(r['unique_identifier']) || senderId,
+          ...(r['operation'] === 'REMOVE' ? { removed: true } : {}),
         },
       }))
   }
 
-  const buttonId = m.reply_source_payload?.reply_source_unique_id
-  if (m.type === 'text' && m.reply_source_payload) {
+  const replySource: unknown = m.reply_source_payload
+  const buttonId = isRecord(replySource) ? idString(replySource['reply_source_unique_id']) : ''
+  if (m.type === 'text' && replySource) {
     return [{
       kind: 'interaction',
       interaction: {
@@ -239,7 +250,7 @@ function parseDirectMessage(m: TikTokDirectMessage, body: TikTokWebhookBody, raw
         from: chatId, sender: senderId, chatId, senderId,
         isGroup: false,
         kind: 'button',
-        data: buttonId || m.text?.body || '',
+        data: buttonId || strField(isRecord(m.text) ? m.text['body'] : undefined),
         timestamp,
         raw,
       },
@@ -247,7 +258,7 @@ function parseDirectMessage(m: TikTokDirectMessage, body: TikTokWebhookBody, raw
   }
 
   const { type, media, body: text } = mediaFor(m, conversationId, messageId)
-  const quotedId = m.referenced_message_info?.referenced_message_id
+  const quotedId = idString(isRecord(m.referenced_message_info) ? m.referenced_message_info['referenced_message_id'] : undefined)
   const message: InboundMessage<TikTokInboundRaw> = {
     ref: { id: messageId, chatId },
     chat,
@@ -271,15 +282,17 @@ function parseDirectMessage(m: TikTokDirectMessage, body: TikTokWebhookBody, raw
 }
 
 function parseSentEcho(m: TikTokDirectMessage, body: TikTokWebhookBody, options: ParseWebhookOptions): InboundEvent<TikTokInboundRaw>[] {
-  const conversationId = m.conversation_id ?? ''
-  if (!conversationId || !m.message_id) return []
-  const recipient = m.to_user?.role === 'personal_account' ? m.to_user.id : m.unique_identifier
-  const chatId = options.conversationChatId?.({ conversationId, peerId: recipient ?? '', messageId: m.message_id, direction: 'out' })
+  const conversationId = idString(m.conversation_id)
+  const messageId = idString(m.message_id)
+  if (!conversationId || !messageId) return []
+  const toUser = isRecord(m.to_user) ? m.to_user : undefined
+  const recipient = (toUser?.['role'] === 'personal_account' ? idString(toUser['id']) : idString(m.unique_identifier)) || undefined
+  const chatId = options.conversationChatId?.({ conversationId, peerId: recipient ?? '', messageId, direction: 'out' })
     ?? conversationChatId(conversationId)
   return [{
     kind: 'status',
     status: {
-      ref: { id: m.message_id, chatId },
+      ref: { id: messageId, chatId },
       status: 'sent',
       ...(recipient ? { recipient } : {}),
       timestamp: eventTime(m.timestamp, body),
@@ -297,7 +310,7 @@ function parseHighIntent(c: TikTokHighIntentComment, body: TikTokWebhookBody, ra
     chat: { id: chatId, kind: 'dm', isGroup: false, isBroadcast: false, platformData: { surface: 'high-intent-comment', commentId } },
     senderInfo: {
       id: senderId,
-      ...(c.from ? { username: c.from } : {}),
+      ...(strField(c.from) ? { username: strField(c.from) } : {}),
       platformData: { surface: 'high-intent-comment', ...(typeof c.is_follower === 'boolean' ? { isFollower: c.is_follower } : {}) },
     },
     from: chatId,
@@ -308,7 +321,7 @@ function parseHighIntent(c: TikTokHighIntentComment, body: TikTokWebhookBody, ra
     isBroadcast: false,
     fromMe: false,
     type: 'text',
-    body: c.comment_text ?? '',
+    body: strField(c.comment_text),
     timestamp: eventTime(c.timestamp, body),
     mentions: [],
     raw,

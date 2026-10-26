@@ -257,8 +257,19 @@ function msgIds(value: string | undefined): string[] {
   return value.split(/[\s,]+/).map((s) => s.trim()).filter((s) => s.includes('@'))
 }
 
+/**
+ * Drop a trailing run of `\n` / `\r\n` (a lone trailing `\r` stays). A
+ * backwards scan, linear, unlike `/(\r?\n)+$/`, which retries from every
+ * newline of a long run that something else follows (hours at the inbound
+ * size limit).
+ */
 function stripTrailingNewlines(s: string): string {
-  return s.replace(/(\r?\n)+$/, '')
+  let end = s.length
+  while (end > 0 && s.charCodeAt(end - 1) === 10) {
+    end--
+    if (end > 0 && s.charCodeAt(end - 1) === 13) end--
+  }
+  return end === s.length ? s : s.slice(0, end)
 }
 
 function filenameOf(part: MimePart): string | undefined {

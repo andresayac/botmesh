@@ -107,11 +107,14 @@ The bot selects the mailbox and stays in IDLE: the server notifies every new ema
 Without IMAP, `ingest()` accepts the raw MIME (Buffer/string) from SES, Mailgun ("raw MIME"), a Postfix pipe, etc., and returns `{ status, accepted, reason? }` (`413` when it exceeds `maxInboundBytes`; also limit the body in your HTTP server):
 
 ```ts
-app.post('/inbound-email', async (req, res) => {
-  const result = await provider.ingest(req.rawBody)
+// RAW body (a Buffer), capped at the provider's maxInboundBytes (40 MiB by default).
+app.post('/inbound-email', express.raw({ type: '*/*', limit: '40mb' }), async (req, res) => {
+  const result = await provider.ingest(req.body)
   res.sendStatus(result.status)
 })
 ```
+
+With [`@botmesh/server`](../server), mount it as a route with a larger `maxBodyBytes` instead.
 
 ## Typed errors
 
@@ -146,7 +149,7 @@ app.post('/inbound-email', async (req, res) => {
 | `requireAuthentication` | — | `{ authservId }`: accept only emails authenticated by your MTA (`Authentication-Results`). |
 | `reconnect` | `{ baseMs: 1000, maxMs: 60000 }` | IMAP reconnection backoff. |
 | `http` | — | `secureFetch` options for attachments by URL. |
-| `createImapClient` / `smtpTransport` | — | Inject your own clients (or fakes in tests). |
+| `createImapClient` / `smtpTransport` | — | Inject your own clients (or fakes in tests). An injected `smtpTransport` is yours: `stop()` never closes it. A transport built from `smtp` is closed on `stop()` and rebuilt on the next send, so a pooled one (`smtp.options.pool`) keeps working across `stop()`/`start()`. |
 
 ## Integration tests
 
