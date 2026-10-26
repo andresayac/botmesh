@@ -18,8 +18,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createClient } from 'redis'
 import { Bot, LeaseLostError, flow, type Coordinator, type Ticket } from '@botmesh/core'
 import { MockProvider } from '@botmesh/core/testing'
-import { RedisCoordinator, RedisStore, type CoordinatorClient, type NativeRedisClient } from '../src/index.js'
+import { RedisCoordinator, RedisStore, type CoordinatorClient } from '../src/index.js'
 import { RELEASE_TURN_SCRIPT } from '../src/coordScripts.js'
+import type { NodeRedisClient } from './nodeRedis.js'
 
 const REDIS_URL = process.env.BOTWA_TEST_REDIS_URL
 const RUN = `botwa-co-it:${process.pid}-${randomUUID().slice(0, 8)}`
@@ -47,7 +48,7 @@ function counting(inner: Coordinator) {
 }
 
 describe.skipIf(!REDIS_URL)('RedisCoordinator (real Redis)', () => {
-  let admin: NativeRedisClient
+  let admin: NodeRedisClient
   const cleanups: Array<() => Promise<unknown>> = []
   const children: ChildProcess[] = []
 
@@ -237,9 +238,9 @@ describe.skipIf(!REDIS_URL)('RedisCoordinator (real Redis)', () => {
     await vi.waitFor(async () => expect(await admin.keys(`${prefix}:cp:*`)).toEqual([]))   // flow finished: checkpoint cleared
   }, 20_000)
   /** Two raw coordinators on one prefix; `a` goes through `wrap` (e.g. to fail one EVAL). */
-  async function rawPair(tag: string, leaseMs: number, wrap?: (c: NativeRedisClient) => CoordinatorClient) {
+  async function rawPair(tag: string, leaseMs: number, wrap?: (c: NodeRedisClient) => CoordinatorClient) {
     const prefix = nextPrefix(tag)
-    const ca = createClient({ url: REDIS_URL }) as NativeRedisClient
+    const ca = createClient({ url: REDIS_URL }) as unknown as NodeRedisClient
     await ca.connect()
     cleanups.push(() => ca.quit())
     const a = new RedisCoordinator({ client: wrap ? wrap(ca) : ca, prefix, replicaId: 'a', leaseMs, maxPollMs: 10 })

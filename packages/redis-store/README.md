@@ -3,7 +3,7 @@
 > [!WARNING]
 > **Experimental — published under the `alpha` tag.** It is on npm as `0.2.0-alpha.0`; install it with the tag (`pnpm add @botmesh/redis-store@alpha`). The API may change without notice. It is tested against a real Redis (see [Integration tests](#integration-tests)).
 
-Redis [`IStore`](https://github.com/andresayac/botmesh/tree/main/packages/core) implementation for **@botmesh/core** — distributed, shared bot state backed by Redis (node-redis v4). Point any number of bot replicas at the same Redis instance and they share message logs, chats, contacts, flow checkpoints, AI conversation history and delivery cursors.
+Redis [`IStore`](https://github.com/andresayac/botmesh/tree/main/packages/core) implementation for **@botmesh/core** — distributed, shared bot state backed by Redis (node-redis 4, 5 or 6). Point any number of bot replicas at the same Redis instance and they share message logs, chats, contacts, flow checkpoints, AI conversation history and delivery cursors.
 
 - Per-chat message logs as Redis **sorted sets** (score = timestamp) → `getMessagesByChat(limit)` is an `O(log N + limit)` `ZRANGE`, not a scan.
 - Everything is JSON under one configurable **prefix**, so apps/bots can share a database.
@@ -21,6 +21,14 @@ pnpm add @botmesh/redis-store redis
 
 (Requires a Redis server reachable from the bot, e.g. `redis://localhost:6379`.)
 
+`redis` ([node-redis](https://github.com/redis/node-redis)) is a **peer dependency**: install the major
+you use, `^4.7`, `^5` or `^6` (npm and pnpm install the newest one, 6, when you have none). The
+store, the coordinator and the durability backend work with every one of them, on a single node or a
+Redis Cluster, and with both reply protocols (RESP2, and RESP3, the default of node-redis 6). The test
+suites run against real servers with each major. The `client` option accepts the client of any of
+them; the store narrows it at the boundary, so only a minimal shape (`NativeRedisClient`,
+`NativeRedisClusterClient`) appears in the types.
+
 ## Usage with Bot
 
 ```ts
@@ -30,7 +38,7 @@ import { RedisStore } from '@botmesh/redis-store'
 
 const store = new RedisStore({
   url: process.env.REDIS_URL,      // default: redis://localhost:6379
-  prefix: 'mybot',                 // default: 'botwa'
+  prefix: 'mybot',                 // default: 'botwa' (permanent: existing data lives under it)
   sessionTtl: '7d',                // optional: expire conversations/checkpoints after 7 days
 })
 await store.start()                // connects the client (unless one was injected)
@@ -69,7 +77,7 @@ const store = new RedisStore({ client: fake })
 | Option   | Type              | Default                   | Description |
 | -------- | ----------------- | ------------------------- | ----------- |
 | `url`    | `string`          | `redis://localhost:6379`  | Redis connection URL. Ignored when `client` is provided. |
-| `prefix` | `string`          | `'botwa'`                 | Namespace prefix for every key. |
+| `prefix` | `string`          | `'botwa'`                 | Namespace prefix for every key. The default predates the botmesh name and stays: changing it would hide the data already stored under it. |
 | `client` | `RedisLikeClient` \| node-redis client or cluster | — | Inject an existing client (required for tests). The store never connects/quits it. A cluster client selects the `'cluster'` layout. |
 | `cluster` | `{ rootNodes, nodeAddressMap?, defaults?, maxCommandRedirections? }` | — | Create (and own) a node-redis **cluster** client. Not combinable with `url`/`client`. |
 | `layout` | `'legacy' \| 'cluster'` | `'cluster'` on a cluster, else `'legacy'` | Key layout (see [Redis Cluster](#redis-cluster)). `'legacy'` on a cluster throws. |
@@ -229,13 +237,13 @@ It is opt-in: it turns on with the `BOTWA_TEST_REDIS_URL` environment variable a
 
 ```bash
 # 1. A disposable Redis (port 56379 so it does not clash with a local one)
-docker run -d --name botwa-it-redis -p 56379:6379 redis:7-alpine
+docker run -d --name botmesh-it-redis -p 56379:6379 redis:7-alpine
 
 # 2. Run the suite against it
 BOTWA_TEST_REDIS_URL=redis://127.0.0.1:56379 pnpm --filter @botmesh/redis-store test
 
 # 3. Cleanup
-docker rm -f botwa-it-redis
+docker rm -f botmesh-it-redis
 ```
 
 On PowerShell: `$env:BOTWA_TEST_REDIS_URL = 'redis://127.0.0.1:56379'; pnpm --filter @botmesh/redis-store test`.
@@ -249,7 +257,11 @@ On PowerShell: `$env:BOTWA_TEST_REDIS_URL = 'redis://127.0.0.1:56379'; pnpm --fi
 `tests/cluster-*.test.ts` exercise the cluster layout with no network: `tests/fakeClusterRedis.ts` mimics a node-redis cluster client (no `KEYS`/`SCAN`, exact `CROSSSLOT` on multi-key commands, `MULTI` and `EVAL`, injectable `TRYAGAIN`) and runs the same probes (`tests/cluster-probes.ts`) as a real cluster. Against a real Redis Cluster (`tests/cluster.integration.test.ts`): every conformance suite, `CLUSTER KEYSLOT` of every written key, coordination with two replicas (also killing a child process), exclusive session, a persistent flow across replicas and, with `BOTWA_TEST_REDIS_CLUSTER_CHAOS=1`, a manual failover and a slot migration under load. `tests/cluster-migrate.integration.test.ts` migrates a real Redis (with `BOTWA_TEST_REDIS_URL`) in place and into the cluster.
 
 ```bash
-docker run -d --name botwa-it-redis-cluster -e IP=0.0.0.0 -e INITIAL_PORT=47100 -e MASTERS=3 -e SLAVES_PER_MASTER=1 -p 127.0.0.1:47100-47105:47100-47105 grokzen/redis-cluster:7.0.10
+docker run -d --name botmesh-it-redis-cluster -e IP=0.0.0.0 -e INITIAL_PORT=47100 -e MASTERS=3 -e SLAVES_PER_MASTER=1 -p 127.0.0.1:47100-47105:47100-47105 grokzen/redis-cluster:7.0.10
 BOTWA_TEST_REDIS_CLUSTER_URL=redis://127.0.0.1:47100 pnpm --filter @botmesh/redis-store test
-docker rm -f botwa-it-redis-cluster
+docker rm -f botmesh-it-redis-cluster
 ```
+
+### node-redis majors
+
+Every suite above runs with node-redis 6 (the `redis` devDependency) by default. Set `BOTWA_TEST_REDIS_CLIENT=v4` or `BOTWA_TEST_REDIS_CLIENT=v5` to run them all with that major: `vitest.config.ts` aliases `redis` to the `redis-v4` / `redis-v5` devDependencies, for the tests and for the clients the components create themselves.

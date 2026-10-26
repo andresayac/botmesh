@@ -10,10 +10,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createClient } from 'redis'
 import type { StoredMessage } from '@botmesh/core'
 import {
-  RedisCoordinator, RedisDurability, RedisStore, inspectKeyspace, migrateToClusterLayout, type NativeRedisClient,
+  RedisCoordinator, RedisDurability, RedisStore, inspectKeyspace, migrateToClusterLayout,
 } from '../src/index.js'
-import type { NativeRedisClusterClient } from '../src/client.js'
 import { CLUSTER_URL, cleanupPrefix, connectCluster } from './clusterEnv.js'
+import type { NodeRedisClient, NodeRedisCluster } from './nodeRedis.js'
 
 const REDIS_URL = process.env.BOTWA_TEST_REDIS_URL
 const msg = (chatId: string, id: string, ts: number): StoredMessage => ({
@@ -21,7 +21,7 @@ const msg = (chatId: string, id: string, ts: number): StoredMessage => ({
 })
 
 /** Seed a legacy keyspace through the real APIs; returns the leadership term it reached. */
-async function seed(client: NativeRedisClient, prefix: string): Promise<number> {
+async function seed(client: NodeRedisClient, prefix: string): Promise<number> {
   const store = new RedisStore({ client, prefix, sessionTtl: '1h' })
   await store.start()
   await store.upsertChat({ id: 'c1', name: 'Chat 1' })
@@ -47,7 +47,7 @@ async function seed(client: NativeRedisClient, prefix: string): Promise<number> 
 }
 
 describe.skipIf(!REDIS_URL)('migrateToClusterLayout (real single node)', () => {
-  let client: NativeRedisClient
+  let client: NodeRedisClient
   const prefix = `botwa-mig-it-${process.pid}-${randomUUID().slice(0, 8)}`
 
   beforeAll(async () => {
@@ -91,8 +91,8 @@ describe.skipIf(!REDIS_URL)('migrateToClusterLayout (real single node)', () => {
 })
 
 describe.skipIf(!REDIS_URL || !CLUSTER_URL)('migrateToClusterLayout (real single node → real cluster)', () => {
-  let source: NativeRedisClient
-  let target: NativeRedisClusterClient
+  let source: NodeRedisClient
+  let target: NodeRedisCluster
   const prefix = `botwa-mig2-it-${process.pid}-${randomUUID().slice(0, 8)}`
 
   beforeAll(async () => {
@@ -133,7 +133,7 @@ describe.skipIf(!REDIS_URL || !CLUSTER_URL)('migrateToClusterLayout (real single
 })
 
 describe.skipIf(!REDIS_URL)('migrateToClusterLayout rollback and marker (real single node)', () => {
-  let client: NativeRedisClient
+  let client: NodeRedisClient
   const prefixes: string[] = []
   const fresh = (tag: string) => { const p = `botwa-migrb-it-${process.pid}-${randomUUID().slice(0, 8)}-${tag}`; prefixes.push(p); return p }
 
@@ -190,8 +190,8 @@ describe.skipIf(!REDIS_URL)('migrateToClusterLayout rollback and marker (real si
 })
 
 describe.skipIf(!REDIS_URL || !CLUSTER_URL)('migrateToClusterLayout rollback (real cluster → real single node)', () => {
-  let target: NativeRedisClient
-  let cluster: NativeRedisClusterClient
+  let target: NodeRedisClient
+  let cluster: NodeRedisCluster
   const prefix = `botwa-migrb2-it-${process.pid}-${randomUUID().slice(0, 8)}`
 
   beforeAll(async () => {

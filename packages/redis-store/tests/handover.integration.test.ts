@@ -20,9 +20,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createClient } from 'redis'
 import { Bot, flow, type BotConfig, type ConversationHandoverConfig } from '@botmesh/core'
 import { MockProvider } from '@botmesh/core/testing'
-import { RedisCoordinator, RedisDurability, RedisStore, type NativeRedisClient } from '../src/index.js'
-import type { NativeRedisClusterClient, RedisClusterConnectOptions } from '../src/client.js'
+import { RedisCoordinator, RedisDurability, RedisStore } from '../src/index.js'
+import type { RedisClusterConnectOptions } from '../src/client.js'
 import { CLUSTER_URL, cleanupPrefix, clusterOptions, connectCluster } from './clusterEnv.js'
+import type { NodeRedisClient, NodeRedisCluster } from './nodeRedis.js'
 
 const REDIS_URL = process.env.BOTWA_TEST_REDIS_URL
 const RUN = `botwa-ho-it:${process.pid}-${randomUUID().slice(0, 8)}`
@@ -48,8 +49,8 @@ const VARIANTS: Array<{ label: string; enabled: boolean; conn: () => Conn; singl
 ]
 
 for (const variant of VARIANTS) describe.skipIf(!variant.enabled)(`conversation hand-over (${variant.label})`, { timeout: 30_000 }, () => {
-  let admin: NativeRedisClient | undefined
-  let clusterAdmin: NativeRedisClusterClient | undefined
+  let admin: NodeRedisClient | undefined
+  let clusterAdmin: NodeRedisCluster | undefined
   const prefixes: string[] = []
   const cleanups: Array<() => Promise<unknown>> = []
   const children: ChildProcess[] = []

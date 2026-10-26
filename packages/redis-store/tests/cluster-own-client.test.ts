@@ -103,3 +103,19 @@ describe('cluster connect options', () => {
     }
   })
 })
+
+describe('node-redis 5 and 6: per-node errors', () => {
+  it('own cluster clients also log node-error (a dropped node connection), not only error', async () => {
+    const errors: unknown[] = []
+    new RedisStore({ cluster: { rootNodes: ['redis://n1:7000'] }, logger: { error: (o: unknown) => errors.push(o) } })
+    new RedisCoordinator({ cluster: { rootNodes: ['redis://n1:7000'] }, replicaId: 'r', logger: { warn: (o: unknown) => errors.push(o) } })
+    new RedisDurability({ cluster: { rootNodes: ['redis://n1:7000'] }, logger: { error: (o: unknown) => errors.push(o) } })
+    expect(created).toHaveLength(3)
+    for (const { client } of created) {
+      const onNodeError = client.listeners.get('node-error')
+      expect(onNodeError, 'node-error listener').toBeTypeOf('function')
+      onNodeError!(new Error('Socket closed unexpectedly'))
+    }
+    expect(errors).toHaveLength(3)
+  })
+})

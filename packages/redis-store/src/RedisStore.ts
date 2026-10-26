@@ -75,8 +75,17 @@ const LEGACY_SCAN_LIMIT = 10_000
 /** Longest a legacy-layout start() waits for the layout-marker check. */
 const MARKER_CHECK_TIMEOUT_MS = 2_000
 
-/** The native node-redis v4 client type produced by `createClient` (modules bundled by `redis`). */
-export type NativeRedisClient = ReturnType<typeof createClient>
+/**
+ * A node-redis single-node client: what `createClient()` returns in `redis` 4, 5 or 6
+ * (the peer dependency accepts any of them). Only a minimal shape is declared, so the
+ * client of whichever major you installed type-checks; the store narrows it to
+ * {@link RedisLikeClient} at the boundary. RESP2 and RESP3 (the redis 6 default) both work.
+ */
+export interface NativeRedisClient {
+  connect(): Promise<unknown>
+  readonly isOpen: boolean
+  readonly isReady: boolean
+}
 
 /** Options for {@link RedisLikeClient.zRange} / zRangeWithScores. */
 export interface RedisZRangeOptions {
@@ -86,7 +95,7 @@ export interface RedisZRangeOptions {
 }
 
 /**
- * Structural subset of the node-redis v4 client used by {@link RedisStore}.
+ * Structural subset of the node-redis client (redis 4, 5 or 6) used by {@link RedisStore}.
  * Tests inject an in-memory fake (see tests/fakeRedis.ts); a real client is
  * accepted through {@link RedisStoreOptions.client} via {@link NativeRedisClient}
  * (the native command typings are too fancy for direct structural assignability,
@@ -145,7 +154,7 @@ export interface RedisLikeClient {
 }
 
 /**
- * Minimal chainable MULTI surface (node-redis v4). Only the commands the store
+ * Minimal chainable MULTI surface (node-redis 4, 5 and 6). Only the commands the store
  * batches are declared; each returns the transaction for chaining, and `exec()`
  * runs them atomically.
  */

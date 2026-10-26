@@ -15,7 +15,8 @@
   "bugs": { "url": "https://github.com/andresayac/botmesh/issues" },
   "files": ["./lib/**/*"],
   "scripts": { "build": "tsc", "test": "vitest run", "prepublishOnly": "pnpm build", "typecheck": "tsc -p tsconfig.test.json" },
-  "dependencies": { "@botmesh/core": "workspace:^", "redis": "^4.7.0" },
-  "devDependencies": { "@types/node": "^26.1.1", "typescript": "^7.0.2", "vite": "^7.3.6", "vitest": "^4.1.10" },
+  "dependencies": { "@botmesh/core": "workspace:^" },
+  "peerDependencies": { "redis": "^4.7.0 || ^5.0.0 || ^6.0.0" },
+  "devDependencies": { "@types/node": "^26.1.1", "redis": "^6.3.0", "redis-v4": "npm:redis@^4.7.1", "redis-v5": "npm:redis@^5.12.1", "typescript": "^7.0.2", "vite": "^7.3.7", "vitest": "^4.1.12" },
   "publishConfig": { "access": "public" }
 }
