@@ -781,7 +781,13 @@ const provider = new GupshupProvider({
 - Buttons go out as quick replies (up to 3), then as a list (up to 10),
   then as numbered text; lists are native up to 10 rows. The list button of
   degraded buttons reads `listButtonText` (default `'Options'`, max 20
-  characters; `'Opciones'` for a Spanish bot).
+  characters; `'Opciones'` for a Spanish bot). Longer labels are cut to
+  WhatsApp's limits (titles 20/24 characters) instead of being rejected.
+- With `@botmesh/server`, mount the provider as a route: the ingress passes
+  the request URL to `ingest()`, so the `?token=` callback works as is.
+- Use a URL-safe `webhookToken` (`openssl rand -hex 32`). A base64 secret
+  pasted raw into `?token=` also matches (a literal `+` is not read as a
+  space), and so does its percent-encoded form.
 - `chatId` = the sender's phone digits (no `+`), exactly what the send API
   expects.
 - Media only from public URLs. Gupshup also documents IP allow-listing: do

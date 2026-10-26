@@ -6,7 +6,7 @@
 
 import { timingSafeEqual } from 'node:crypto'
 import { SecureHttpError, secureFetch, type SecureFetchOptions } from '@botmesh/http'
-import { PayloadTooLargeError, ProviderError, type Button, type ListSection } from '@botmesh/core'
+import { PayloadTooLargeError, ProviderError } from '@botmesh/core'
 
 export type HeaderBag = Record<string, string | string[] | undefined>
 
@@ -43,18 +43,10 @@ export function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(left, right)
 }
 
-/** Render buttons / list rows as a numbered text menu (transport has no native widget). */
-export function numberedText(text: string, items: ReadonlyArray<{ title: string }>, footer?: string): string {
-  const lines = items.map((item, index) => `${index + 1}. ${item.title}`)
+/** Render buttons / list rows as a numbered text menu; a URL button keeps its link (`1. Pay: https://…`). */
+export function numberedText(text: string, items: ReadonlyArray<{ title: string; url?: string }>, footer?: string): string {
+  const lines = items.map((item, index) => `${index + 1}. ${item.title}${item.url ? `: ${item.url}` : ''}`)
   return [text, '', ...lines, ...(footer ? ['', footer] : [])].join('\n')
-}
-
-export function listRows(sections: ListSection[]): Array<{ id: string; title: string; description?: string }> {
-  return sections.flatMap((section) => section.rows)
-}
-
-export function buttonRows(buttons: Button[]): Array<{ id: string; title: string }> {
-  return buttons.map((b) => ({ id: b.id, title: b.title }))
 }
 
 export interface HttpResult {
@@ -75,13 +67,25 @@ export async function fetchTyped(url: string, init: SecureFetchOptions): Promise
   try {
     return await secureFetch(url, init)
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err)
+    const detail = describeFailure(err)
     const wrapped = err instanceof SecureHttpError && err.code === 'RESPONSE_TOO_LARGE'
       ? new PayloadTooLargeError(`Gupshup response too large: ${detail}`)
       : new ProviderError(`Gupshup request failed: ${init.method ?? 'GET'} ${safePath(url)}: ${detail}`)
     ;(wrapped as { cause?: unknown }).cause = err
     throw wrapped
   }
+}
+
+/** The error message plus the first network error code in its cause chain (`fetch failed (ECONNREFUSED)`). */
+function describeFailure(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err)
+  let current: unknown = err
+  for (let depth = 0; depth < 4 && current !== null && typeof current === 'object'; depth++) {
+    const code = (current as { code?: unknown }).code
+    if (typeof code === 'string' && /^E[A-Z0-9_]+$/.test(code)) return message.includes(code) ? message : `${message} (${code})`
+    current = (current as { cause?: unknown }).cause
+  }
+  return message
 }
 
 /** Origin + path of a URL for error messages: never its query (signed media URLs carry tokens there). */
@@ -125,19 +129,4 @@ export function retryAfterMs(headers: Headers): number | undefined {
   const date = Date.parse(value)
   if (Number.isFinite(date)) return Math.min(MAX_RETRY_AFTER_MS, Math.max(0, date - Date.now()))
   return undefined
-}
-
-/** A bounded insertion-ordered map: the oldest key is evicted past `limit`. */
-export class BoundedMap<K, V> {
-  private readonly map = new Map<K, V>()
-  constructor(private readonly limit = 10_000) {}
-  get(key: K): V | undefined { return this.map.get(key) }
-  set(key: K, value: V): void {
-    this.map.delete(key)
-    this.map.set(key, value)
-    if (this.map.size > this.limit) {
-      const oldest = this.map.keys().next()
-      if (!oldest.done) this.map.delete(oldest.value)
-    }
-  }
 }

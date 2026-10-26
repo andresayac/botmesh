@@ -146,7 +146,7 @@ For a framework without an adapter, build an `IngressRequest` and call `ingress.
 | `413` on large deliveries (email with attachments, batched events) | Raise `maxBodyBytes` for that route only (`{ path, provider, maxBodyBytes }`). |
 | `/readyz` stays `503` | The bot is not `ready` (still connecting, or stopped), your `readiness` check failed, or `ingress.close()` was called. |
 | `TypeError: provider for "/x" has no ingest()` | That provider opens its own connection (Baileys, Discord, Telegram polling): it needs no ingress. |
-| A query-string webhook token is rejected (WPPConnect, Gupshup) | The ingress calls `ingest(raw, headers)` without the URL. Send the token in a header, or mount that route yourself and call the provider's URL-aware method. |
+| A query-string webhook token is rejected (WPPConnect, Gupshup) | The ingress passes the path and query as the third argument of `ingest(raw, headers, url)`; when it is still rejected, check that a proxy in front does not strip the query string, or send the token in a header. |
 
 ## Links
 

@@ -233,8 +233,9 @@ await ingress.handle(request)              // framework-neutral entry point used
 
 ## Provider notes
 
-The ingress calls `provider.ingest(rawBody, headers)`: it does not pass the
-request URL. That is fine for most providers, with these details:
+The ingress calls `provider.ingest(rawBody, headers, requestUrl)`, where
+`requestUrl` is the request path with its query string (`/hook?token=…`).
+Providers that authenticate a token in the URL read it from there:
 
 | Provider | Route setup |
 | --- | --- |
@@ -242,13 +243,13 @@ request URL. That is fine for most providers, with these details:
 | `TelegramProvider` (`polling: false`) | Default (`buffer`) or `body: 'text'` |
 | `EvolutionProvider`, `GoHighLevelProvider`, `TikTokProvider` | Default (`buffer`) |
 | `TwilioProvider` | Default. Configure `webhookUrl` (the exact public URL Twilio signs), or `webhookPath` behind a proxy you control (the ingress passes the request's query string, which Twilio signs too) |
-| `WPPConnectProvider` | The webhook token must arrive in a header (`x-webhook-token` or `Authorization: Bearer`): the query-string token needs `ingest(body, headers, url)`, which the ingress does not call |
-| `GupshupProvider` | Same: `ingest()` only reads the header (`x-webhook-token`); the query-string token needs `ingestRequest()` |
+| `WPPConnectProvider` | Default. The webhook token arrives in the query string (`?token=…`) or a header (`x-webhook-token` or `Authorization: Bearer`) |
+| `GupshupProvider` | Default. The token arrives in the query string of the callback URL (`?token=…`, `webhookTokenParam`) or the `x-webhook-token` header |
 | `EmailProvider` | Default, with a larger `maxBodyBytes` |
 
-For WPPConnect and Gupshup with a query-string token, mount a route in your
-framework and call `provider.ingest(body, headers, req.originalUrl)` /
-`provider.ingestRequest({ url, body, headers })` yourself (see
+Without the ingress, mount a route in your framework and pass the URL
+yourself: `provider.ingest(body, headers, req.originalUrl)` (WPPConnect and
+Gupshup) or `provider.ingestRequest({ url, body, headers })` (Gupshup) (see
 [Channels](/guide/channels)).
 
 ## Lower-level exports

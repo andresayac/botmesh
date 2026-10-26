@@ -15,7 +15,7 @@ pnpm add @botmesh/core @botmesh/gupshup
 1. A WhatsApp app in Gupshup: **API key**, **app name** (`src.name`) and the app **number**.
 2. A callback URL configured in the console with **v2 payload**, including a secret token in the query: `https://bot.example.com/gupshup?token=<secret>`.
 
-Gupshup does **not sign** its callbacks: the provider authenticates them with that token (constant-time comparison). Gupshup also recommends restricting by IP; do both in production.
+Gupshup does **not sign** its callbacks: the provider authenticates them with that token (constant-time comparison). Generate it URL-safe, e.g. `openssl rand -hex 32`. A base64 secret pasted raw also works (a literal `+` in the query is matched as `+`, not as a space), and so does the percent-encoded form (`encodeURIComponent(secret)`). Gupshup also recommends restricting by IP; do both in production.
 
 ## Usage
 
@@ -46,7 +46,8 @@ app.post('/gupshup', express.raw({ type: '*/*' }), (req, res) => {
 app.listen(3000)
 ```
 
-- `ingestRequest` reads the token from the query (`webhookTokenParam`, `token` by default) or from the header; `ingest(body, headers)` only from the header (`webhookTokenHeader`, `x-webhook-token` by default).
+- `ingestRequest({ url, body, headers })` and `ingest(body, headers, url)` read the token from the query of `url` (`webhookTokenParam`, `token` by default) or, when it has none, from the header (`webhookTokenHeader`, `x-webhook-token` by default). Without `url`, `ingest(body, headers)` only reads the header.
+- With [`@botmesh/server`](https://github.com/andresayac/botmesh/tree/main/packages/server) no route code is needed: the ingress passes the request path and query to `ingest()`, so `createIngress({ routes: [{ path: '/gupshup', provider }] })` accepts the `?token=` callback URL.
 - Responses: `200` accepted (also the empty validation ping), `400` invalid JSON, `401` missing or wrong token.
 - `allowUnsignedWebhooks: true` disables the token (isolated local development only).
 
@@ -61,10 +62,12 @@ app.listen(3000)
 | `text` | `{ type: 'text' }` |
 | `image` / `video` / `audio` / `voice` / `document` / `sticker` | `image` (`originalUrl`/`previewUrl`), `video`, `audio`, `file`, `sticker` (**public URL**) |
 | `location` / `contact` | `location` / `contact` |
-| `buttons` | `quick_reply` (≤ 3, `postbackText` = button `id`) → `list` (≤ 10, list button labelled `listButtonText`, default `'Options'`) → numbered text |
+| `buttons` | `quick_reply` (≤ 3, `postbackText` = button `id`) → `list` (≤ 10, list button labelled `listButtonText`, default `'Options'`) → numbered text (a URL button keeps its link: `1. Pay: https://…`) |
 | `list` | interactive `list` (`postbackText` = row `id`; > 10 rows → numbered text) |
 | `template` | `/template/msg` with `{ id: name, params: components }` (`components` = array of strings or `{ params }`) |
 | `native` (`provider: 'gupshup'`) | `message` object as-is |
+
+Labels longer than WhatsApp allows are cut on a character (grapheme) boundary instead of being rejected by the API: quick-reply titles and the list button at 20 characters, section and row titles at 24, row descriptions at 72, footers at 60. Quick-reply titles must stay unique after the cut, or the send rejects `UnsupportedContentError`.
 
 `platformData` in the send options overrides form fields (e.g. `{ source: '…' }` for another number).
 
@@ -72,7 +75,7 @@ Inbound: text, media (`ctx.media`, expiring URL `urlExpiry`), location, contact,
 
 ## Errors
 
-`429` → `RateLimitedError` · "not opted in / inactive / invalid destination" → `RecipientUnreachableError` · "24 hours" → `OutsideSessionWindowError` · size → `PayloadTooLargeError` · the rest → `GupshupApiError` (`status`). A `200` response with `status: 'error'` also rejects.
+`429` → `RateLimitedError` · "not opted in / inactive / invalid destination" → `RecipientUnreachableError` · "24 hours" → `OutsideSessionWindowError` · size → `PayloadTooLargeError` · the rest → `GupshupApiError` (`status`; a `401`/`403` says which settings to check). A network failure rejects `ProviderError` naming the code (`fetch failed (ECONNREFUSED)`). A `200` response with `status: 'error'` also rejects.
 
 ## Options
 
@@ -103,7 +106,7 @@ Inbound: text, media (`ctx.media`, expiring URL `urlExpiry`), location, contact,
 
 | Symptom | Cause and fix |
 | --- | --- |
-| Every callback is answered `401` | The token is missing or different: register the callback URL with `?token=<webhookToken>` and pass the full request URL to `ingestRequest({ url })`, or forward the token in `webhookTokenHeader`. |
+| Every callback is answered `401` | The token is missing or different (a proxy or console that re-encodes the URL can change it; prefer a hex secret): register the callback URL with `?token=<webhookToken>` and pass the request URL to `ingestRequest({ url })` / `ingest(body, headers, url)` (the `@botmesh/server` ingress does it), or forward the token in `webhookTokenHeader`. A proxy that strips the query string also causes it. |
 | Callbacks answered `400` | The body is not the raw JSON Gupshup sent: mount the route with `express.raw`. Also check that the app sends **v2** payloads. |
 | Nothing reaches the bot, no errors | The callback URL in the Gupshup console points elsewhere, or the empty validation ping was the only request (it is answered `200` and ignored). |
 | Sends reject with `OutsideSessionWindowError` | WhatsApp's 24-hour window closed: send an approved template (`kind: 'template'`). |

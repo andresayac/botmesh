@@ -20,7 +20,9 @@ export interface GupshupProviderConfig {
    * callbacks, so put the secret in the callback URL you register
    * (`https://bot.example.com/gupshup?token=<secret>`) and use
    * `ingestRequest({ url, body, headers })`, or forward it as a header.
-   * Compared in constant time. Required unless `allowUnsignedWebhooks`.
+   * Compared in constant time. Prefer a URL-safe secret (`openssl rand -hex 32`);
+   * a base64 one may be pasted raw (`+` in the query is also matched as `+`)
+   * or percent-encoded. Required unless `allowUnsignedWebhooks`.
    */
   webhookToken?: string
   /** Header carrying the token for `ingest()`. Default `'x-webhook-token'`. */

@@ -34,18 +34,43 @@ const MAX_QUICK_REPLIES = 3
 /** Max rows across a WhatsApp list. */
 const MAX_LIST_ROWS = 10
 
+/**
+ * WhatsApp limits of the interactive labels this mapper cuts (in characters):
+ * past them Gupshup answers an opaque "Invalid request".
+ */
+const LIMITS = { buttonTitle: 20, listButton: 20, sectionTitle: 24, rowTitle: 24, rowDescription: 72, footer: 60 } as const
+
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+
+/**
+ * At most `max` characters (code points), cut on a grapheme boundary: an emoji ZWJ
+ * sequence, a flag or a letter with combining marks is kept whole or dropped whole.
+ */
+function cut(text: string, max: number): string {
+  if (Array.from(text).length <= max) return text
+  let out = ''
+  let used = 0
+  for (const { segment } of graphemes.segment(text)) {
+    const size = Array.from(segment).length
+    if (used + size > max) break
+    out += segment
+    used += size
+  }
+  return out
+}
+
 function listMessage(text: string, buttonText: string, sections: ListSection[], footer?: string): Record<string, unknown> {
   return {
     type: 'list',
     body: text,
-    ...(footer ? { footer } : {}),
-    globalButtons: [{ type: 'text', title: buttonText }],
+    ...(footer ? { footer: cut(footer, LIMITS.footer) } : {}),
+    globalButtons: [{ type: 'text', title: cut(buttonText, LIMITS.listButton) }],
     items: sections.map((section, index) => ({
-      title: section.title ?? `${index + 1}`,
+      title: cut(section.title ?? `${index + 1}`, LIMITS.sectionTitle),
       options: section.rows.map((row) => ({
         type: 'text',
-        title: row.title,
-        ...(row.description ? { description: row.description } : {}),
+        title: cut(row.title, LIMITS.rowTitle),
+        ...(row.description ? { description: cut(row.description, LIMITS.rowDescription) } : {}),
         postbackText: row.id,
       })),
     })),
@@ -54,10 +79,18 @@ function listMessage(text: string, buttonText: string, sections: ListSection[], 
 
 function buttonsMessage(text: string, buttons: Button[], footer: string | undefined, listButtonText: string): Record<string, unknown> {
   if (buttons.length <= MAX_QUICK_REPLIES && buttons.every((b) => !b.url)) {
+    const titles = buttons.map((b) => cut(b.title, LIMITS.buttonTitle))
+    const repeated = titles.find((title, index) => titles.indexOf(title) !== index)
+    if (repeated !== undefined) {
+      throw new UnsupportedContentError(
+        'buttons',
+        `WhatsApp quick replies need unique titles; ${JSON.stringify(repeated)} repeats (titles are compared after the ${LIMITS.buttonTitle}-character cut).`,
+      )
+    }
     return {
       type: 'quick_reply',
-      content: { type: 'text', text, ...(footer ? { caption: footer } : {}) },
-      options: buttons.map((b) => ({ type: 'text', title: b.title, postbackText: b.id })),
+      content: { type: 'text', text, ...(footer ? { caption: cut(footer, LIMITS.footer) } : {}) },
+      options: buttons.map((b, index) => ({ type: 'text', title: titles[index], postbackText: b.id })),
     }
   }
   if (buttons.length <= MAX_LIST_ROWS && buttons.every((b) => !b.url)) {

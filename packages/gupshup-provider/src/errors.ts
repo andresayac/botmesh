@@ -27,5 +27,8 @@ export function toGupshupError(status: number, detail: string | undefined, chatI
   if (OUTSIDE_WINDOW.test(text)) return new OutsideSessionWindowError(chatId, message)
   if (UNREACHABLE.test(text)) return new RecipientUnreachableError(chatId, message)
   if (status === 413 || TOO_LARGE.test(text)) return new PayloadTooLargeError(message)
+  if (status === 401 || status === 403) {
+    return new GupshupApiError(`${message} (check \`apiKey\`, and that \`appName\` and \`source\` belong to that Gupshup app)`, status)
+  }
   return new GupshupApiError(message, status)
 }
