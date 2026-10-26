@@ -72,7 +72,13 @@ they are now created when the file is opened, and existing rows are kept.
 A file written by a newer release is refused, untouched, with
 `SQLiteSchemaVersionError` (`code: 'SQLITE_SCHEMA_TOO_NEW'`, `found`,
 `supported`). Downgrades are not supported: back up the file before an upgrade
-you may need to roll back.
+you may need to roll back. In particular, once this release opens a file it is
+at version `2`, and the previous alpha (version `1`) refuses it on its next
+start even if the app never uses schedules or durability. Stop every process on
+the old version before the new one opens a shared file. The version `2` step
+only adds tables, so without a backup `PRAGMA user_version = 1` (set with the
+`sqlite3` CLI while nothing has the file open) makes it readable by the
+previous alpha again.
 
 ## Table layout
 
