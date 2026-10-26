@@ -16,12 +16,14 @@ bot.every(60000, () => console.log('1 minute'))  // ms
 
 ### Accepted formats
 
+Any [duration](./configuration#durations): a number of milliseconds or a string.
+
 | String | Equivalent |
 |---|---|
-| `'30 seconds'` | 30000 ms |
-| `'5 minutes'` | 300000 ms |
-| `'2 hours'` | 7200000 ms |
-| `'1 day'` | 86400000 ms |
+| `'30s'`, `'30 seconds'` | 30000 ms |
+| `'5m'`, `'5 minutes'` | 300000 ms |
+| `'2h'`, `'2 hours'` | 7200000 ms |
+| `'1d'`, `'1 day'` | 86400000 ms |
 
 ## schedule — cron expression
 
@@ -74,14 +76,14 @@ By default the fields are read in the process time zone (`TZ` of the host).
 Pass an IANA zone to read them in another one, per task or for the whole bot:
 
 ```ts
+// Default for every cron task of the bot (a task's own timeZone wins; 'local' = process zone).
+const bot = new Bot({ provider, scheduler: { timeZone: 'America/Mexico_City' } })
+
 // One task: 9:00 on weekdays, Bogota time, wherever the server runs.
 bot.schedule('0 9 * * 1-5', { timeZone: 'America/Bogota' }, async () => { /* ... */ })
 
 // Durable tasks take it next to their id.
 bot.schedule('30 2 * * *', { id: 'nightly-report', timeZone: 'Europe/Madrid' }, async (run) => { /* ... */ })
-
-// Default for every cron task of the bot (a task's own timeZone wins; 'local' = process zone).
-const bot = new Bot({ provider, scheduler: { timeZone: 'America/Mexico_City' } })
 ```
 
 Zones are validated with `Intl` when the task (or the bot) is created: an
@@ -137,8 +139,7 @@ becomes **durable**:
   replicas never run it at the same time (it is still at least once: see
   [Guarantees and limits](#guarantees-and-limits)).
 
-It is opt-in: tasks without `id` and bots without `scheduler` behave exactly as
-before.
+It is opt-in: tasks without `id` stay in memory, as described above.
 
 ```ts
 import { Bot } from '@botmesh/core'
@@ -265,14 +266,14 @@ connection and prefix:
 |---|---|---|
 | `@botmesh/sqlite-store` | `SQLiteScheduleStore` | Table `schedules` (plus `schedule_fences`); each call is a `BEGIN IMMEDIATE` transaction. |
 | `@botmesh/redis-store` | `RedisScheduleStore` | `{prefix}:sched:{id}`, compare-and-set scripts. |
-| `@botmesh/postgres-store` | `PostgresScheduleStore` | Table `{tablePrefix}schedules`; every call is one atomic statement (`UPDATE … RETURNING` claims). |
-| `@botmesh/mysql-store` | `MysqlScheduleStore` | Table `{tablePrefix}schedules` (VARBINARY ids, up to 1024 bytes); claims run `SELECT … FOR UPDATE` in a short transaction. |
-| `@botmesh/mongo-store` | `MongoScheduleStore` | Collection `{collectionPrefix}schedules`; single-document commands (`findOneAndUpdate`), so a standalone `mongod` works. |
+| `@botmesh/postgres-store` (experimental) | `PostgresScheduleStore` | Table `{tablePrefix}schedules`; every call is one atomic statement (`UPDATE … RETURNING` claims). |
+| `@botmesh/mysql-store` (experimental) | `MysqlScheduleStore` | Table `{tablePrefix}schedules` (VARBINARY ids, up to 1024 bytes); claims run `SELECT … FOR UPDATE` in a short transaction. |
+| `@botmesh/mongo-store` (experimental) | `MongoScheduleStore` | Collection `{collectionPrefix}schedules`; single-document commands (`findOneAndUpdate`), so a standalone `mongod` works. |
 
 ```ts
-import { PostgresStore } from '@botmesh/postgres-store'
+import { RedisStore } from '@botmesh/redis-store'
 
-const store = new PostgresStore({ connectionString: process.env.DATABASE_URL })
+const store = new RedisStore({ url: process.env.REDIS_URL })
 const bot = new Bot({ provider, store, scheduler: { store: store.schedules() } })
 ```
 
@@ -284,9 +285,10 @@ never goes backwards. Purge old tombstones by hand only when no runner can
 still hold their token (for example `DELETE FROM schedules WHERE deleted AND
 updated_at < <a day ago>`).
 
-Any object implementing `ScheduleStore` works (exported from
-`@botmesh/core`). `@botmesh/core/spi` has `MemoryScheduleStore` as the reference and the
-record types, and the shared suite `test-utils/schedule-store-conformance.ts` checks it.
+Any object implementing `ScheduleStore` (exported from `@botmesh/core`) works.
+`@botmesh/core/spi` has `MemoryScheduleStore` as the reference implementation
+and the record types; the botmesh repository checks every bundled schedule
+store against the same shared suite (`test-utils/schedule-store-conformance.ts`).
 
 ### Guarantees and limits
 
@@ -297,8 +299,8 @@ record types, and the shared suite `test-utils/schedule-store-conformance.ts` ch
   rejected (logged). Make handlers idempotent with `run.occurrenceKey`.
 - **Only the schedule is stored**, not the handler. A stored id that no
   registered task claims is an **orphan**: it is logged once at start, kept, and
-  never run. Remove it with `bot.forgetTask(id)` (a standalone `Scheduler` has
-  `forget(id)`), which applies the bot's namespace for you. That namespace
+  never run. Remove it with `bot.forgetTask(id)`, which applies the bot's
+  namespace for you. That namespace
   includes the `botId`, the provider and the connection id: changing any of
   them leaves the old rows as orphans.
 - Deleted ids keep a small marker with their last fencing token (so tokens never

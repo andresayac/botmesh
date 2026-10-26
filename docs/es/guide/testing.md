@@ -1,11 +1,47 @@
 # Testing
 
 `@botmesh/core/testing` te deja probar un bot sin WhatsApp, sin teléfono y
-sin red. Funciona con cualquier test runner (el repo usa Vitest).
+sin red. Funciona con cualquier test runner; los ejemplos usan [Vitest](https://vitest.dev).
 
 ```ts
 import { createTestBot, MockProvider } from '@botmesh/core/testing'
 ```
+
+## Un primer test
+
+Deja tus handlers y flujos en una función que recibe el bot, así el bot real y
+los tests registran exactamente lo mismo:
+
+```ts
+// src/flows.ts
+import { flow, type Bot } from '@botmesh/core'
+
+export function registerFlows(bot: Bot) {
+  bot.use(flow('registro').ask('¿Tu nombre?', 'name').say((_ctx, c) => `¡Bienvenido, ${c.state.name}!`))
+}
+```
+
+```ts
+// tests/registro.test.ts   (pnpm add -D vitest, después: pnpm vitest run)
+import { test } from 'vitest'
+import { createTestBot } from '@botmesh/core/testing'
+import { registerFlows } from '../src/flows.js'
+
+test('el registro pide el nombre y saluda', async () => {
+  const { bot, chat } = await createTestBot()
+  registerFlows(bot)
+
+  await chat.send('registro')
+  await chat.expectReply('¿Tu nombre?')
+  await chat.send('Ana')
+  await chat.expectReply('¡Bienvenido, Ana!')
+
+  await bot.stop()
+})
+```
+
+`expectReply` rechaza con un `TestKitError` legible cuando la respuesta no
+llega, así que un test que falla te dice qué envió el bot en su lugar.
 
 ## `createTestBot` y `MockProvider`
 
@@ -224,7 +260,7 @@ import { assertCapabilityContract, assertInboundContract, assertPresenceWhileDis
 
 // Forma de la entrada: timestamps en ms epoch (nunca segundos, nunca 0), body string, mentions array.
 const rec = recordEvents(provider)
-await provider.ingest(webhookBody, headers)
+await provider.ingest?.(webhookBody, headers)   // p. ej. un provider de webhook con un payload grabado
 assertInboundContract(rec.events)
 
 // Las capacidades coinciden con los métodos: typing() ⇔ capabilities.typing,

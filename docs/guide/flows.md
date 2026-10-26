@@ -17,6 +17,29 @@ const greet = flow('hola')
 bot.use(greet)
 ```
 
+When someone writes "hola", the bot asks for the name, waits for the answer,
+stores it in `c.state.name` and greets them. `flow()` takes any
+[trigger](./concepts#when-simple-responses): a string, a list, a regex, a
+predicate, or `WELCOME`, `IMAGE` and the other [special triggers](./triggers).
+
+## Register and start flows
+
+| Call | What it does |
+| --- | --- |
+| `bot.use(flow)` / `bot.use([a, b])` | Register flows; each one starts when its trigger matches. |
+| `bot.registerFlow(flow)` | Same, and returns the flow id (to start or replace it later). |
+| `bot.trigger(id, { chatId })` | Start a flow from code: a scheduled task, a webhook, an admin action. See [Starting a flow programmatically](./messages#starting-a-flow-programmatically). |
+| `bot.abortConversation(ctx)` | Cancel the conversation in progress for that user (what `/reset` does). Takes a `ctx` or `{ from, sender, isGroup }`. |
+
+A flow's id is its string trigger, normalized (`flow('Hola')` is `'hola'`; a list uses its first string). A flow built
+with a regex, a predicate or a special trigger needs `.id('name')` to be
+started by name, used as a `goto` target or made `.persistent()`.
+
+While a user is inside a flow, their messages go to it, not to other
+triggers. Commands still win, so `/reset` (with
+[`slashCommandsPlugin`](./plugins#built-in-slashcommands)) always gets a user
+out.
+
 ## DSL methods
 
 ### say — send a message
@@ -36,7 +59,7 @@ and `media`. It is a pause before the step, separate from the
 (2^31 − 1 ms, about 24 days), throws when the flow is built. Ending the
 conversation (`/reset`, a replacement, `bot.stop()`) cancels a pending delay.
 
-### ask — send a message and wait for the reply
+### ask — send a message and wait for the reply {#ask}
 
 ```ts
 flow('x').ask('What is your name?', 'name')  // stores the reply in c.state.name
@@ -49,13 +72,23 @@ flow('x').ask('Email?', 'email', {
 })
 ```
 
-If `validate` returns an error string, the bot sends it back and re-asks.
-`maxAttempts` is the total number of answers the wait accepts, the first one
-included (default 3); the last invalid one throws `RetriesExceeded` and the
-conversation ends with `retriesMessage`. `retries: N` is the same budget
-counted after the first answer (`retries: 2` = `maxAttempts: 3`); pass one of
-the two. During the 2.0 alphas `retries: N` meant N answers in total, see the
-[migration guide](./migration-2#retries-and-maxattempts).
+If `validate` returns an error string, the bot sends it back and re-asks. The
+options are the same on every wait (`.ask()`, `.choose()`, and `c.ask()`,
+`c.waitText()`, `c.choose()`… in conversations):
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `validate(body, msg)` | none | Return `true` to accept, or an error text to send before asking again. May be async. |
+| `schema` | none | A zod-compatible schema; the **parsed** value is stored (see below). |
+| `maxAttempts` | `3` | Answers the wait accepts in total, the first one included. `Infinity` = unlimited. |
+| `retries` | | The same budget counted after the first answer: `retries: 2` is `maxAttempts: 3`. Pass one of the two. |
+| `otherwise` | the `validate` or schema message | Text sent when an answer is rejected without a message of its own. |
+| `timeout` | `conversation.timeout` (`'5m'`) | How long to wait for this answer. |
+| `filter(msg)` | none | A message that does not pass is not taken by the wait: it goes on to the other handlers and costs no attempt. |
+| `delay` | none | Pause before sending the question (flow steps only). |
+
+When the last attempt is rejected, the conversation ends with the
+`retriesMessage` ("❌ Too many attempts. Conversation ended." by default).
 
 #### Schema validation (zod-compatible)
 
@@ -100,7 +133,6 @@ flow('x')
 `location`. The source can be a URL, a path, a `Buffer`, or a function
 `(ctx, c) => source` computed at runtime. The 4th argument takes `delay`
 plus per-kind options (`filename`, `ptv`, `gifPlayback`, `pack`, `author`).
-The old two-argument form `.media(source, caption?)` still sends an image.
 
 ### choose — branching (numbered menu)
 
@@ -293,20 +325,48 @@ bot.use(register)
 
 ## Beyond the DSL
 
-For arbitrary control flow — loops, custom branching, calling an external
-API mid-conversation — skip the DSL and write the conversation directly
-with `bot.conversation(name, async (c, ctx) => {...})`, using
-`c.ask`/`c.waitText`/`c.waitMedia`/`c.choose`/`c.goto`/`c.end`. Flows built
+For arbitrary control flow (loops, custom branching, calling an external API
+mid-conversation) write the conversation as an async function. Flows built
 with `flow()` compile down to exactly this runtime.
 
-`c.waitMedia(types?, opts?)` waits for `image`, `video`, `audio`, `document`
-or `sticker` by default; voice notes only when you ask for them
-(`c.waitMedia(['voice'])` or `c.waitMedia(['audio', 'voice'])`). It resolves
-with the message; download its bytes with
-[`loadMediaOf()`](./messages#access-media-content).
+```ts
+bot.conversation('quiz', async (c, ctx) => {
+  let score = 0
+  for (const [question, answer] of [['2 + 2?', '4'], ['Capital of France?', 'paris']]) {
+    const reply = await c.ask(question, { timeout: '1m' })
+    if (reply.trim().toLowerCase() === answer) score++
+  }
+  await ctx.reply(`Score: ${score}/2`)
+}, { trigger: 'quiz' })
+```
 
-`c.waitLocation(opts?)` waits for a shared location and resolves with its
-normalized `InboundLocation` (see [Receive a location](./messages#receive-a-location)).
+Without `{ trigger }`, start it with `bot.trigger('quiz', { chatId })` or
+`c.goto('quiz')` from another conversation. The `c` object:
+
+| Member | What it does |
+| --- | --- |
+| `c.ask(text, opts?)` | Send `text` and wait for a text answer. Resolves with the answer (the parsed value with `schema`). |
+| `c.waitText(opts?)` | Wait for a text message, without a prompt. |
+| `c.choose(prompt, options, opts?)` | Send a numbered menu and resolve with the chosen key. |
+| `c.waitMedia(types?, opts?)` | Wait for media and resolve with the message. By default `image`, `video`, `audio`, `document` or `sticker`; voice notes only when listed (`['voice']`). Download the bytes with [`loadMediaOf()`](./messages#access-media-content). |
+| `c.waitLocation(opts?)` | Wait for a shared location and resolve with its `InboundLocation` (see [Receive a location](./messages#receive-a-location)). |
+| `c.waitAny(opts?)` | Wait for any message. |
+| `c.say(text)` | Send text (same as `ctx.reply`, typed for the conversation). |
+| `c.state` | Plain object kept for the whole conversation (persisted with `.persistent()` flows). |
+| `c.retry(message?)` | Repeat the last wait. See [below](#c-retry-repeat-the-last-wait). |
+| `c.idle(duration, fn)` / `c.idleClear()` | Inactivity watchdog. See [below](#c-idle-inactivity-inside-a-conversation). |
+| `c.goto(name, args?)` | Leave this conversation and start another one. |
+| `c.end(farewell?)` | End the conversation, optionally sending a last message. |
+| `c.t(key, params?)`, `c.lang` | Translate in the user's current language. See [i18n](./i18n#conversations). |
+
+`opts` takes the [wait options](#ask)
+(`timeout`, `validate`, `maxAttempts`, `otherwise`, `filter`, `schema`).
+
+::: warning Do not catch the control signals
+`c.goto()`, `c.end()`, a timeout and too many attempts work by throwing a
+`ConversationError`. If you wrap waits in `try/catch`, rethrow it:
+`if (e instanceof ConversationError) throw e`.
+:::
 
 ## `ctx` in `bot.conversation()` is a full `MessageContext`
 
@@ -324,9 +384,7 @@ bot.conversation('photo', async (c, ctx) => {
 })
 ```
 
-The public type is `ConversationHandler<TTools = DefaultTools>`; handlers
-typed with the deprecated `ConversationFn<ConversationControls>` still compile.
-In the DSL (`flow().do((ctx, c) => ...)`) `ctx` is still a `RuntimeMessage`;
+The handler's type is `ConversationHandler<TTools = DefaultTools>`. In the DSL (`flow().do((ctx, c) => ...)`) `ctx` is still a `RuntimeMessage`;
 use `userOf(ctx)` and `bot.handoff(ctx.from)` there.
 
 ## `c.retry()`: repeat the last wait

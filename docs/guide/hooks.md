@@ -30,6 +30,10 @@ observes or rewrites must always end with `await next()`. To block on
 purpose (rate limiting, filters) either return without `next()` or call
 `ctx.abort()` (see `abort()` below) — `abort()` reads more explicitly.
 
+On `'message'`, `next()` runs the remaining `before` hooks; routing (the
+command, conversation or handler) starts after every `before` hook has
+returned. To act after the handler, use an `after` hook.
+
 Call `next()` **once**. A hook that calls it again keeps the first dispatch
 (the rest of the chain runs once; every later `next()` returns the same
 promise) and the misuse is reported on the `'error'` event.
@@ -64,11 +68,21 @@ whether or not an `onError('message')` hook is registered.
 ### Logging
 
 ```ts
+const startedAt = new WeakMap<object, number>()
+
 bot.before('message', async (ctx, next) => {
-  console.log(`📥 [${new Date().toISOString()}] ${ctx.from}: ${ctx.body}`)
-  await next()
+  startedAt.set(ctx, Date.now())
+  await next()          // resolves once the remaining before hooks ran, not the handler
+})
+
+bot.after('message', (ctx) => {
+  bot.logger.info({ type: ctx.type, ms: Date.now() - (startedAt.get(ctx) ?? Date.now()) }, 'message handled')
 })
 ```
+
+Chat ids are phone numbers or emails and bodies are private messages: keep
+them out of your logs, or hash them the way the bot does with
+[`logIds`](./configuration#logging).
 
 ### Rate limiting
 
@@ -217,9 +231,9 @@ annotate the handler, pass the type argument, or augment `HookContextMap`
 declare module '@botmesh/core' {
   interface HookContextMap { 'crm.lead': { leadId: string } }
 }
-bot.after('crm.lead', (lead) => lead.leadId)              // typed through the augmentation
-bot.after('other', (ctx: { n: number }) => ctx.n)         // or annotate the handler
-bot.after<'other', { n: number }>('other', (ctx) => ctx.n) // or pass the type argument
+bot.after('crm.lead', (lead) => { console.log(lead.leadId) })              // typed through the augmentation
+bot.after('other', (ctx: { n: number }) => { console.log(ctx.n) })         // or annotate the handler
+bot.after<'other', { n: number }>('other', (ctx) => { console.log(ctx.n) }) // or pass the type argument
 ```
 
 `HookHandler<TCtx = unknown>` and `HookErrorHandler<TCtx = unknown>` name a
@@ -231,7 +245,7 @@ cannot be registered on another (`'send'`).
 | Event | When |
 |---|---|
 | `message` | The main pipeline — an incoming message being processed |
-| `send` | Any outbound message, from a `ctx` reply helper or `bot.send*` (also edits and streamed output, see above) |
+| `send` | Any outbound message, from a `ctx` reply helper or `bot.send()` (also edits and streamed output, see above) |
 | `reaction`, `poll`, `group`, `presence`, `status` | Provider events (a reaction, a poll vote, a group update, presence, a delivery/read receipt): `before` and `after` hooks run, then the matching `bot.on(...)` event. A `before` hook that aborts (or skips `next()`) suppresses the `after` hooks and the event |
 | `call` | An incoming call. `before('call', (ev) => ev.abort())` keeps it away from [`CALL` triggers](./triggers#call), the `after('call')` hooks and the `'call'` event. A call blocked by the access lists or a handoff never reaches the `'call'` hooks |
 

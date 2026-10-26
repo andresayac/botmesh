@@ -81,7 +81,7 @@ for every member of that group, but not their DMs.
 
 - The state is stored in `StoredChat.handoff = { since, reason?, meta? }`
   (set to `null` on resume), plus a small index of handed-off chat ids
-  under the store cursor key `HANDOFF_INDEX_KEY`.
+  kept under one store cursor key.
 - `bot.start()` restores it with one read per handed-off chat (stores
   without cursors fall back to `listChats()`). No `'handoff'` event fires on
   restore. It also drops the dormant checkpoints of every handed-off chat,
@@ -115,9 +115,6 @@ bot.whitelist.disable(); bot.whitelist.enabled
   whitelist is disabled by default.
 - A whitelisted user passes in any group; a whitelisted group lets all its
   members through.
-- `checkAccess(blacklist, whitelist, { chatId, senderId })` returns the same
-  decision (`'allowed' | 'blacklisted' | 'not-whitelisted'`) for your own
-  code.
 
 ### What happens to a blocked message
 

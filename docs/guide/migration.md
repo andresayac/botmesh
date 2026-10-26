@@ -1,16 +1,20 @@
-# Migrating from the alpha releases
+# Upgrade to stable: dependencies
 
-The packages are still in the `alpha` prerelease, the last window for breaking
-changes before the stable release. This page lists every deliberate break made
-since the first alpha, what to change in your code, and the deprecated aliases
-that keep the old behaviour working in the meantime.
+Step 2 of the [upgrade checklist](./stable-migration#upgrade-checklist). The
+stable line updates the dependencies of the public packages and finishes the
+`botwa` → `botmesh` rename. Each section says who is affected and what to do.
 
-## Dependency updates (October 2026)
+| Change | Who is affected | What to do |
+| --- | --- | --- |
+| [`botmesh_` metric names](#prometheus-metric-names-botmesh-prefix) | Dashboards and alerts on `botwa_*` | Rename the queries, or pass `{ prefix: 'botwa_' }` |
+| [Environment variables](#environment-variables) | Scripts that set `BOTWA_*` | Rename (the old names are still read) |
+| [`redis` is a peer dependency](#botmesh-redis-store-redis-is-a-peer-dependency) | `@botmesh/redis-store` users | Nothing, unless you typed clients with `NativeRedisClient` |
+| [ffmpeg is no longer bundled](#botmesh-baileys-ffmpeg-is-no-longer-bundled) | Baileys bots that send voice notes | Install ffmpeg, or `ffmpeg-static` |
+| [Graph API v26.0](#meta-providers-graph-api-v26-0) | Cloud API, Messenger, Instagram | Nothing, or pin `apiVersion` |
+| [AI SDKs and default models](#botmesh-ai-sdks-and-default-models) | Gemini bots; bots without an explicit `model` | `pnpm add @google/genai`; set `model` |
+| [Names that stay](#names-that-stay) | Everyone | Nothing: stored `botwa` keys and prefixes keep working |
 
-These changes bring the dependencies of the public packages up to date before
-the API is frozen.
-
-### Prometheus metric names: `botmesh_` prefix
+## Prometheus metric names: `botmesh_` prefix
 
 `toPrometheus(bot.metrics())` (`@botmesh/core`) now names every family
 `botmesh_*` instead of `botwa_*`, for example `botmesh_messages_in_total`.
@@ -26,7 +30,7 @@ the same way (`otelMetricsPlugin({ prefix: 'botwa' })` keeps the old names),
 and the control plane (`@botmesh/manager`) now serves
 `botmesh_manager_bots_registered` and `botmesh_manager_bots_running`.
 
-### Environment variables
+## Environment variables
 
 | New name | Old name (still read) | Where |
 |---|---|---|
@@ -37,7 +41,7 @@ and the control plane (`@botmesh/manager`) now serves
 The hot-reload query of `botmesh dev` is now `?botmesh_v=<n>` (it shows in
 stack traces only).
 
-### `@botmesh/redis-store`: `redis` is a peer dependency
+## `@botmesh/redis-store`: `redis` is a peer dependency
 
 `redis` (node-redis) moved from `dependencies` to `peerDependencies` with the
 range `^4.7.0 || ^5.0.0 || ^6.0.0`. npm and pnpm install a missing peer
@@ -51,7 +55,7 @@ still works; if you already depend on `redis`, the store uses your version.
   supported major type-checks. Code that used them to call commands should use
   the type from `redis` instead (`ReturnType<typeof createClient>`).
 
-### `@botmesh/baileys`: ffmpeg is no longer bundled
+## `@botmesh/baileys`: ffmpeg is no longer bundled
 
 The provider no longer depends on `fluent-ffmpeg` (deprecated upstream) or
 `@ffmpeg-installer/ffmpeg` (unmaintained, an old ffmpeg). Voice notes are
@@ -74,7 +78,7 @@ Baileys itself stays on `7.0.0-rc14`: no stable 7.x exists yet (see the
 [package README](https://github.com/andresayac/botmesh/tree/main/packages/baileys-provider#requirements)
 and its upstream upgrade policy).
 
-### Meta providers: Graph API v26.0
+## Meta providers: Graph API v26.0
 
 `@botmesh/meta`, `@botmesh/messenger` and `@botmesh/instagram` now call Graph
 API `v26.0` by default (it was `v21.0`, which Meta retires on 2027-01-21). The
@@ -88,7 +92,7 @@ new CloudAPIProvider({ /* ... */ apiVersion: 'v21.0' })
 WhatsApp's `played` status (a voice note was listened to) is now delivered as
 `status: 'read'` with `platformData.played: true`; it used to be dropped.
 
-### `@botmesh/ai`: SDKs and default models
+## `@botmesh/ai`: SDKs and default models
 
 | Change | Before | Now |
 |---|---|---|
@@ -107,13 +111,13 @@ Default models are not covered by semver: set `model` when the choice matters.
 Claude Opus 5.5 always thinks (`thinking: 'off'` lowers nothing on it; use
 `effort: 'low'`) and its effort defaults to `medium`.
 
-### `@botmesh/hub`: `botmesh` manifest field
+## `@botmesh/hub`: `botmesh` manifest field
 
 A plugin manifest declares its runtime range in `botmesh` (`"botmesh": "^2.0.0"`).
 Manifests with the old `botwa` field are still accepted, and validation returns
 them with `botmesh`.
 
-### `eslint-plugin-botmesh`: type names
+## `eslint-plugin-botmesh`: type names
 
 The exported types are `BotMeshConfigs` and `BotMeshPlugin`. The old
 `BotWaConfigs` and `BotWaPlugin` are kept as deprecated aliases of the same
@@ -134,3 +138,8 @@ them would hide data that already exists, so they are permanent:
 
 Pass your own `prefix`, `dbName` or connection string to use other names in a
 new deployment.
+
+## Next steps
+
+- [Upgrade to stable: checklist and API changes](./stable-migration)
+- [Upgrade to stable: behaviour changes](./migration-2)

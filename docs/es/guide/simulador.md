@@ -8,7 +8,8 @@ memoria, así que nada sale del proceso, y recarga tu código al guardar.
 npx botmesh dev src/bot.js
 ```
 
-El comando `botmesh` viene con `@botmesh/core`. Los proyectos generados con
+El comando `botmesh` viene con `@botmesh/core` (con pnpm, ejecútalo como
+`pnpm exec botmesh dev src/bot.js`). Los proyectos generados con
 `create-botmesh` ya lo tienen como `npm run dev`.
 
 ## 1. El patrón factory (`defineBot`)
@@ -45,7 +46,7 @@ if (isMainModule(import.meta)) {
   wrapper (pm2 en modo ESM); en ese caso usa un archivo de arranque aparte
   que importe la factory.
 - `botmesh dev` define la variable de entorno `BOTMESH_DEV=1` por si tu
-  código necesita detectar el simulador (también define la obsoleta `BOT_WA_DEV=1`).
+  código necesita detectar el simulador.
 
 ## 2. Uso
 
@@ -157,7 +158,7 @@ await session.stop()
 - También se exportan funciones puras: `renderOutbound`, `parseDevInput`,
   `watchForChanges` y `runCli(argv, io)` con streams inyectables.
 
-Novedades relacionadas en el core: `bot.inspectConversation({ from, sender, isGroup })`
+Dos métodos del bot ayudan a herramientas como esta: `bot.inspectConversation({ from, sender, isGroup })`
 devuelve `{ key, state, waiting, queued, accepts? }` o `undefined` (`state` es una
 copia superficial; `accepts` dice qué acepta la espera pendiente: `'text'`, la lista
 de tipos de `waitMedia` o `'any'` en `choose`/`waitAny`), y `bot.isBusy()` dice si el bot sigue atendiendo un

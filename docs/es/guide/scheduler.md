@@ -16,12 +16,14 @@ bot.every(60000, () => console.log('1 minute'))  // ms
 
 ### Formatos aceptados
 
+Cualquier [duración](./configuracion#duraciones): un número de milisegundos o un texto.
+
 | String | Equivalente |
 |---|---|
-| `'30 seconds'` | 30000 ms |
-| `'5 minutes'` | 300000 ms |
-| `'2 hours'` | 7200000 ms |
-| `'1 day'` | 86400000 ms |
+| `'30s'`, `'30 seconds'` | 30000 ms |
+| `'5m'`, `'5 minutes'` | 300000 ms |
+| `'2h'`, `'2 hours'` | 7200000 ms |
+| `'1d'`, `'1 day'` | 86400000 ms |
 
 ## schedule — expresión cron
 
@@ -76,14 +78,14 @@ Por defecto los campos se leen en la zona horaria del proceso (el `TZ` del
 host). Pasa una zona IANA para leerlos en otra, por tarea o para todo el bot:
 
 ```ts
+// Por defecto para todas las tareas cron del bot (gana la timeZone de la tarea; 'local' = zona del proceso).
+const bot = new Bot({ provider, scheduler: { timeZone: 'America/Mexico_City' } })
+
 // Una tarea: 9:00 entre semana, hora de Bogotá, corra donde corra el servidor.
 bot.schedule('0 9 * * 1-5', { timeZone: 'America/Bogota' }, async () => { /* ... */ })
 
 // Las tareas durables la llevan junto a su id.
 bot.schedule('30 2 * * *', { id: 'informe-nocturno', timeZone: 'Europe/Madrid' }, async (run) => { /* ... */ })
-
-// Por defecto para todas las tareas cron del bot (gana la timeZone de la tarea; 'local' = zona del proceso).
-const bot = new Bot({ provider, scheduler: { timeZone: 'America/Mexico_City' } })
 ```
 
 Las zonas se validan con `Intl` al crear la tarea (o el bot): un nombre
@@ -142,8 +144,7 @@ estable y pasa a ser **durable**:
   que N réplicas nunca la ejecutan a la vez (sigue siendo al menos una vez: ver
   [Garantías y límites](#garantias-y-limites)).
 
-Es opt-in: las tareas sin `id` y los bots sin `scheduler` se comportan igual que
-antes.
+Es opt-in: las tareas sin `id` siguen en memoria, como se describe arriba.
 
 ```ts
 import { Bot } from '@botmesh/core'
@@ -274,14 +275,14 @@ el prefijo del store:
 |---|---|---|
 | `@botmesh/sqlite-store` | `SQLiteScheduleStore` | Tabla `schedules` (más `schedule_fences`); cada llamada es una transacción `BEGIN IMMEDIATE`. |
 | `@botmesh/redis-store` | `RedisScheduleStore` | `{prefix}:sched:{id}`, scripts de compare-and-set. |
-| `@botmesh/postgres-store` | `PostgresScheduleStore` | Tabla `{tablePrefix}schedules`; cada llamada es una sentencia atómica (los reclamos son `UPDATE … RETURNING`). |
-| `@botmesh/mysql-store` | `MysqlScheduleStore` | Tabla `{tablePrefix}schedules` (ids VARBINARY, hasta 1024 bytes); los reclamos hacen `SELECT … FOR UPDATE` en una transacción corta. |
-| `@botmesh/mongo-store` | `MongoScheduleStore` | Colección `{collectionPrefix}schedules`; comandos de un solo documento (`findOneAndUpdate`), así que sirve un `mongod` standalone. |
+| `@botmesh/postgres-store` (experimental) | `PostgresScheduleStore` | Tabla `{tablePrefix}schedules`; cada llamada es una sentencia atómica (los reclamos son `UPDATE … RETURNING`). |
+| `@botmesh/mysql-store` (experimental) | `MysqlScheduleStore` | Tabla `{tablePrefix}schedules` (ids VARBINARY, hasta 1024 bytes); los reclamos hacen `SELECT … FOR UPDATE` en una transacción corta. |
+| `@botmesh/mongo-store` (experimental) | `MongoScheduleStore` | Colección `{collectionPrefix}schedules`; comandos de un solo documento (`findOneAndUpdate`), así que sirve un `mongod` standalone. |
 
 ```ts
-import { PostgresStore } from '@botmesh/postgres-store'
+import { RedisStore } from '@botmesh/redis-store'
 
-const store = new PostgresStore({ connectionString: process.env.DATABASE_URL })
+const store = new RedisStore({ url: process.env.REDIS_URL })
 const bot = new Bot({ provider, store, scheduler: { store: store.schedules() } })
 ```
 
@@ -294,8 +295,10 @@ cuando ningún ejecutor pueda seguir teniendo su token (por ejemplo
 `DELETE FROM schedules WHERE deleted AND updated_at < <hace un día>`).
 
 Sirve cualquier objeto que implemente `ScheduleStore` (exportado desde
-`@botmesh/core`). `@botmesh/core/spi` trae `MemoryScheduleStore` como referencia y los tipos
-de registro, y la suite compartida `test-utils/schedule-store-conformance.ts` lo comprueba.
+`@botmesh/core`). `@botmesh/core/spi` trae `MemoryScheduleStore` como
+implementación de referencia y los tipos de registro; el repositorio de botmesh
+comprueba cada store de tareas incluido con la misma suite compartida
+(`test-utils/schedule-store-conformance.ts`).
 
 ### Garantías y límites
 
@@ -307,9 +310,8 @@ de registro, y la suite compartida `test-utils/schedule-store-conformance.ts` lo
   `run.occurrenceKey`.
 - **Solo se guarda el calendario**, no el handler. Un id guardado que ninguna
   tarea registrada reclama es un **huérfano**: se registra una vez al arrancar,
-  se conserva y nunca se ejecuta. Bórralo con `bot.forgetTask(id)` (un
-  `Scheduler` independiente tiene `forget(id)`), que aplica el namespace del bot
-  por ti. Ese namespace incluye el `botId`, el provider y el id de conexión:
+  se conserva y nunca se ejecuta. Bórralo con `bot.forgetTask(id)`, que aplica
+  el namespace del bot por ti. Ese namespace incluye el `botId`, el provider y el id de conexión:
   cambiar cualquiera de ellos deja las filas antiguas como huérfanas.
 - Los ids borrados conservan una marca pequeña con su último token de fencing
   (así los tokens nunca retroceden), y las tareas de una sola vez conservan su

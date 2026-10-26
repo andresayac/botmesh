@@ -28,7 +28,7 @@ plugin registered through `ctx.bot`:
 - commands (`command()`), matchers (`when()`, `onMessage()`, `onType()`),
   conversations and flow triggers (`conversation()`, `use(flow)`);
 - hooks (`before()`, `after()`, `onError()`, `hook()`);
-- nested plugins (`ctx.bot.plug()`, or the deprecated `ctx.bot.use(plugin)`);
+- nested plugins (`ctx.bot.plug()`);
 - flows registered at runtime with `ctx.bot.registerFlow()`, or created (not
   replaced) with `ctx.bot.replaceFlow()`;
 - every `ctx.onDispose(fn)` callback.
@@ -82,17 +82,18 @@ then unplugged on its own, and any of them satisfies `requires`.
 ### Built-in: slashCommands
 
 Config: `{ greeting?: string; unknownMessage?: string }`. The command
-prefix itself is a bot option (`new Bot({ commandPrefix })`), not a plugin
-option.
+prefix is a bot option (`new Bot({ commandPrefix })`), not a plugin option.
+The replies are [built-in texts](./i18n#built-in-messages) in the bot's
+language.
 
 | Command | What it does |
 |---|---|
-| `/start` | Shows the greeting |
-| `/help` | Shows the greeting (alias) |
-| `/reset` | Cancels the active conversation |
-| `/cancel` | Cancels the active conversation (alias of `/reset`) |
-| `/id` | Shows the chat ID |
-| `/ping` | Health check (responds "pong") |
+| `/start` | Shows `greeting`, or the list of commands |
+| `/help` | Same as `/start` |
+| `/reset` | Cancels the active conversation and re-arms [`WELCOME`](./triggers#welcome), so the next message is a first contact again |
+| `/cancel` | Cancels the active conversation only |
+| `/id` | Shows the chat id |
+| `/ping` | Health check (answers "pong 🏓") |
 
 Unknown `/commands` get an automatic "unknown command" reply
 (`unknownMessage`).
@@ -110,7 +111,7 @@ const loggingPlugin = definePlugin({
   description: 'Log every message',
   install(ctx) {
     // ctx.bot        → Bot instance
-    // ctx.logger     → pino logger
+    // ctx.logger     → the bot's logger
     // ctx.tools      → tools registry
     // ctx.config     → config passed to plug()
     // ctx.onDispose  → register teardown logic
@@ -165,28 +166,35 @@ bot.plug(rateLimitPlugin, { max: 20, windowMs: 60000 })
 
 ## Plugin structure
 
-```ts
-definePlugin({
-  name: string,             // unique name (required)
-  version: string,          // semver (required)
-  description?: string,     // human description
-  requires?: string[],      // names of plugins that must be plugged first
-  multiple?: boolean,       // allow several instances on one bot (default: plugging the name twice throws)
-  install(ctx, config) {    // runs on install (required)
-    // ctx: { bot, logger, tools, config, onDispose(fn) }
-    // register via ctx.bot.when/command/before/... and use
-    // ctx.onDispose(fn) for any custom teardown
-  },
-})
-```
+`definePlugin(spec)` returns the spec unchanged, typed. A plugin can also be a
+function `(config) => spec`.
+
+| Field | Required | What it is |
+| --- | --- | --- |
+| `name` | yes | Unique name. Plugging the same name twice throws unless `multiple` is set. |
+| `version` | yes | The plugin's semver version. |
+| `description` | no | Human description. |
+| `requires` | no | Names of plugins that must be plugged first. |
+| `multiple` | no | Allow several instances on one bot (default `false`). |
+| `install(ctx, config)` | yes | Registers everything. Must be synchronous and return nothing (see below). |
+| `uninstall(ctx)` | no | Runs first when the plugin is unplugged, before the automatic rollback. |
+
+The `ctx` that `install` receives:
+
+| Member | What it is |
+| --- | --- |
+| `ctx.bot` | The bot, scoped to the plugin: what you register through it is undone on unplug. |
+| `ctx.logger` | The bot's logger (`LoggerLike`). |
+| `ctx.tools` | The [injected tools](./di) registry. |
+| `ctx.config` | The config passed to `bot.plug()`. |
+| `ctx.onDispose(fn)` | Register cleanup to run on unplug. |
 
 ::: warning `install()` must be synchronous and return nothing
 `bot.plug()` does not `await` `install()`. TypeScript rejects an `async install`
 (or one that returns a promise or any other value) at compile time:
 `PluginSpec.install` returns `void | SyncInstallError`, and the error message
 names the reason. In JavaScript the bot keeps going before an `async install`
-finishes, and its rejection only reaches the `'error'` event (older core
-versions let it crash the process) — nothing is rolled back and the plugin
+finishes, and its rejection only reaches the `'error'` event: nothing is rolled back and the plugin
 counts as plugged; the ESLint rule
 [`no-async-plugin-install`](./eslint#botmesh-no-async-plugin-install) covers that
 case. If your plugin needs async setup (open a connection, load an SDK), keep

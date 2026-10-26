@@ -1,27 +1,41 @@
-# Migrating to the stable API
+# Upgrade to stable: checklist and API changes
 
-`@botmesh/core` 2.0 freezes its public API. Before that, the last alphas
-trimmed the main entry and picked one name per concept. This page lists every
-change an alpha user may hit, with the replacement. Most renames keep a
-`@deprecated` alias, so your editor shows a strike-through and the code still
-runs. The few hard breaks are marked **Breaking**.
+The stable line (`@botmesh/core` 2.0.0, the other public packages 1.0.0)
+freezes the public API. Coming from a 2.0 alpha, most code keeps running:
+renamed APIs keep a `@deprecated` alias (your editor strikes them through),
+and the few hard breaks are marked **Breaking** on these pages.
 
-Moving from an alpha to stable is covered by four pages; read all that apply:
+## Upgrade checklist
 
-- this page: package entries, canonical names and configuration (API surface);
-- [behaviour changes](/guide/migration-2): English default texts, `retries` vs
-  `maxAttempts`, sends before `start()`, log ids, append-log corruption;
-- [dependencies and names](/guide/migration): Baileys/ffmpeg, Graph `v26.0`,
-  `redis` as a peer, AI SDKs and default models, `botwa` → `botmesh`;
-- [channels and plugins](/guide/upgrade-channels-plugins): per-channel fixes,
-  plus the cross-channel contract (epoch-ms timestamps, long-text splitting,
-  absent methods for unsupported operations) in
-  [Channels](/guide/channels).
+Work through it in order; each step links to the details.
+
+1. **Upgrade every `@botmesh/*` package together**, to the same release line.
+   Mixing an old core with newer channel packages is not supported.
+2. **Dependencies** ([details](./migration)): install ffmpeg if your Baileys
+   bot sends voice notes, move Gemini bots to `@google/genai`, check the
+   `redis` peer range and the Graph API version, and update dashboards that
+   read `botwa_*` metrics.
+3. **Run the type checker** (`tsc --noEmit`) and fix what it reports
+   ([details below](#package-entries)): imports that moved to
+   `@botmesh/core/spi`, `/testing` or `/internal`, `@botmesh/ai/testing`,
+   `@botmesh/baileys/internal` and the removed `RedisStore` APIs.
+4. **Replace the deprecated names** ([table](#one-name-per-concept)): `ctx.reply`
+   instead of `ctx.say`, `flow` instead of `addKeyword`, `bot.send`,
+   `bot.plug` for plugins, `bot.trigger`, `onType`… They still work, but they
+   are removed in v3.
+5. **Review the behaviour changes** ([details](./migration-2)). The two most
+   bots need: `lang: 'es'` if your bot speaks Spanish (built-in texts are now
+   English), and `maxAttempts: N` where a wait set `retries: N`.
+6. **Read the notes for your channels and plugins**
+   ([details](./upgrade-channels-plugins)).
+7. **Run your tests** and start the bot once with a `bot.on('error', …)`
+   listener. Watch for the one-time `retries` warning and for
+   `ConfigValidationError`, which now names any invalid duration option.
 
 ## Package entries
 
-The main entry (`@botmesh/core`) now exports only what an application needs:
-512 names before, 372 after (368 after the trim, plus `BotNotRunningError`, `InvalidProviderEventError`, `RateLimitRetryOptions` and `SplitTextOptions` from the other stable changes). Everything else moved to a subpath:
+The main entry (`@botmesh/core`) now exports only what an application needs
+(372 names, down from 512). Everything else moved to a subpath:
 
 | Import from | What it holds |
 | --- | --- |
@@ -123,7 +137,7 @@ option, and `null` was accepted for a few of them.
 The `LoggerLike` contract is unchanged, and its calling convention is now
 documented: the packages call `logger.warn('message')` or
 `logger.warn({ err, ...context }, 'message')`, as pino does. See
-[Logger](./concepts#logger).
+[Logging](./configuration#logging).
 
 ## Channel and store packages
 
@@ -328,6 +342,7 @@ const files = TEMPLATES.telegram.files('my-bot')
 // After
 import { getTemplate } from 'create-botmesh'
 const files = getTemplate('telegram').files('my-bot')
+```
 
 ## Sandbox API token
 
@@ -341,3 +356,9 @@ const files = getTemplate('telegram').files('my-bot')
   another name on purpose.
 - Bad input is now a 4xx: unknown fields, wrong types and a body that is not a
   JSON object are refused, and `toUserInput()` throws `SandboxInputError`.
+
+## Next steps
+
+- [Upgrade to stable: dependencies](./migration)
+- [Upgrade to stable: behaviour changes](./migration-2)
+- [Upgrade notes: channels & plugins](./upgrade-channels-plugins)

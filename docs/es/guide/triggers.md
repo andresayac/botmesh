@@ -4,8 +4,8 @@ Además de los triggers de texto, regex y predicado, `@botmesh/core` exporta
 constantes de trigger para el **primer contacto** de un usuario, para los
 **tipos de mensaje** (imágenes, notas de voz, ubicaciones...) y para las
 **llamadas entrantes**. Funcionan en cualquier sitio que acepte un trigger:
-`bot.when()`, `flow()` (y su alias obsoleto `addKeyword()`, incluido `.scope()`),
-`bot.conversation(name, fn, { trigger })` y `bot.use()`.
+`bot.when()`, `flow()` (incluido `.scope()`) y
+`bot.conversation(name, fn, { trigger })`.
 
 ```ts
 import {
@@ -110,9 +110,9 @@ caption "hola" la atiende `bot.when('hola')`. `bot.onType('image')` y
 
 Un trigger `undefined` o `null` (una variable de entorno sin definir, un
 import que falta), solo, dentro de un array o como `{ pattern }`, lanza un
-`TypeError` al registrarse: antes coincidía con el texto literal
-"undefined". Los triggers vacíos (`''`, `[]`) se siguen aceptando;
-`bot.lint()` y la regla de ESLint los reportan.
+`TypeError` al registrarse. Los triggers vacíos se aceptan, pero casi
+siempre son un error: `[]` nunca coincide y `''` coincide con todo mensaje sin
+texto (una foto sin caption). `bot.lint()` y la regla de ESLint reportan ambos.
 
 ## CALL
 
