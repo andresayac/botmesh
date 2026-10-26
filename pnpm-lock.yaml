@@ -76,7 +76,7 @@ importers:
         specifier: workspace:^
         version: link:../core
       '@google/generative-ai':
-        specifier: ^0.21.0
+        specifier: ^0.21.0 || ^0.22.0 || ^0.23.0 || ^0.24.0
         version: 0.21.0
     devDependencies:
       '@anthropic-ai/sdk':
