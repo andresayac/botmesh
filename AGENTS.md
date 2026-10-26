@@ -22,9 +22,9 @@ Capas (las dependencias van siempre hacia abajo, nunca al revés):
 
 El nombre del directorio no siempre coincide con el del paquete (`packages/baileys-provider` → `@botmesh/baileys`, `packages/meta-provider` → `@botmesh/meta`, `packages/*-provider` → `@botmesh/<canal>`, `packages/eslint-plugin` → `eslint-plugin-botmesh`). Mira el `name` en su `package.json` antes de usar `--filter`.
 
-Solo 10 paquetes son **públicos**: `core`, `baileys`, `meta`, `telegram`, `sqlite-store`, `redis-store`, `ai`, `http`, `graph-core` y `create-botmesh`. Los otros 35 (más el ejemplo) llevan `"private": true` y nunca se publican:
+Solo 15 paquetes son **públicos**: `core`, `baileys`, `meta`, `telegram`, `discord`, `twilio`, `gupshup`, `gohighlevel`, `email`, `sqlite-store`, `redis-store`, `ai`, `http`, `graph-core` y `create-botmesh` (los cinco canales `discord`, `twilio`, `gupshup`, `gohighlevel` y `email` se promovieron en la beta y aún no están en npm; cada uno tiene una entrada `/internal` sin semver). Los otros 30 (más el ejemplo) llevan `"private": true` y nunca se publican:
 
-- Canales: `discord`, `messenger`, `instagram`, `evolution`, `wppconnect`, `twilio`, `gohighlevel`, `gupshup`, `email`, `tiktok`.
+- Canales: `messenger`, `instagram`, `evolution`, `wppconnect`, `tiktok`.
 - Stores: `mongo-store`, `postgres-store`, `mysql-store`.
 - Plugins e infra: `server`, `wa-gateway-kit`, `rag`, `voice`, `nlu`, `dialogflow`, `chatwoot`, `tickets`, `moderation`, `manager`, `events`, `otel`.
 - Tooling: `eslint-plugin-botmesh`, `@botmesh/mcp`, `@botmesh/sandbox`.

@@ -24,7 +24,8 @@
 import { randomUUID } from 'node:crypto'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Bot, flow, MemoryStore, type InboundEvent, type InboundMessage } from '@botmesh/core'
-import { cursorThreadStore, EmailProvider, parseEmail, type EmailProviderConfig, type EmailRaw, type ParsedEmail } from '../src/index.js'
+import { cursorThreadStore, EmailProvider, type EmailProviderConfig, type EmailRaw } from '../src/index.js'
+import { parseEmail, type ParsedEmail } from '../src/internal.js'
 
 const ENABLED = !!process.env.BOTWA_TEST_EMAIL
 const HOST = process.env.BOTWA_TEST_EMAIL_HOST ?? '127.0.0.1'

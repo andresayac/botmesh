@@ -39,6 +39,10 @@ export interface GupshupProviderConfig {
    * Default `'Options'` (e.g. `'Opciones'` for a Spanish bot).
    */
   listButtonText?: string
+  /**
+   * @deprecated Pass a `logger` (any `LoggerLike`, e.g. `pino({ level: 'debug' })`)
+   * instead. Removal planned for v3.
+   */
   debug?: boolean
   logger?: LoggerLike
 }

@@ -23,7 +23,8 @@
  *     consumer .ts typechecks with moduleResolution nodenext AND bundler
  *     (including the `ctx.tools.ai` DefaultTools augmentation); a small runtime
  *     scenario (createTestBot, aiPlugin + MockAIProvider from @botmesh/ai/testing, SQLiteStore); optional
- *     AI SDK peers absent → import works, a clear lazy error only on use; the
+ *     AI SDK and email peers (imapflow, nodemailer) absent → import works, a clear
+ *     lazy error only on use; the
  *     `botmesh` and `create-botmesh` bins run.
  *  4. Scaffold every create-botmesh template, check its @botmesh ranges resolve
  *     to the packed versions (npm prerelease rules), then `npm install` it with
@@ -68,13 +69,31 @@ import { hashSlot, storeKeys } from '@botmesh/redis-store/internal'
 import { secureFetch } from '@botmesh/http'
 import { verifySignature } from '@botmesh/graph-core'
 import { scaffold } from 'create-botmesh'
+import { DiscordProvider, GatewayIntents, DEFAULT_INTENTS } from '@botmesh/discord'
+import { parseDispatch } from '@botmesh/discord/internal'
+import { TwilioProvider, verifyTwilioSignature, type TwilioWebhookParams } from '@botmesh/twilio'
+import { parseInbound as parseTwilio } from '@botmesh/twilio/internal'
+import { GupshupProvider, type GupshupCallback } from '@botmesh/gupshup'
+import { toOutbound as toGupshup } from '@botmesh/gupshup/internal'
+import { GoHighLevelProvider, verifyGhlSignature, type GhlWebhookBody } from '@botmesh/gohighlevel'
+import { channelOf as ghlChannelOf } from '@botmesh/gohighlevel/internal'
+import { EmailProvider, cursorThreadStore, type ImapClientLike, type SmtpTransportLike } from '@botmesh/email'
+import { parseEmail } from '@botmesh/email/internal'
 
 export const providers: IProvider[] = [
   // logger takes any LoggerLike (console included), not only pino.
   new TelegramProvider({ token: 'x', logger: console }),
   new CloudAPIProvider({ accessToken: 'a', phoneNumberId: '1', verifyToken: 'v', appSecret: 's', logger: console }),
   new BaileysProvider({ session: 'demo', logger: console }),
+  new DiscordProvider({ token: 't', intents: DEFAULT_INTENTS | GatewayIntents.DirectMessages, logger: console }),
+  new TwilioProvider({ accountSid: 'AC1', authToken: 't', whatsappFrom: 'whatsapp:+14155238886', webhookUrl: 'https://x.test/tw', logger: console }),
+  new GupshupProvider({ apiKey: 'k', appName: 'a', source: '1', webhookToken: 'w', logger: console }),
+  new GoHighLevelProvider({ accessToken: 't', locationId: 'l', logger: console }),
+  new EmailProvider({ address: 'bot@example.com', smtp: { host: 'smtp.example.com', user: 'bot@example.com', pass: 'p' }, logger: console }),
 ]
+// Promoted channels: raw payload types are on the main entry; the mappers come from /internal.
+export const channelRefs = [parseDispatch, verifyTwilioSignature, parseTwilio, toGupshup, verifyGhlSignature, ghlChannelOf, cursorThreadStore, parseEmail]
+export const rawTypes: [TwilioWebhookParams?, GupshupCallback?, GhlWebhookBody?, ImapClientLike?, SmtpTransportLike?] = []
 export const store = new SQLiteStore({ file: ':memory:' })
 export const refs = [RedisStore, migrateToClusterLayout, hashSlot, storeKeys, secureFetch, verifySignature, scaffold, runCli, createPacer, messageKey, validateArgs, toolDefinitions, socketOf, toInbound, toJid]
 // A fake Anthropic client typed by the client contract on the main entry; wire names come from /internal.
@@ -119,6 +138,8 @@ import { createTestBot } from '@botmesh/core/testing'
 import { aiPlugin, PRESETS, MockAIProvider as DeprecatedMock } from '@botmesh/ai'
 import { MockAIProvider } from '@botmesh/ai/testing'
 import { SQLiteStore } from '@botmesh/sqlite-store'
+import { EmailProvider } from '@botmesh/email'
+import { GatewayIntents } from '@botmesh/discord'
 
 // The deprecated main-entry alias is the same class; exported data is frozen.
 assert.equal(DeprecatedMock, MockAIProvider)
@@ -146,6 +167,18 @@ t3.bot.plug(aiPlugin({ provider: 'openai', apiKey: 'k', humanizeTyping: false })
 const err = await t3.bot.injectTools.ai.ask('x').then(() => undefined, (e) => e)
 assert.ok(err instanceof Error, 'expected a lazy error for the missing openai SDK')
 assert.match(err.message, /openai/)
+// @botmesh/email: imapflow/nodemailer are optional peers, absent here. Import works; the clear
+// error comes on start() (IMAP) and on the first send (SMTP).
+const imapOnly = new EmailProvider({ address: 'bot@example.com', imap: { host: 'imap.example.com', user: 'bot', pass: 'x' }, logger: silent })
+const imapErr = await imapOnly.start().then(() => undefined, (e) => e)
+assert.ok(imapErr instanceof Error, 'expected a lazy error for the missing imapflow peer')
+assert.match(imapErr.message, /pnpm add imapflow/)
+const smtpOnly = new EmailProvider({ address: 'bot@example.com', smtp: { host: 'smtp.example.com', user: 'bot', pass: 'x' }, logger: silent })
+await smtpOnly.start()
+const smtpErr = await smtpOnly.send('a@example.com', { kind: 'text', text: 'x' }).then(() => undefined, (e) => e)
+assert.match(String(smtpErr?.message), /nodemailer/)
+await smtpOnly.stop()
+assert.ok(Object.isFrozen(GatewayIntents))
 console.log('RUNTIME OK')
 process.exit(0)
 `
@@ -473,7 +506,7 @@ if (consumerOk) {
   }
   walk(nm, 0)
   if (dupes.length) fail('consumer', `duplicate @botmesh/core copies: ${dupes.join(', ')}`)
-  for (const sdk of ['@anthropic-ai/sdk', 'openai', '@google/generative-ai']) {
+  for (const sdk of ['@anthropic-ai/sdk', 'openai', '@google/generative-ai', 'imapflow', 'nodemailer']) {
     if (existsSync(join(nm, sdk))) fail('consumer', `optional peer ${sdk} got installed`)
   }
 

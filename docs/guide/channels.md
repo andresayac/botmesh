@@ -17,7 +17,7 @@ events, and what it can and cannot do. Install the core plus the channel you
 need:
 
 ```bash
-pnpm add @botmesh/core @botmesh/baileys   # or @botmesh/meta, @botmesh/telegram
+pnpm add @botmesh/core @botmesh/baileys   # or @botmesh/meta, @botmesh/telegram, @botmesh/discord, @botmesh/twilio...
 ```
 
 While botmesh is in prerelease, add the prerelease dist-tag to each package
@@ -39,19 +39,19 @@ needs an app, a phone number or a public URL.
 | `@botmesh/telegram` | `telegram-provider` | On npm | Telegram Bot API |
 | `@botmesh/messenger` | `messenger-provider` | Not on npm yet | Facebook Messenger (Send API) |
 | `@botmesh/instagram` | `instagram-provider` | Not on npm yet | Instagram DMs (Messenger API for Instagram) |
-| `@botmesh/discord` | `discord-provider` | Not on npm yet | Discord (gateway + REST) |
+| `@botmesh/discord` | `discord-provider` | On npm | Discord (gateway + REST) |
 | `@botmesh/evolution` | `evolution-provider` | Not on npm yet | Evolution API v2 (self-hosted WhatsApp gateway) |
 | `@botmesh/wppconnect` | `wppconnect-provider` | Not on npm yet | WPPConnect Server (self-hosted WhatsApp gateway) |
-| `@botmesh/twilio` | `twilio-provider` | Not on npm yet | Twilio Programmable Messaging (WhatsApp + SMS/MMS) |
-| `@botmesh/gohighlevel` | `gohighlevel-provider` | Not on npm yet | HighLevel (LeadConnector) Conversations API |
-| `@botmesh/gupshup` | `gupshup-provider` | Not on npm yet | Gupshup WhatsApp API |
-| `@botmesh/email` | `email-provider` | Not on npm yet | Email (IMAP IDLE + SMTP) |
+| `@botmesh/twilio` | `twilio-provider` | On npm | Twilio Programmable Messaging (WhatsApp + SMS/MMS) |
+| `@botmesh/gohighlevel` | `gohighlevel-provider` | On npm | HighLevel (LeadConnector) Conversations API |
+| `@botmesh/gupshup` | `gupshup-provider` | On npm | Gupshup WhatsApp API |
+| `@botmesh/email` | `email-provider` | On npm | Email (IMAP IDLE + SMTP) |
 | `@botmesh/tiktok` | `tiktok-provider` | Not on npm yet | TikTok API for Business (comments + Business Messaging) |
 
-The three **On npm** channels are installed with `pnpm add` and follow
-semver. The others have `"private": true` in their `package.json`: they are
-implemented and tested, but they are **not published to npm** and their API
-may still change. Use them from a clone of the monorepo (`"workspace:*"`).
+The eight **On npm** channels are installed with `pnpm add` and follow
+semver (during the beta, add the `@beta` dist-tag). The others have
+`"private": true` in their `package.json`: they are implemented and tested,
+but they are **not published to npm** and their API may still change. Use them from a clone of the monorepo (`"workspace:*"`).
 The same goes for [`@botmesh/server`](/guide/server) and the
 [sandbox](/guide/sandbox).
 
@@ -519,7 +519,7 @@ const provider = new InstagramProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/instagram-provider)
 
-### `@botmesh/discord` (not on npm yet)
+### `@botmesh/discord`
 
 Discord gateway (WebSocket) for events plus REST for sending.
 
@@ -627,7 +627,7 @@ const provider = new WPPConnectProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/wppconnect-provider)
 
-### `@botmesh/twilio` (not on npm yet)
+### `@botmesh/twilio`
 
 Twilio Programmable Messaging: **WhatsApp and SMS/MMS** with one class.
 Webhooks verified with `X-Twilio-Signature`, which covers the exact public
@@ -660,7 +660,7 @@ const provider = new TwilioProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/twilio-provider)
 
-### `@botmesh/gohighlevel` (not on npm yet)
+### `@botmesh/gohighlevel`
 
 HighLevel (GoHighLevel / LeadConnector) Conversations API. Inbound through
 the `InboundMessage` webhook (Ed25519 `X-GHL-Signature`), outbound with
@@ -684,7 +684,7 @@ const provider = new GoHighLevelProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/gohighlevel-provider)
 
-### `@botmesh/gupshup` (not on npm yet)
+### `@botmesh/gupshup`
 
 Gupshup WhatsApp API: v1 send endpoints, v2 callbacks. Gupshup does not sign
 callbacks, so they are authenticated with a shared token in the callback URL
@@ -704,8 +704,8 @@ const provider = new GupshupProvider({
 
 - Buttons go out as quick replies (up to 3), then as a list (up to 10),
   then as numbered text; lists are native up to 10 rows. The list button of
-  degraded buttons reads `listButtonText` (default `'Opciones'`, max 20
-  characters).
+  degraded buttons reads `listButtonText` (default `'Options'`, max 20
+  characters; `'Opciones'` for a Spanish bot).
 - `chatId` = the sender's phone digits (no `+`), exactly what the send API
   expects.
 - Media only from public URLs. Gupshup also documents IP allow-listing: do
@@ -713,7 +713,7 @@ const provider = new GupshupProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/gupshup-provider)
 
-### `@botmesh/email` (not on npm yet)
+### `@botmesh/email`
 
 Email: **IMAP IDLE** to receive and **SMTP** to reply. Each email thread is
 a chat, so `ask()` flows continue when the customer replies to the email.

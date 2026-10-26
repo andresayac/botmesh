@@ -4,7 +4,7 @@
 [![Docs](https://img.shields.io/badge/docs-andresayac.github.io%2Fbotmesh-blue)](https://andresayac.github.io/botmesh/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 
-A TypeScript framework for messaging bots. Write handlers and conversation flows once and run them on **WhatsApp** (the unofficial [Baileys 7](https://github.com/WhiskeySockets/Baileys) protocol or the **official Meta Cloud API**) and **Telegram**, with experimental providers for Messenger, Instagram, Discord, TikTok, email and more WhatsApp gateways (Evolution API, WPPConnect, Twilio, Gupshup). Try your bot in the terminal before connecting a phone, test it without a network, and add AI, persistence or multiple replicas when you need them.
+A TypeScript framework for messaging bots. Write handlers and conversation flows once and run them on **WhatsApp** (the unofficial [Baileys 7](https://github.com/WhiskeySockets/Baileys) protocol, the **official Meta Cloud API**, Twilio or Gupshup), **Telegram**, **Discord**, **email**, SMS (Twilio) and HighLevel CRM conversations, with experimental providers for Messenger, Instagram, TikTok and more WhatsApp gateways (Evolution API, WPPConnect). Try your bot in the terminal before connecting a phone, test it without a network, and add AI, persistence or multiple replicas when you need them.
 
 **Documentation: <https://andresayac.github.io/botmesh/>** ([English](https://andresayac.github.io/botmesh/guide/getting-started) · [Español](https://andresayac.github.io/botmesh/es/guide/inicio) · [API reference](https://andresayac.github.io/botmesh/api/))
 
@@ -55,7 +55,7 @@ The [getting started guide](https://andresayac.github.io/botmesh/guide/getting-s
 
 ## Packages
 
-This is a pnpm monorepo with **45 packages**: 10 **Public**, 27 **Experimental** and 8 **Product** and internal ones. They are not all equally mature, and the **Status** column says so plainly:
+This is a pnpm monorepo with **45 packages**: 15 **Public**, 22 **Experimental** and 8 **Product** and internal ones. They are not all equally mature, and the **Status** column says so plainly:
 
 - **Public**: published on npm and covered by semver from the stable release on (prerelease builds until then).
 - **Experimental**: real, tested implementation, but the package is `private`. Not published yet and its API may change.
@@ -71,13 +71,13 @@ This is a pnpm monorepo with **45 packages**: 10 **Public**, 27 **Experimental**
 | [`@botmesh/telegram`](packages/telegram-provider) | Public | Telegram Bot API (long-poll/webhook, inline keyboards, native polls). |
 | [`@botmesh/messenger`](packages/messenger-provider) | Experimental | Facebook Messenger (Meta Graph, quick replies/templates). |
 | [`@botmesh/instagram`](packages/instagram-provider) | Experimental | Instagram DM (Meta Graph, quick replies). |
-| [`@botmesh/discord`](packages/discord-provider) | Experimental | Discord (gateway websocket + REST, slash/components). |
+| [`@botmesh/discord`](packages/discord-provider) | Public | Discord (gateway websocket + REST, slash/components). |
 | [`@botmesh/evolution`](packages/evolution-provider) | Experimental | WhatsApp through [Evolution API](https://github.com/EvolutionAPI/evolution-api) (self-hosted REST gateway, signed webhook). |
 | [`@botmesh/wppconnect`](packages/wppconnect-provider) | Experimental | WhatsApp through WPPConnect Server (REST + token webhook). |
-| [`@botmesh/twilio`](packages/twilio-provider) | Experimental | WhatsApp and SMS through Twilio Programmable Messaging (`X-Twilio-Signature` webhooks). |
-| [`@botmesh/gupshup`](packages/gupshup-provider) | Experimental | WhatsApp through Gupshup (API v1 + v2 callbacks). |
-| [`@botmesh/gohighlevel`](packages/gohighlevel-provider) | Experimental | GoHighLevel / LeadConnector (Conversations API + signed `InboundMessage` webhooks). |
-| [`@botmesh/email`](packages/email-provider) | Experimental | Email: inbound IMAP IDLE + outbound SMTP, threading, loop and bounce protection. |
+| [`@botmesh/twilio`](packages/twilio-provider) | Public | WhatsApp and SMS through Twilio Programmable Messaging (`X-Twilio-Signature` webhooks). |
+| [`@botmesh/gupshup`](packages/gupshup-provider) | Public | WhatsApp through Gupshup (API v1 + v2 callbacks). |
+| [`@botmesh/gohighlevel`](packages/gohighlevel-provider) | Public | GoHighLevel / LeadConnector (Conversations API + signed `InboundMessage` webhooks). |
+| [`@botmesh/email`](packages/email-provider) | Public | Email: inbound IMAP IDLE + outbound SMTP, threading, loop and bounce protection. |
 | [`@botmesh/tiktok`](packages/tiktok-provider) | Experimental | TikTok API for Business: DMs (Business Messaging) and replies to comments on your own videos. |
 | **Stores (persistence)** | | |
 | [`@botmesh/sqlite-store`](packages/sqlite-store) | Public | SQLite (`better-sqlite3`, WAL). |

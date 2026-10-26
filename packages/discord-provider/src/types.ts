@@ -101,6 +101,10 @@ export interface DiscordProviderConfig {
   autoAckMs?: number | false
   /** Time allowed for a REST request that uploads files, in ms. Default 300 000. */
   uploadTimeoutMs?: number
+  /**
+   * @deprecated Pass a `logger` (any `LoggerLike`, e.g. `pino({ level: 'debug' })`)
+   * instead. Removal planned for v3.
+   */
   debug?: boolean
   logger?: LoggerLike
 }
@@ -131,7 +135,7 @@ export interface GatewayPayload {
 }
 
 /** Privileged intents must also be toggled in the Developer Portal. */
-export const GatewayIntents = {
+export const GatewayIntents = Object.freeze({
   Guilds: 1 << 0,
   GuildMembers: 1 << 1,
   GuildModeration: 1 << 2,
@@ -148,7 +152,7 @@ export const GatewayIntents = {
   DirectMessageReactions: 1 << 13,
   DirectMessageTyping: 1 << 14,
   MessageContent: 1 << 15,
-} as const
+} as const)
 
 /** Default: Guilds | GuildMessages | MessageContent (what a text bot needs in servers). */
 export const DEFAULT_INTENTS =

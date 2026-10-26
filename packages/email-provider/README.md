@@ -1,8 +1,6 @@
 # @botmesh/email
 
-> **Experimental — not yet published on npm.** Real, tested implementation, but the package is `private`: its API may change. Use it from this monorepo (`workspace:*`); the `pnpm add @botmesh/email` below will work once it is published.
-
-**Email** transport for [`@botmesh/core`](../core): **IMAP IDLE** to receive (or `ingest()` with the raw MIME from an inbound-email webhook) and **SMTP** to reply. Each email thread is a chat, so flows (`flow().ask()...`) work exactly as on WhatsApp or Telegram: the customer replies to the email and the bot continues the conversation in the same thread.
+**Email** transport for [`@botmesh/core`](https://github.com/andresayac/botmesh/tree/main/packages/core): **IMAP IDLE** to receive (or `ingest()` with the raw MIME from an inbound-email webhook) and **SMTP** to reply. Each email thread is a chat, so flows (`flow().ask()...`) work exactly as on WhatsApp or Telegram: the customer replies to the email and the bot continues the conversation in the same thread.
 
 ## Install
 
@@ -11,7 +9,9 @@ pnpm add @botmesh/core @botmesh/email
 pnpm add imapflow nodemailer   # optional peers: IMAP (inbound) and SMTP (outbound)
 ```
 
-`imapflow` and `nodemailer` are **optional** `peerDependencies` loaded lazily: if you only send, you do not need `imapflow`; if you only receive through `ingest()`, you need neither to receive.
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build (or to none). Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/email@beta` during the beta (`npm view @botmesh/email dist-tags` lists the tags). Once stable, the plain command above works.
+
+`imapflow` and `nodemailer` are **optional** `peerDependencies` loaded lazily: if you only send, you do not need `imapflow`; if you only receive through `ingest()`, you need neither to receive. A missing peer surfaces as a `ProviderError` naming the package to install: from `start()` for `imapflow`, from the first send for `nodemailer`.
 
 ## Usage
 
@@ -114,7 +114,7 @@ app.post('/inbound-email', express.raw({ type: '*/*', limit: '40mb' }), async (r
 })
 ```
 
-With [`@botmesh/server`](../server), mount it as a route with a larger `maxBodyBytes` instead.
+With [`@botmesh/server`](https://andresayac.github.io/botmesh/guide/server), mount it as a route with a larger `maxBodyBytes` instead.
 
 ## Typed errors
 
@@ -150,6 +150,27 @@ With [`@botmesh/server`](../server), mount it as a route with a larger `maxBodyB
 | `reconnect` | `{ baseMs: 1000, maxMs: 60000 }` | IMAP reconnection backoff. |
 | `http` | — | `secureFetch` options for attachments by URL. |
 | `createImapClient` / `smtpTransport` | — | Inject your own clients (or fakes in tests). An injected `smtpTransport` is yours: `stop()` never closes it. A transport built from `smtp` is closed on `stop()` and rebuilt on the next send, so a pooled one (`smtp.options.pool`) keeps working across `stop()`/`start()`. |
+| `logger` | pino, `error` level | Any `LoggerLike`. `debug: true` is deprecated: pass a logger. |
+
+## Entries
+
+- `@botmesh/email`: `EmailProvider`, `cursorThreadStore`, `MemoryThreadStore`,
+  `toEmailError` and the config, client-seam and thread-store types. Covered by semver.
+- `@botmesh/email/internal`: the MIME parser, address-list, HTML-to-text, quoted-reply,
+  loop and bounce helpers, for tests and custom inbound pipelines. **No semver**: they
+  may change in any release.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| `start()` or the first send rejects with a `ProviderError` naming `imapflow` or `nodemailer` | The optional peer is not installed: `pnpm add imapflow` (inbound) and/or `pnpm add nodemailer` (outbound). |
+| `connection` closes with `reason: 'sessionInvalid'` | IMAP login failed: wrong password, or the mail provider needs an app password or OAuth2 (`accessToken`). |
+| Sends reject with `ProviderError` (`EAUTH`, 535) | SMTP login failed: same fix for the `smtp` credentials. |
+| Customer emails are ignored | They were classified as automatic (auto-replies, lists, bulk), came from the bot itself, hit the per-sender cap, or failed `requireAuthentication`. `ingest()` returns the `reason`; over IMAP it is logged at `debug`. |
+| The bot answers old mail on its first start | `processExisting: 'unseen'` (default) processes unread mail once; use `'none'` to start from now. |
+| Replies start a new chat after a restart | Thread state lives in memory: pass `threadStore: cursorThreadStore(store)`. |
+| Sends to an address reject with `RecipientUnreachableError` | It hard-bounced earlier and is suppressed: `provider.unsuppress(address)`. |
 
 ## Integration tests
 
@@ -168,3 +189,8 @@ docker rm -f botmesh-it-greenmail
 In PowerShell: `$env:BOTWA_TEST_EMAIL = '1'`. The host and ports are changed with `BOTWA_TEST_EMAIL_HOST` (`127.0.0.1`), `BOTWA_TEST_EMAIL_SMTP_PORT` (`3025`) and `BOTWA_TEST_EMAIL_IMAP_PORT` (`3143`), the non-TLS GreenMail ports. With `greenmail.auth.disabled` any login works and mailboxes are created on the fly; each test uses fresh addresses, so it can be repeated against the same container.
 
 What it covers: inbound over IMAP IDLE with stable `chatId`/`senderId`; threads by `Message-ID`/`In-Reply-To`/`References`; replies that reach the user's mailbox with `In-Reply-To`, `References`, `Re:` and `Auto-Submitted`; attachments as `MediaRef` and `downloadMedia` (from the cache and requested again over IMAP); HTML to text; discarding automatic replies, lists and `Precedence: bulk`; restarts without redelivering email (with `markSeen` and with the persisted UID cursor); and a `Bot` `ask()` flow answered by email.
+
+## Links
+
+- [Channels guide](https://andresayac.github.io/botmesh/guide/channels#botmesh-email) · [Store](https://andresayac.github.io/botmesh/guide/store) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/email-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/email-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

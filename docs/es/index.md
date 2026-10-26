@@ -20,8 +20,9 @@ features:
   - title: Agnóstico de transporte
     details: |
       Un motor, muchos providers: @botmesh/baileys (WhatsApp Web),
-      @botmesh/meta (Cloud API oficial de WhatsApp) y @botmesh/telegram,
-      más Messenger, Instagram, Discord y otros experimentales. Cambiar de
+      @botmesh/meta (Cloud API oficial de WhatsApp), @botmesh/telegram,
+      Discord, Twilio, email y más, además de Messenger e Instagram
+      experimentales. Cambiar de
       canal es cambiar una línea.
     icon: 🔌
     link: /es/guide/canales

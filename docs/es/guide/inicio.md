@@ -235,7 +235,9 @@ todos los transportes.
 | WhatsApp (Baileys 7) | `@botmesh/baileys` | Publicado | Protocolo no oficial de WhatsApp Web, QR o código de vinculación |
 | WhatsApp Cloud API | `@botmesh/meta` | Publicado | API oficial de Meta, webhook, botones y plantillas nativos |
 | Telegram | `@botmesh/telegram` | Publicado | Bot API, long polling o webhook |
-| Messenger, Instagram, Discord y más | `@botmesh/messenger`, … | Experimental | Aún no están en npm; ver [Canales](./canales) |
+| Discord | `@botmesh/discord` | Publicado | Gateway websocket + REST, botones, menús de selección y slash commands |
+| WhatsApp + SMS (Twilio), Gupshup, HighLevel, email | `@botmesh/twilio`, `@botmesh/gupshup`, `@botmesh/gohighlevel`, `@botmesh/email` | Publicado | Ver [Canales](./canales) |
+| Messenger, Instagram, TikTok y más | `@botmesh/messenger`, … | Experimental | Aún no están en npm; ver [Canales](./canales) |
 
 La Cloud API oficial de WhatsApp, por ejemplo:
 

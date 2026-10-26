@@ -1,8 +1,6 @@
 # @botmesh/discord
 
-> **Experimental — not yet published on npm.** Real, tested implementation, but the package is `private`: it is not part of the first alpha and its API may change. Use it from this monorepo (`workspace:*`); the `pnpm add` below will work once it is published.
-
-**Discord** transport for [`@botmesh/core`](../core): **Gateway websocket**
+**Discord** transport for [`@botmesh/core`](https://github.com/andresayac/botmesh/tree/main/packages/core): **Gateway websocket**
 for inbound events (messages, buttons, menus and slash commands) and **REST**
 to send. The provider owns the socket (`pushIngress: false`) — there is no
 webhook to wire up.
@@ -13,7 +11,11 @@ webhook to wire up.
 pnpm add @botmesh/core @botmesh/discord
 ```
 
-Dependencies: `ws` (gateway), Node ≥ 22 native `fetch`/`FormData` (REST).
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build (or to none). Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/discord@beta` during the beta (`npm view @botmesh/discord dist-tags` lists the tags). Once stable, the plain command above works.
+
+Dependencies: `ws` (gateway) and Node 22+ native `fetch`/`FormData` (REST).
+Media downloads go through the SSRF-safe
+[`@botmesh/http`](https://www.npmjs.com/package/@botmesh/http).
 
 ## Requirements (Discord)
 
@@ -154,21 +156,56 @@ pins, boosts, thread notices: any `type` other than 0 *default* and 19
 *reply*) are ignored. Malformed gateway frames are dropped with a warning and
 an error thrown by a dispatch handler is logged, never raised into the socket.
 
-## Full configuration
+## Options
 
-```ts
-new DiscordProvider({
-  token: '…',                 // required (an empty value fails in the constructor)
-  intents?: number,           // default: Guilds | GuildMessages | MessageContent
-  appId?: string,             // interaction followups; default: learnt from READY / the interaction
-  selfId?: string,            // auto-detected from the gateway READY
-  gatewayUrl?: string,        // default 'wss://gateway.discord.gg'
-  apiUrl?: string,            // default 'https://discord.com/api' (no version)
-  apiVersion?: string,        // default 'v10'
-  socketFactory?: SocketFactory, // tests: fake socket
-  reconnectDelayMs?: number,  // reconnection backoff base, default 500
-  requestTimeoutMs?: number,  // client timeout per REST request, default 60000
-  autoAcknowledgeMs?: number | false, // defer unanswered interactions after this many ms, default 2000
-  debug?: boolean, logger?: Logger,
-})
-```
+| Option | Default | Description |
+| --- | --- | --- |
+| `token` | required | Bot token (Developer Portal → Bot → Reset Token). An empty value throws in the constructor. |
+| `intents` | `Guilds \| GuildMessages \| MessageContent` (`DEFAULT_INTENTS`) | Gateway intents bitmask; add `GatewayIntents.DirectMessages` for DMs. |
+| `appId` | learnt from READY / the interaction | Application id for interaction followups. |
+| `selfId` | learnt from READY | The bot's own user id (`fromMe`). |
+| `editedMessages` | `'deliver'` | `'ignore'` drops `MESSAGE_UPDATE` edits. |
+| `autoAcknowledgeMs` | `2000` | Defer an interaction nobody answered after this many ms (below 3000); `false` turns it off. `autoAckMs` is a deprecated alias. |
+| `reactionMemory` | `1000` | Messages whose bot reaction is remembered (see [Bot reactions](#bot-reactions)); `0` disables replace/remove. |
+| `requestTimeoutMs` | `60000` | Client timeout per REST request. |
+| `uploadTimeoutMs` | `300000` | Client timeout of a request that uploads files. |
+| `mediaDownload` | `@botmesh/http` defaults | Download policy for attachments (`maxBytes`, `timeoutMs`, ...). |
+| `mediaRefHosts` | `DISCORD_MEDIA_HOSTS` | Hosts whose attachment URLs are journaled for a durable replay. |
+| `gatewayUrl` / `apiUrl` / `apiVersion` | `wss://gateway.discord.gg` / `https://discord.com/api` / `v10` | Endpoints (a proxy or a local simulator). |
+| `reconnectDelayMs` | `500` | Base of the gateway reconnect backoff. |
+| `socketFactory` | `ws` | Injectable websocket factory (tests). |
+| `logger` | pino, `error` level | Any `LoggerLike` (pino, `console`, ...). `debug: true` is deprecated: pass a logger. |
+
+## Entries
+
+- `@botmesh/discord`: `DiscordProvider`, `isEditedMessage`, `toDiscordError`,
+  `GatewayIntents`, `DEFAULT_INTENTS`, `DISCORD_MEDIA_HOSTS` and the config types.
+  Covered by semver.
+- `@botmesh/discord/internal`: the gateway socket, REST client, payload mappers,
+  protocol constants and Discord payload types, for tests and custom tooling.
+  **No semver**: they may change in any release.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| Messages arrive with an empty body | The **Message Content** privileged intent is off: enable it in the Developer Portal (Bot → Privileged Gateway Intents). |
+| `connection` closes with `reason: 'sessionInvalid'` right after `start()` | Invalid token (close code 4004) or intents the portal does not allow (4013/4014). Reset the token or enable the intents. |
+| The bot never sees DMs | Add `GatewayIntents.DirectMessages` to `intents`. |
+| A button shows "This interaction failed" | Nothing answered within ~3 s: keep `autoAcknowledgeMs` on, or call `ctx.acknowledge()` early in the handler. |
+| `ctx.acknowledge('text')` rejects with `ProviderError` | The followup needs the application id and none is known yet: pass `appId`. |
+| `ctx.react('')` rejects with `UnsupportedContentError` | The bot's previous emoji on that message is not remembered (restart, LRU eviction or `reactionMemory: 0`). |
+| A send rejects with `RecipientUnreachableError` | Missing permissions in the channel, or the user closed DMs (codes 50001, 50007). |
+
+## Notes
+
+- Timestamps are epoch **milliseconds** (from the snowflake).
+- Only one process should own a bot token's gateway session: with
+  `BotConfig.coordination`, the provider only connects on the leader replica
+  (`exclusiveSession`).
+- ESM only, Node.js 22 or later.
+
+## Links
+
+- [Channels guide](https://andresayac.github.io/botmesh/guide/channels#botmesh-discord) · [Streaming replies](https://andresayac.github.io/botmesh/guide/streaming) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/discord-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/discord-provider) · [Issues](https://github.com/andresayac/botmesh/issues)
