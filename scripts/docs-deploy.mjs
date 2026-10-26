@@ -41,13 +41,13 @@ function step(message) {
 
 /** Runs a command, streaming its output; exits on failure. */
 function run(cmd, cmdArgs, options = {}) {
-  const result = spawnSync(cmd, cmdArgs, {
-    stdio: 'inherit',
-    cwd: root,
-    // pnpm is a .cmd shim on Windows.
-    shell: process.platform === 'win32' && cmd === 'pnpm',
-    ...options,
-  })
+  // pnpm is a .cmd shim on Windows, which needs a shell. Node 24 deprecates passing an
+  // args array together with `shell` (DEP0190), so the shell gets one command line; the
+  // arguments are fixed literals here, nothing user-supplied.
+  const viaShell = process.platform === 'win32' && cmd === 'pnpm'
+  const result = viaShell
+    ? spawnSync([cmd, ...cmdArgs].join(' '), { stdio: 'inherit', cwd: root, shell: true, ...options })
+    : spawnSync(cmd, cmdArgs, { stdio: 'inherit', cwd: root, ...options })
   if (result.status !== 0) fail(`${cmd} ${cmdArgs.join(' ')} failed (exit ${result.status ?? result.signal})`)
 }
 
