@@ -48,10 +48,17 @@ sent.id        // the last part
 sent.parts     // the ref of every part, in order (only set when the text was split)
 ```
 
-Each part is a full send: `before('send')`/`after('send')` hooks, the message log and
-the durable outbox see every part. Only the first part keeps `quoted`; an explicit
-`idempotencyKey` gets a `#2`, `#3`… suffix from the second part on. If a part fails,
-the send rejects and the remaining parts are not sent. Text that fits is sent untouched.
+`before('send')` hooks run **once, on the whole text**, before it is split: a hook that
+adds a footer or translates the text changes the whole message, and what it returns is
+what gets split, so every part still fits (a hook that makes a short text too long gets
+it split too). An `abort()` skips the whole text. Each part is then a send of its own:
+`after('send')` hooks, the message log and the durable outbox see every part. Only the
+first part keeps `quoted`; an explicit `idempotencyKey` gets a `#2`, `#3`… suffix from
+the second part on (from `#1` when a hook made the text too long). If a part fails, the
+send rejects and the remaining parts are not sent; with durability, a part the outbox
+defers (`SendDeferredError`) is followed by the remaining parts in the outbox, so the
+sweeper delivers all of them, in order. `bot.enqueue()` splits too: it journals one
+record per part (`key`, `key#2`, …). Text that fits is sent untouched.
 `ctx.edit` is never split, and `ctx.stream()` splits on its own. Turn it off with
 `new Bot({ splitLongText: false })` (the provider then rejects a long text with
 `PayloadTooLargeError`). To split text yourself, use `splitMessage(text, { maxLength,

@@ -51,11 +51,18 @@ sent.id        // la última parte
 sent.parts     // el ref de cada parte, en orden (solo si el texto se dividió)
 ```
 
-Cada parte es un envío completo: los hooks `before('send')`/`after('send')`, el log de
+Los hooks `before('send')` corren **una vez, sobre el texto completo**, antes de
+dividirlo: un hook que añade un pie o traduce el texto cambia el mensaje entero, y lo que
+devuelve es lo que se divide, así que cada parte sigue cabiendo (si un hook alarga un
+texto corto por encima del límite, también se divide). Un `abort()` omite el texto
+entero. Después cada parte es un envío propio: los hooks `after('send')`, el log de
 mensajes y el outbox durable ven cada parte. Solo la primera parte conserva `quoted`; un
-`idempotencyKey` explícito recibe un sufijo `#2`, `#3`… desde la segunda parte. Si una
-parte falla, el envío rechaza y las partes restantes no se envían. El texto que cabe se
-envía intacto. `ctx.edit` nunca se divide y `ctx.stream()` divide por su cuenta. Se
+`idempotencyKey` explícito recibe un sufijo `#2`, `#3`… desde la segunda parte (desde
+`#1` cuando fue un hook el que alargó el texto). Si una parte falla, el envío rechaza y
+las partes restantes no se envían; con durabilidad, si el outbox difiere una parte
+(`SendDeferredError`), las restantes quedan anotadas detrás de ella y el barrido las
+entrega todas, en orden. `bot.enqueue()` también divide: anota un registro por parte
+(`key`, `key#2`, …). El texto que cabe se envía intacto. `ctx.edit` nunca se divide y `ctx.stream()` divide por su cuenta. Se
 desactiva con `new Bot({ splitLongText: false })` (el provider rechaza entonces un texto
 largo con `PayloadTooLargeError`). Para dividir texto tú mismo, usa
 `splitMessage(texto, { maxLength, maxBytes, format })` de `@botmesh/core`.

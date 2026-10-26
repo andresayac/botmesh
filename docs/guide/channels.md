@@ -376,8 +376,10 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
   `ctx.acknowledge('text')`) to answer a button, menu or slash command; when no
   handler does within `autoAcknowledgeMs` (default 2000 ms), the provider
   defers it on its own so Discord never shows "This interaction failed". A
-  later `ctx.acknowledge('text')` then posts the text as a followup (needs
-  `appId`). `autoAcknowledgeMs: false` turns this off.
+  later `ctx.acknowledge('text')` then posts the text as a followup, with
+  `appId` or else the application id Discord sends on READY and on each
+  interaction; if none is known the call rejects with `ProviderError` instead
+  of dropping the text. `autoAcknowledgeMs: false` turns this off.
 - More than 25 buttons (5 rows of 5), 25 select-menu options or 10 poll
   answers reject with `UnsupportedContentError` instead of dropping options;
   text over 2000 characters is split into several messages.
@@ -615,11 +617,14 @@ alpha releases. Check these when you upgrade:
   `provider.typing?.(…)`.
 - **Long text is split** into several messages instead of being rejected with
   `PayloadTooLargeError`. `new Bot({ splitLongText: false })` restores the old behaviour.
+  `before('send')` hooks still run once per message (on the whole text, before the
+  split); `after('send')` hooks run once per part.
 - **Too many options reject** on Discord (over 25 buttons or menu options, over 10 poll
   answers), Messenger (over 3 buttons, over 10 list rows) and Instagram (over 13 quick
   replies) with `UnsupportedContentError`; they used to drop the extra options silently.
 - **Discord defers unanswered interactions** after 2 s. `autoAcknowledgeMs: false`
-  restores the old behaviour.
+  restores the old behaviour. A late `ctx.acknowledge('text')` then goes out as a
+  followup; with no `appId` and no application id received from Discord it rejects.
 - **`MockProvider`** reports `capabilities.typing` and `readReceipts` as `false` unless a
   `typing()`/`markRead()` method exists (they had no effect before either), and emits
   epoch-ms timestamps.

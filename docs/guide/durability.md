@@ -209,6 +209,9 @@ const { key } = await bot.enqueue(chatId, 'Tu cita es mañana a las 9', {
 at once. The sweeper delivers it and then runs `after('send')` and writes the
 message log. Within one process, sends to a chat keep their order while one of them
 is being retried inline.
+A text over the channel's limit is split after the hooks ran, into one record per part
+(`key`, `key#2`, …, delivered in that order); the sweeper sends each record as it was
+journaled.
 
 Inbound events whose processing keeps failing *before* the handlers run (the store
 is down, for example) are retried with `inbox.backoff` and dead-lettered after

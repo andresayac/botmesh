@@ -58,7 +58,10 @@ Answer each one once from the handler. If no handler does within
 `autoAcknowledgeMs` (default `2000`), the provider defers it on its own
 (type 6 for components, type 5 for commands and modals), so Discord never
 shows "This interaction failed"; a later `ctx.acknowledge('text')` is then
-posted as a followup (needs `appId`). `autoAcknowledgeMs: false` turns it off.
+posted as a followup. The followup needs the application id: `appId`, or else
+the one Discord sends on READY and on each interaction; when none is known,
+`ctx.acknowledge('text')` rejects with `ProviderError` instead of dropping the
+text. `autoAcknowledgeMs: false` turns it off.
 
 ```ts
 bot.when('confirm', async (ctx) => {
@@ -143,7 +146,7 @@ an error thrown by a dispatch handler is logged, never raised into the socket.
 new DiscordProvider({
   token: '…',                 // required (an empty value fails in the constructor)
   intents?: number,           // default: Guilds | GuildMessages | MessageContent
-  appId?: string,             // for interaction followups (SendOptions.interactionId)
+  appId?: string,             // interaction followups; default: learnt from READY / the interaction
   selfId?: string,            // auto-detected from the gateway READY
   gatewayUrl?: string,        // default 'wss://gateway.discord.gg'
   apiUrl?: string,            // default 'https://discord.com/api' (no version)

@@ -394,7 +394,10 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
   si ningún handler lo hace en `autoAcknowledgeMs` (2000 ms por defecto), el
   provider la difiere por su cuenta y Discord nunca muestra "This interaction
   failed". Un `ctx.acknowledge('texto')` posterior publica el texto como
-  followup (necesita `appId`). `autoAcknowledgeMs: false` lo desactiva.
+  followup, con `appId` o, si falta, con el id de aplicación que Discord manda
+  en READY y en cada interacción; si no se conoce ninguno, la llamada rechaza
+  con `ProviderError` en vez de descartar el texto. `autoAcknowledgeMs: false`
+  lo desactiva.
 - Más de 25 botones (5 filas de 5), 25 opciones de menú o 10 respuestas de
   encuesta rechazan con `UnsupportedContentError` en vez de descartar opciones;
   el texto de más de 2000 caracteres se divide en varios mensajes.
@@ -638,13 +641,16 @@ comportamientos de las versiones alpha. Revisa esto al actualizar:
   `provider.typing?.(…)`.
 - **El texto largo se divide** en varios mensajes en vez de rechazar con
   `PayloadTooLargeError`. `new Bot({ splitLongText: false })` recupera el comportamiento
-  anterior.
+  anterior. Los hooks `before('send')` siguen corriendo una vez por mensaje (sobre el texto
+  completo, antes de dividirlo); los `after('send')`, una vez por parte.
 - **Demasiadas opciones rechazan** en Discord (más de 25 botones u opciones de menú, más
   de 10 respuestas de encuesta), Messenger (más de 3 botones, más de 10 filas de lista) e
   Instagram (más de 13 quick replies) con `UnsupportedContentError`; antes descartaban
   las opciones sobrantes en silencio.
 - **Discord difiere las interacciones sin responder** tras 2 s.
-  `autoAcknowledgeMs: false` recupera el comportamiento anterior.
+  `autoAcknowledgeMs: false` recupera el comportamiento anterior. Un
+  `ctx.acknowledge('texto')` tardío sale entonces como followup; sin `appId` ni id de
+  aplicación recibido de Discord, rechaza.
 - **`MockProvider`** informa `capabilities.typing` y `readReceipts` como `false` salvo que
   exista un método `typing()`/`markRead()` (antes tampoco tenían efecto), y emite
   timestamps en ms epoch.

@@ -40,12 +40,28 @@ function validLimit(value: number | undefined): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) && value >= 1 ? Math.floor(value) : undefined
 }
 
-/** Options of part `i` of a split text: only the first quotes; explicit keys get `#n`. */
-function partOptions(options: SendOptions | undefined, i: number): SendOptions | undefined {
-  if (!options || i === 0) return options
-  const { quoted: _quoted, ...rest } = options
+/**
+ * Options of part `i` of a split text: only the first quotes; an explicit idempotency key
+ * gets `#n` from the second part on (from the first with `suffixFirst`).
+ */
+function partOptions(options: SendOptions | undefined, i: number, suffixFirst = false): SendOptions | undefined {
+  if (!options || (i === 0 && !suffixFirst)) return options
+  const rest = { ...options }
+  if (i > 0) delete rest.quoted
   if (rest.idempotencyKey !== undefined) rest.idempotencyKey = `${rest.idempotencyKey}#${i + 1}`
   return rest
+}
+
+/**
+ * A send whose `before('send')` hooks already ran. `identity` is what the durable outbox
+ * fingerprints instead of the content: the message as the caller made it (and, for a part
+ * of a split text, its position), so a replay matches even when a hook is not deterministic.
+ */
+interface Hooked { identity: OutboundContent }
+
+/** The identity of part `i` of a split text (see {@link Hooked}). */
+function partIdentity(identity: OutboundContent, i: number): OutboundContent {
+  return { ...identity, part: i + 1 } as unknown as OutboundContent
 }
 
 export class OutboundPipeline {
@@ -59,20 +75,49 @@ export class OutboundPipeline {
    * so an implicit `ctx.edit(content)` never edits a reply that was followed by it.
    */
   send(chatId: ChatId, content: OutboundContent, options?: SendOptions, origin: 'ctx' | 'api' = 'api', stream?: 'message'): Promise<SendResult> {
-    // A text over the transport's limit goes out as several sends (BotConfig.splitLongText).
-    const parts = stream ? undefined : this.textParts(chatId, content)
-    if (parts && parts.length > 1) return this.sendParts(chatId, parts, options, origin)
-    // Only trimmed whitespace made it fit: send that one part.
-    if (parts?.length === 1) return this.sendOne(chatId, { kind: 'text', text: parts[0] as string }, options, origin, stream)
+    // A text over the transport's limit goes out as several sends (BotConfig.splitLongText):
+    // the hooks see the whole text first, then what they return is split.
+    if (!stream && this.textParts(chatId, content)) return this.sendLongText(chatId, content, options, origin)
     return this.sendOne(chatId, content, options, origin, stream)
   }
 
-  /** One send through the pipeline (see {@link send}). */
-  private sendOne(chatId: ChatId, content: OutboundContent, options: SendOptions | undefined, origin: 'ctx' | 'api', stream?: 'message'): Promise<SendResult> {
+  /** One send through the pipeline (see {@link send}); `hooked` = its before-send hooks already ran. */
+  private sendOne(chatId: ChatId, content: OutboundContent, options: SendOptions | undefined, origin: 'ctx' | 'api', stream?: 'message', hooked?: Hooked): Promise<SendResult> {
     // Tracing: one `bot.send` span (kind client); the provider call runs inside it, so the
     // backend's http instrumentation nests under it. No content, only its kind.
     return this.traceSend(chatId, content, { [TRACE_ATTR.sendOrigin]: origin, [TRACE_ATTR.sendStream]: stream },
-      (span) => this.sendNow(chatId, content, options, origin, stream, span), isSendDeferred)
+      (span) => this.sendNow(chatId, content, options, origin, stream, span, hooked), isSendDeferred)
+  }
+
+  /**
+   * A text over the limit: `before('send')` once on the whole text (an abort skips all of
+   * it), then the text the hooks returned is split and each part sent without hooks.
+   */
+  private async sendLongText(chatId: ChatId, content: OutboundContent, options: SendOptions | undefined, origin: 'ctx' | 'api'): Promise<SendResult> {
+    const payload: { chatId: ChatId; content: OutboundContent; options?: SendOptions } = { chatId, content, options }
+    if (!(await this.runBeforeSend(payload))) return { ref: { id: 'skipped', chatId: payload.chatId }, skipped: true }
+    return this.sendHooked(payload.chatId, payload.content, payload.options, origin, content, false)
+  }
+
+  /** A send whose hooks ran: split when it is a text over the limit, else one send. */
+  private sendHooked(
+    chatId: ChatId, content: OutboundContent, options: SendOptions | undefined, origin: 'ctx' | 'api', identity: OutboundContent, suffixFirst: boolean,
+  ): Promise<SendResult> {
+    const parts = this.textParts(chatId, content)
+    if (parts && parts.length > 1) return this.sendParts(chatId, parts, options, origin, identity, suffixFirst)
+    // Only trimmed whitespace made it fit: send that one part.
+    const one: OutboundContent = parts ? { kind: 'text', text: parts[0] as string } : content
+    return this.sendOne(chatId, one, partOptions(options, 0, suffixFirst), origin, undefined, { identity: suffixFirst ? partIdentity(identity, 0) : identity })
+  }
+
+  /**
+   * Durable bot: `bot.enqueue()`. The hooks run on the whole content, then a text over the
+   * limit is journaled as one record per part.
+   */
+  enqueue(chatId: ChatId, content: OutboundContent, options?: SendOptions): Promise<{ key: string; status: 'queued' | 'exists' | 'skipped' }> {
+    const durable = this.k.durable
+    if (!durable) return Promise.reject(new Error('bot.enqueue() needs BotConfig.durability'))
+    return durable.enqueue(chatId, content, options, (c, ct) => this.textParts(c, ct))
   }
 
   /**
@@ -101,13 +146,30 @@ export class OutboundPipeline {
   }
 
   /**
-   * Send the parts of a split text in order, each a full send (hooks, ledger, outbox).
-   * Only the first part quotes; an explicit idempotency key gets a per-part suffix.
+   * Send the parts of a split text in order, each a full send (ledger, outbox, after-send
+   * hooks) whose before-send hooks already ran on the whole text. Only the first part
+   * quotes; an explicit idempotency key gets a per-part suffix. When the durable outbox
+   * defers a part, the parts after it are journaled behind it (the sweeper delivers them
+   * too) and the `SendDeferredError` is rethrown.
    */
-  private async sendParts(chatId: ChatId, parts: string[], options: SendOptions | undefined, origin: 'ctx' | 'api'): Promise<SendResult> {
+  private async sendParts(
+    chatId: ChatId, parts: string[], options: SendOptions | undefined, origin: 'ctx' | 'api', identity: OutboundContent, suffixFirst: boolean,
+  ): Promise<SendResult> {
     const results: SendResult[] = []
     for (const [i, text] of parts.entries()) {
-      results.push(await this.sendOne(chatId, { kind: 'text', text }, partOptions(options, i), origin))
+      try {
+        results.push(await this.sendOne(chatId, { kind: 'text', text }, partOptions(options, i, suffixFirst), origin, undefined, { identity: partIdentity(identity, i) }))
+      } catch (error) {
+        const durable = this.k.durable
+        if (durable && isSendDeferred(error) && i + 1 < parts.length) {
+          const rest = parts.slice(i + 1).map((t, j) => {
+            const o = partOptions(options, i + 1 + j, suffixFirst)
+            return { content: { kind: 'text', text: t } as OutboundContent, ...(o ? { options: o } : {}), identity: partIdentity(identity, i + 1 + j) }
+          })
+          await durable.enqueueBehind(chatId, rest, error.key)
+        }
+        throw error
+      }
     }
     const last = results[results.length - 1] as SendResult
     return { ...last, parts: results.map((r) => r.ref) }
@@ -116,18 +178,28 @@ export class OutboundPipeline {
   /** The body of {@link send}; `span` is its `bot.send` span when traced (outcome attributes). */
   private async sendNow(
     chatId: ChatId, content: OutboundContent, options: SendOptions | undefined, origin: 'ctx' | 'api', stream: 'message' | undefined, span?: BotSpan,
+    hooked?: Hooked,
   ): Promise<SendResult> {
     const { hooks, provider, counters, inflightSends, messageLog, config } = this.k
+    const callerKey = options?.idempotencyKey
     // Durability: an idempotency key already sent is answered from the outbox (no hooks, no provider call).
     const durable = this.k.durable?.prepareSend(options)
     if (durable) {
-      const prior = await durable.prior(chatId, content)
+      const prior = await durable.prior(chatId, hooked?.identity ?? content)
       if (prior) { span?.setAttribute(TRACE_ATTR.sendOutcome, 'deduplicated'); return prior }
       options = durable.options
     }
     const payload: { chatId: ChatId; content: OutboundContent; options?: SendOptions; stream?: 'message' } = { chatId, content, options }
     if (stream) payload.stream = stream
-    if (!(await this.runBeforeSend(payload))) return this.skipped({ id: 'skipped', chatId: payload.chatId }, span)
+    if (!hooked) {
+      if (!(await this.runBeforeSend(payload))) return this.skipped({ id: 'skipped', chatId: payload.chatId }, span)
+      // A hook made the text too long: split what it returned (the hooks do not run again;
+      // an explicit key gets `#1`, `#2`... so a replay checks every part, not this send's key).
+      if (!stream && this.textParts(payload.chatId, payload.content)) {
+        const partsOptions = callerKey !== undefined ? { ...payload.options, idempotencyKey: callerKey } : payload.options
+        return this.sendHooked(payload.chatId, payload.content, partsOptions, origin, content, true)
+      }
+    }
     assertOutboundContent(payload.content)
     assertCoordinated(this.k)
     const localRef = { id: randomId('out'), chatId: payload.chatId }

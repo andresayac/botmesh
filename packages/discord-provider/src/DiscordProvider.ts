@@ -132,6 +132,8 @@ export class DiscordProvider implements IProvider<unknown> {
   private readonly pendingAcks = new Map<string, ReturnType<typeof setTimeout>>()
   /** Interactions the provider deferred on its own (bounded, oldest evicted). */
   private readonly autoAcked = new Set<string>()
+  /** Application id for interaction followups: `config.appId`, else learnt from READY or an interaction. */
+  private appId: string | undefined
 
   constructor(config: DiscordProviderConfig) {
     if (typeof config.token !== 'string' || config.token.trim() === '') {
@@ -171,6 +173,7 @@ export class DiscordProvider implements IProvider<unknown> {
       ...(this.config.requestTimeoutMs !== undefined ? { timeoutMs: this.config.requestTimeoutMs } : {}),
     })
     this._selfId = config.selfId ?? null
+    this.appId = config.appId
   }
 
   get selfId(): UserId | null { return this._selfId }
@@ -239,14 +242,21 @@ export class DiscordProvider implements IProvider<unknown> {
     if (t === 'READY') {
       const user = (d as { user?: { id: string } } | undefined)?.user
       if (user?.id && !this._selfId) this._selfId = user.id
+      this.learnAppId((d as { application?: { id?: unknown } } | undefined)?.application?.id)
       this.fan({ kind: 'connection', update: { state: 'ready' } })
     } else if (t === 'RESUMED') {
       // A resumed session is live again: without this the connection would
       // stay 'authenticating' after every successful RESUME.
       this.fan({ kind: 'connection', update: { state: 'ready' } })
     }
+    if (t === 'INTERACTION_CREATE') this.learnAppId((d as { application_id?: unknown } | undefined)?.application_id)
     const event = parseDispatch(t, d, this._selfId)
     if (event) this.fan(event)
+  }
+
+  /** Keep the first application id seen when `appId` was not configured. */
+  private learnAppId(id: unknown): void {
+    if (!this.appId && typeof id === 'string' && /^\d{1,32}$/.test(id)) this.appId = id
   }
 
   /* Outbound ---------------------------------------------------------------- */
@@ -314,11 +324,11 @@ export class DiscordProvider implements IProvider<unknown> {
     if (options?.platformData) Object.assign(payload, options.platformData)
 
     // Reply INTO an interaction (Discord followup) when we can.
-    if (options?.interactionId && this.config.appId) {
+    if (options?.interactionId && this.appId) {
       const token = options.interactionId.includes(':')
         ? options.interactionId.slice(options.interactionId.indexOf(':') + 1)
         : options.interactionId
-      const body = await this.rest.sendFollowup(this.config.appId, token, payload, files)
+      const body = await this.rest.sendFollowup(this.appId, token, payload, files)
       return { ref: { id: body.id ?? '', chatId }, raw: body }
     }
 
@@ -444,7 +454,11 @@ export class DiscordProvider implements IProvider<unknown> {
     if (this.autoAcked.has(interactionId)) {
       // Already deferred by the provider: Discord accepts one initial response, so a
       // text answer goes out as a followup instead.
-      if (opts?.text && !opts.defer && this.config.appId) await this.rest.sendFollowup(this.config.appId, token, { content: opts.text })
+      if (!opts?.text || opts.defer) return
+      if (!this.appId) {
+        throw new ProviderError('acknowledgeInteraction: the interaction was already deferred (autoAcknowledgeMs) and its text can only go out as a followup, which needs `appId` (not configured and not received from Discord yet)')
+      }
+      await this.rest.sendFollowup(this.appId, token, { content: opts.text })
       return
     }
     const callback = opts?.text && !opts?.defer

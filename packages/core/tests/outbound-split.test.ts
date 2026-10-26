@@ -63,12 +63,44 @@ describe('outbound: long text is split to capabilities.maxTextLength', () => {
     await bot.stop()
   })
 
-  it('runs before/after send hooks once per part', async () => {
+  it('runs before(send) once on the whole text, then after(send) once per part', async () => {
     const { bot, provider } = await createTestBot({}, { provider: { maxTextLength: 30 } })
-    const seen: string[] = []
-    bot.before('send', async (p: { content: { kind: string; text?: string } }, next: () => Promise<void>) => { if (p.content.kind === 'text') seen.push(p.content.text ?? ''); await next() })
+    const before: string[] = []
+    const after: string[] = []
+    bot.before('send', async (p: { content: { kind: string; text?: string } }, next: () => Promise<void>) => { if (p.content.kind === 'text') before.push(p.content.text ?? ''); await next() })
+    bot.after('send', (p: { content: { kind: string; text?: string } }) => { if (p.content.kind === 'text') after.push(p.content.text ?? '') })
     await bot.send('user-1', LONG)
-    expect(seen).toEqual(texts(provider))
+    expect(before).toEqual([LONG])
+    expect(after).toEqual(texts(provider))
+    await bot.stop()
+  })
+
+  it('splits what the before(send) hooks return: a footer is added once and every part fits', async () => {
+    const { bot, provider } = await createTestBot({}, { provider: { maxTextLength: 30 } })
+    const FOOTER = ' -- sent by ACME bot'
+    bot.before('send', async (p: { content: { kind: string; text?: string } }, next: () => Promise<void>) => {
+      if (p.content.kind === 'text') p.content = { kind: 'text', text: `${p.content.text ?? ''}${FOOTER}` }
+      await next()
+    })
+    await bot.send('user-1', LONG)
+    const sent = texts(provider)
+    for (const t of sent) expect(t.length).toBeLessThanOrEqual(30)
+    expect(sent.join(' ')).toBe(`${LONG}${FOOTER}`)
+    // A text that fits, but that a hook makes too long, is split as well.
+    provider.outbox.length = 0
+    await bot.send('user-1', 'Una frase corta aquí.')
+    for (const t of texts(provider)) expect(t.length).toBeLessThanOrEqual(30)
+    expect(texts(provider).join(' ')).toBe(`Una frase corta aquí.${FOOTER}`)
+    await bot.stop()
+  })
+
+  it('a before(send) hook that aborts skips the whole text (no parts)', async () => {
+    const { bot, provider } = await createTestBot({}, { provider: { maxTextLength: 30 } })
+    bot.before('send', async (p: { abort(): void }) => { p.abort() })
+    const res = await bot.send('user-1', LONG)
+    expect(res.skipped).toBe(true)
+    expect(res.parts).toBeUndefined()
+    expect(provider.outbox).toHaveLength(0)
     await bot.stop()
   })
 
@@ -114,6 +146,45 @@ describe('outbound: long text is split to capabilities.maxTextLength', () => {
     }
     await expect(bot.send('user-1', LONG)).rejects.toThrow('boom')
     expect(provider.outbox).toHaveLength(1)
+    await bot.stop()
+  })
+
+  it('a durable split whose part is deferred still delivers every part, in order', async () => {
+    const provider = new MockProvider({ maxTextLength: 30 })
+    const bot = new Bot({ provider, durability: { outbox: { inlineMaxMs: 50, retries: 50, backoff: () => 10 }, pollMs: 20 } })
+    await bot.start()
+    const send = provider.send.bind(provider)
+    let down = true
+    provider.send = async (...args) => {
+      if (down) throw new Error('transport down')
+      return send(...args)
+    }
+    const error = await bot.send('user-1', LONG, { idempotencyKey: 'def-1' }).catch((e: unknown) => e)
+    expect((error as Error | undefined)?.name).toBe('SendDeferredError')
+    down = false
+    await vi.waitFor(() => expect(texts(provider).join(' ')).toBe(LONG), { timeout: 3_000 })
+    for (const t of texts(provider)) expect(t.length).toBeLessThanOrEqual(30)
+    // The journaled parts carry the keys an inline send would use: sending again re-sends nothing.
+    const before = provider.outbox.length
+    await bot.send('user-1', LONG, { idempotencyKey: 'def-1' })
+    expect(provider.outbox).toHaveLength(before)
+    await bot.stop()
+  })
+
+  it('bot.enqueue splits too: every part is journaled and delivered in order', async () => {
+    const provider = new MockProvider({ maxTextLength: 30 })
+    const bot = new Bot({ provider, durability: { pollMs: 20 } })
+    await bot.start()
+    let hooks = 0
+    bot.before('send', async (_p: unknown, next: () => Promise<void>) => { hooks++; await next() })
+    expect(await bot.enqueue('user-1', LONG, { idempotencyKey: 'rem-1' })).toEqual({ key: 'rem-1', status: 'queued' })
+    await vi.waitFor(() => expect(texts(provider).join(' ')).toBe(LONG), { timeout: 3_000 })
+    for (const t of texts(provider)) expect(t.length).toBeLessThanOrEqual(30)
+    expect(hooks).toBe(1)
+    const keys = (await bot.durability!.outbox.list()).map((r) => r.key)
+    expect(keys).toEqual(texts(provider).map((_, i) => (i === 0 ? 'rem-1' : `rem-1#${i + 1}`)))
+    // The same key again is a no-op.
+    expect((await bot.enqueue('user-1', LONG, { idempotencyKey: 'rem-1' })).status).toBe('exists')
     await bot.stop()
   })
 

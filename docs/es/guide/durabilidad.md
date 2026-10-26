@@ -217,6 +217,9 @@ const { key } = await bot.enqueue(chatId, 'Tu cita es mañana a las 9', {
 enseguida. El barrido lo entrega y después ejecuta `after('send')` y escribe el
 registro de mensajes. Dentro de un proceso, los envíos a un chat conservan su orden
 mientras uno de ellos se reintenta en línea.
+Un texto que supera el límite del canal se divide después de los hooks, en un registro
+por parte (`key`, `key#2`, …, entregados en ese orden); el barrido envía cada registro tal
+como se anotó.
 
 Los mensajes entrantes cuyo procesamiento falla *antes* de los handlers (por
 ejemplo, el store está caído) se reintentan con `inbox.backoff` y van a la DLQ tras

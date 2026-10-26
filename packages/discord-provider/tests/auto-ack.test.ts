@@ -86,6 +86,49 @@ describe('Discord interaction auto-acknowledgement', () => {
     } finally { await bot.stop() }
   })
 
+  it('without appId, a late acknowledge(text) uses the application id from READY', async () => {
+    const { calls, sockets, bot } = await setup({ autoAcknowledgeMs: 20, appId: undefined })
+    bot.when('confirm', async (ctx) => { await wait(60); await ctx.acknowledge?.('Listo') })
+    await bot.start()
+    try {
+      sockets[0].serverSend(hello)
+      sockets[0].serverSend({ ...ready, d: { ...ready.d, application: { id: '987654321098765432' } } })
+      sockets[0].serverSend(click('1234567890123456795'))
+      await wait(150)
+      const followup = calls.find((c) => c.url === 'https://discord.com/api/v10/webhooks/987654321098765432/tok-1234567890123456795')
+      expect(followup?.body).toEqual({ content: 'Listo' })
+    } finally { await bot.stop() }
+  })
+
+  it('without appId, the application id of the interaction itself is used', async () => {
+    const { calls, sockets, bot } = await setup({ autoAcknowledgeMs: 20, appId: undefined })
+    bot.when('confirm', async (ctx) => { await wait(60); await ctx.acknowledge?.('Listo') })
+    await bot.start()
+    try {
+      sockets[0].serverSend(hello); sockets[0].serverSend(ready)
+      const event = click('1234567890123456796')
+      sockets[0].serverSend({ ...event, d: { ...event.d, application_id: '987654321098765433' } })
+      await wait(150)
+      expect(calls.some((c) => c.url === 'https://discord.com/api/v10/webhooks/987654321098765433/tok-1234567890123456796')).toBe(true)
+    } finally { await bot.stop() }
+  })
+
+  it('a late acknowledge(text) that cannot be delivered rejects instead of dropping the text', async () => {
+    const { sockets, provider } = await setup({ autoAcknowledgeMs: 20, appId: undefined })
+    let seen: string | undefined
+    provider.onEvent((e) => { if (e.kind === 'interaction') seen = e.interaction.interactionId })
+    await provider.start()
+    try {
+      sockets[0].serverSend(hello); sockets[0].serverSend(ready)
+      sockets[0].serverSend(click('1234567890123456797'))
+      await wait(60)
+      expect(seen).toBeDefined()
+      await expect(provider.acknowledgeInteraction(seen!, { text: 'Listo' })).rejects.toThrow(/appId/)
+      // A plain acknowledge (no text) after the auto-defer is still a no-op.
+      await expect(provider.acknowledgeInteraction(seen!)).resolves.toBeUndefined()
+    } finally { await provider.stop() }
+  })
+
   it('autoAcknowledgeMs: false turns it off; invalid values are rejected', async () => {
     const { calls, sockets, bot } = await setup({ autoAcknowledgeMs: false })
     await bot.start()

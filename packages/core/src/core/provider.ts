@@ -1398,13 +1398,19 @@ export interface BotConfig {
    * order at paragraph, line, sentence or word boundaries, never inside a grapheme
    * (emoji, flags) or the chat's markup (a code block, inline code, a bold run or an HTML
    * element longer than the limit is closed and reopened; links and URLs stay whole).
-   * Every part is a full send: `before('send')`/`after('send')` hooks, the message log
-   * and the durable outbox see each part. Only the first part keeps `options.quoted`; an
-   * explicit `idempotencyKey` gets a `#2`, `#3`… suffix from the second part on. The
+   * `before('send')` hooks run once on the whole text and what they return is split (so
+   * a footer is added once and every part still fits; a hook that makes a short text too
+   * long gets it split too, its explicit key then suffixed from `#1`); an abort skips the
+   * whole text. Each part is then a send of its own: `after('send')` hooks, the message
+   * log and the durable outbox see each part. Only the first part keeps `options.quoted`;
+   * an explicit `idempotencyKey` gets a `#2`, `#3`… suffix from the second part on. The
    * result is the last part's, with `parts` listing every part. A part that fails rejects
-   * the send and the remaining parts are not sent. Edits and `ctx.stream()` (which
-   * splits on its own) are not affected. Default `true`; `false` sends the text as given
-   * (the provider may then reject it with `PayloadTooLargeError`).
+   * the send and the remaining parts are not sent, except when the durable outbox defers
+   * it (`SendDeferredError`): the remaining parts are then journaled behind it and the
+   * sweeper delivers them too. `bot.enqueue()` journals one record per part (`<key>`,
+   * `<key>#2`…). Edits and `ctx.stream()` (which splits on its own) are not affected, and
+   * the outbox sweeper sends a record as it was journaled. Default `true`; `false` sends
+   * the text as given (the provider may then reject it with `PayloadTooLargeError`).
    */
   splitLongText?: boolean
   /**
