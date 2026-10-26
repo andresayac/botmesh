@@ -541,23 +541,29 @@ Facebook (Messenger API for Instagram).
 import { InstagramProvider } from '@botmesh/instagram'
 
 const provider = new InstagramProvider({
-  accessToken: process.env.FB_PAGE_TOKEN!, // token of the connected Page
+  accessToken: process.env.META_PAGE_TOKEN!, // token of the connected Page
   verifyToken: process.env.META_VERIFY_TOKEN!,
   appSecret: process.env.META_APP_SECRET!,
 })
 ```
 
-- Los botones salen como quick replies (como mucho 13; con más rechaza con
-  `UnsupportedContentError`); las listas se degradan a texto numerado. Cada
-  petición a la Send API caduca tras `requestTimeoutMs` (60 s).
+- Los botones salen como quick replies (como mucho 13, títulos cortados a 20
+  caracteres, ids y títulos únicos, sobre un texto no vacío; lo demás rechaza
+  con `UnsupportedContentError` en vez de descartar opciones); las listas se
+  degradan a texto numerado. Cada petición a la Send API caduca tras
+  `requestTimeoutMs` (60 s).
 - Solo DMs (sin grupos); las reacciones llegan pero no se pueden enviar.
 - El texto se limita a 1000 bytes UTF-8 (`maxTextBytes`, además de
   `maxTextLength` 1000), así que el texto no ASCII cabe menos: el texto más
   largo se divide en varios mensajes por bytes, y los trozos de `ctx.stream()`
   también caben.
-- Más de 13 quick replies rechazan con `UnsupportedContentError` en vez de
-  descartar opciones.
-- Cada llamada a la Send API vence tras `requestTimeoutMs` (60 s por defecto).
+- Los adjuntos no llevan pie de foto: el caption de un medio sale como un
+  mensaje de texto justo después del adjunto, y la imagen de una tarjeta antes
+  de su texto.
+- Un DM con varias fotos llega como un mensaje por foto (ids `<mid>`,
+  `<mid>#2`, `<mid>#3`…).
+- Con el bot parado, `ingest()` responde `503`, así que Meta reenvía el
+  webhook tras el reinicio.
 
 ```bash
 pnpm add @botmesh/core @botmesh/instagram

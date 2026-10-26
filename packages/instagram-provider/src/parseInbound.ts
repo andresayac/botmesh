@@ -119,44 +119,59 @@ function fallbackId(ev: IgMessagingEvent): string {
   return ts !== undefined ? `ig_${ts}` : ''
 }
 
-function toMessage(ev: IgMessagingEvent, chatId: string, msg: IgMessage): InboundMessage<IgMessagingEvent> {
-  const text = str(msg.text)
-  let type: MessageType = text ? 'text' : 'unknown'
-  let body = text ?? ''
-  let media: MediaRef | undefined
-  let location: InboundLocation | undefined
+/** Attachments read from one message (Instagram sends up to 10 photos at once); the rest is ignored. */
+const MAX_ATTACHMENTS = 20
 
-  const att = rec<IgAttachment>(arr(msg.attachments)[0])
-  if (att) {
-    const payload = rec<IgAttachmentPayload>(att.payload)
-    const url = str(payload?.url)
-    const attType = str(att.type)
-    if (attType === 'location') {
-      // A shared location has no downloadable bytes.
-      type = 'location'
-      const title = str(payload?.title) ?? str(att.title)
-      body = text ?? title ?? ''
-      const c = rec<{ lat?: unknown; long?: unknown }>(payload?.coordinates)
-      location = toInboundLocation({ latitude: c?.lat, longitude: c?.long, name: title })
-    } else if (attType === 'share') {
-      // A shared IG post — no media bytes, just a link/title.
-      type = 'unknown'
-      body = url ?? str(payload?.title) ?? str(att.title) ?? ''
-    } else {
-      const known = attType !== undefined ? ATTACH_MEDIA[attType] : undefined
-      if (known && url) {
-        type = known.type
-        media = { kind: known.kind, mimetype: known.mimetype, token: url }
-      } else {
-        type = 'unknown'
-        body = str(att.title) ?? str(payload?.title) ?? ''
-      }
-    }
+/** What one attachment contributes to a message: its type, body and media (`text` is the user's own text, kept first). */
+function fromAttachment(att: IgAttachment, text: string | undefined): { type: MessageType; body: string; media?: MediaRef; location?: InboundLocation } {
+  const payload = rec<IgAttachmentPayload>(att.payload)
+  const url = str(payload?.url)
+  const attType = str(att.type)
+  if (attType === 'location') {
+    // A shared location has no downloadable bytes.
+    const title = str(payload?.title) ?? str(att.title)
+    const c = rec<{ lat?: unknown; long?: unknown }>(payload?.coordinates)
+    const location = toInboundLocation({ latitude: c?.lat, longitude: c?.long, name: title })
+    return { type: 'location', body: text ?? title ?? '', ...(location ? { location } : {}) }
   }
-  const replyTo = str(rec<{ mid?: unknown }>(msg.reply_to)?.mid)
+  if (attType === 'share') {
+    // A shared IG post — no media bytes, just a link/title.
+    return { type: 'unknown', body: text ?? url ?? str(payload?.title) ?? str(att.title) ?? '' }
+  }
+  const known = attType !== undefined ? ATTACH_MEDIA[attType] : undefined
+  if (known && url) return { type: known.type, body: text ?? '', media: { kind: known.kind, mimetype: known.mimetype, token: url } }
+  return { type: 'unknown', body: text ?? str(att.title) ?? str(payload?.title) ?? '' }
+}
 
+/**
+ * One message per attachment (a multi-photo DM is one webhook message): the first keeps the
+ * `mid` and the user's text, attachment `n` (from 2) gets the id `<mid>#<n>`, stable across
+ * redelivery. A message without attachments is one text (or `unknown`) message.
+ */
+function toMessages(ev: IgMessagingEvent, chatId: string, msg: IgMessage, selfId?: string): Array<InboundMessage<IgMessagingEvent>> {
+  const text = str(msg.text)
+  const attachments = arr(msg.attachments).slice(0, MAX_ATTACHMENTS).map((a) => rec<IgAttachment>(a)).filter((a): a is IgAttachment => a !== undefined)
+  const baseId = str(msg.mid) ?? fallbackId(ev)
+  if (attachments.length === 0) return [toMessage(ev, chatId, baseId, { type: text ? 'text' : 'unknown', body: text ?? '' }, msg, selfId)]
+  return attachments.map((att, i) => toMessage(
+    ev, chatId,
+    i === 0 || baseId === '' ? baseId : `${baseId}#${i + 1}`,
+    fromAttachment(att, i === 0 ? text : undefined),
+    msg, selfId,
+  ))
+}
+
+function toMessage(
+  ev: IgMessagingEvent,
+  chatId: string,
+  id: string,
+  content: { type: MessageType; body: string; media?: MediaRef; location?: InboundLocation },
+  msg: IgMessage,
+  selfId?: string,
+): InboundMessage<IgMessagingEvent> {
+  const replyTo = str(rec<{ mid?: unknown }>(msg.reply_to)?.mid)
   return {
-    ref: { id: str(msg.mid) ?? fallbackId(ev), chatId, native: ev },
+    ref: { id, chatId, native: ev },
     chat: { id: chatId, kind: 'dm', isGroup: false, isBroadcast: false },
     senderInfo: { id: chatId },
     from: chatId,
@@ -165,13 +180,14 @@ function toMessage(ev: IgMessagingEvent, chatId: string, msg: IgMessage): Inboun
     senderId: chatId,
     isGroup: false,
     isBroadcast: false,
-    fromMe: false,
-    type,
-    body,
+    // The connected account itself (when `selfId` is configured): never answered.
+    fromMe: selfId !== undefined && selfId !== '' && chatId === selfId,
+    type: content.type,
+    body: content.body,
     timestamp: eventTime(ev.timestamp),
     mentions: [],
-    media,
-    ...(location ? { location } : {}),
+    media: content.media,
+    ...(content.location ? { location: content.location } : {}),
     quoted: replyTo ? { ref: { id: replyTo, chatId } } : undefined,
     raw: ev,
   }
@@ -205,18 +221,19 @@ function toReaction(ev: IgMessagingEvent, chatId: string, r: IgReaction): Inboun
   }
 }
 
-/**
- * Parse a full 'page' webhook body into a flat list of events. The body is
- * external input: a field of the wrong type is ignored, so a malformed payload
- * yields fewer events, never a throw or an event with non-string ids.
- */
 /** Epoch ms of the event (the webhook sends ms); the receive time when it is missing. */
 function eventTime(v: unknown): number {
   const ts = num(v)
   return ts !== undefined && ts > 0 ? Math.round(ts) : Date.now()
 }
 
-export function parseInbound(body: IgWebhookBody): InboundEvent[] {
+/**
+ * Parse a full 'page' webhook body into a flat list of events. The body is
+ * external input: a field of the wrong type is ignored, so a malformed payload
+ * yields fewer events, never a throw or an event with non-string ids.
+ * `selfId` (the account's own IGSID) marks a message the account sent itself as `fromMe`.
+ */
+export function parseInbound(body: IgWebhookBody, selfId?: string): InboundEvent[] {
   const events: InboundEvent[] = []
   const object = rec<IgWebhookBody>(body)?.object
   if (object !== 'page' && object !== 'instagram') return events
@@ -252,7 +269,7 @@ export function parseInbound(body: IgWebhookBody): InboundEvent[] {
         events.push({ kind: 'interaction', interaction: toInteraction(ev, chatId, str(quickReply.payload) ?? '', str(msg.mid)) })
         continue
       }
-      events.push({ kind: 'message', message: toMessage(ev, chatId, msg) })
+      for (const message of toMessages(ev, chatId, msg, selfId)) events.push({ kind: 'message', message })
     }
   }
   return events

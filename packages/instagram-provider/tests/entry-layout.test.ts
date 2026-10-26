@@ -12,7 +12,7 @@ import * as main from '../src/index.js'
 import * as internal from '../src/internal.js'
 
 const MAIN_VALUES = ['InstagramProvider', 'toInstagramError']
-const INTERNAL_VALUES = ['GraphClient', 'parseInbound', 'toOutbound']
+const INTERNAL_VALUES = ['GraphClient', 'parseInbound', 'toOutbound', 'toOutboundParts']
 
 describe('@botmesh/instagram entries', () => {
   it('main exports exactly these runtime names', () => {

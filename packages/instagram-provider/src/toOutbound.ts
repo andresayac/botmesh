@@ -9,7 +9,7 @@
  * send, location or contact cards — those degrade or throw per capability.
  */
 
-import { UnsupportedContentError, type MediaSource, type OutboundContent } from '@botmesh/core'
+import { UnsupportedContentError, splitMessage, type MediaSource, type OutboundContent } from '@botmesh/core'
 
 const URL_RE = /^https?:\/\//i
 
@@ -25,12 +25,16 @@ function mediaUrl(source: MediaSource, kind: OutboundContent['kind']): string {
   if (Buffer.isBuffer(source)) {
     throw new UnsupportedContentError(kind, 'Instagram DM cannot send raw buffers — provide a hosted URL (https string or { url }).')
   }
-  if ('url' in source) return source.url
+  if ('url' in source) {
+    if (typeof source.url === 'string' && URL_RE.test(source.url)) return source.url
+    throw new UnsupportedContentError(kind, 'Instagram DM media { url } must be an http(s) URL of a publicly hosted file.')
+  }
   if ('native' in source) {
     const n = source.native
     if (typeof n === 'string' && URL_RE.test(n)) return n
-    if (n && typeof n === 'object' && typeof (n as { url?: unknown }).url === 'string') return (n as { url: string }).url
-    throw new UnsupportedContentError(kind, 'Instagram DM media via native requires a hosted URL string or { url }.')
+    const nested = n && typeof n === 'object' ? (n as { url?: unknown }).url : undefined
+    if (typeof nested === 'string' && URL_RE.test(nested)) return nested
+    throw new UnsupportedContentError(kind, 'Instagram DM media via native requires a hosted http(s) URL string or { url }.')
   }
   throw new UnsupportedContentError(
     kind,
@@ -38,13 +42,30 @@ function mediaUrl(source: MediaSource, kind: OutboundContent['kind']): string {
   )
 }
 
-/** IG quick replies: at most 13 (more rejects instead of dropping some), titles up to 20 chars. */
+/** IG quick replies: at most 13 (more rejects instead of dropping some), titles up to 20 characters, payloads up to 1000. */
 const MAX_QUICK_REPLIES = 13
+const MAX_TITLE = 20
+const MAX_PAYLOAD = 1000
 
-/** First `max` characters (code points: an emoji is never split into a lone surrogate). */
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+
+/** First `max` user-perceived characters (graphemes: an emoji sequence or an accent is never split). */
 function cut(text: string, max: number): string {
-  const chars = Array.from(text)
-  return chars.length <= max ? text : chars.slice(0, max).join('')
+  let out = ''
+  let n = 0
+  for (const { segment } of graphemes.segment(text)) {
+    if (n++ === max) return out
+    out += segment
+  }
+  return out
+}
+
+/** The text a quick-reply message carries: Meta rejects quick replies without one. */
+function quickReplyText(kind: 'buttons' | 'card', text: string): string {
+  if (text.trim() === '') {
+    throw new UnsupportedContentError(kind, 'Instagram quick replies need a non-empty text (the message the chips are attached to).')
+  }
+  return text
 }
 
 /** Quick replies for `kind`; an empty payload falls back to the title. */
@@ -52,11 +73,23 @@ function quickReplies(kind: 'buttons' | 'card', buttons: ReadonlyArray<{ id: str
   if (buttons.length > MAX_QUICK_REPLIES) {
     throw new UnsupportedContentError(kind, `Instagram allows at most ${MAX_QUICK_REPLIES} quick replies; got ${buttons.length}. Split the options or use a numbered text menu.`)
   }
-  return buttons.map((b) => ({
-    content_type: 'text',
-    title: cut(b.title, 20),
-    payload: b.id || b.title,
-  }))
+  const payloads = new Set<string>()
+  const titles = new Set<string>()
+  return buttons.map((b, i) => {
+    const title = cut(typeof b.title === 'string' ? b.title.trim() : '', MAX_TITLE)
+    if (title === '') throw new UnsupportedContentError(kind, `Instagram quick reply #${i + 1} has an empty title.`)
+    const payload = (typeof b.id === 'string' && b.id) || title
+    if (payload.length > MAX_PAYLOAD) {
+      throw new UnsupportedContentError(kind, `Instagram quick reply #${i + 1}: the id is ${payload.length} characters; the payload limit is ${MAX_PAYLOAD}.`)
+    }
+    if (payloads.has(payload)) throw new UnsupportedContentError(kind, `Instagram quick replies need unique ids; duplicate id "${cut(payload, 40)}".`)
+    if (titles.has(title)) {
+      throw new UnsupportedContentError(kind, `Instagram quick replies need distinct titles (cut to ${MAX_TITLE} characters); duplicate title "${title}".`)
+    }
+    payloads.add(payload)
+    titles.add(title)
+    return { content_type: 'text', title, payload }
+  })
 }
 
 function attachment(type: string, url: string): Record<string, unknown> {
@@ -95,7 +128,8 @@ export function toOutbound(content: OutboundContent): Record<string, unknown> {
 
     case 'buttons': {
       // IG supports quick replies (tappable chips), NOT structured buttons.
-      return { text: content.text, quick_replies: quickReplies('buttons', content.buttons) }
+      if (content.buttons.length === 0) return { text: content.text }
+      return { text: quickReplyText('buttons', content.text), quick_replies: quickReplies('buttons', content.buttons) }
     }
 
     case 'list':
@@ -105,7 +139,7 @@ export function toOutbound(content: OutboundContent): Record<string, unknown> {
     case 'card': {
       // Degrades to text; its buttons survive as quick replies.
       const text = [content.title, content.body].filter(Boolean).join('\n')
-      return content.buttons?.length ? { text, quick_replies: quickReplies('card', content.buttons) } : { text }
+      return content.buttons?.length ? { text: quickReplyText('card', text), quick_replies: quickReplies('card', content.buttons) } : { text }
     }
 
     case 'native':
@@ -132,4 +166,31 @@ export function toOutbound(content: OutboundContent): Record<string, unknown> {
     case 'template':
       throw new UnsupportedContentError('template', 'Instagram DM has no message templates (WhatsApp Cloud API only).')
   }
+}
+
+/** One Send API call of an outbound content: `primary` is the message the send result points at. */
+export interface OutboundPart {
+  message: Record<string, unknown>
+  /** A failed primary part rejects the send; a failed secondary part is logged and skipped. */
+  primary: boolean
+}
+
+/** Send API text limit (UTF-8 bytes). */
+const MAX_TEXT_BYTES = 1000
+
+/**
+ * Every Send API message for `content`, in order. Instagram attachments carry no caption and
+ * quick-reply messages no image, so a media caption follows its attachment as text (split at
+ * 1000 bytes) and a card image precedes the card text.
+ */
+export function toOutboundParts(content: OutboundContent): OutboundPart[] {
+  const main = { message: toOutbound(content), primary: true }
+  if ((content.kind === 'image' || content.kind === 'video' || content.kind === 'document') && content.caption?.trim()) {
+    const captions = splitMessage(content.caption, { maxBytes: MAX_TEXT_BYTES, format: 'plain' })
+    return [main, ...captions.map((text) => ({ message: { text }, primary: false }))]
+  }
+  if (content.kind === 'card' && content.imageUrl !== undefined && content.imageUrl !== '') {
+    return [{ message: attachment('image', mediaUrl(content.imageUrl, 'card')), primary: false }, main]
+  }
+  return [main]
 }
