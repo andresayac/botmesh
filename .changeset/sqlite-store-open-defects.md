@@ -1,5 +1,5 @@
 ---
-'@botmesh/sqlite-store': patch
+'@botmesh/sqlite-store': minor
 ---
 
 - `saveMessage` and `setCursor` reject (`TypeError`) a message id, chat id, cursor key or cursor value that contains a lone UTF-16 surrogate. SQLite stores text as UTF-8, where such a character becomes U+FFFD, so two different ids could share one row (or a value came back changed). `getMessage`/`getCursor` with such a key find nothing.
