@@ -71,7 +71,9 @@ The page talks to the hub through a small JSON API. Any web page you open in the
 could also reach `127.0.0.1`, so the API protects itself:
 
 - It binds to `127.0.0.1` by default. `--host` changes that, and the CLI warns when the
-  address is not loopback.
+  address is not loopback. `--host` only moves the hub: the simulators always stay on
+  `127.0.0.1`, because like the provider APIs they imitate they check neither `Host` nor a
+  token.
 - Every request must carry a loopback `Host` header on the hub's port (`127.0.0.1`,
   `localhost` or `[::1]`, plus the names in `--allow-host`/`allowedHosts`). That defeats
   DNS rebinding, where a hostile domain is re-pointed at 127.0.0.1. When the browser sends an

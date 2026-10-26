@@ -36,7 +36,8 @@ delivery, and lets you inject platform errors.
 
 The UI's JSON API is local-only:
 
-- It binds to `127.0.0.1` by default.
+- It binds to `127.0.0.1` by default. `--host` only moves the hub: the simulators, which
+  are unauthenticated like the APIs they imitate, always stay on `127.0.0.1`.
 - Every request must carry a loopback `Host` (`127.0.0.1`, `localhost` or `[::1]` on the
   hub's port, plus any `--allow-host`) and, when the browser sends one, the hub's own
   `Origin`. That blocks DNS rebinding and cross-site requests.

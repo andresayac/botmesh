@@ -280,8 +280,9 @@ switching `workspace:*` to `workspace:^`, a changeset and a README section.
   sandbox itself produces. Meta, Gupshup, HighLevel, TikTok and Telegram have no
   official machine-readable spec, so their schemas stay hand-written. Native poll votes
   wait for the Telegram/Discord providers to parse them (`POLL_VOTE_PARSING`). The
-  simulator ports themselves accept unauthenticated requests on 127.0.0.1, as the
-  provider APIs they imitate expect.
+  simulator ports themselves accept unauthenticated requests (no token, no `Host` check),
+  as the provider APIs they imitate expect, so they always bind to 127.0.0.1: `--host`
+  only moves the hub (UI + API).
 - **manager**: still calls the deprecated `bot.triggerFlow`; three overlapping HTTP
   APIs; `putFlow`/`removeFlow` persist first but have no rollback if going live fails.
 - **product**: `attachInbox` without `tenantId` now uses the bot's tenant (no data

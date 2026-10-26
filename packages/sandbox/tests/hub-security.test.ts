@@ -89,6 +89,18 @@ describe('hub: Host / Origin checks (DNS rebinding, cross-site requests)', () =>
     expect((await post('/api/telegram/reset', {}, { origin: sandbox.url, 'sec-fetch-site': 'same-origin' })).status).toBe(200)
   })
 
+  it('keeps every simulator on 127.0.0.1 whatever host the hub binds to', async () => {
+    // The simulators have no Host check and no token (the provider APIs they imitate expect
+    // none), so only the hub follows --host / host; the in-process bots dial 127.0.0.1.
+    const other = await startSandbox({ port: 0, logger, channels: ['telegram', 'discord'], bot: 'none', autoStatus: false, host: '::1' })
+    try {
+      expect(new URL(other.url).hostname).toBe('[::1]')
+      for (const sim of Object.values(other.sims)) expect(new URL(sim!.url).hostname, sim!.channel).toBe('127.0.0.1')
+    } finally {
+      await other.stop()
+    }
+  })
+
   it('honours allowedHosts for a sandbox exposed on purpose', async () => {
     const other = await startSandbox({ port: 0, logger, channels: ['telegram'], bot: 'none', autoStatus: false, allowedHosts: ['sandbox.test'] })
     try {
@@ -305,4 +317,69 @@ describe('hub: fuzz', () => {
       }
     }
   }, 60_000)
+
+  it('fuzzes bodies and headers on the validated POST routes', async () => {
+    const rnd = mulberry32(0x5a4d)
+    const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rnd() * xs.length)]!
+    const values: unknown[] = [null, true, false, 0, -1, 1.5, 1e308, -1e308, 'x', '', '***', 'AA==', [], {}, [1, 'a'], [-1], ['0'], { id: 'x' }, { id: '' }, { kind: 'image', base64: 'AA==' }, { kind: 'hologram', base64: 'AA==' }, { latitude: 1, longitude: 2 }, { latitude: 91, longitude: 0 }, { pollId: 'p', optionIds: [0] }, { kind: 'button', id: 'b' }, 'A'.repeat(1000)]
+    const keys = ['text', 'media', 'location', 'reply', 'pollVote', 'quotedId', 'user', 'kind', 'times', 'retryAfterSec', 'messageId', 'status', 'base64', 'mimetype', 'filename', 'id', 'name', 'latitude', 'longitude', 'optionIds', 'pollId', '__proto__', 'constructor', 'prototype']
+    const scalarFor: Record<string, unknown[]> = {
+      kind: ['rateLimit', 'auth', 'server', 'network', 'meteor', 'image', 'button', 'list'],
+      status: ['delivered', 'read', 'failed', 'seen'],
+      text: ['hola', '', 'x'.repeat(5000)],
+    }
+    const value = (key: string, depth: number): unknown => {
+      const r = rnd()
+      if (r < 0.3 && scalarFor[key]) return pick(scalarFor[key]!)
+      if (r < 0.55 && depth < 2) return object(depth + 1)
+      return pick(values)
+    }
+    const object = (depth = 0): Record<string, unknown> => {
+      const obj: Record<string, unknown> = {}
+      for (let i = Math.floor(rnd() * 4); i > 0; i--) {
+        const key = pick(keys)
+        // defineProperty keeps '__proto__' as an own key, the way JSON.parse produces it.
+        Object.defineProperty(obj, key, { value: value(key, depth), enumerable: true, configurable: true, writable: true })
+      }
+      return obj
+    }
+    const body = (): string | Buffer => {
+      const r = rnd()
+      if (r < 0.08) return Buffer.from(Array.from({ length: Math.floor(rnd() * 64) }, () => Math.floor(rnd() * 256)))
+      if (r < 0.14) return JSON.stringify(pick(values))
+      if (r < 0.2) return JSON.stringify(object()).slice(0, -1)
+      return JSON.stringify(object())
+    }
+    const statuses = new Map<number, number>()
+    let reachedHandler = 0
+    for (let i = 0; i < 600; i++) {
+      const channel = pick(['telegram', 'discord'] as const)
+      const action = pick(['send', 'fault', 'status', 'reset'] as const)
+      const path = `/api/${channel}/${action}`
+      const headers: Record<string, string> = { [SANDBOX_TOKEN_HEADER]: token }
+      if (rnd() < 0.05) headers[SANDBOX_TOKEN_HEADER] = 'bad'
+      headers['content-type'] = rnd() < 0.9 ? pick(['application/json', 'application/json; charset=utf-8', 'Application/JSON']) : pick(['text/plain', 'multipart/form-data', 'application/x-www-form-urlencoded'])
+      if (rnd() < 0.1) headers['origin'] = pick([sandbox.url, 'http://evil.test', 'null'])
+      if (rnd() < 0.1) headers['sec-fetch-site'] = pick(['same-origin', 'none', 'cross-site'])
+      const payload = body()
+      const where = `POST ${path} ${JSON.stringify(headers)} ${payload.toString().slice(0, 160)}`
+      const res = await raw(sandbox.url, 'POST', path, { headers, body: payload }).catch((err: unknown) => { throw new Error(`${where}: ${String(err)}`) })
+      statuses.set(res.status, (statuses.get(res.status) ?? 0) + 1)
+      expect(res.status, where).toBeGreaterThanOrEqual(200)
+      expect(res.status, where).toBeLessThan(500)
+      // 400 (validation), 422 (simulator refusal) and 200 come from the input handlers, past routing and the guard.
+      if ([200, 400, 422].includes(res.status)) reachedHandler++
+      if (res.status >= 400) {
+        let error: unknown
+        try { error = (res.json() as { error?: unknown }).error } catch { error = `not JSON (${res.status}): ${res.text.slice(0, 80)}` }
+        expect(error, where).toEqual(expect.any(String))
+        expect(String(error), where).not.toMatch(/^not JSON/)
+      }
+    }
+    // The point of this loop: most requests reach toUserInput / toFault / toStatus / readJson.
+    expect(reachedHandler, JSON.stringify([...statuses])).toBeGreaterThan(400)
+    expect(statuses.get(200) ?? 0, JSON.stringify([...statuses])).toBeGreaterThan(10)
+    expect(statuses.get(400) ?? 0, JSON.stringify([...statuses])).toBeGreaterThan(100)
+    for (const ch of ['telegram', 'discord'] as const) sandbox.sims[ch]!.reset()
+  }, 120_000)
 })

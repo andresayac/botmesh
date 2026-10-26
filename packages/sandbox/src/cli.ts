@@ -18,7 +18,8 @@ const HELP = `botmesh sandbox — local platform simulators + web chat UI
 
 Options:
   --port <n>          UI port (default 4610; 0 picks a free one)
-  --host <addr>       bind address (default 127.0.0.1; keep it on loopback)
+  --host <addr>       UI/API bind address (default 127.0.0.1; keep it on loopback;
+                      the simulators always stay on 127.0.0.1)
   --allow-host <list> extra host names accepted in Host/Origin (comma-separated)
   --token <value>     fixed API token (default: random per run, printed at start)
   --channels <list>   comma-separated channels (default: all)
@@ -83,7 +84,7 @@ const sandbox = await startSandbox({
 
 const lines = Object.values(sandbox.sims).map((s) => `  ${s!.channel.padEnd(12)} simulator ${s!.url}${s!.webhook ? `  → bot webhook ${s!.webhook}` : ''}`)
 const exposed = values.host && !isLoopbackHost(values.host)
-  ? `\n  WARNING: bound to ${values.host}, not loopback: anyone who can reach it and has the token can drive the simulators.\n`
+  ? `\n  WARNING: bound to ${values.host}, not loopback: anyone who can reach the UI can read the chat timelines, and with the token drive the simulators. The simulator ports stay on 127.0.0.1.\n`
   : ''
 process.stdout.write(`\nbotmesh sandbox ready (${bot} bot)\n\n  Open the chat UI: ${sandbox.url}\n  API token for scripts (header ${SANDBOX_TOKEN_HEADER} on POST /api/*; the UI already has it): ${sandbox.token}\n${exposed}\n${lines.join('\n')}\n\nCtrl+C to stop.\n`)
 

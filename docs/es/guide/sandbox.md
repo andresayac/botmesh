@@ -74,7 +74,9 @@ La página habla con el hub mediante una pequeña API JSON. Cualquier web que ab
 navegador también podría llegar a `127.0.0.1`, así que la API se protege:
 
 - Escucha en `127.0.0.1` por defecto. `--host` lo cambia, y la CLI avisa si la dirección no
-  es de loopback.
+  es de loopback. `--host` solo mueve el hub: los simuladores siguen siempre en
+  `127.0.0.1`, porque, como las APIs de proveedor que imitan, no comprueban ni `Host` ni
+  token.
 - Toda petición debe llevar una cabecera `Host` de loopback con el puerto del hub
   (`127.0.0.1`, `localhost` o `[::1]`, más los nombres de `--allow-host`/`allowedHosts`).
   Eso frena el DNS rebinding, en el que un dominio hostil pasa a apuntar a 127.0.0.1. Si el

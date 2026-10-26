@@ -8,6 +8,10 @@
  * `Origin` on every request (see `guard.ts`), requires a random per-run
  * token on state-changing calls, bounds request bodies and answers bad input
  * with a 4xx JSON error (see `hubInput.ts`).
+ *
+ * The simulators always listen on 127.0.0.1, whatever `host` says: they
+ * imitate provider APIs, so they check neither `Host` nor a token, and the
+ * bots that call them run in this process.
  */
 
 import { readFile } from 'node:fs/promises'
@@ -27,7 +31,10 @@ export interface SandboxOptions {
   channels?: readonly ChannelName[]
   /** UI port. Default 4610 (0 = any free port). */
   port?: number
-  /** Bind address. Default `127.0.0.1` (keep it on loopback unless you know why). */
+  /**
+   * Bind address of the hub (UI + API). Default `127.0.0.1` (keep it on loopback
+   * unless you know why). The simulators stay on 127.0.0.1 regardless.
+   */
   host?: string
   /**
    * Extra host names accepted in the `Host` / `Origin` headers besides the
@@ -71,6 +78,8 @@ const UI_FILE = fileURLToPath(new URL('../ui/index.html', import.meta.url))
 /** Body limits: `send` carries base64 media, every other call is a few fields. */
 const SEND_LIMIT = 32 * 1024 * 1024
 const SMALL_LIMIT = 64 * 1024
+/** Simulators are unauthenticated by design (like the APIs they imitate): never expose them. */
+const SIMULATOR_HOST = '127.0.0.1'
 /** The UI page cannot be framed (clickjacking) and leaks no referrer. */
 const PAGE_HEADERS = { 'x-frame-options': 'DENY', 'content-security-policy': "frame-ancestors 'none'", 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff' }
 
@@ -244,11 +253,11 @@ export async function startSandbox(opts: SandboxOptions = {}): Promise<RunningSa
   try {
     ui = await listen((req, res) => { void handler(req, res) }, { port: opts.port ?? 4610, host })
     guard = createGuard({ bindHost: host, port: ui.port, token, ...(opts.allowedHosts ? { allowedHosts: opts.allowedHosts } : {}) })
-    if (!isLoopbackHost(host)) opts.logger?.warn({ host }, 'sandbox: the UI is bound to a non-loopback address; anyone who can reach it and knows the token can drive the simulators')
+    if (!isLoopbackHost(host)) opts.logger?.warn({ host }, 'sandbox: the UI is bound to a non-loopback address; anyone who can reach it can read the timelines, and with the token drive the simulators (the simulator ports stay on 127.0.0.1)')
     const assetsUrl = ui.url
     const which = opts.bot ?? 'demo'
     for (const channel of channels) {
-      const sim = createSimulator(channel, { autoStatus: opts.autoStatus ?? 'read', host })
+      const sim = createSimulator(channel, { autoStatus: opts.autoStatus ?? 'read', host: SIMULATOR_HOST })
       sims[channel] = sim
       for (const event of ['inbound', 'outbound', 'delivery', 'issue'] as const) sim.on(event, (data: unknown) => broadcast(event, channel, data))
       sim.on('error', () => {})
