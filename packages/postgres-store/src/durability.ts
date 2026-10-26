@@ -20,10 +20,10 @@
  * ```
  */
 
-import { Pool } from 'pg'
-import { type DurableKv } from '@botmesh/core'
+import type { DurableKv, LoggerLike } from '@botmesh/core'
 import { KvDurability, type DurableKvEntry, type DurableKvIndex, type DurableTable } from '@botmesh/core/spi'
 import type { NativePostgresPool, PostgresPoolLike } from './PostgresStore.js'
+import { createPgPool } from './driver.js'
 
 export interface PostgresDurabilityOptions {
   /** An existing pool (shared with `PostgresStore`, or a fake in tests). The backend never ends it. */
@@ -38,7 +38,7 @@ export interface PostgresDurabilityOptions {
    * An injected pool's 'error' events are the caller's to handle (node-postgres crashes
    * the process without a listener).
    */
-  logger?: { error?: (...args: unknown[]) => void }
+  logger?: Partial<LoggerLike>
 }
 
 const TABLE_PREFIX_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
@@ -55,6 +55,8 @@ function key(score: number | null): number | null {
 /** {@link DurableKv} over one PostgreSQL table. */
 export class PostgresDurableKv implements DurableKv {
   private pool?: PostgresPoolLike
+  /** The own pool being created (the driver loads lazily), shared by concurrent `start()` calls. */
+  private opening?: Promise<PostgresPoolLike>
   private readonly owned: boolean
   readonly table: string
 
@@ -79,7 +81,7 @@ export class PostgresDurableKv implements DurableKv {
   }
 
   async start(): Promise<void> {
-    if (!this.pool) this.pool = this.createOwnPool()
+    if (!this.pool) this.pool = await (this.opening ??= this.createOwnPool().finally(() => { this.opening = undefined }))
     for (const statement of this.schemaStatements()) {
       for (let attempt = 1; ; attempt++) {
         try {
@@ -94,15 +96,15 @@ export class PostgresDurableKv implements DurableKv {
     }
   }
 
-  private createOwnPool(): PostgresPoolLike {
-    const pool = new Pool({ connectionString: this.opts.connectionString ?? 'postgres://localhost:5432/botwa' })
+  private async createOwnPool(): Promise<PostgresPoolLike> {
+    const pool = await createPgPool(this.opts.connectionString ?? 'postgres://localhost:5432/botwa')
     // pg emits 'error' on the pool when an IDLE client loses its connection (server
     // restart, failover, pg_terminate_backend). With no listener that is an uncaught
     // exception that took the whole bot down; the pool already discards the dead client.
     if (typeof pool.on === 'function') {
       pool.on('error', (err: Error) => this.opts.logger?.error?.({ err }, 'PostgresDurability idle client error (the pool reconnects on the next query)'))
     }
-    return pool as unknown as PostgresPoolLike
+    return pool
   }
 
   async stop(): Promise<void> {

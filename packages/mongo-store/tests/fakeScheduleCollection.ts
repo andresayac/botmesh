@@ -7,7 +7,7 @@
  * `_id` insert rejects with `{ code: 11000 }`. Each command is atomic, as a single-document
  * write is on the server. Documents are copied in and out.
  */
-import type { MongoScheduleCollectionLike, ScheduleDoc } from '../src/schedules.js'
+import type { MongoScheduleCollectionLike, MongoScheduleDoc } from '../src/schedules.js'
 
 type Doc = Record<string, unknown>
 
@@ -69,26 +69,26 @@ export class FakeScheduleCollection implements MongoScheduleCollectionLike {
     await Promise.resolve()
   }
 
-  async findOne(filter: Doc): Promise<ScheduleDoc | null> {
+  async findOne(filter: Doc): Promise<MongoScheduleDoc | null> {
     await this.tick('findOne')
-    for (const d of this.docs.values()) if (matches(d, filter)) return clone(d) as unknown as ScheduleDoc
+    for (const d of this.docs.values()) if (matches(d, filter)) return clone(d) as unknown as MongoScheduleDoc
     return null
   }
 
-  async insertOne(doc: ScheduleDoc): Promise<unknown> {
+  async insertOne(doc: MongoScheduleDoc): Promise<unknown> {
     await this.tick('insertOne')
     if (this.docs.has(doc._id)) throw Object.assign(new Error(`E11000 duplicate key error collection: _id: "${doc._id}"`), { code: 11000 })
     this.docs.set(doc._id, clone(doc) as unknown as Doc)
     return { insertedId: doc._id }
   }
 
-  async findOneAndUpdate(filter: Doc, update: Doc, options: { returnDocument: 'after' }): Promise<ScheduleDoc | null> {
+  async findOneAndUpdate(filter: Doc, update: Doc, options: { returnDocument: 'after' }): Promise<MongoScheduleDoc | null> {
     await this.tick('findOneAndUpdate')
     if (options?.returnDocument !== 'after') throw new Error('fake: expected returnDocument after')
     for (const d of this.docs.values()) {
       if (!matches(d, filter)) continue
       applyUpdate(d, update)
-      return clone(d) as unknown as ScheduleDoc
+      return clone(d) as unknown as MongoScheduleDoc
     }
     return null
   }
@@ -103,11 +103,11 @@ export class FakeScheduleCollection implements MongoScheduleCollectionLike {
     return { matchedCount: 0 }
   }
 
-  find(filter: Doc): { toArray(): Promise<ScheduleDoc[]> } {
+  find(filter: Doc): { toArray(): Promise<MongoScheduleDoc[]> } {
     return {
       toArray: async () => {
         await this.tick('find')
-        return [...this.docs.values()].filter((d) => matches(d, filter)).map((d) => clone(d) as unknown as ScheduleDoc)
+        return [...this.docs.values()].filter((d) => matches(d, filter)).map((d) => clone(d) as unknown as MongoScheduleDoc)
       },
     }
   }

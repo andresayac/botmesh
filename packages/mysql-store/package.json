@@ -1,20 +1,61 @@
 {
   "name": "@botmesh/mysql-store",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
-  "description": "MySQL IStore for @botmesh/core (mysql2).",
-  "main": "lib/index.js", "types": "lib/index.d.ts",
-  "exports": { ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" } },
-  "engines": { "node": ">=22" },
-  "keywords": ["botmesh", "store", "mysql-store"],
-  "author": "Andres Aya", "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/andresayac/botmesh.git", "directory": "packages/mysql-store" },
-  "homepage": "https://github.com/andresayac/botmesh/tree/main/packages/mysql-store#readme",
-  "bugs": { "url": "https://github.com/andresayac/botmesh/issues" },
-  "files": ["./lib/**/*"],
-  "scripts": { "build": "tsc", "test": "vitest run", "prepublishOnly": "pnpm build", "typecheck": "tsc -p tsconfig.test.json" },
-  "dependencies": { "@botmesh/core": "workspace:*", "mysql2": "^3.11.0" },
-  "devDependencies": { "@types/node": "^26.1.1", "typescript": "^7.0.2", "vite": "^7.3.7", "vitest": "^4.1.12" },
-  "publishConfig": { "access": "public" }
+  "description": "MySQL and MariaDB store for @botmesh/core: shared bot state and durable scheduler on mysql2.",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "botmesh",
+    "store",
+    "mysql",
+    "mariadb",
+    "mysql2",
+    "scheduler"
+  ],
+  "author": "Andres Aya",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andresayac/botmesh.git",
+    "directory": "packages/mysql-store"
+  },
+  "homepage": "https://andresayac.github.io/botmesh/guide/store",
+  "bugs": {
+    "url": "https://github.com/andresayac/botmesh/issues"
+  },
+  "files": [
+    "./lib/**/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "prepublishOnly": "pnpm build",
+    "typecheck": "tsc -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "@botmesh/core": "workspace:^"
+  },
+  "peerDependencies": {
+    "mysql2": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "mysql2": "^3.11.0",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.7",
+    "vitest": "^4.1.12"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

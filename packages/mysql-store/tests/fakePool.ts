@@ -25,7 +25,7 @@
  *    (e.g. {@link deadlockError}); a deadlock rolls the transaction back, as
  *    InnoDB does.
  */
-import type { ConnectionLike, MysqlQueryResult, PoolLike } from '../src/MysqlStore.js'
+import type { MysqlConnectionLike, MysqlQueryResult, MysqlPoolLike } from '../src/MysqlStore.js'
 
 type Row = Record<string, unknown>
 
@@ -79,7 +79,7 @@ export interface FakePoolOptions {
 }
 
 /** A dedicated connection (mysql2 `PoolConnection`): its own transaction and row locks. */
-export class FakeConnection implements ConnectionLike {
+export class FakeConnection implements MysqlConnectionLike {
   inTransaction = false
   released = false
   destroyed = false
@@ -111,7 +111,7 @@ export class FakeConnection implements ConnectionLike {
   }
 }
 
-export class FakePool implements PoolLike {
+export class FakePool implements MysqlPoolLike {
   /** Table name -> primary key -> row (column -> value). */
   readonly tables = new Map<string, Map<string, Row>>()
   /** Every statement received, in order (for assertions). */

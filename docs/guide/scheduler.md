@@ -260,16 +260,15 @@ kept and never run.
 | `timeZone` | process zone | Default IANA zone of every cron task of the bot, plain or durable (see [Time zones](#time-zones)). On its own it does not start anything. |
 
 Every store package ships its schedule store, which shares the store's
-connection and prefix (the PostgreSQL, MySQL and MongoDB stores live in the
-repository and are not on npm yet):
+connection and prefix:
 
 | Store | `store.schedules()` | Storage |
 |---|---|---|
 | `@botmesh/sqlite-store` | `SQLiteScheduleStore` | Table `schedules` (plus `schedule_fences`); each call is a `BEGIN IMMEDIATE` transaction. |
 | `@botmesh/redis-store` | `RedisScheduleStore` | `{prefix}:sched:{id}`, compare-and-set scripts. |
-| `@botmesh/postgres-store` (experimental) | `PostgresScheduleStore` | Table `{tablePrefix}schedules`; every call is one atomic statement (`UPDATE … RETURNING` claims). |
-| `@botmesh/mysql-store` (experimental) | `MysqlScheduleStore` | Table `{tablePrefix}schedules` (VARBINARY ids, up to 1024 bytes); claims run `SELECT … FOR UPDATE` in a short transaction. |
-| `@botmesh/mongo-store` (experimental) | `MongoScheduleStore` | Collection `{collectionPrefix}schedules`; single-document commands (`findOneAndUpdate`), so a standalone `mongod` works. |
+| `@botmesh/postgres-store` | `PostgresScheduleStore` | Table `{tablePrefix}schedules`; every call is one atomic statement (`UPDATE … RETURNING` claims). |
+| `@botmesh/mysql-store` | `MysqlScheduleStore` | Table `{tablePrefix}schedules` (VARBINARY ids, up to 1024 bytes); claims run `SELECT … FOR UPDATE` in a short transaction. |
+| `@botmesh/mongo-store` | `MongoScheduleStore` | Collection `{collectionPrefix}schedules`; single-document commands (`findOneAndUpdate`), so a standalone `mongod` works. |
 
 With several replicas, put the schedules in the shared store and, optionally,
 give the scheduler a leader lease:

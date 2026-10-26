@@ -1,24 +1,25 @@
 # @botmesh/mysql-store
 
-> [!WARNING]
-> **Experimental — not yet published on npm.** The package is `"private": true` inside the monorepo; the API and schema may change without notice. It is tested against a real MySQL (see [Integration tests](#integration-tests)).
+Shared, persistent storage for [`@botmesh/core`](https://github.com/andresayac/botmesh/tree/main/packages/core) on MySQL or MariaDB, through [mysql2](https://www.npmjs.com/package/mysql2). Point any number of bot replicas at the same database and they share message logs, chats, contacts, `.persistent()` flow checkpoints, `ctx.user` data, AI conversation history and delivery cursors.
 
-MySQL/MariaDB [`IStore`](https://github.com/andresayac/botmesh/tree/main/packages/core) implementation for **@botmesh/core** — persistent, shared bot state backed by [mysql2](https://www.npmjs.com/package/mysql2). Point any number of bot replicas at the same database and they share message logs, chats, contacts, flow checkpoints, AI conversation history and delivery cursors.
+- **Durable scheduled tasks** (`store.schedules()`, a `MysqlScheduleStore`): every occurrence is claimed by exactly one replica.
+- Compare-and-set checkpoints (`setCheckpointIf`), used by `BotConfig.coordination`.
+- Ids and keys compare **byte for byte** (`VARBINARY`), never through a case- or accent-insensitive collation.
+- Tables are created on `start()` (`InnoDB`, `utf8mb4`, whatever the server defaults are). The package passes the same `IStore` conformance suite as every botmesh store.
 
-- Seven small tables (the six below plus `user_data` for `ctx.user`), `CREATE TABLE IF NOT EXISTS` on `start()` — no migrations to run by hand. Ids/keys are compared **byte-for-byte** (`VARBINARY`), never through a case- or accent-insensitive collation.
-- Message bodies, chats, contacts, checkpoints and conversations stored as **JSON** documents; `getMessagesByChat(limit)` is an `ORDER BY timestamp DESC LIMIT ?` window, returned oldest→newest (same windowing semantics as `@botmesh/sqlite-store` / `@botmesh/redis-store`).
-- Configurable **table prefix**, so apps/bots can share one database.
-- Injectable pool → fully hermetic tests (an in-memory fake pool ships with the test-suite; no real MySQL needed). The fake mirrors the server where it matters: it rejects escaped unpaired surrogates in JSON (`ER_INVALID_JSON_TEXT`), returns `VARBINARY` columns as `Buffer`s and models connections, transactions and row locks.
+There is no MySQL durability backend (`BotConfig.durability`); use `@botmesh/postgres-store`, `@botmesh/redis-store` or `@botmesh/sqlite-store` for that.
 
 ## Install
 
 ```bash
-pnpm add @botmesh/mysql-store
+pnpm add @botmesh/mysql-store mysql2
 ```
 
-Requires a **running MySQL/MariaDB server** reachable from the bot (e.g. `mysql://localhost:3306/botwa` — the database must already exist; the store creates its own tables but not the database).
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older alpha. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/mysql-store@beta mysql2` during the beta (`npm view @botmesh/mysql-store dist-tags` lists the tags). Once stable, the plain command above works.
 
-## Usage with Bot
+[`mysql2`](https://www.npmjs.com/package/mysql2) `^3.11` is a **peer dependency**, loaded only when the store creates its own pool. You need a MySQL 8.x or MariaDB server reachable from the bot (for example `mysql://localhost:3306/botwa`); the database must exist, the store creates its tables.
+
+## Quick start
 
 ```ts
 import { Bot } from '@botmesh/core'
@@ -26,84 +27,75 @@ import { BaileysProvider } from '@botmesh/baileys'
 import { MysqlStore } from '@botmesh/mysql-store'
 
 const store = new MysqlStore({
-  uri: process.env.MYSQL_URL,      // default: mysql://localhost:3306/botwa
-  tablePrefix: 'mybot_',           // default: '' (optional namespace)
+  uri: process.env.MYSQL_URL, // default: mysql://localhost:3306/botwa
+  tablePrefix: 'mybot_', // default: ''
 })
-await store.start()                // creates the pool + tables (unless a pool was injected)
 
-const bot = new Bot({
-  provider: new BaileysProvider({ session: 'demo' }),
-  store,
-})
+const bot = new Bot({ provider: new BaileysProvider({ session: 'my-bot' }), store })
+await bot.start() // starts the store too: creates the pool and the tables
 ```
 
-Or with discrete connection options instead of a URI:
+Discrete connection options work too: `new MysqlStore({ host: 'db.internal', port: 3306, user: 'bot', password: process.env.MYSQL_PASSWORD, database: 'botwa' })`. Using the store before it is started fails with an error that tells you to call `start()`.
+
+### Bring your own pool
+
+Pass an existing `mysql2/promise` pool: the store then never creates or closes it. It needs `query`, `getConnection` (for the short transactions behind the atomic upserts) and `end`, which every mysql2 pool has.
 
 ```ts
-const store = new MysqlStore({
-  host: 'db.internal',
-  port: 3306,
-  user: 'bot',
-  password: process.env.MYSQL_PASSWORD,
-  database: 'botwa',
+import { createPool } from 'mysql2/promise'
+
+const pool = createPool(process.env.MYSQL_URL!)
+const store = new MysqlStore({ pool })
+```
+
+## Options
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `uri` | `string` | `'mysql://localhost:3306/botwa'` | Connection URI. Ignored when `pool` is given or when any of the discrete options is set. |
+| `host`, `port`, `user`, `password`, `database` | `string` / `number` | none | Discrete connection options, used instead of `uri` when any is set. |
+| `pool` | `MysqlPoolLike \| NativeMysqlPool` | none | An existing pool. The store never creates or closes it; `start()` still creates the tables. |
+| `tablePrefix` | `string` | `''` | Prefix for every table, so several bots share one database. Letters, digits and `_` only. |
+| `maxMessagesPerChat` | `number` | unbounded | Keep only the newest N messages per chat; older rows are pruned on each save. |
+| `purgeBatchSize` | `number` | `1000` | Rows deleted per statement by `bot.purgeExpiredUserData()`; the purge loops until nothing expired is left. |
+| `logger` | `Partial<LoggerLike>` | none | Receives pool close failures and, through `warn` (else `error`), the notice about tables created by an early version (pino, `console` or the bot's logger). |
+
+Invalid numbers throw a `RangeError` from the constructor.
+
+## Durable scheduled tasks
+
+```ts
+const store = new MysqlStore({ uri: process.env.MYSQL_URL })
+const bot = new Bot({ provider, store, scheduler: { store: store.schedules() } })
+
+bot.schedule('0 9 * * 1-5', { id: 'daily-report', timeZone: 'Europe/Madrid' }, async (run) => {
+  // run.occurrenceKey identifies this occurrence (runs are at least once)
 })
 ```
 
-### Injecting an existing pool
+- Table `{tablePrefix}schedules`. A claim runs `SELECT … FOR UPDATE` and an `UPDATE` in a short transaction on a dedicated connection, so concurrent claimers get exactly one winner; a deadlock victim is retried. `renew` and `complete` are single updates fenced by the token.
+- Ids, specs and lease owners are `VARBINARY` (ids up to 1024 bytes, specs 2048, owners 512); longer values fail fast with a `RangeError`.
+- `delete()` (`task.cancel()`, `bot.forgetTask(id)`) is a soft delete that keeps the id's fencing token; purge old tombstones by hand only when no runner can still hold their token (`DELETE FROM schedules WHERE deleted = 1 AND updated_at < <epoch ms a day ago>`).
+- Times are whole milliseconds (a fractional slot or interval rounds up, a fractional `now` rounds down). Leases use the caller's clock, so keep replicas in sync (NTP). A standalone `new MysqlScheduleStore({ pool, tablePrefix })` borrows any pool and never closes it.
 
-Pass an already-created mysql2/promise pool — the store then never creates or closes it, the caller owns the lifecycle (schema provisioning still runs on `start()`):
+## Table layout
 
-```ts
-import mysql from 'mysql2/promise'
+| Table | Key | Contents |
+| --- | --- | --- |
+| `messages` | `messageKey(ref)` | `StoredMessage` (`JSON`) plus `chat_id` and a `timestamp BIGINT` sort key; index `chat_ts (chat_id, timestamp)` |
+| `chats` | chat id | `StoredChat` (`JSON`) |
+| `contacts` | contact id | `StoredContact` (`JSON`) |
+| `checkpoints` | key | `FlowCheckpoint` (`JSON`) |
+| `conversations` | key | `@botmesh/ai` history (`AIMessage[]`, `JSON`) |
+| `cursors` | key | delivery cursors (e.g. Telegram `update_id`), `WELCOME` markers, handoff index |
+| `user_data` | user id + namespace + key | `ctx.user` entries (exact JSON text, optional expiry, indexed) |
+| `schedules` | task id | durable scheduler tasks (`store.schedules()`) |
 
-const pool = mysql.createPool(process.env.MYSQL_URL!)
-const store = new MysqlStore({ pool })   // no uri needed
-```
+Every name gets the `tablePrefix`; keys are `VARBINARY(1024)`. A `VARCHAR` key would inherit the server collation (`utf8mb4_0900_ai_ci` on MySQL 8 is case- and accent-insensitive, so `abc` and `ABC` would share a row) and the `_bin` collations are `PAD SPACE`. All statements are parameterized.
 
-In tests, inject an in-memory fake instead (see `tests/fakePool.ts` in this package) so the suite runs with no network and no real MySQL:
+### Upgrading tables created by an early version
 
-```ts
-const fake = new FakePool()
-const store = new MysqlStore({ pool: fake })
-await store.start()
-```
-
-## Configuration
-
-| Option        | Type               | Default                      | Description |
-| ------------- | ------------------ | ---------------------------- | ----------- |
-| `uri`         | `string`           | `mysql://localhost:3306/botwa` | MySQL connection URI. Ignored when `pool` is provided; the host/port/... options take precedence over `uri` when any is set. |
-| `host`        | `string`           | —                            | Hostname; when set (with `port`/`user`/`password`/`database`) a config object is built instead of using `uri`. |
-| `port`        | `number`           | —                            | Port for the config-based connection. |
-| `user`        | `string`           | —                            | User for the config-based connection. |
-| `password`    | `string`           | —                            | Password for the config-based connection. |
-| `database`    | `string`           | —                            | Database for the config-based connection. |
-| `tablePrefix` | `string`           | `''`                         | Prefix for every table (`[A-Za-z0-9_]` only). |
-| `pool`        | `PoolLike`         | —                            | Inject an existing mysql2/promise pool (required for tests): `query`, `getConnection` and `end`. The store never creates/closes it. |
-| `maxMessagesPerChat` | `number`    | — (unbounded)                | Keep at most N messages per chat; `saveMessage` prunes the oldest (by `timestamp`) beyond the cap. Must be a non-negative integer (else `RangeError`). |
-| `purgeBatchSize` | `number` | `1000` | Rows deleted per statement by `purgeExpiredUserData`; the purge loops until nothing expired is left, so a large backlog never runs as one long delete. Must be a positive integer (else `RangeError`). |
-| `logger`      | `{ error?, warn? }` | —                           | Receives lifecycle errors (e.g. pool close failure) and, through `warn` (else `error`), the legacy-schema notice of `start()`. |
-
-## Schema
-
-Provisioned idempotently on `start()` (`CREATE TABLE IF NOT EXISTS`), with `{p}` = `tablePrefix`:
-
-| Table | Columns | Contents |
-| ----- | ------- | -------- |
-| `{p}messages` | `id VARBINARY(1024) PRIMARY KEY, chat_id VARBINARY(1024) NOT NULL, timestamp BIGINT, msg JSON`, index `chat_ts (chat_id, timestamp)` | one row per `StoredMessage` (`id` = `messageKey(ref)`, `{chatId}:{id}` escaped) |
-| `{p}chats` | `id VARBINARY(1024) PRIMARY KEY, data JSON` | `StoredChat` |
-| `{p}contacts` | `id VARBINARY(1024) PRIMARY KEY, data JSON` | `StoredContact` |
-| `{p}checkpoints` | `` `key` VARBINARY(1024) PRIMARY KEY, cp JSON `` | `FlowCheckpoint` |
-| `{p}conversations` | `` `key` VARBINARY(1024) PRIMARY KEY, messages JSON `` | `AIMessage[]` |
-| `{p}cursors` | `` `key` VARBINARY(1024) PRIMARY KEY, value TEXT `` | delivery cursor (e.g. Telegram `update_id`) |
-
-Every table is created `ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`, regardless of the server defaults. Writes are upserts (`INSERT ... ON DUPLICATE KEY UPDATE`) with fully parameterized statements (`?` placeholders). The `chat_ts` index serves the `getMessagesByChat` window, `deleteChat` and the `maxMessagesPerChat` trim. `deleteChat` removes the chat row and its message log in one transaction (a deadlock victim is retried), so a failure in the middle leaves both in place.
-
-Why `VARBINARY` keys: ids are opaque strings and must compare exactly. A `VARCHAR` inherits the server collation — `utf8mb4_0900_ai_ci` on MySQL 8 is case- **and** accent-insensitive, so `abc`/`ABC` or `e`/`é` would share one row — and the `_bin` collations are `PAD SPACE` (`'k' = 'k '`). Keys may be up to 1024 bytes (long base64 message ids, composed checkpoint keys).
-
-### Upgrading tables created by an earlier version
-
-`CREATE TABLE IF NOT EXISTS` never alters existing tables. Tables provisioned before the switch to `VARBINARY` keys keep the old `VARCHAR(255)` columns (collation-dependent comparisons, 255-character limit) and lack the index. `start()` detects them and logs a warning naming the affected columns (the store keeps working). To upgrade them in place (bytes are preserved; replace `{p}` with your prefix):
+`CREATE TABLE IF NOT EXISTS` never alters existing tables. Tables from before the switch to `VARBINARY` keys keep `VARCHAR(255)` columns and lack the `chat_ts` index; `start()` logs a warning naming them (the store keeps working). Upgrade them in place (bytes are preserved; replace `{p}` with your prefix):
 
 ```sql
 ALTER TABLE `{p}messages` MODIFY id VARBINARY(1024) NOT NULL, MODIFY chat_id VARBINARY(1024) NOT NULL, ADD KEY chat_ts (chat_id, timestamp);
@@ -114,62 +106,32 @@ ALTER TABLE `{p}conversations` MODIFY `key` VARBINARY(1024) NOT NULL;
 ALTER TABLE `{p}cursors` MODIFY `key` VARBINARY(1024) NOT NULL;
 ```
 
-## Notes
+## Errors you may see
 
-- `getMessagesByChat(chatId, limit)` reads the newest `limit` rows (`ORDER BY timestamp DESC LIMIT ?`) and returns them oldest→newest — same windowing semantics as `@botmesh/sqlite-store`.
-- `start()` creates a pool only when none was injected (and is safe to call again); `stop()` closes only a self-created pool. An injected pool is caller-managed and keeps serving after `stop()`.
-- `timestamp` may be any number: the `BIGINT` sort column gets `Math.floor(timestamp)` clamped to ±`Number.MAX_SAFE_INTEGER` (`NaN` sorts as 0), while the exact value is kept in the `msg` document.
-- MySQL's `JSON` type rejects unpaired UTF-16 surrogates (e.g. a string cut in the middle of an emoji). The store writes them as U+FFFD (`�`) instead of failing the write (checkpoints too, through `setCheckpoint` and the compare-and-set `setCheckpointIf` alike) — the same value the UTF-8 based stores end up with. Well-formed text (emoji, CJK, RTL, combining marks) round-trips unchanged.
-- `upsertChat`/`upsertContact` merge shallowly — exactly `{ ...existing, ...patch }` like `MemoryStore` (nested values are replaced, `null` is kept, an explicit `undefined` drops the key) — and **atomically across processes**: each upsert runs a short transaction on a dedicated pool connection (`SELECT data ... FOR UPDATE`, merge, `UPDATE`, `COMMIT`), so concurrent partial upserts of the same record from several replicas never lose fields. A missing row is created first with `INSERT ... ON DUPLICATE KEY UPDATE id = id` (no lock held, so creators never deadlock), and a deadlock victim is retried. `JSON_MERGE_PATCH` is not used on purpose: it merges recursively and treats `null` as delete.
-- An injected pool must therefore also provide `getConnection()` (every mysql2/promise pool does); see `PoolLike`/`ConnectionLike`.
-- Works against MySQL 5.7+/8.x and MariaDB 10.x (`VALUES(col)` upsert syntax). The integration suite has been run against MySQL 8.4 and 8.0.
-- The database named in the URI/config must exist — the store creates tables, not databases.
-- `purgeExpiredUserData` deletes `purgeBatchSize` rows per statement (`DELETE … ORDER BY expires_at LIMIT ?`) until nothing expired is left, so a large backlog never holds InnoDB locks for one long delete.
-- **Message keys.** `messageKey(ref)` (from `@botmesh/core`) is `{chatId}:{id}` with `%` and `:` percent-escaped in each part (`%25`, `%3A`), so ids that contain `:` — Twilio's `whatsapp:+1…` chat ids — never collide (`('a:b', 'c')` and `('a', 'b:c')` used to share the key `a:b:c`). Ids without `:` or `%` keep exactly the key earlier versions wrote. Rows written by an earlier version under the old unescaped key are still read and deleted (a fallback that only runs for ids containing `:` or `%`, and only returns or deletes a row whose stored `ref` is that very message, since a legacy key can be another message's new key), and re-saving such a message moves it to the new key — no manual migration. One theoretical edge remains: an id that literally contains `%3A` and was stored by an earlier version can be overwritten by a new message whose id has `:` in the same place.
+| Error | Cause and fix |
+| --- | --- |
+| `needs the MySQL driver "mysql2", which is not installed` | Install the peer dependency (`pnpm add mysql2`), or pass your own `pool`. |
+| `MysqlStore: pool is not available — call start() first` | The bot starts the store; if you use it on its own, `await store.start()` first. |
+| `ER_BAD_DB_ERROR` (unknown database) | Create the database first: the store creates tables, not databases. |
+| `CONSTRAINT … failed` on MariaDB | MariaDB stores `JSON` as `LONGTEXT` with a `json_valid()` check, which rejects documents nested deeper than 32 levels (a message's `raw` payload or a checkpoint's state). MySQL has no such limit. |
+| `ETIMEDOUT` on Windows with Docker | Use `127.0.0.1` instead of `localhost`: `localhost` resolves to `::1` first and Docker Desktop's IPv6 forwarding never delivers the MySQL handshake. |
 
-## Durable scheduler
+## Behaviour notes
 
-`store.schedules()` returns a `MysqlScheduleStore` on the same pool and `tablePrefix` (table `{tablePrefix}schedules`), for `bot.schedule/every/delay(spec, { id }, fn)` durable tasks shared by any number of replicas:
+- `upsertChat` / `upsertContact` shallow-merge exactly like `MemoryStore` (`{ ...existing, ...patch }`) and **atomically across processes**: each runs a short `SELECT … FOR UPDATE` transaction on a dedicated connection, and a deadlock victim is retried, so concurrent partial updates never lose fields.
+- An auto-committed statement chosen as a deadlock victim (MariaDB's gap locks make concurrent saves and `maxMessagesPerChat` trims of one chat collide) is run again, up to 5 times.
+- `deleteChat(chatId)` removes the chat **and** its message log in one transaction.
+- `getMessagesByChat(chatId, limit)` returns the newest `limit` messages, oldest first (same windowing as the other stores).
+- MySQL's `JSON` type rejects unpaired UTF-16 surrogates (text cut in the middle of an emoji): they are stored as U+FFFD instead of failing the write, in checkpoints too. Well-formed text round-trips unchanged.
+- `timestamp` may be any number: the sort column gets `Math.floor(timestamp)` clamped to the safe-integer range, the document keeps the exact value.
+- Message rows are keyed by `messageKey(ref)` (`{chatId}:{id}`, with `:` and `%` escaped), so ids containing `:` (such as Twilio's `whatsapp:+1…`) never collide. Rows written by older releases under the unescaped key are still found and moved on the next save.
+- Tested against MySQL 8.4 and MariaDB 11.8 (the integration suites). The `VALUES(col)` upsert syntax also works on MySQL 5.7 and 8.0, which are not tested any more.
 
-```ts
-const store = new MysqlStore({ uri: process.env.MYSQL_URL })
-const bot = new Bot({ provider, store, scheduler: { store: store.schedules() } })
-bot.schedule('0 9 * * 1-5', { id: 'daily-report', timeZone: 'Europe/Madrid' }, async (run) => { /* … */ })
-```
+## Development
 
-- Ids, specs and lease owners are `VARBINARY` (byte-exact, like the store's keys): ids up to 1024 bytes, specs up to 2048, owners up to 512. Longer values fail fast with a `RangeError` instead of looping in the engine's retries.
-- A claim runs `START TRANSACTION; SELECT … FOR UPDATE; UPDATE; COMMIT` on a dedicated connection (an equality lock on the primary key, so claimers queue), retries a deadlock victim (errno 1213) up to 3 times and always releases the connection. `renew`/`complete` are single conditional updates fenced by the token; `renew` is correct with or without the `FOUND_ROWS` client flag.
-- The scheduler calls its `start()`, which creates the table (`CREATE TABLE IF NOT EXISTS`, InnoDB, utf8mb4). The bot starts the store first; if you use the store only for schedules, `await store.start()` yourself. A standalone `new MysqlScheduleStore({ pool, tablePrefix })` borrows any pool and never closes it.
-- `delete()` (`task.cancel()`, `bot.forgetTask(id)`) is a soft delete: the row stays with `deleted = 1` so the id's fencing token never goes backwards. Purge old tombstones by hand only when no runner can still hold their token, e.g. `DELETE FROM schedules WHERE deleted = 1 AND updated_at < <epoch ms a day ago>`.
-- Leases use the caller's clock (`now`): keep replicas in sync (NTP).
-- Times are stored in whole milliseconds: a fractional slot, lease end or interval (`every(1500.5)`) rounds **up**, and a fractional `now` rounds **down**, so the record a call returns is exactly the stored row and nothing is claimed before it is due.
-- `tests/schedules.integration.test.ts` runs the shared `ScheduleStore` conformance suite (also without `FOUND_ROWS`), 20 claimers on two 2-connection pools, a concurrent schema race and a two-bot end-to-end run against a real server (same `BOTWA_TEST_MYSQL_URL`).
+The unit tests run against an in-memory fake pool that models connections, transactions and row locks, with no network. Opt-in suites (`BOTWA_TEST_MYSQL_URL`) run the shared `IStore`, `ctx.user` and `ScheduleStore` conformance suites, the atomic merges and concurrency checks against a real server; see [CONTRIBUTING](https://github.com/andresayac/botmesh/blob/main/CONTRIBUTING.md#store-integration-tests-docker) for the Docker commands. The database user needs `CREATE`, `DROP`, `INDEX`, `SELECT`, `INSERT`, `UPDATE` and `DELETE`, plus read access to `information_schema`.
 
+## Links
 
-## Integration tests
-
-The unit tests (`tests/mysql-store.test.ts`, `tests/conformance.test.ts`) use an in-memory `FakePool` that understands the store's statements, so they never run real SQL. `tests/integration.test.ts` does: it runs the shared `IStore` conformance suite plus MySQL-specific cases (idempotent schema and indexes, persistence across `stop()`/`start()` with a fresh client, `maxMessagesPerChat` trimming, `deleteChat` purging the log, shallow merge, unicode/emoji and large JSON, `getMessagesByChat` order/limit, concurrent `saveMessage`, partial and concurrent `upsertChat`/`upsertContact` from several clients (atomic merge without losing fields) and ids that differ only in case/accents) against a real server.
-
-It is opt-in: it is enabled by the `BOTWA_TEST_MYSQL_URL` environment variable and, when it is not set, the whole suite is skipped, so `pnpm test` stays hermetic. A few "hermetic pins" in the same file lock those regressions without a server and always run.
-
-```bash
-# 1. A disposable MySQL (port 53306 so it does not clash with a local one)
-docker run -d --name botmesh-it-mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=botwa -p 53306:3306 mysql:8.4
-
-# 2. Wait until it accepts TCP connections: repeat until you see "mysqld is alive"
-#    (the first boot initializes the data and takes about 20-30 s)
-docker exec botmesh-it-mysql mysqladmin ping -h 127.0.0.1 -uroot -proot
-
-# 3. Run the suite against it
-BOTWA_TEST_MYSQL_URL=mysql://root:root@127.0.0.1:53306/botwa pnpm --filter @botmesh/mysql-store test
-
-# 4. Clean up
-docker rm -f botmesh-it-mysql
-```
-
-In PowerShell: `$env:BOTWA_TEST_MYSQL_URL = 'mysql://root:root@127.0.0.1:53306/botwa'; pnpm --filter @botmesh/mysql-store test`.
-
-- **Isolation:** each store in the test uses its own `tablePrefix` (`it<run>_<n>_`); each test drops its tables when it finishes and an `afterAll` removes whatever is left from that run. It can target a shared database without overwriting data or clashing with another parallel run.
-- **User:** it needs `CREATE`, `DROP`, `INDEX`, `SELECT`, `INSERT`, `UPDATE` and `DELETE` privileges on the database, plus read access to `information_schema`.
-- **Windows + Docker Desktop:** use `127.0.0.1` instead of `localhost`. `localhost` resolves to `::1` first and Docker Desktop's IPv6 forwarding accepts the TCP connection but never delivers the MySQL handshake, so `mysql2` ends in `ETIMEDOUT`.
-- **CI:** this suite does not run in CI; run it locally with Docker before touching the store.
+- [Persistent stores guide](https://andresayac.github.io/botmesh/guide/store) · [Scheduler](https://andresayac.github.io/botmesh/guide/scheduler) · [Running N replicas](https://andresayac.github.io/botmesh/guide/replicas) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/mysql-store/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/mysql-store) · [Issues](https://github.com/andresayac/botmesh/issues)

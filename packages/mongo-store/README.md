@@ -1,14 +1,13 @@
 # @botmesh/mongo-store
 
-> [!WARNING]
-> **Experimental — not yet published on npm** (`"private": true`). The API may change without notice.
+Shared, persistent storage for [`@botmesh/core`](https://github.com/andresayac/botmesh/tree/main/packages/core) on MongoDB, through the official [`mongodb`](https://www.npmjs.com/package/mongodb) driver. Point any number of bot replicas at the same deployment and they share message logs, chats, contacts, `.persistent()` flow checkpoints, `ctx.user` data, AI conversation history and delivery cursors.
 
-MongoDB [`IStore`](https://github.com/andresayac/botmesh/tree/main/packages/core) implementation for **@botmesh/core** — persistent, shared bot state backed by MongoDB (official driver v6). Point any number of bot replicas at the same MongoDB deployment and they share message logs, chats, contacts, flow checkpoints, AI conversation history and delivery cursors.
+- **Durable scheduled tasks** (`store.schedules()`, a `MongoScheduleStore`): single-document atomic commands, so a standalone `mongod` works.
+- Compare-and-set checkpoints (`setCheckpointIf`), used by `BotConfig.coordination`.
+- A replica set, a sharded cluster (`mongos`), a standalone server or Atlas. Indexes are created on `start()`.
+- Ids that enter a filter must be strings, so untrusted input such as `{ "$ne": "" }` can never become a query operator. The package passes the same `IStore` conformance suite as every botmesh store.
 
-- Seven collections (`messages`, `chats`, `contacts`, `checkpoints`, `conversations`, `cursors`, `user_data`), plus `schedules` for the durable scheduler, each optionally **prefixed**, inside one configurable **database** — apps/bots can share a cluster.
-- `getMessagesByChat(limit)` is served by a compound `{chatId: 1, timestamp: 1, _id: 1}` index (created on `start()`) and returns the most-recent `limit` messages **ascending** by timestamp — same windowing semantics as `@botmesh/redis-store` / `@botmesh/sqlite-store`.
-- Every write is an **upsert** keyed by `_id` (`messageKey(ref)` for messages, the entity id for chats/contacts, the logical key for the rest) — safe under concurrent replicas.
-- Injectable client → fully hermetic unit tests (an in-memory fake ships with the test-suite), plus an opt-in [integration suite](#integration-tests) against a real MongoDB.
+There is no MongoDB durability backend (`BotConfig.durability`); use `@botmesh/postgres-store`, `@botmesh/redis-store` or `@botmesh/sqlite-store` for that.
 
 ## Install
 
@@ -16,9 +15,11 @@ MongoDB [`IStore`](https://github.com/andresayac/botmesh/tree/main/packages/core
 pnpm add @botmesh/mongo-store mongodb
 ```
 
-Requires a **running MongoDB instance** reachable from the bot (e.g. `mongodb://localhost:27017` — a local `mongod`, Docker: `docker run -p 27017:27017 mongo:7`, or Atlas). The driver is a direct dependency; no native build step.
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older alpha. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/mongo-store@beta mongodb` during the beta (`npm view @botmesh/mongo-store dist-tags` lists the tags). Once stable, the plain command above works.
 
-## Usage with Bot
+`mongodb` is a **peer dependency** (`^6.10` or `^7`, both tested), loaded only when the store creates its own client. You need a MongoDB server reachable from the bot (for example `mongodb://localhost:27017`).
+
+## Quick start
 
 ```ts
 import { Bot } from '@botmesh/core'
@@ -26,104 +27,96 @@ import { BaileysProvider } from '@botmesh/baileys'
 import { MongoStore } from '@botmesh/mongo-store'
 
 const store = new MongoStore({
-  url: process.env.MONGO_URL,     // default: mongodb://localhost:27017
-  dbName: 'mybot',                // default: 'botwa'
-  collectionPrefix: 'prod_',      // default: ''
+  url: process.env.MONGO_URL, // default: mongodb://localhost:27017
+  dbName: 'mybot', // default: 'botwa'
+  collectionPrefix: 'prod_', // default: ''
 })
-await store.start()               // connects the client (unless one was injected) + creates the messages index
 
-const bot = new Bot({
-  provider: new BaileysProvider({ session: 'demo' }),
-  store,
-})
+const bot = new Bot({ provider: new BaileysProvider({ session: 'my-bot' }), store })
+await bot.start() // starts the store too: builds and connects the client, creates the indexes
 ```
 
-`stop()` closes the client **only when the store created it** — an injected client stays open for its owner to manage.
+Using the store before it is started fails with an error that tells you to call `start()`. `stop()` closes the client only when the store created it.
 
-### Injecting an existing client
+### Bring your own client
 
-Pass an already-created (usually already-connected) `MongoClient` — the store then never connects or closes it, the caller owns the lifecycle:
+Pass an existing (usually connected) `MongoClient`: the store then never connects or closes it.
 
 ```ts
 import { MongoClient } from 'mongodb'
 
 const client = new MongoClient(process.env.MONGO_URL!)
 await client.connect()
-
-const store = new MongoStore({ client })   // no url needed
+const store = new MongoStore({ client, dbName: 'mybot' })
 ```
 
-In tests, inject an in-memory fake instead (see `tests/fakeMongo.ts` in this package) so the suite runs with no network and no real MongoDB:
+## Options
 
-```ts
-const fake = new FakeMongoClient()
-const store = new MongoStore({ client: fake })
-```
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `url` | `string` | `'mongodb://localhost:27017'` | Connection URL. Ignored when `client` is given. |
+| `dbName` | `string` | `'botwa'` | Database holding the collections. Must be a valid, non-empty MongoDB database name. |
+| `collectionPrefix` | `string` | `''` | Prefix for every collection, so several bots share one database. No `$` or NUL, and not starting with `system.`. |
+| `client` | `MongoLikeClient \| NativeMongoClient` | none | An existing client. The store never connects or closes it; `start()` still creates the indexes. |
+| `maxMessagesPerChat` | `number` | unbounded | Keep only the newest N messages per chat; older documents are pruned on each save. |
+| `purgeBatchSize` | `number` | `1000` | Documents deleted per `deleteMany` by `bot.purgeExpiredUserData()`; the purge loops until nothing expired is left. |
+| `logger` | `Partial<LoggerLike>` | none | Receives client close failures (pino, `console` or the bot's logger). |
 
-## Configuration
+An invalid `dbName` or `collectionPrefix` throws an `Error` and invalid numbers a `RangeError` from the constructor.
 
-| Option             | Type                       | Default                     | Description |
-| ------------------ | -------------------------- | --------------------------- | ----------- |
-| `url`              | `string`                   | `mongodb://localhost:27017` | MongoDB connection URL. Ignored when `client` is provided. |
-| `dbName`           | `string`                   | `'botwa'`                   | Database holding the store's collections. Must be a valid, non-empty MongoDB database name (else the constructor throws). |
-| `collectionPrefix` | `string`                   | `''`                        | Prefix applied to every collection name. No `$` or NUL, and not starting with `system.` (else the constructor throws). |
-| `client`           | `MongoClient \| MongoLikeClient` | —                     | Inject an existing client (required for tests). The store never connects/closes it. |
-| `maxMessagesPerChat` | `number`                 | — (unbounded)               | When set, `saveMessage` prunes each chat's oldest messages (by timestamp) beyond the cap. Must be a non-negative integer (else `RangeError`). |
-| `purgeBatchSize` | `number` | `1000` | Documents deleted per statement by `purgeExpiredUserData`; the purge loops until nothing expired is left, so a large backlog never runs as one long delete. Must be a positive integer (else `RangeError`). |
-| `logger`           | `{ error? }`               | —                           | Receives lifecycle errors (e.g. close failure). |
-
-## Collection layout
-
-| Collection          | `_id`              | Document |
-| ------------------- | ------------------ | -------- |
-| `{prefix}messages`      | `messageKey(ref)` (`{chatId}:{id}`, escaped) | `{ chatId, timestamp, msg: StoredMessage }` — indexed by `{chatId: 1, timestamp: 1, _id: 1}` |
-| `{prefix}chats`         | `chat.id`          | the whole `StoredChat` |
-| `{prefix}contacts`      | `contact.id`       | the whole `StoredContact` |
-| `{prefix}checkpoints`   | key                | `{ cp: FlowCheckpoint }` |
-| `{prefix}conversations` | key                | `{ messages: AIMessage[] }` |
-| `{prefix}cursors`       | key                | `{ value: string }` (delivery cursor, e.g. Telegram `update_id`) |
-
-`deleteChat(chatId)` removes the chat document **and** purges that chat's message log (same semantics as `MemoryStore` and the other stores). On a replica set or `mongos` both deletes run in one transaction; a standalone server cannot run transactions, so there the store deletes the messages first and then the chat (a retry finishes an interrupted delete). `upsertChat` / `upsertContact` shallow-merge over the existing document: fields you pass replace the stored ones, omitted fields are kept, and a field passed explicitly as `undefined` is removed.
-
-`getMessagesByChat` and the `maxMessagesPerChat` trim sort by `timestamp`, then `_id` (the message key), like the SQL stores, so several messages with the same timestamp always produce the same window and the trim keeps exactly the messages the window shows. `start()` creates the `{chatId: 1, timestamp: 1, _id: 1}` index idempotently; databases created by an earlier version also keep the old `chatId_1_timestamp_1` index, which is now redundant and can be dropped (`db.messages.dropIndex('chatId_1_timestamp_1')`).
-
-`purgeExpiredUserData` reads up to `purgeBatchSize` expired `_id`s through the `expiresAt` index and removes them with one `deleteMany`, repeating until nothing expired is left.
-
-- **Message keys.** `messageKey(ref)` (from `@botmesh/core`) is `{chatId}:{id}` with `%` and `:` percent-escaped in each part (`%25`, `%3A`), so ids that contain `:` — Twilio's `whatsapp:+1…` chat ids — never collide (`('a:b', 'c')` and `('a', 'b:c')` used to share the key `a:b:c`). Ids without `:` or `%` keep exactly the key earlier versions wrote. Rows written by an earlier version under the old unescaped key are still read and deleted (a fallback that only runs for ids containing `:` or `%`, and only returns or deletes a row whose stored `ref` is that very message, since a legacy key can be another message's new key), and re-saving such a message moves it to the new key — no manual migration. One theoretical edge remains: an id that literally contains `%3A` and was stored by an earlier version can be overwritten by a new message whose id has `:` in the same place.
-
-## BSON notes
-
-- `undefined` is never stored as `null`: nested `undefined` values are dropped (JSON semantics), so a `StoredMessage` saved with `body: undefined` reads back without `body`.
-- Binary data inside `raw` / checkpoint state (`Buffer`, `Uint8Array`) reads back as a Node `Buffer`, not the driver's `Binary` class.
-- **Ids must be strings.** Every id that enters a filter (chat, message, contact, cursor/checkpoint/conversation key, `ctx.user` user/namespace/key, schedule id and owner) is checked, and anything else rejects with a `TypeError`. An object such as `{ $ne: '' }`, e.g. untrusted JSON an app forwards as `req.body.chatId`, would otherwise be a MongoDB query operator and read or delete other chats' and users' data.
-- Every document is limited to MongoDB's **16 MB** BSON cap — a single message, checkpoint or AI conversation history larger than that is rejected by the write (the previous value is kept).
-- Object keys may contain `.` and `$`. BSON cannot encode a key holding NUL (U+0000), so such a key, at any depth of a message, chat, contact, checkpoint (`setCheckpoint` and `setCheckpointIf`) or AI conversation, is stored with U+FFFD instead, as `PostgresStore` does. Values with U+0000 round-trip unchanged.
-
-## Durable scheduler
-
-`store.schedules()` returns a `MongoScheduleStore` on the same client, database and `collectionPrefix` (collection `{collectionPrefix}schedules`), for `bot.schedule/every/delay(spec, { id }, fn)` durable tasks shared by any number of replicas:
+## Durable scheduled tasks
 
 ```ts
 const store = new MongoStore({ url: process.env.MONGO_URL, dbName: 'mybot' })
 const bot = new Bot({ provider, store, scheduler: { store: store.schedules() } })
-bot.schedule('0 9 * * 1-5', { id: 'daily-report', timeZone: 'America/Mexico_City' }, async (run) => { /* … */ })
+
+bot.schedule('0 9 * * 1-5', { id: 'daily-report', timeZone: 'America/Mexico_City' }, async (run) => {
+  // run.occurrenceKey identifies this occurrence (runs are at least once)
+})
 ```
 
-- Every operation is **one atomic single-document command** (`insertOne`, `findOneAndUpdate`, `updateOne`), so no transactions are needed and a standalone `mongod` works. A claim is a conditional `findOneAndUpdate` with `$inc` on the fencing token: concurrent claimers get exactly one winner.
-- Only `_id` lookups are used, so no index is created. A standalone `new MongoScheduleStore({ collection })` takes any driver `Collection` and never closes its client.
-- `delete()` (`task.cancel()`, `bot.forgetTask(id)`) is a soft delete: the document stays with `deleted: true` so the id's fencing token never goes backwards. Purge old tombstones by hand only when no runner can still hold their token, e.g. `deleteMany({ deleted: true, updatedAt: { $lt: <epoch ms a day ago> } })`.
-- A token past int32 is promoted to a 64-bit integer by the server and read back as a `number`. Leases use the caller's clock (`now`): keep replicas in sync (NTP).
-- `tests/schedules.integration.test.ts` runs the shared `ScheduleStore` conformance suite, concurrent claims from two clients, the int32 promotion and a two-bot end-to-end run against a real server (same `BOTWA_TEST_MONGO_URL`).
+- Collection `{collectionPrefix}schedules`. Every operation is one atomic single-document command (`insertOne`, `findOneAndUpdate`, `updateOne`): a claim is a conditional `findOneAndUpdate` with `$inc` on the fencing token, so concurrent claimers get exactly one winner, with no transactions.
+- `delete()` (`task.cancel()`, `bot.forgetTask(id)`) is a soft delete that keeps the id's fencing token; purge old tombstones by hand only when no runner can still hold their token (`deleteMany({ deleted: true, updatedAt: { $lt: <epoch ms a day ago> } })`).
+- A token past int32 is promoted to a 64-bit integer by the server and read back as a `number`. Leases use the caller's clock, so keep replicas in sync (NTP). A standalone `new MongoScheduleStore({ collection })` takes any driver `Collection` and never closes its client.
 
+## Collection layout
 
-## Integration tests
+| Collection | `_id` | Document |
+| --- | --- | --- |
+| `messages` | `messageKey(ref)` | `{ chatId, timestamp, msg: StoredMessage }`, indexed by `{ chatId: 1, timestamp: 1, _id: 1 }` |
+| `chats` | chat id | the `StoredChat` |
+| `contacts` | contact id | the `StoredContact` |
+| `checkpoints` | key | `{ cp: FlowCheckpoint }` |
+| `conversations` | key | `{ messages: AIMessage[] }` (`@botmesh/ai` history) |
+| `cursors` | key | `{ value }`: delivery cursors (e.g. Telegram `update_id`), `WELCOME` markers, handoff index |
+| `user_data` | user id + namespace + key | `ctx.user` entries (exact JSON text, optional expiry, indexed) |
+| `schedules` | task id | durable scheduler tasks (`store.schedules()`) |
 
-The default `pnpm test` is hermetic: the unit tests use the in-memory fake and `tests/integration.test.ts` is **skipped**. To run it against a real MongoDB (the shared `IStore` conformance suite plus index creation, persistence across restarts, trimming, merges, unicode, large values and concurrent writes), set `BOTWA_TEST_MONGO_URL`:
+Every name gets the `collectionPrefix`. Databases created by an early version also keep a `chatId_1_timestamp_1` index that is no longer used; drop it with `db.messages.dropIndex('chatId_1_timestamp_1')`.
 
-```bash
-docker run -d --name botmesh-it-mongo -p 57017:27017 mongo:7
-BOTWA_TEST_MONGO_URL=mongodb://127.0.0.1:57017 pnpm --filter @botmesh/mongo-store test
-docker rm -f botmesh-it-mongo
-```
+## Errors you may see
 
-Each run works in its own database (`botwa_it_<random>`, dropped at the end) with a unique collection prefix per store, so reruns never collide. Use `127.0.0.1` rather than `localhost`: with Docker Desktop on Windows, `localhost` may resolve to `::1` first and the driver then times out on server selection. CI does not run this suite; run it locally with Docker before changing the store.
+| Error | Cause and fix |
+| --- | --- |
+| `needs the MongoDB driver "mongodb", which is not installed` | Install the peer dependency (`pnpm add mongodb`), or pass your own `client`. |
+| `MongoStore is not started — call start() before using it` | The bot starts the store; if you use it on its own, `await store.start()` first. |
+| `TypeError` naming an id | An id that enters a filter (chat, message, contact, key, `ctx.user` user/namespace/key, schedule id) is not a string. Never pass request bodies through unchecked. |
+| `invalid dbName` / `invalid collectionPrefix` | Use a valid MongoDB name (see [Options](#options)). |
+| Server selection timeout on Windows with Docker | Use `127.0.0.1` instead of `localhost`: `localhost` resolves to `::1` first and the driver times out. For a single-node replica set reached through a port forward, add `directConnection=true` to the URL. |
+
+## Behaviour notes
+
+- `deleteChat(chatId)` removes the chat **and** its message log. On a replica set or `mongos` both deletes run in one transaction; a standalone server cannot run transactions, so there the store deletes the messages first and then the chat (a retry finishes an interrupted delete). Both driver majors' way of reporting a standalone server are recognised.
+- `upsertChat` / `upsertContact` shallow-merge in one `updateOne`: fields you pass replace the stored ones, omitted fields are kept and a field passed explicitly as `undefined` is removed.
+- `getMessagesByChat(chatId, limit)` returns the newest `limit` messages, oldest first, sorted by `timestamp` then `_id`, so messages with the same timestamp always give the same window and the `maxMessagesPerChat` trim keeps exactly those.
+- BSON: `undefined` is never stored as `null` (nested `undefined` values are dropped), binary data in `raw` or checkpoint state reads back as a Node `Buffer`, and an object key holding U+0000 is stored with U+FFFD. Every document is limited to MongoDB's 16 MB.
+- Message documents are keyed by `messageKey(ref)` (`{chatId}:{id}`, with `:` and `%` escaped), so ids containing `:` (such as Twilio's `whatsapp:+1…`) never collide. Documents written by older releases under the unescaped key are still found and moved on the next save.
+
+## Development
+
+The unit tests run against an in-memory fake client, with no network. Opt-in suites (`BOTWA_TEST_MONGO_URL`) run the shared `IStore`, `ctx.user` and `ScheduleStore` conformance suites and concurrency checks against a real server, standalone or replica set; `BOTWA_TEST_MONGO_DRIVER=v6` runs every suite with the 6.x driver instead of 7.x. See [CONTRIBUTING](https://github.com/andresayac/botmesh/blob/main/CONTRIBUTING.md#store-integration-tests-docker) for the Docker commands.
+
+## Links
+
+- [Persistent stores guide](https://andresayac.github.io/botmesh/guide/store) · [Scheduler](https://andresayac.github.io/botmesh/guide/scheduler) · [Running N replicas](https://andresayac.github.io/botmesh/guide/replicas) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/mongo-store/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/mongo-store) · [Issues](https://github.com/andresayac/botmesh/issues)

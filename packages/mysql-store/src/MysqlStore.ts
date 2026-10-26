@@ -27,12 +27,11 @@
  * ```
  */
 
-import { createPool } from 'mysql2/promise'
-import type { Pool as NativePool } from 'mysql2/promise'
 import type {
   AIMessage,
   FlowCheckpoint,
   IStore,
+  LoggerLike,
   MessageRef,
   StoredChat,
   StoredContact,
@@ -46,9 +45,19 @@ import { legacyMessageKey, messageKey } from '@botmesh/core/spi'
 import { MysqlUserData } from './userData.js'
 import { toJson } from './json.js'
 import { MysqlScheduleStore } from './schedules.js'
+import { createMysqlPool } from './driver.js'
 
-/** The native mysql2/promise pool type produced by `createPool`. */
-export type NativeMysqlPool = NativePool
+/**
+ * A mysql2/promise pool (what `createPool` from `mysql2/promise` returns), typed
+ * structurally so that no published declaration imports `mysql2`: a consumer needs no
+ * particular copy of the driver. The store narrows it to {@link MysqlPoolLike} at the boundary
+ * (the native query typings are a wide generic union).
+ */
+export interface NativeMysqlPool {
+  query(...args: never[]): unknown
+  getConnection(...args: never[]): unknown
+  end(...args: never[]): unknown
+}
 
 /**
  * Result tuple shape returned by mysql2/promise `query()`: `[rows, fields]`.
@@ -60,23 +69,21 @@ export type MysqlQueryResult = [rows: Array<Record<string, unknown>>, fields: un
 /**
  * Structural subset of a mysql2/promise pool used by {@link MysqlStore}.
  * Tests inject an in-memory fake (see tests/fakePool.ts); a real pool is
- * accepted through {@link MysqlStoreOptions.pool} via {@link NativeMysqlPool}
- * (the native query typings are a wide generic union, so the store narrows
- * the pool at the boundary).
+ * accepted through {@link MysqlStoreOptions.pool} via {@link NativeMysqlPool}.
  */
-export interface PoolLike {
+export interface MysqlPoolLike {
   query(sql: string, params?: readonly unknown[]): Promise<MysqlQueryResult>
   /**
    * Check out a dedicated connection (mysql2/promise `pool.getConnection()`).
    * Used for the short transactions that make `upsertChat`/`upsertContact`
    * atomic across processes.
    */
-  getConnection(): Promise<ConnectionLike>
+  getConnection(): Promise<MysqlConnectionLike>
   end(): Promise<unknown>
 }
 
 /** Structural subset of a mysql2/promise `PoolConnection` used by {@link MysqlStore}. */
-export interface ConnectionLike {
+export interface MysqlConnectionLike {
   query(sql: string, params?: readonly unknown[]): Promise<MysqlQueryResult>
   /** Return the connection to the pool. */
   release(): void
@@ -88,6 +95,8 @@ export interface ConnectionLike {
 const ER_LOCK_DEADLOCK = 1213
 /** Bound on merge retries (deadlock victim, or the row deleted between ensure-insert and lock). */
 const MAX_MERGE_ATTEMPTS = 10
+/** Bound on re-running one auto-committed statement chosen as a deadlock victim. */
+const MAX_STATEMENT_ATTEMPTS = 5
 
 function isDeadlock(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { errno?: unknown }).errno === ER_LOCK_DEADLOCK
@@ -110,12 +119,12 @@ export interface MysqlStoreOptions {
   tablePrefix?: string
   /**
    * Inject an existing mysql2/promise pool — a real pool or any
-   * {@link PoolLike} (e.g. an in-memory fake, REQUIRED for hermetic tests).
+   * {@link MysqlPoolLike} (e.g. an in-memory fake, REQUIRED for hermetic tests).
    * The store then never creates or closes it — the caller owns the
    * lifecycle. Schema provisioning (`CREATE TABLE IF NOT EXISTS`) still runs
    * on `start()`.
    */
-  pool?: PoolLike | NativeMysqlPool
+  pool?: MysqlPoolLike | NativeMysqlPool
   /**
    * Max messages retained per chat. When set, `saveMessage` prunes the oldest
    * rows (by timestamp) beyond the cap. Default: undefined = unbounded.
@@ -133,9 +142,10 @@ export interface MysqlStoreOptions {
   /**
    * Receives lifecycle errors (pool close failure) and, through `warn` (falling
    * back to `error`), the legacy-schema notice `start()` emits for tables
-   * created by an earlier version.
+   * created by an earlier version. Any {@link LoggerLike} (pino, `console`, the bot's
+   * logger) fits; every method is optional.
    */
-  logger?: { error?: (...args: unknown[]) => void; warn?: (...args: unknown[]) => void }
+  logger?: Partial<LoggerLike>
 }
 
 /** JSON column reply from mysql2: parsed object OR raw string, depending on driver/column type. */
@@ -178,7 +188,9 @@ function fromKey(value: unknown): string {
 }
 
 export class MysqlStore implements IStore {
-  private pool: PoolLike | null
+  private pool: MysqlPoolLike | null
+  /** The own pool being created (the driver loads lazily), shared by concurrent `start()` calls. */
+  private opening?: Promise<MysqlPoolLike>
   private ownsPool: boolean
   private readonly uri?: string
   private readonly config?: { host?: string; port?: number; user?: string; password?: string; database?: string }
@@ -191,7 +203,7 @@ export class MysqlStore implements IStore {
     cursors: string
   }
   private readonly maxMessagesPerChat?: number
-  private readonly logger?: { error?: (...args: unknown[]) => void; warn?: (...args: unknown[]) => void }
+  private readonly logger?: Partial<LoggerLike>
   private readonly userData: MysqlUserData
 
   constructor(opts: MysqlStoreOptions = {}) {
@@ -203,7 +215,7 @@ export class MysqlStore implements IStore {
     }
     // mysql2's pool typings are a wide generic union; the `query(sql, params)`
     // subset used here matches at runtime, so narrow at the boundary.
-    this.pool = (opts.pool ?? null) as PoolLike | null
+    this.pool = (opts.pool ?? null) as MysqlPoolLike | null
     this.ownsPool = !opts.pool
     this.maxMessagesPerChat = opts.maxMessagesPerChat
     this.uri = opts.uri
@@ -227,12 +239,25 @@ export class MysqlStore implements IStore {
     this.userData = new MysqlUserData((sql, params) => this.query(sql, params), `${p}user_data`, opts.purgeBatchSize)
   }
 
-  /** All DB access funnels through here — SQL stays small, fixed and parameterized. */
-  private query(sql: string, params?: readonly unknown[]): Promise<MysqlQueryResult> {
-    if (this.pool == null) {
-      throw new Error('MysqlStore: pool is not available — call start() first')
+  /**
+   * All DB access funnels through here — SQL stays small, fixed and parameterized. Each
+   * call is one auto-committed statement, so a deadlock victim (ER_LOCK_DEADLOCK: the server
+   * rolled the statement back as a whole) is simply run again, a bounded number of times.
+   * Concurrent saves and `maxMessagesPerChat` trims of one chat deadlock on MariaDB's gap locks.
+   */
+  private async query(sql: string, params?: readonly unknown[]): Promise<MysqlQueryResult> {
+    for (let attempt = 1; ; attempt++) {
+      const pool = this.pool
+      if (pool == null) {
+        throw new Error('MysqlStore: pool is not available — call start() first')
+      }
+      try {
+        return await pool.query(sql, params)
+      } catch (err) {
+        if (!isDeadlock(err) || attempt >= MAX_STATEMENT_ATTEMPTS) throw err
+        await new Promise((resolve) => setTimeout(resolve, Math.random() * 5 * attempt))
+      }
     }
-    return this.pool.query(sql, params)
   }
 
   /**
@@ -604,10 +629,15 @@ export class MysqlStore implements IStore {
 
   async start(): Promise<void> {
     if (this.pool == null) {
-      const pool = this.config != null ? createPool(this.config) : createPool(this.uri ?? 'mysql://localhost:3306/botwa')
-      // Narrow the native pool to the query/end subset used here.
-      this.pool = pool as unknown as PoolLike
-      this.ownsPool = true
+      const opening = (this.opening ??= createMysqlPool(this.config ?? this.uri ?? 'mysql://localhost:3306/botwa')
+        // Narrow the native pool to the query/end subset used here.
+        .then((pool) => pool as MysqlPoolLike)
+        .finally(() => { this.opening = undefined }))
+      const pool = await opening
+      if (this.pool == null) {
+        this.pool = pool
+        this.ownsPool = true
+      }
     }
     await this.migrate()
   }

@@ -30,7 +30,7 @@ import { idString } from './ids.js'
 const taskId = (id: unknown): string => idString(id, 'the task id', 'MongoScheduleStore')
 
 /** A stored schedule document. */
-export interface ScheduleDoc {
+export interface MongoScheduleDoc {
   _id: string
   kind: string
   spec: string
@@ -49,12 +49,12 @@ export interface ScheduleDoc {
  * `Collection` is accepted as is; tests inject an in-memory fake).
  */
 export interface MongoScheduleCollectionLike {
-  findOne(filter: Record<string, unknown>): Promise<ScheduleDoc | null>
-  insertOne(doc: ScheduleDoc): Promise<unknown>
-  /** Driver v6 default: resolves with the document itself (or `null`). */
-  findOneAndUpdate(filter: Record<string, unknown>, update: Record<string, unknown>, options: { returnDocument: 'after' }): Promise<ScheduleDoc | null>
+  findOne(filter: Record<string, unknown>): Promise<MongoScheduleDoc | null>
+  insertOne(doc: MongoScheduleDoc): Promise<unknown>
+  /** Driver default since v6: resolves with the document itself (or `null`). */
+  findOneAndUpdate(filter: Record<string, unknown>, update: Record<string, unknown>, options: { returnDocument: 'after' }): Promise<MongoScheduleDoc | null>
   updateOne(filter: Record<string, unknown>, update: Record<string, unknown>): Promise<{ matchedCount: number }>
-  find(filter: Record<string, unknown>): { toArray(): Promise<ScheduleDoc[]> }
+  find(filter: Record<string, unknown>): { toArray(): Promise<MongoScheduleDoc[]> }
 }
 
 export interface MongoScheduleStoreOptions {
@@ -78,7 +78,7 @@ export function toNum(v: unknown): number {
 
 const isNull = (v: unknown) => v === null || v === undefined
 
-function fromDoc(doc: ScheduleDoc): ScheduleRecord {
+function fromDoc(doc: MongoScheduleDoc): ScheduleRecord {
   const rec: ScheduleRecord = {
     id: doc._id,
     kind: doc.kind as ScheduleKind,
@@ -116,7 +116,7 @@ export class MongoScheduleStore implements ScheduleStore {
     taskId(id)
     for (let attempt = 1; ; attempt++) {
       try {
-        const fresh: ScheduleDoc = { _id: id, kind, spec, nextRunAt, fencingToken: 0, deleted: false, updatedAt: now }
+        const fresh: MongoScheduleDoc = { _id: id, kind, spec, nextRunAt, fencingToken: 0, deleted: false, updatedAt: now }
         await this.col.insertOne({ ...fresh })
         // A brand-new document: soft delete means an id inserted here was never seen, so token 0.
         return fromDoc(fresh)

@@ -4,7 +4,7 @@ Guía para agentes de código (y humanos) que trabajan en este repositorio. Comp
 
 ## Qué es
 
-Framework de bots de mensajería **agnóstico de transporte**, en un **monorepo pnpm** (`packages/*` y `examples/*`). El motor es `@botmesh/core`; los canales (WhatsApp vía Baileys, Cloud API, Evolution API, WPPConnect, Twilio o Gupshup; Messenger, Instagram, Telegram, Discord, GoHighLevel, email y TikTok) son paquetes que implementan `IProvider`. Hay **45 paquetes** en `packages/` y un ejemplo ejecutable en `examples/bakery-ai` (`@botmesh/example-bakery-ai`, privado). Todo es **ESM-only**, **Node >= 22** y está en alpha: los 10 paquetes públicos están en npm bajo el dist-tag `alpha` (npm puso `latest` en la primera versión publicada de cada nombre y no se mueve, así que se queda atrás: instala con `@alpha`) y el resto son privados (la publicación va por Changesets, ver [Publicar una versión](#publicar-una-versión)).
+Framework de bots de mensajería **agnóstico de transporte**, en un **monorepo pnpm** (`packages/*` y `examples/*`). El motor es `@botmesh/core`; los canales (WhatsApp vía Baileys, Cloud API, Evolution API, WPPConnect, Twilio o Gupshup; Messenger, Instagram, Telegram, Discord, GoHighLevel, email y TikTok) son paquetes que implementan `IProvider`. Hay **45 paquetes** en `packages/` y un ejemplo ejecutable en `examples/bakery-ai` (`@botmesh/example-bakery-ai`, privado). Todo es **ESM-only**, **Node >= 22** y está en alpha: los paquetes públicos están en npm bajo el dist-tag `alpha` (npm puso `latest` en la primera versión publicada de cada nombre y no se mueve, así que se queda atrás: instala con `@alpha`) y el resto son privados (la publicación va por Changesets, ver [Publicar una versión](#publicar-una-versión)).
 
 Capas (las dependencias van siempre hacia abajo, nunca al revés):
 
@@ -22,10 +22,9 @@ Capas (las dependencias van siempre hacia abajo, nunca al revés):
 
 El nombre del directorio no siempre coincide con el del paquete (`packages/baileys-provider` → `@botmesh/baileys`, `packages/meta-provider` → `@botmesh/meta`, `packages/*-provider` → `@botmesh/<canal>`, `packages/eslint-plugin` → `eslint-plugin-botmesh`). Mira el `name` en su `package.json` antes de usar `--filter`.
 
-Solo 10 paquetes son **públicos**: `core`, `baileys`, `meta`, `telegram`, `sqlite-store`, `redis-store`, `ai`, `http`, `graph-core` y `create-botmesh`. Los otros 35 (más el ejemplo) llevan `"private": true` y nunca se publican:
+Solo 13 paquetes son **públicos**: `core`, `baileys`, `meta`, `telegram`, `sqlite-store`, `redis-store`, `postgres-store`, `mysql-store`, `mongo-store`, `ai`, `http`, `graph-core` y `create-botmesh` (los tres stores SQL/Mongo salen por primera vez en la beta). Los otros 32 (más el ejemplo) llevan `"private": true` y nunca se publican:
 
 - Canales: `discord`, `messenger`, `instagram`, `evolution`, `wppconnect`, `twilio`, `gohighlevel`, `gupshup`, `email`, `tiktok`.
-- Stores: `mongo-store`, `postgres-store`, `mysql-store`.
 - Plugins e infra: `server`, `wa-gateway-kit`, `rag`, `voice`, `nlu`, `dialogflow`, `chatwoot`, `tickets`, `moderation`, `manager`, `events`, `otel`.
 - Tooling: `eslint-plugin-botmesh`, `@botmesh/mcp`, `@botmesh/sandbox`.
 - Producto: `inbox`, `crm`, `hub`, `campaigns`, `deployments`, `tenant-kv` (todos persistentes sobre cualquier `DurableKv`) y `flow-schema` (documentos de flujo sin código).
@@ -94,7 +93,7 @@ Las dependencias internas se declaran como `"workspace:*"` en los paquetes priva
 - **Sin `console.*` en `src/`.** Usa el `logger` inyectado (compatible con pino). Excepciones que ya existen: el render del QR en terminal (escribe en `process.stdout`), `create-botmesh/src/cli.js` y el aviso de API sin autenticar en `manager/src/http.ts`.
 - **Sin `any` en tipos públicos exportados.** Usa `unknown` y estrecha el tipo. En los parámetros de listeners de interfaces, `unknown` en lugar de `never` (que rompe los sitios `implements` con TS2420).
 - **Errores de envío tipados:** los providers rechazan con las subclases de `ProviderError` del core (`UnsupportedContentError`, `RateLimitedError`, `RecipientUnreachableError`, `PayloadTooLargeError`, `OutsideSessionWindowError`), no con `Error` genérico.
-- **SDKs opcionales con carga lazy:** en `@botmesh/ai`, los SDKs de proveedor (`@anthropic-ai/sdk`, `openai`, `@google/generative-ai`) son `peerDependencies` opcionales y se cargan con `loadModule()`. Nunca los importes al top level. Lo mismo vale para `better-sqlite3` en `sqlite-store`, `imapflow`/`nodemailer` en `@botmesh/email` y `pdf-parse` en `@botmesh/rag`.
+- **SDKs opcionales con carga lazy:** en `@botmesh/ai`, los SDKs de proveedor (`@anthropic-ai/sdk`, `openai`, `@google/generative-ai`) son `peerDependencies` opcionales y se cargan con `loadModule()`. Nunca los importes al top level. Lo mismo vale para `better-sqlite3` en `sqlite-store`, `pg`/`mysql2`/`mongodb` en los stores SQL/Mongo (peers que solo se cargan al crear su propio pool o cliente; sus tipos nunca aparecen en los `.d.ts` publicados), `imapflow`/`nodemailer` en `@botmesh/email` y `pdf-parse` en `@botmesh/rag`.
 - **`@internal` desaparece de los `.d.ts` publicados** (`stripInternal` en `tsconfig.base.json`): un símbolo o miembro con esa etiqueta es invisible para los demás paquetes tras el build (compilan contra `lib/`) y para los usuarios; no lo uses entre paquetes y no etiquetes así nada que otro paquete importe. `pnpm api-check` (tras `pnpm build`) lo comprueba junto con los tipos sin exportar y los `any` de la API pública; `pnpm pack:smoke` falla si un tarball lleva `@internal`.
 - **Comentarios y código en inglés**; los **README** (raíz y de paquete) y **`CONTRIBUTING.md`** van en **inglés** porque son la cara del proyecto en GitHub y en npmjs.com, mientras que las guías del sitio y el `CHANGELOG` están en **español** (el sitio es bilingüe EN/ES).
 - **TDD:** escribe primero el test que falla. Todo cambio de comportamiento lleva su test.

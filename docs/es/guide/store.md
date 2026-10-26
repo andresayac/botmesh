@@ -15,7 +15,7 @@ respecto al transporte, así que el mismo store funciona con cualquier canal.
 | `MemoryStore` *(default)* | `@botmesh/core` | Memoria del proceso (snapshot JSON opcional) | Desarrollo y tests |
 | `SQLiteStore` | `@botmesh/sqlite-store` | Un archivo SQLite | **Producción con un proceso** |
 | `RedisStore` | `@botmesh/redis-store` | Un servidor Redis o un Redis Cluster | **Producción con varias réplicas** |
-| `PostgresStore` · `MysqlStore` · `MongoStore` | `@botmesh/postgres-store` · `@botmesh/mysql-store` · `@botmesh/mongo-store` | PostgreSQL / MySQL / MongoDB | Aún sin publicar en npm (ver [más abajo](#postgresql-mysql-y-mongodb)) |
+| `PostgresStore` · `MysqlStore` · `MongoStore` | `@botmesh/postgres-store` · `@botmesh/mysql-store` · `@botmesh/mongo-store` | PostgreSQL / MySQL o MariaDB / MongoDB | **Varias réplicas** sobre la base de datos que ya tienes (ver [más abajo](#postgresql-mysql-y-mongodb)) |
 
 Reglas prácticas:
 
@@ -23,7 +23,8 @@ Reglas prácticas:
   servidor que mantener, un archivo que respaldar.
 - Varios procesos del mismo bot ([réplicas](./replicas)), o estado que leen
   otros servicios: **`RedisStore`**. Todas las réplicas deben ver los mismos
-  datos, así que `MemoryStore` y `SQLiteStore` no sirven ahí.
+  datos, así que `MemoryStore` y `SQLiteStore` no sirven ahí. Si ya tienes
+  PostgreSQL, MySQL/MariaDB o MongoDB, el store correspondiente hace lo mismo.
 - Pasa siempre una **instancia** de store (`store: new SQLiteStore({ … })`). Un
   string como `store: 'sqlite'` solo se acepta por compatibilidad y sigue
   creando un `MemoryStore`.
@@ -245,11 +246,40 @@ esquema de claves y el resto de detalles están en el
 ## PostgreSQL, MySQL y MongoDB
 
 `@botmesh/postgres-store`, `@botmesh/mysql-store` y `@botmesh/mongo-store`
-pasan la misma suite de conformidad que los stores publicados y también traen
-stores de schedules (y, en PostgreSQL, un backend de durabilidad). **Aún no
-están publicados en npm**: úsalos desde una copia del
-[repositorio](https://github.com/andresayac/botmesh/tree/main/packages), donde
-sus README documentan las opciones.
+guardan el estado del bot en la base de datos que ya operas, compartida por
+cualquier número de réplicas. Pasan la misma suite de conformidad que los demás
+stores, crean sus tablas (o índices) en `start()` y traen un
+[store de schedules](./scheduler) durable (`store.schedules()`). PostgreSQL
+tiene además un backend de [durabilidad](./durabilidad), `PostgresDurability`.
+
+El driver de la base de datos es una dependencia peer y solo se carga cuando el
+store crea su propio pool o cliente:
+
+```bash
+pnpm add @botmesh/postgres-store pg      # PostgreSQL
+pnpm add @botmesh/mysql-store mysql2     # MySQL 8.x o MariaDB
+pnpm add @botmesh/mongo-store mongodb    # MongoDB (driver 6.x o 7.x)
+```
+
+```ts
+import { PostgresStore } from '@botmesh/postgres-store'
+import { MysqlStore } from '@botmesh/mysql-store'
+import { MongoStore } from '@botmesh/mongo-store'
+
+const store = new PostgresStore({ connectionString: process.env.DATABASE_URL, tablePrefix: 'mybot_' })
+// o: new MysqlStore({ uri: process.env.MYSQL_URL, tablePrefix: 'mybot_' })
+// o: new MongoStore({ url: process.env.MONGO_URL, dbName: 'mybot' })
+
+const bot = new Bot({ provider, store, scheduler: { store: store.schedules() } })
+```
+
+Todos aceptan también un pool o cliente existente (`pool` / `client`), que
+nunca cierran. Con un pool de `pg` inyectado, añade un listener
+`pool.on('error', …)`: node-postgres tumba el proceso cuando se cae una conexión
+ociosa y nadie escucha. Las opciones, el esquema y las tablas de errores están en
+el README de cada paquete: [PostgreSQL](https://www.npmjs.com/package/@botmesh/postgres-store),
+[MySQL/MariaDB](https://www.npmjs.com/package/@botmesh/mysql-store),
+[MongoDB](https://www.npmjs.com/package/@botmesh/mongo-store).
 
 ## Tablas de datos de usuario
 

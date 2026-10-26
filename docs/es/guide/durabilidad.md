@@ -48,7 +48,7 @@ código que antes, en memoria y en un solo proceso.
 | `FileDurability.open(ruta)` | `@botmesh/core` | Sí | No (un archivo de lock rechaza un segundo proceso vivo, y un segundo `open()` en el mismo proceso hasta `close()`) |
 | `store.durability()` de un `SQLiteStore` (`SQLiteDurability`) | `@botmesh/sqlite-store` | Sí | Procesos en un mismo host que comparten el archivo |
 | `RedisDurability({ client \| url \| cluster, prefix })` | `@botmesh/redis-store` | Sí (con la persistencia de Redis activada) | Sí, con enrutado fijo por chat o `coordination` (ver [Varias réplicas](#varias-replicas)) |
-| `PostgresDurability({ pool \| connectionString, tablePrefix, logger })` | `@botmesh/postgres-store` (aún no en npm) | Sí | Sí, como Redis |
+| `PostgresDurability({ pool \| connectionString, tablePrefix, logger })` | `@botmesh/postgres-store` | Sí | Sí, como Redis |
 | `eventsDurability({ journal })` | `@botmesh/events/durability` (aún no en npm) | Con un `FileEventJournal` abierto con `{ lock: true }` o un `SharedFileEventJournal` | Con un `SharedFileEventJournal` (procesos en un mismo host; ver *Un journal de `@botmesh/events`*) |
 
 SQLite guarda los journals en la tabla `durable` del archivo del store, creada

@@ -300,9 +300,9 @@ by building without it: `api-check internal` then lists `AIPluginConfig.__provid
 
 Audit of every `@internal` tag in `packages/*/src`: core's flow/describe/schema/media
 helpers, `DynamicFlowRegistry`, `FlowRouteLog` and the transcript recorder's internals are
-consumed only inside `@botmesh/core` (compiled from `src`); the private packages' tags
+consumed only inside `@botmesh/core` (compiled from `src`); the other packages' tags
 (`events`, `manager`, `deployments`' `normalizeGateResult`, `mongo-store`'s
-`TRIM_DELETE_BATCH`, `rag`'s clock) are used inside their own package or by its tests
+`TRIM_DELETE_BATCH`, which never reaches its entry, `rag`'s clock) are used inside their own package or by its tests
 (`tsconfig.test.json` compiles from `src`). The only published leak was
 `AIPluginConfig.__provider`, used by `pack:smoke` and `examples/bakery-ai`: it is
 **promoted** to the public option `instance` (a ready-built `AIProvider`); `__provider`

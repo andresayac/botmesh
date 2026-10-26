@@ -227,8 +227,9 @@ Limits:
 
 ## Requirements and limits
 
-- **A shared store**: `RedisStore` (the PostgreSQL, MySQL and MongoDB stores
-  also work, but are not on npm yet). With `MemoryStore` or `SQLiteStore` each
+- **A shared store**: `RedisStore`, `PostgresStore`, `MysqlStore` or
+  `MongoStore` (only Redis has a coordinator; the others hold the shared state
+  and the checkpoints with compare-and-set). With `MemoryStore` or `SQLiteStore` each
   replica has its own data.
 - **Multi-turn flows should be `.persistent()`** (or use
   [`handover`](#conversation-hand-over)). Without it, a plain

@@ -55,7 +55,7 @@ The [getting started guide](https://andresayac.github.io/botmesh/guide/getting-s
 
 ## Packages
 
-This is a pnpm monorepo with **45 packages**: 10 **Public**, 27 **Experimental** and 8 **Product** and internal ones. They are not all equally mature, and the **Status** column says so plainly:
+This is a pnpm monorepo with **45 packages**: 13 **Public**, 24 **Experimental** and 8 **Product** and internal ones. They are not all equally mature, and the **Status** column says so plainly:
 
 - **Public**: published on npm and covered by semver from the stable release on (prerelease builds until then).
 - **Experimental**: real, tested implementation, but the package is `private`. Not published yet and its API may change.
@@ -82,9 +82,9 @@ This is a pnpm monorepo with **45 packages**: 10 **Public**, 27 **Experimental**
 | **Stores (persistence)** | | |
 | [`@botmesh/sqlite-store`](packages/sqlite-store) | Public | SQLite (`better-sqlite3`, WAL). |
 | [`@botmesh/redis-store`](packages/redis-store) | Public | Distributed Redis (+ multi-replica lock). |
-| [`@botmesh/mongo-store`](packages/mongo-store) | Experimental | MongoDB. |
-| [`@botmesh/postgres-store`](packages/postgres-store) | Experimental | PostgreSQL (`pg`). |
-| [`@botmesh/mysql-store`](packages/mysql-store) | Experimental | MySQL/MariaDB (`mysql2`). |
+| [`@botmesh/postgres-store`](packages/postgres-store) | Public | PostgreSQL (`pg`): shared state, durable scheduler and durable inbox/outbox. |
+| [`@botmesh/mysql-store`](packages/mysql-store) | Public | MySQL/MariaDB (`mysql2`): shared state and durable scheduler. |
+| [`@botmesh/mongo-store`](packages/mongo-store) | Public | MongoDB (`mongodb` 6 or 7): shared state and durable scheduler. |
 | **Plugins** | | |
 | [`@botmesh/ai`](packages/ai) | Public | AI: Anthropic/OpenAI/Ollama/Gemini + 9 OpenAI-compatible presets (DeepSeek/Qwen/GLM/Kimi/Groq/…), auto-reply, tool calling with confirmation, per-user long-term memory and RAG. See the [WhatsApp AI policy](docs/guide/ai.md#whatsapp-ai-policy-since-2026-01-15). |
 | [`@botmesh/nlu`](packages/nlu) | Experimental | Local intents/NLU (define/match + `whenIntent`), no external services. |

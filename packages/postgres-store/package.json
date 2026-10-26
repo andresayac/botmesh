@@ -1,9 +1,8 @@
 {
   "name": "@botmesh/postgres-store",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
-  "description": "PostgreSQL IStore for @botmesh/core (node-postgres).",
+  "description": "PostgreSQL store for @botmesh/core: shared bot state, durable scheduler and durable inbox/outbox on node-postgres.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "exports": {
@@ -18,7 +17,11 @@
   "keywords": [
     "botmesh",
     "store",
-    "postgres-store"
+    "postgres",
+    "postgresql",
+    "pg",
+    "durability",
+    "scheduler"
   ],
   "author": "Andres Aya",
   "license": "MIT",
@@ -27,7 +30,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/postgres-store"
   },
-  "homepage": "https://github.com/andresayac/botmesh/tree/main/packages/postgres-store#readme",
+  "homepage": "https://andresayac.github.io/botmesh/guide/store",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },
@@ -41,15 +44,20 @@
     "typecheck": "tsc -p tsconfig.test.json"
   },
   "dependencies": {
-    "@botmesh/core": "workspace:*",
-    "@types/pg": "^8.11.10",
+    "@botmesh/core": "workspace:^"
+  },
+  "peerDependencies": {
     "pg": "^8.13.0"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
+    "@types/pg": "^8.11.10",
+    "pg": "^8.13.0",
     "typescript": "^7.0.2",
     "vite": "^7.3.7",
     "vitest": "^4.1.12"
   },
-  "publishConfig": { "access": "public" }
+  "publishConfig": {
+    "access": "public"
+  }
 }

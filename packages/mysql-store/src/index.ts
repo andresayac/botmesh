@@ -1,8 +1,8 @@
 export { MysqlStore } from './MysqlStore.js'
 export type {
   MysqlStoreOptions,
-  PoolLike,
-  ConnectionLike,
+  MysqlPoolLike,
+  MysqlConnectionLike,
   MysqlQueryResult,
   NativeMysqlPool,
 } from './MysqlStore.js'

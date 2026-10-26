@@ -34,11 +34,11 @@
  * ```
  */
 
-import { Pool } from 'pg'
 import type {
   AIMessage,
   FlowCheckpoint,
   IStore,
+  LoggerLike,
   MessageRef,
   StoredChat,
   StoredContact,
@@ -52,6 +52,7 @@ import { legacyMessageKey, messageKey } from '@botmesh/core/spi'
 import { PostgresUserData } from './userData.js'
 import { PostgresScheduleStore } from './schedules.js'
 import { jsonbSafeString, toJsonb } from './jsonb.js'
+import { createPgPool } from './driver.js'
 
 /**
  * SQL predicate: the row's message is the one with `ref.id = <a>` and
@@ -80,8 +81,16 @@ export interface PostgresPoolLike {
   end(): Promise<void>
 }
 
-/** The native node-postgres `Pool` type (the `pg` dependency). */
-export type NativePostgresPool = Pool
+/**
+ * A node-postgres `Pool` (or `Client`), typed structurally so that no published
+ * declaration imports `pg`: any pg 8.x pool fits, and a consumer needs neither
+ * `@types/pg` nor the same pg copy as this package. The store narrows it to
+ * {@link PostgresPoolLike} at the boundary.
+ */
+export interface NativePostgresPool {
+  query(...args: never[]): unknown
+  end(...args: never[]): unknown
+}
 
 export interface PostgresStoreOptions {
   /**
@@ -120,8 +129,9 @@ export interface PostgresStoreOptions {
    * Receives lifecycle errors (pool end failure) and the connection errors of
    * idle clients of a store-created pool. An injected pool's 'error' events are
    * the caller's to handle (node-postgres crashes the process without a listener).
+   * Any {@link LoggerLike} (pino, `console`, the bot's logger) fits; every method is optional.
    */
-  logger?: { error?: (...args: unknown[]) => void }
+  logger?: Partial<LoggerLike>
 }
 
 /** tablePrefix is interpolated into SQL identifiers — allow only plain identifiers. */
@@ -157,8 +167,10 @@ export class PostgresStore implements IStore {
   private readonly prefix: string
   private readonly injectedPool?: PostgresPoolLike
   private readonly maxMessagesPerChat?: number
-  private readonly logger?: { error?: (...args: unknown[]) => void }
+  private readonly logger?: Partial<LoggerLike>
   private pool?: PostgresPoolLike
+  /** The own pool being created (the driver loads lazily), shared by concurrent `start()` calls. */
+  private opening?: Promise<PostgresPoolLike>
   private started = false
   private readonly userData: PostgresUserData
 
@@ -539,7 +551,7 @@ export class PostgresStore implements IStore {
    */
   schedules(): PostgresScheduleStore {
     return (this.scheduleStore ??= new PostgresScheduleStore({
-      pool: { query: (text, values) => this.query(text, values) as Promise<PostgresQueryResult> },
+      pool: { query: (text: string, values?: unknown[]) => this.query(text, values) as Promise<PostgresQueryResult> },
       tablePrefix: this.prefix || undefined,
     }))
   }
@@ -554,13 +566,13 @@ export class PostgresStore implements IStore {
    */
   async start(): Promise<void> {
     if (this.started) return
-    if (!this.pool) this.pool = this.createOwnPool()
+    if (!this.pool) this.pool = await (this.opening ??= this.createOwnPool().finally(() => { this.opening = undefined }))
     for (const stmt of this.schemaStatements()) await this.createSchemaObject(this.pool, stmt)
     this.started = true
   }
 
-  private createOwnPool(): PostgresPoolLike {
-    const pool = new Pool({ connectionString: this.connectionString })
+  private async createOwnPool(): Promise<PostgresPoolLike> {
+    const pool = await createPgPool(this.connectionString)
     // pg emits 'error' on the pool when an IDLE client loses its connection
     // (server restart, failover, pg_terminate_backend, network drop). With no
     // listener that is an uncaught exception that crashed the bot; the pool

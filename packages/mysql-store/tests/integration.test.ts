@@ -28,7 +28,7 @@ import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { type AIMessage, type FlowCheckpoint, type StoredChat, type StoredContact, type StoredMessage } from '@botmesh/core'
 import { legacyMessageKey } from '@botmesh/core/spi'
 import { MysqlStore } from '../src/MysqlStore.js'
-import type { MysqlQueryResult, MysqlStoreOptions, PoolLike } from '../src/MysqlStore.js'
+import type { MysqlQueryResult, MysqlStoreOptions, MysqlPoolLike } from '../src/MysqlStore.js'
 import { runStoreConformance } from '../../../test-utils/store-conformance.js'
 import { runUserDataConformance } from '../../../test-utils/user-data-conformance.js'
 import { FakePool } from './fakePool.js'
@@ -57,6 +57,8 @@ if (enabled) vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 })
 describe.skipIf(!enabled)('MysqlStore — real MySQL integration', () => {
   /** Out-of-band connection used for setup, raw assertions and cleanup. */
   let admin: Pool
+  /** MariaDB's JSON type is LONGTEXT + CHECK (json_valid()), which rejects nesting deeper than 32 (the message document adds a few levels around `raw`). */
+  let mariadb = false
 
   async function dropTables(prefix: string): Promise<void> {
     // One statement for all seven tables: DDL dominates this suite's run time.
@@ -85,7 +87,9 @@ describe.skipIf(!enabled)('MysqlStore — real MySQL integration', () => {
 
   beforeAll(async () => {
     admin = createPool(MYSQL_URL)
-    await admin.query('SELECT 1') // fail early (and clearly) when the server is unreachable
+    // Fail early (and clearly) when the server is unreachable.
+    const [version] = await admin.query<RowDataPacket[]>('SELECT VERSION() AS v')
+    mariadb = /mariadb/i.test(String(version[0]?.v))
   })
 
   afterAll(async () => {
@@ -632,12 +636,24 @@ describe.skipIf(!enabled)('MysqlStore — real MySQL integration', () => {
       }
     })
 
+    it.runIf(enabled)('MariaDB refuses JSON nested deeper than 32 levels (documented limit)', async (ctx) => {
+      if (!mariadb) return ctx.skip()
+      const { store, teardown } = await makeStore()
+      try {
+        let deep: Record<string, unknown> = { leaf: true }
+        for (let i = 0; i < 40; i++) deep = { level: i, child: deep }
+        await expect(store.saveMessage(msg('deep', 'd1', 'x', 1, { raw: deep }))).rejects.toThrow(/CONSTRAINT/)
+      } finally {
+        await teardown()
+      }
+    })
+
     it('round-trips large and structurally rich JSON documents', async () => {
       const { store, teardown } = await makeStore()
       try {
         const big = 'x'.repeat(4 * 1024 * 1024) + '😀' // ~4 MB body
         let deep: Record<string, unknown> = { leaf: true }
-        for (let i = 0; i < 40; i++) deep = { level: i, child: deep }
+        for (let i = 0; i < (mariadb ? 25 : 40); i++) deep = { level: i, child: deep }
         const raw = {
           ints: [0, -1, 1, Number.MAX_SAFE_INTEGER, -Number.MAX_SAFE_INTEGER],
           floats: [0.1, -2.5, 1e-7, 1.7976931348623157e308],
@@ -812,7 +828,7 @@ describe('MysqlStore — real-server regressions (hermetic pins)', () => {
 
   it('decodes VARBINARY keys (returned by mysql2 as Buffers) back to strings', async () => {
     const cp: FlowCheckpoint = { flowId: 'f', step: 1, state: {}, updatedAt: 1 }
-    const pool: PoolLike = {
+    const pool: MysqlPoolLike = {
       async query(sql: string): Promise<MysqlQueryResult> {
         if (sql.startsWith('SELECT `key`, cp FROM')) return [[{ key: Buffer.from('chat-😀:ñ', 'utf8'), cp }], []]
         return [[], []]
