@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -23,7 +23,7 @@ class CountingEmbedder implements Embedder {
 }
 
 let dir: string | undefined
-afterEach(async () => { if (dir) await rm(dir, { recursive: true, force: true }); dir = undefined })
+afterEach(async () => { vi.restoreAllMocks(); if (dir) await rm(dir, { recursive: true, force: true }); dir = undefined })
 
 describe('markdown headings', () => {
   it('parses a heading line padded with thousands of spaces in linear time (no ReDoS)', () => {
@@ -178,5 +178,71 @@ describe('bursts', () => {
     expect(rag.size).toBe(1 + 60 - 20)
     const docs = chunkDocument({ id: 'x', source: 'x', text: 'y' })
     expect(docs).toHaveLength(1)
+  })
+})
+
+describe('switching the embedder of a persisted index', () => {
+  async function buildOld(persistPath: string, documents?: RagDocument[]): Promise<void> {
+    await new Rag({ documents: documents ?? [{ id: 'a', source: 'a.md', text: 'Aceptamos pagos con tarjeta.' }], embeddings: new CountingEmbedder('old'), persistPath }).ready()
+  }
+
+  it('reports the switch to onError and keeps the previous file as <persistPath>.previous', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'rag-'))
+    const persistPath = join(dir, 'index.json')
+    await buildOld(persistPath)
+    const errors: unknown[] = []
+    const rag = new Rag({ embeddings: new CountingEmbedder('new', 32), persistPath, onError: (e) => errors.push(e) })
+    await rag.ready()
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toBeInstanceOf(RagError)
+    expect(errors[0]).toMatchObject({ code: 'EMBEDDER_CHANGED', message: expect.stringContaining('"old"') })
+    expect(JSON.parse(await readFile(`${persistPath}.previous`, 'utf8')).embedder).toBe('old')
+    expect(JSON.parse(await readFile(persistPath, 'utf8')).embedder).toBe('new')
+  })
+
+  it('also reports it when documents are configured', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'rag-'))
+    const persistPath = join(dir, 'index.json')
+    const docs: RagDocument[] = [{ id: 'a', source: 'a.md', text: 'Aceptamos pagos con tarjeta.' }]
+    await buildOld(persistPath, docs)
+    const onError = vi.fn()
+    await new Rag({ documents: docs, embeddings: new CountingEmbedder('new', 32), persistPath, onError }).ready()
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ code: 'EMBEDDER_CHANGED' }))
+    expect(JSON.parse(await readFile(`${persistPath}.previous`, 'utf8')).embedder).toBe('old')
+  })
+
+  it('serves the re-embedded prebuilt index from memory and reports a RagError when it cannot be saved', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'rag-'))
+    const persistPath = join(dir, 'index.json')
+    await buildOld(persistPath)
+    vi.spyOn(VectorIndex.prototype, 'save').mockRejectedValue(Object.assign(new Error('EPERM: operation not permitted'), { code: 'EPERM' }))
+    const errors: unknown[] = []
+    const rag = new Rag({ embeddings: new CountingEmbedder('new', 32), persistPath, onError: (e) => errors.push(e) })
+    const [hit] = await rag.retrieve('pagos con tarjeta')
+    expect(hit).toMatchObject({ source: 'a.md' })
+    expect(errors.map((e) => (e as RagError).code)).toEqual(['EMBEDDER_CHANGED', 'PERSIST_FAILED'])
+    expect(errors[1]).toBeInstanceOf(RagError)
+    expect((errors[1] as RagError).cause).toMatchObject({ code: 'EPERM' })
+    expect(JSON.parse(await readFile(persistPath, 'utf8')).embedder).toBe('old')
+  })
+
+  it('serves a freshly ingested corpus from memory when the index cannot be saved', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'rag-'))
+    const persistPath = join(dir, 'index.json')
+    vi.spyOn(VectorIndex.prototype, 'save').mockRejectedValue(new Error('EROFS'))
+    const onError = vi.fn()
+    const rag = new Rag({ documents: [{ id: 'a', source: 'a.md', text: 'Aceptamos pagos con tarjeta.' }], persistPath, onError })
+    expect(await rag.retrieve('pagos con tarjeta')).toHaveLength(1)
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ code: 'PERSIST_FAILED' }))
+  })
+
+  it('wraps a save failure of an explicit change in RagError PERSIST_FAILED', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'rag-'))
+    const persistPath = join(dir, 'index.json')
+    const rag = new Rag({ persistPath })
+    await rag.ready()
+    vi.spyOn(VectorIndex.prototype, 'save').mockRejectedValue(new Error('EPERM'))
+    await expect(rag.addText('hola', { source: 'h' })).rejects.toMatchObject({ name: 'RagError', code: 'PERSIST_FAILED' })
+    await expect(rag.save()).rejects.toMatchObject({ name: 'RagError', code: 'PERSIST_FAILED' })
   })
 })

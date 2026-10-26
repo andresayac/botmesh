@@ -222,7 +222,11 @@ Durante la beta, añade el dist-tag `@beta` (`pnpm add @botmesh/rag@beta`). No d
   tras cada cambio y, al reiniciar, solo se vuelven a embeber los fragmentos
   cuyo texto cambió. Si cambias de embedder (otro `id`), los documentos
   añadidos en tiempo de ejecución y un índice precompilado se vuelven a
-  embeber con él en lugar de perderse.
+  embeber con él en lugar de perderse; `onError` recibe un
+  `RagError('EMBEDDER_CHANGED')` y el archivo anterior se conserva como
+  `<persistPath>.previous`. Si el índice no se puede guardar al cargarlo
+  (archivo de solo lectura), `onError` recibe `PERSIST_FAILED` y se sirve
+  desde memoria.
 
 | Opción | Por defecto | Descripción |
 |---|---|---|
@@ -236,7 +240,7 @@ Durante la beta, añade el dist-tag `@beta` (`pnpm add @botmesh/rag@beta`). No d
 | `cwd` | `process.cwd()` | Directorio base de las rutas relativas. |
 | `maxFileBytes` | 20 MiB | Tamaño máximo por archivo cargado. |
 | `retryDelayMs` | `30000` | Tras una ingesta fallida, `retrieve()` rechaza al momento con el mismo error durante este tiempo. |
-| `onError` | — | Problemas no fatales (p. ej. un índice guardado corrupto que se aparta y se reconstruye). |
+| `onError` | — | Problemas no fatales, siempre un `RagError`: `INVALID_INDEX` (índice corrupto apartado y reconstruido), `EMBEDDER_CHANGED` (re-embebido con otro embedder), `PERSIST_FAILED` (no se pudo guardar al cargar; se sirve desde memoria). |
 
 `createRag()` es síncrono y barato, así que cabe en un `install` síncrono de
 plugin. También puedes usarlo directamente:

@@ -16,7 +16,7 @@
 import { chunkDocument, resolveChunkOptions, type ChunkOptions } from './chunking.js'
 import { resolveEmbedder, type EmbeddingsConfig } from './embeddings/resolve.js'
 import { RagError } from './errors.js'
-import { rename } from 'node:fs/promises'
+import { copyFile, rename } from 'node:fs/promises'
 import { loadPaths, type PdfParser } from './loaders.js'
 import type { Embedder, RagChunk, RagDocument, RagMetadata, RetrievedChunk } from './types.js'
 import { hashText, VectorIndex, type IndexEntry } from './VectorIndex.js'
@@ -47,7 +47,12 @@ export interface RagOptions extends ChunkOptions {
    * every query. `ready()` / `warmup()` always retry. Default 30000.
    */
   retryDelayMs?: number
-  /** Non-fatal problems, e.g. a corrupt persisted index that was discarded and rebuilt. */
+  /**
+   * Non-fatal problems (always a {@link RagError}): a corrupt persisted index that was
+   * set aside and rebuilt (`INVALID_INDEX`), an index built with another embedder that
+   * was re-embedded (`EMBEDDER_CHANGED`), or an index that could not be saved while
+   * ingesting and is served from memory (`PERSIST_FAILED`).
+   */
   onError?: (err: unknown) => void
   /** @internal clock (tests). */
   now?: () => number
@@ -171,7 +176,7 @@ export class Rag {
     } catch (err) {
       if (!rebuildable || !(err instanceof RagError) || err.code !== 'INVALID_INDEX') throw err
       await rename(path, `${path}.corrupt`).catch(() => {})
-      try { this.options.onError?.(err) } catch { /* reporting must not break ingest */ }
+      this.report(err)
       return undefined
     }
   }
@@ -191,7 +196,7 @@ export class Rag {
         this.index = next
       }
       this.pruneCache()
-      if (persisted && !sameSpace) await this.persist()
+      if (persisted && !sameSpace) await this.replaceForeignIndex(persisted.embedder)
       return
     }
     const docs = await this.loadDocuments(configured)
@@ -207,7 +212,41 @@ export class Rag {
     const changed = embedded > 0 || !usable || usable.size !== next.size || next.all().some((e) => usable.get(e.id)?.hash !== e.hash)
     this.index = next
     this.pruneCache()
-    if (changed) await this.persist()
+    if (persisted && !sameSpace) await this.replaceForeignIndex(persisted.embedder)
+    else if (changed) await this.persistOrReport()
+  }
+
+  private report(err: unknown): void {
+    try { this.options.onError?.(err) } catch { /* reporting must not break ingest */ }
+  }
+
+  /**
+   * The persisted index was built with another embedder and has just been re-embedded:
+   * report the switch, keep the old file as `<persistPath>.previous` (its vectors may
+   * have been expensive) and only then overwrite it. When the copy fails the old file
+   * is left untouched and the re-embedded index is served from memory.
+   */
+  private async replaceForeignIndex(previousEmbedder: string): Promise<void> {
+    const path = this.options.persistPath!
+    const previous = `${path}.previous`
+    this.report(new RagError('EMBEDDER_CHANGED',
+      `index ${path} was built with embedder "${previousEmbedder}"; re-embedded with "${this.embedder.id}" (previous file kept as ${previous})`))
+    try {
+      await copyFile(path, previous)
+    } catch (cause) {
+      this.report(new RagError('PERSIST_FAILED', `could not keep a copy of ${path} as ${previous}; the index is served from memory and the file is left as it was`, { cause }))
+      return
+    }
+    await this.persistOrReport()
+  }
+
+  /** Persist during ingest: a failed save is reported and the index is served from memory. */
+  private async persistOrReport(): Promise<void> {
+    try {
+      await this.persist()
+    } catch (err) {
+      this.report(err)
+    }
   }
 
   /** Index entries with vectors from this embedder (cached ones reused). */
@@ -267,7 +306,16 @@ export class Rag {
   }
 
   private async persist(): Promise<void> {
-    if (this.options.persistPath) await this.index.save(this.options.persistPath)
+    if (this.options.persistPath) await this.saveTo(this.options.persistPath)
+  }
+
+  /** Save the index, failing with `RagError('PERSIST_FAILED')` (the cause keeps the fs error). */
+  private async saveTo(path: string): Promise<void> {
+    try {
+      await this.index.save(path)
+    } catch (cause) {
+      throw new RagError('PERSIST_FAILED', `could not save the index to ${path}`, { cause })
+    }
   }
 
   /** Add (or replace, by id) documents. Resolves with the number of chunks indexed. */
@@ -327,7 +375,7 @@ export class Rag {
     await this.ready()
     const target = path ?? this.options.persistPath
     if (!target) throw new RagError('INVALID_OPTIONS', 'save() needs a path (or persistPath)')
-    await this.serial(() => this.index.save(target))
+    await this.serial(() => this.saveTo(target))
   }
 
   /** The `topK` chunks most similar to `query`, best first, with citation labels. */
