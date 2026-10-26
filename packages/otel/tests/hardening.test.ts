@@ -67,6 +67,42 @@ describe('span timing', () => {
     const [dispatch] = await m.points('botmesh.dispatch.duration') as Hist[]
     expect(dispatch!.value.sum).toBeCloseTo(1.5, 2)
   })
+
+  it('a wall-clock step does not leak into span metric durations (no mixed clocks)', async () => {
+    env = memoryTracing()
+    const m = memoryMetrics()
+    const tracer = otelTracer({ api, tracerProvider: env.provider, spanMetrics: { meterProvider: m.meterProvider } })
+    // The wall clock steps 120 s back (NTP correction / resume from sleep) relative to the monotonic anchor.
+    const stepped = Date.now() - 120_000
+    const spy = vi.spyOn(Date, 'now').mockImplementation(() => stepped)
+    try {
+      // startTimeMs given, end() without argument: both ends on the caller's (wall) clock.
+      tracer.startSpan('bot.send', { startTimeMs: Date.now() }).end()
+      // endTimeMs given without startTimeMs: same.
+      tracer.startSpan('bot.dispatch').end(Date.now() + 250)
+      // Neither given: a pure monotonic difference, immune to the step.
+      const s = tracer.startSpan('bot.inbound')
+      spy.mockImplementation(() => stepped + 3_600_000)
+      s.end()
+    } finally { spy.mockRestore() }
+    const [send] = await m.points('botmesh.send.duration') as Hist[]
+    expect(send!.value.sum).toBeLessThan(0.1)
+    expect(send!.value.sum).toBeGreaterThanOrEqual(0)
+    const [dispatch] = await m.points('botmesh.dispatch.duration') as Hist[]
+    expect(dispatch!.value.sum).toBeCloseTo(0.25, 1)
+    const [inbound] = await m.points('botmesh.inbound.duration') as Hist[]
+    expect(inbound!.value.sum).toBeLessThan(0.1)
+  })
+
+  it('a negative explicit duration (end before start) records 0, never a negative value', async () => {
+    env = memoryTracing()
+    const m = memoryMetrics()
+    const tracer = otelTracer({ api, tracerProvider: env.provider, spanMetrics: { meterProvider: m.meterProvider } })
+    const start = Date.now()
+    tracer.startSpan('bot.send', { startTimeMs: start }).end(start - 500)
+    const [send] = await m.points('botmesh.send.duration') as Hist[]
+    expect(send!.value.sum).toBe(0)
+  })
 })
 
 describe('option validation', () => {

@@ -36,13 +36,14 @@ function toAttributes(attrs: TraceAttributes | undefined): Attributes | undefine
   return out
 }
 
-/** Wall-clock milliseconds with sub-millisecond precision (the time base of `startTimeMs`/`endTimeMs`). */
-const nowMs = (): number => performance.timeOrigin + performance.now()
-
 /** One bot span backed by an OTel span. */
 class OtelBotSpan implements BotSpan {
   /** Attributes {@link SpanMetrics} reads (only when span metrics are on). */
   private readonly picked?: Map<string, TraceAttributeValue>
+  /** Monotonic start (`performance.now()`), for a span with no caller-given time (metrics only). */
+  private readonly startedMono: number = 0
+  /** Wall-clock start (`Date.now()`), the base of an `end(endTimeMs)` without `startTimeMs` (metrics only). */
+  private readonly startedWall: number = 0
 
   constructor(
     readonly otel: Span,
@@ -50,13 +51,28 @@ class OtelBotSpan implements BotSpan {
     private readonly name: string,
     private readonly metrics?: SpanMetrics,
     initial?: TraceAttributes,
-    /** Epoch ms: `SpanOptions.startTimeMs`, or now. */
-    private readonly started: number = nowMs(),
+    /** Epoch ms (`Date.now()` base): `SpanOptions.startTimeMs`, when the caller gave one. */
+    private readonly startTimeMs?: number,
   ) {
     if (metrics) {
       this.picked = new Map()
       if (initial) this.pick(initial)
+      this.startedMono = performance.now()
+      this.startedWall = Date.now()
     }
+  }
+
+  /**
+   * Metric duration that never mixes clocks: with no caller-given time, a pure monotonic
+   * difference (immune to wall-clock steps); once the caller gives `startTimeMs` or
+   * `endTimeMs` (epoch ms, `Date.now()` base), both ends are read on that wall clock.
+   * Never negative.
+   */
+  private durationMs(endTimeMs: number | undefined): number {
+    const d = endTimeMs === undefined && this.startTimeMs === undefined
+      ? performance.now() - this.startedMono
+      : (endTimeMs ?? Date.now()) - (this.startTimeMs ?? this.startedWall)
+    return d > 0 ? d : 0
   }
 
   private pick(attrs: TraceAttributes): void {
@@ -91,7 +107,7 @@ class OtelBotSpan implements BotSpan {
   end(endTimeMs?: number): void {
     this.otel.end(endTimeMs)
     if (this.metrics && this.picked) {
-      try { this.metrics.record(this.name, (endTimeMs ?? nowMs()) - this.started, this.picked) } catch { /* metrics never break a span */ }
+      try { this.metrics.record(this.name, this.durationMs(endTimeMs), this.picked) } catch { /* metrics never break a span */ }
     }
   }
   isRecording(): boolean { return this.otel.isRecording() }
