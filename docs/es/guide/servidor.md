@@ -244,7 +244,7 @@ la petición. Para la mayoría de providers no importa, con estos detalles:
 | `CloudAPIProvider`, `MessengerProvider`, `InstagramProvider` | Por defecto (`buffer`). El handshake `GET` va a `verifyChallenge()` |
 | `TelegramProvider` (`polling: false`) | Por defecto (`buffer`) o `body: 'text'` |
 | `EvolutionProvider`, `GoHighLevelProvider`, `TikTokProvider` | Por defecto (`buffer`) |
-| `TwilioProvider` | Por defecto. Configura `webhookUrl` (la URL pública exacta que firma Twilio), o `webhookPath` detrás de un proxy propio |
+| `TwilioProvider` | Por defecto. Configura `webhookUrl` (la URL pública exacta que firma Twilio), o `webhookPath` detrás de un proxy propio (el ingress pasa la query de la petición, que Twilio también firma) |
 | `WPPConnectProvider` | El token del webhook tiene que llegar en una cabecera (`x-webhook-token` o `Authorization: Bearer`): el token en la query string necesita `ingest(body, headers, url)`, que el ingress no llama |
 | `GupshupProvider` | Igual: `ingest()` solo lee la cabecera (`x-webhook-token`); el token en la query string necesita `ingestRequest()` |
 | `EmailProvider` | Por defecto, con un `maxBodyBytes` mayor |

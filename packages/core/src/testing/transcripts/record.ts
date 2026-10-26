@@ -94,16 +94,16 @@ export class RecordingProvider<P extends IProvider = IProvider> implements IProv
   readonly capabilities: ProviderCapabilities
   readonly inner: P
 
-  ingest?: IProvider['ingest']
-  downloadMedia?: IProvider['downloadMedia']
-  serializeMediaRef?: IProvider['serializeMediaRef']
-  rehydrateMediaRef?: IProvider['rehydrateMediaRef']
-  getMessage?: IProvider['getMessage']
-  markRead?: IProvider['markRead']
-  typing?: IProvider['typing']
-  deleteMessage?: IProvider['deleteMessage']
-  editMessage?: IProvider['editMessage']
-  acknowledgeInteraction?: IProvider['acknowledgeInteraction']
+  ingest?: NonNullable<IProvider['ingest']>
+  downloadMedia?: NonNullable<IProvider['downloadMedia']>
+  serializeMediaRef?: NonNullable<IProvider['serializeMediaRef']>
+  rehydrateMediaRef?: NonNullable<IProvider['rehydrateMediaRef']>
+  getMessage?: NonNullable<IProvider['getMessage']>
+  markRead?: NonNullable<IProvider['markRead']>
+  typing?: NonNullable<IProvider['typing']>
+  deleteMessage?: NonNullable<IProvider['deleteMessage']>
+  editMessage?: NonNullable<IProvider['editMessage']>
+  acknowledgeInteraction?: NonNullable<IProvider['acknowledgeInteraction']>
 
   /** @internal */ recording = true
   /** Max turns kept in memory (oldest dropped first). */

@@ -241,7 +241,7 @@ request URL. That is fine for most providers, with these details:
 | `CloudAPIProvider`, `MessengerProvider`, `InstagramProvider` | Default (`buffer`). The `GET` handshake goes to `verifyChallenge()` |
 | `TelegramProvider` (`polling: false`) | Default (`buffer`) or `body: 'text'` |
 | `EvolutionProvider`, `GoHighLevelProvider`, `TikTokProvider` | Default (`buffer`) |
-| `TwilioProvider` | Default. Configure `webhookUrl` (the exact public URL Twilio signs), or `webhookPath` behind a proxy you control |
+| `TwilioProvider` | Default. Configure `webhookUrl` (the exact public URL Twilio signs), or `webhookPath` behind a proxy you control (the ingress passes the request's query string, which Twilio signs too) |
 | `WPPConnectProvider` | The webhook token must arrive in a header (`x-webhook-token` or `Authorization: Bearer`): the query-string token needs `ingest(body, headers, url)`, which the ingress does not call |
 | `GupshupProvider` | Same: `ingest()` only reads the header (`x-webhook-token`); the query-string token needs `ingestRequest()` |
 | `EmailProvider` | Default, with a larger `maxBodyBytes` |

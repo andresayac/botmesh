@@ -89,6 +89,15 @@ export class TwilioProvider implements IProvider<TwilioWebhookParams> {
     if (!config.authToken && !(config.apiKeySid && config.apiKeySecret)) {
       throw new Error('TwilioProvider requires `authToken` or `apiKeySid` + `apiKeySecret` for REST calls.')
     }
+    for (const key of ['accountSid', 'authToken', 'apiKeySid', 'apiKeySecret', 'webhookUrl'] as const) {
+      const value = config[key]
+      if (typeof value === 'string' && /\s/.test(value)) {
+        throw new Error(`TwilioProvider \`${key}\` contains whitespace (a stray space or newline from an env var or secrets file?); remove it.`)
+      }
+    }
+    if (config.smsFrom && channelOf(config.smsFrom) === 'whatsapp') {
+      throw new Error('TwilioProvider `smsFrom` is a WhatsApp address; put it in `whatsappFrom` and keep `smsFrom` for the SMS number.')
+    }
     if (config.whatsappFrom && channelOf(config.whatsappFrom) !== 'whatsapp') {
       throw new Error(`TwilioProvider \`whatsappFrom\` must carry the whatsapp: prefix, e.g. 'whatsapp:${config.whatsappFrom.trim()}'.`)
     }
@@ -147,9 +156,15 @@ export class TwilioProvider implements IProvider<TwilioWebhookParams> {
    * Feed a webhook POST whose URL is the configured `webhookUrl` (or rebuilt
    * from `webhookPath` + Host headers). Pass the RAW body. Returns the HTTP
    * status to answer: 200 accepted, 400 unreadable, 403 bad/missing signature.
+   *
+   * `requestUrl` is the path + query of the request as received (`req.url`;
+   * `@botmesh/server` passes it). Only the `webhookPath` mode reads it, and
+   * only its query string, when `webhookPath` has none: Twilio signs the query
+   * (`?tenant=a`), while the public path stays `webhookPath` (proxies may
+   * rewrite it). A configured `webhookUrl` is always used as is.
    */
-  ingest(rawEvent: unknown, headers?: HeaderBag): number {
-    const url = this.config.webhookUrl || this.urlFromHeaders(headers)
+  ingest(rawEvent: unknown, headers?: HeaderBag, requestUrl?: string): number {
+    const url = this.config.webhookUrl || this.urlFromHeaders(headers, requestUrl)
     return this.handleWebhook({ url: url ?? '', body: rawEvent, ...(headers ? { headers } : {}) }, true)
   }
 
@@ -222,13 +237,15 @@ export class TwilioProvider implements IProvider<TwilioWebhookParams> {
     return 200
   }
 
-  private urlFromHeaders(headers: HeaderBag | undefined): string | undefined {
+  private urlFromHeaders(headers: HeaderBag | undefined, requestUrl: string | undefined): string | undefined {
     const path = this.config.webhookPath
     if (!path) return undefined
     const host = header(headers, 'x-forwarded-host') ?? header(headers, 'host')
     if (!host) return undefined
     const proto = (header(headers, 'x-forwarded-proto') ?? 'https').split(',')[0]!.trim()
-    return `${proto}://${host.split(',')[0]!.trim()}${path.startsWith('/') ? path : `/${path}`}`
+    const queryStart = typeof requestUrl === 'string' && !path.includes('?') ? requestUrl.indexOf('?') : -1
+    const query = queryStart >= 0 ? requestUrl!.slice(queryStart).split('#')[0]! : ''
+    return `${proto}://${host.split(',')[0]!.trim()}${path.startsWith('/') ? path : `/${path}`}${query}`
   }
 
   /* Outbound -------------------------------------------------------------- */

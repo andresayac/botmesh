@@ -87,14 +87,23 @@ export function verifyTwilioSignature(input: VerifyTwilioInput): boolean {
 
 /** Parse an `application/x-www-form-urlencoded` body into Twilio params (repeats → arrays). */
 export function parseFormParams(raw: string): TwilioParams {
-  const out: TwilioParams = {}
+  const byName = new Map<string, string | string[]>()
   for (const [key, value] of new URLSearchParams(raw)) {
-    const existing = out[key]
-    if (existing === undefined) out[key] = value
+    const existing = byName.get(key)
+    if (existing === undefined) byName.set(key, value)
     else if (Array.isArray(existing)) existing.push(value)
-    else out[key] = [existing, value]
+    else byName.set(key, [existing, value])
   }
-  return out
+  return toParams(byName)
+}
+
+/**
+ * Own data properties only: `Object.fromEntries` defines every name, so
+ * `__proto__`, `constructor` or `toString` stay plain params (an assignment
+ * would read the inherited member or swap the object's prototype).
+ */
+function toParams(byName: Map<string, string | string[]>): TwilioParams {
+  return Object.fromEntries(byName) as TwilioParams
 }
 
 /**
@@ -114,10 +123,10 @@ function paramString(value: unknown): string {
 
 /** Normalize an already-parsed body object (express `urlencoded`) into Twilio params. */
 export function paramsFromObject(body: Record<string, unknown>): TwilioParams {
-  const out: TwilioParams = {}
+  const byName = new Map<string, string | string[]>()
   for (const [key, value] of Object.entries(body)) {
     if (value === undefined || value === null) continue
-    out[key] = Array.isArray(value) ? Array.from(value, paramString) : paramString(value)
+    byName.set(key, Array.isArray(value) ? Array.from(value, paramString) : paramString(value))
   }
-  return out
+  return toParams(byName)
 }

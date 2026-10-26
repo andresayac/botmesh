@@ -456,19 +456,19 @@ export class ChaosProvider<P extends IProvider = IProvider> implements IProvider
   /** Every inbound event actually delivered to listeners (copies and replays included), in delivery order. */
   readonly delivered: InboundEvent[] = []
 
-  ingest?: IProvider['ingest']
-  downloadMedia?: IProvider['downloadMedia']
-  serializeMediaRef?: IProvider['serializeMediaRef']
-  rehydrateMediaRef?: IProvider['rehydrateMediaRef']
-  getMessage?: IProvider['getMessage']
-  markRead?: IProvider['markRead']
-  typing?: IProvider['typing']
-  deleteMessage?: IProvider['deleteMessage']
-  editMessage?: IProvider['editMessage']
-  sendDraft?: IProvider['sendDraft']
-  acknowledgeInteraction?: IProvider['acknowledgeInteraction']
-  canRenderForm?: IProvider['canRenderForm']
-  textFormatFor?: IProvider['textFormatFor']
+  ingest?: NonNullable<IProvider['ingest']>
+  downloadMedia?: NonNullable<IProvider['downloadMedia']>
+  serializeMediaRef?: NonNullable<IProvider['serializeMediaRef']>
+  rehydrateMediaRef?: NonNullable<IProvider['rehydrateMediaRef']>
+  getMessage?: NonNullable<IProvider['getMessage']>
+  markRead?: NonNullable<IProvider['markRead']>
+  typing?: NonNullable<IProvider['typing']>
+  deleteMessage?: NonNullable<IProvider['deleteMessage']>
+  editMessage?: NonNullable<IProvider['editMessage']>
+  sendDraft?: NonNullable<IProvider['sendDraft']>
+  acknowledgeInteraction?: NonNullable<IProvider['acknowledgeInteraction']>
+  canRenderForm?: NonNullable<IProvider['canRenderForm']>
+  textFormatFor?: NonNullable<IProvider['textFormatFor']>
 
   private readonly opts: ResolvedOptions
   private readonly rngInbound: () => number
