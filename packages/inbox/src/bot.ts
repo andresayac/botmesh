@@ -22,7 +22,13 @@ export function inboxProjectionPlugin(inbox: Inbox, options: AttachInboxOptions 
     version: '0.1.0',
     install(ctx) {
       const bot = ctx.bot
-      const report = (error: unknown) => { bot.emit('error', error) }
+      // Same contract as the core's own errors: the `'error'` event payload is `{ error }`, and
+      // with nobody listening it is logged instead (an unheard `'error'` emit would throw and
+      // turn a backend blip into an unhandled rejection).
+      const report = (error: unknown) => {
+        if (bot.listenerCount('error') > 0) bot.emit('error', { error })
+        else bot.logger.error({ err: error }, 'inbox projection failed')
+      }
       const onMessage = (msg: MessageContext): void => {
         inbox
           .projectMessage({ ref: msg.ref, chatId: msg.from, timestamp: Date.now(), type: msg.type, tenantId, direction: 'inbound' })
@@ -30,9 +36,10 @@ export function inboxProjectionPlugin(inbox: Inbox, options: AttachInboxOptions 
       }
       bot.on('message', onMessage)
       ctx.onDispose(() => { bot.off('message', onMessage) })
-      bot.after('send', async (payload: { chatId: ChatId }, next: () => Promise<void>) => {
-        await next()
-        await inbox
+      // `after` hooks receive only the payload (no `next`) and run once the provider accepted
+      // the send. The projection is not awaited, so a slow inbox never delays the send.
+      bot.after('send', (payload: { chatId: ChatId }) => {
+        inbox
           .projectMessage({ ref: { id: '', chatId: payload.chatId }, chatId: payload.chatId, timestamp: Date.now(), type: 'text', tenantId, direction: 'outbound' })
           .then(() => undefined, report)
       })
