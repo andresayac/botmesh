@@ -60,6 +60,13 @@ for `maxFactLength`, silently dropping every fact).
   interaction with empty data. A handler that matched those interactions must read the
   message instead.
 - Media uploads have their own timeout, `uploadTimeoutMs` (5 minutes by default).
+- **New `lang` option** for the labels `publishForm()` bakes into a Flow (default `'en'`):
+  set it to your bot's `BotConfig.lang`. `publishForm(def, { lang })` overrides it.
+- **Deprecated (removal in v3):** `toProviderError` (use `toGraphError` from
+  `@botmesh/graph-core`), `GraphClient` (transport internals), the re-exported
+  `verifyChallenge`/`verifySignature` (use `provider.verifyChallenge(query)` and
+  `provider.ingest()`, or import them from `@botmesh/graph-core`) and `debug` (pass a
+  `logger`). `phoneNumberId` is typed `string | number`.
 
 ### `@botmesh/telegram`
 
@@ -67,12 +74,36 @@ for `maxFactLength`, silently dropping every fact).
   redelivers the Update after the restart). Hosts that started the provider again do not
   need to change anything.
 - File uploads have their own timeout, `uploadTimeoutMs` (5 minutes by default).
+- **Polls are sent non-anonymous and their votes reach the bot.** Each `poll_answer`
+  becomes a `'poll'` event with the same shape as on WhatsApp (`vote.ref`, `vote.senderId`,
+  `vote.options` with `voters`). Members of the chat can see who voted. Channels refuse public-voter
+  polls, so a poll to a channel is retried once as anonymous (no votes) and the channel is
+  remembered. To keep anonymous
+  polls (and receive no votes):
+
+```ts
+new TelegramProvider({ token, anonymousPolls: true })
+```
+
+- **`pollTimeoutMs`** replaces `pollTimeout` (seconds, deprecated): `pollTimeout: 30` is
+  `pollTimeoutMs: 30_000`. `toProviderError` is now `toTelegramError` (the old name is a
+  deprecated alias), `debug` is deprecated (pass a `logger`), and the wire helpers
+  `parseUpdate`, `parsePollAnswer`, `toOutbound` and `MEDIA_UPLOAD` are `@experimental`.
 
 ### `@botmesh/sqlite-store`
 
 `saveMessage` and `setCursor` throw a `TypeError` for a message id, chat id, cursor key or
 cursor value with a lone UTF-16 surrogate (before, SQLite stored it as U+FFFD and two ids
 could share a row). Escape or drop such characters before storing them.
+
+**Schema versioning.** The database records its layout in `PRAGMA user_version`
+(`SQLITE_SCHEMA_VERSION`, now `1`). Opening a file written by an earlier release (version
+`0`) migrates it in place, keeping every row; nothing to do. A file written by a **newer**
+release is refused with `SQLiteSchemaVersionError` (`code: 'SQLITE_SCHEMA_TOO_NEW'`) and
+left untouched: downgrades are not supported, so back up the file before upgrading if you
+may need to roll back. New options: `busyTimeoutMs` (default 5000, `PRAGMA busy_timeout`)
+and a `logger` that takes any `LoggerLike`. The exported `SCHEDULES_SCHEMA` and
+`DURABLE_SCHEMA` DDL strings are deprecated.
 
 ## Private packages
 
@@ -85,6 +116,10 @@ These are not on npm; the notes matter only inside the monorepo or a fork.
   the token stays in the provider. `acknowledgeInteraction()` still accepts the old
   `"<id>:<token>"` form. Interactions the bot does not acknowledge within `autoAcknowledgeMs` (2 s; `autoAckMs` is its deprecated alias)
   are deferred for it; set `autoAcknowledgeMs: false` to keep doing it yourself.
+  Message edits (`MESSAGE_UPDATE`) now arrive as messages with the original `ref.id`
+  (`isEditedMessage(ctx)`; `editedMessages: 'ignore'` drops them).
+- **Error mappers renamed** (old names are deprecated aliases): `toDiscordError`,
+  `toMessengerError`, `toInstagramError`, `toTikTokError`, `toEmailError`.
 - **`@botmesh/messenger` / `@botmesh/instagram`:** more than 3 buttons (or 10 list rows) on
   Messenger, or more than 13 quick replies on Instagram, reject with
   `UnsupportedContentError` instead of being cut.

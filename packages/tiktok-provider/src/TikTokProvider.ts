@@ -53,7 +53,7 @@ import {
   type UserId,
 } from '@botmesh/core'
 import { highIntentChatId, parseTikTokChatId, type TikTokChatTarget } from './chatId.js'
-import { TikTokApiError, toProviderError } from './errors.js'
+import { TikTokApiError, toTikTokError } from './errors.js'
 import { parseJsonLossless } from './json.js'
 import { parseWebhook, type ConversationChatInfo } from './parseInbound.js'
 import { verifyTikTokSignature } from './signature.js'
@@ -385,7 +385,7 @@ export class TikTokProvider implements IProvider<unknown> {
     }
     if (!response.ok || !parsed || (parsed.code !== undefined && parsed.code !== 0)) {
       const retryAfter = Number(response.headers.get('retry-after'))
-      throw toProviderError({
+      throw toTikTokError({
         chatId,
         httpStatus: response.status,
         code: parsed?.code,

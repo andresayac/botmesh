@@ -171,12 +171,24 @@ function redisClusterBackend(deps: RealKvDeps): RealKvBackend {
       const { RedisDurableKv } = deps.redis as RedisModuleLike
       const seed = new URL(CLUSTER_URL!)
       // Every address the cluster announces is mapped to the seed's host (Docker port mapping).
-      const cluster = (deps.redisClient as RedisClientModuleLike).createCluster({
-        rootNodes: [{ url: CLUSTER_URL! }],
-        nodeAddressMap: (address: string) => ({ host: seed.hostname, port: Number(address.slice(address.lastIndexOf(':') + 1)) }),
-      })
-      cluster.on('error', () => {})
-      await cluster.connect()
+      const make = () => {
+        const c = (deps.redisClient as RedisClientModuleLike).createCluster({
+          rootNodes: [{ url: CLUSTER_URL! }],
+          nodeAddressMap: (address: string) => ({ host: seed.hostname, port: Number(address.slice(address.lastIndexOf(':') + 1)) }),
+        })
+        c.on('error', () => {})
+        return c
+      }
+      // node-redis does not retry a failed initial slot discovery: a suite of another
+      // package (redis-store's chaos suite) may be failing a node over right now.
+      let cluster = make()
+      for (let attempt = 1; ; attempt++) {
+        try { await cluster.connect(); break } catch (err) {
+          if (attempt >= 4) throw err
+          await new Promise((r) => setTimeout(r, 500 * attempt))
+          cluster = make()
+        }
+      }
       const run = `botwa-pit-${process.pid}-${randomUUID().slice(0, 8)}`
       let n = 0
       return {

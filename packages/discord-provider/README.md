@@ -107,6 +107,7 @@ non-resumable INVALID_SESSION, and a definitive stop on fatal codes
 | **Polls** (24h poll) | ✅ |
 | Reactions (PUT `.../reactions/{emoji}/@me`; one per message, `react('')` removes it: see below) | ✅ |
 | Typing, editing and deleting messages | ✅ |
+| Inbound edits (`MESSAGE_UPDATE` with `edited_timestamp`) → message with the original `ref.id`; `isEditedMessage(ctx)`, `editedMessages: 'ignore'` drops them | ✅ |
 | Interactions: button / menu / slash command with mandatory ack (~3s) | ✅ |
 | Groups (guilds) and DMs (with the `DirectMessages` intent) | ✅ |
 | Templates (kind `template`) | ❌ (does not exist in Discord) |
@@ -134,7 +135,8 @@ each message (in-memory LRU, `reactionMemory`, 1000 messages by default):
 
 ## Typed errors
 
-REST failures (HTTP ≥ 400) map to `@botmesh/core` errors:
+REST failures (HTTP ≥ 400) map to `@botmesh/core` errors (`toDiscordError`;
+`toProviderError` is its deprecated alias):
 `429` → `RateLimitedError` (with `retryAfterMs` from `retry_after`), `403` →
 `RecipientUnreachableError` (also codes 10003 *Unknown Channel*,
 10013 *Unknown User*, 50001 *Missing Access* and 50007 *Cannot send messages to

@@ -23,9 +23,15 @@ export interface GraphClientConfig {
  * Messenger Platform window/recipient codes. `chatId` (the IGSID the call
  * targeted) is carried on window/unreachable errors.
  */
-export function toProviderError(err: GraphError, retryAfterMs?: number, chatId: ChatId = ''): ProviderError {
+export function toInstagramError(err: GraphError, retryAfterMs?: number, chatId: ChatId = ''): ProviderError {
   return toGraphError(err, { retryAfterMs, chatId })
 }
+
+/**
+ * @deprecated Use {@link toInstagramError} (channel-prefixed like every provider's error
+ * mapper). Removal planned for v3.
+ */
+export const toProviderError: typeof toInstagramError = toInstagramError
 
 export class GraphClient {
   constructor(private cfg: GraphClientConfig) {}

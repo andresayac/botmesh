@@ -254,6 +254,32 @@ describe('CloudAPIProvider + flow().form()', () => {
     expect(JSON.parse(calls[1].init!.body as string).interactive.action.parameters.flow_id).toBe('5551234')
   })
 
+  it('publishForm() labels the Flow in the provider language (config lang), English by default; options override it', async () => {
+    const submit = (body: string): unknown => {
+      const screen = JSON.parse(JSON.parse(body).flow_json).screens[0]
+      const form = screen.layout.children.find((c: { type: string }) => c.type === 'Form')
+      return form.children.find((c: { type: string }) => c.type === 'Footer').label
+    }
+    const calls = mockFetch(() => ({ id: '1', validation_errors: [] }))
+    const noLabel: FormDefinition = { id: 'nolabel', fields: [{ type: 'text', name: 'city', label: 'City' }] }
+    await new CloudAPIProvider({ ...baseCfg, wabaId: 'W' }).publishForm(noLabel)
+    expect(submit(calls[0].init!.body as string)).toBe('Submit')
+    const es = new CloudAPIProvider({ ...baseCfg, wabaId: 'W', lang: 'es' })
+    await es.publishForm(noLabel)
+    expect(submit(calls[1].init!.body as string)).toBe('Enviar')
+    await es.publishForm(noLabel, { lang: 'en' })
+    expect(submit(calls[2].init!.body as string)).toBe('Submit')
+    await es.publishForm(noLabel, { flowJson: { lang: 'en' } })
+    expect(submit(calls[3].init!.body as string)).toBe('Submit')
+    await es.publishForm({ ...noLabel, submitLabel: 'Go' })
+    expect(submit(calls[4].init!.body as string)).toBe('Go')
+  })
+
+  it('rejects an empty or non-string lang', () => {
+    expect(() => new CloudAPIProvider({ ...baseCfg, lang: '' })).toThrow(/lang/)
+    expect(() => new CloudAPIProvider({ ...baseCfg, lang: 5 as never })).toThrow(/lang/)
+  })
+
   it('publishForm() requires a WABA id', async () => {
     const provider = new CloudAPIProvider(baseCfg)
     await expect(provider.publishForm(signup)).rejects.toThrow(/wabaId/)

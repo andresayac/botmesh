@@ -71,9 +71,9 @@ describe('request timeout', () => {
 
 describe('429 retry_after', () => {
   it('is capped at 24 h like the other channels', async () => {
-    const { toProviderError } = await import('../src/restClient.js')
+    const { toDiscordError } = await import('../src/restClient.js')
     const { RateLimitedError } = await import('@botmesh/core')
-    const err = toProviderError('C1', 429, { message: 'slow', retry_after: 1e12 })
+    const err = toDiscordError('C1', 429, { message: 'slow', retry_after: 1e12 })
     expect(err).toBeInstanceOf(RateLimitedError)
     expect((err as InstanceType<typeof RateLimitedError>).retryAfterMs).toBe(86_400_000)
   })

@@ -184,6 +184,24 @@ Quien escribe un provider las comprueba con los helpers de `@botmesh/core/testin
 - **Las esperas tienen tope.** Cada llamada REST tiene timeout (`requestTimeoutMs` en la
   Cloud API, Telegram, Discord, Messenger e Instagram) y un `RateLimitedError` nunca pide
   más de 24 h.
+- **Una edición conserva el id original.** Donde el transporte informa de ediciones de
+  texto (Baileys, `edited_message` de Telegram, `MESSAGE_UPDATE` de Discord), la edición
+  llega como mensaje con el texto nuevo y el `ref.id` original; cada uno de esos paquetes
+  exporta `isEditedMessage(ctx)` y una opción `editedMessages: 'ignore'`. El dedupe del
+  core deja pasar la edición porque su contenido cambió y descarta una re-entrega de la
+  misma edición.
+- **Los votos de encuesta tienen una sola forma.** Baileys y Telegram emiten cada voto
+  como evento `'poll'` (`bot.on('poll', (vote) => …)`): `vote.ref` es el mensaje de la
+  encuesta, `vote.senderId` quien votó y `vote.options` el recuento actual de cada opción
+  con sus `voters`.
+- **Un solo esquema de nombres para los helpers de bajo nivel.** El mapeador de errores
+  de cada provider es `to<Canal>Error` (`toTelegramError`, `toDiscordError`,
+  `toTwilioError`…; los canales de Meta comparten `toGraphError` de
+  `@botmesh/graph-core`); los nombres antiguos `toProviderError` quedan como alias
+  deprecados. `ingest()` devuelve el estado HTTP con el que responder (un `number`);
+  WPPConnect lo devuelve como `Promise<number>` (comprueba el token de forma asíncrona) y
+  el `ingest()` de email recibe un mensaje crudo, no un webhook, y devuelve un
+  `EmailIngestResult`.
 
 | Provider | `maxTextLength` | `maxTextBytes` |
 | --- | --- | --- |
@@ -288,6 +306,10 @@ const provider = new CloudAPIProvider({
   `ctx.typing()` y `ctx.delete()` no hacen nada (ver el
   [contrato común de los canales](#contrato-comun-de-los-canales)).
 - El core divide en varios mensajes el texto de más de 4096 caracteres.
+- `publishForm()` fija en el Flow la etiqueta de envío por defecto de un
+  formulario en el `lang` del provider (por defecto `'en'`; ponle el
+  `BotConfig.lang` de tu bot), o en `publishForm(def, { lang })` para un Flow.
+  El `submitLabel` del propio formulario siempre gana.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/meta-provider)
 
@@ -323,7 +345,8 @@ const hooked = new TelegramProvider({
   provider quita el sufijo cuando nombra a este bot (usuario de `getMe`, o la
   opción `username` si pasas `selfId`).
 - Cada petición a la Bot API tiene timeout de cliente (`requestTimeoutMs`,
-  120 s por defecto; el long poll usa `pollTimeout` + 15 s; las subidas de
+  120 s por defecto; el long poll usa `pollTimeoutMs` (30 s por defecto; el
+  deprecado `pollTimeout` va en segundos) + 15 s; las subidas de
   archivos, `uploadTimeoutMs`, 5 min por defecto), los errores nunca llevan el
   token del bot, un `retry_after` de 429 se respeta hasta 24 h y `bot.stop()`
   corta al momento las esperas de reintento del bucle de polling.
@@ -331,6 +354,15 @@ const hooked = new TelegramProvider({
   `ref.id` original (respuestas, reacciones y ediciones apuntan al mensaje
   editado). `isEditedMessage(ctx)` los distingue; el dedupe del core deja pasar
   la edición porque su contenido cambió. `editedMessages: 'ignore'` los desactiva.
+- **Votos de encuesta**: las encuestas se envían no anónimas
+  (`is_anonymous: false`), así que cada voto llega como update `poll_answer` y se
+  convierte en un evento `'poll'` con el recuento, como en WhatsApp. Los miembros
+  del chat ven quién votó; `anonymousPolls: true` envía encuestas anónimas, cuyos
+  votos nunca llegan al bot. Se cuentan los votos de las encuestas que envió este
+  proceso (en memoria, las últimas 500): un voto en una encuesta enviada antes de
+  un reinicio se descarta. Los canales no admiten encuestas con votantes públicos:
+  una encuesta a un canal se reintenta una vez como anónima (sin votos) y ese canal
+  recibe encuestas anónimas desde entonces.
 - **Servidor Bot API propio (self-hosted)**: apunta `baseUrl` a él. Si va por
   HTTP plano o en una red privada, las descargas de media necesitan además
   `mediaDownload: { allowHttp: true, allowPrivateHosts: true }` (y un `maxBytes`
@@ -455,6 +487,13 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
 - Un mensaje reenviado trae el texto y la media reenviados (de su snapshot),
   no una respuesta citada; si no tiene nada legible llega como `unknown`. Una
   encuesta nativa llega como `type: 'poll'` con la pregunta como cuerpo.
+- **Mensajes editados** (`MESSAGE_UPDATE` con `edited_timestamp`) llegan como
+  mensajes con el texto nuevo y el `ref.id` original; `isEditedMessage(ctx)` de
+  `@botmesh/discord` los distingue y `editedMessages: 'ignore'` los descarta. Las
+  demás actualizaciones (previsualizaciones de enlaces, fijados, flags) no se
+  enrutan: el provider entrega una edición una sola vez por `edited_timestamp`
+  (recuerda el último de los 1000 mensajes editados más recientes), así que fijar
+  un mensaje editado no lo vuelve a entregar.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/discord-provider)
 
@@ -703,6 +742,17 @@ comportamientos de las versiones alpha. Revisa esto al actualizar:
   exista un método `typing()`/`markRead()` (antes tampoco tenían efecto), y emite
   timestamps en ms epoch.
 - **`RateLimitedError.retryAfterMs`** tiene un tope de 24 h.
+- **Las encuestas de Telegram se envían no anónimas** para que sus votos lleguen al bot
+  como eventos `'poll'`. `new TelegramProvider({ anonymousPolls: true })` mantiene las
+  encuestas anónimas.
+- **Las ediciones de Discord se entregan** como mensajes con el `ref.id` original; un
+  handler que no deba verlas comprueba `isEditedMessage(ctx)` o usa
+  `editedMessages: 'ignore'`.
+- **Helpers renombrados** (los nombres antiguos son alias deprecados hasta v3):
+  `pollTimeout` de Telegram (segundos) → `pollTimeoutMs`; `toProviderError` →
+  `toTelegramError`, `toDiscordError`, `toMessengerError`, `toInstagramError`,
+  `toTikTokError`; `toEmailProviderError` → `toEmailError`; el `toProviderError` de
+  `@botmesh/meta` → `toGraphError` de `@botmesh/graph-core`.
 
 ## Siguientes pasos
 

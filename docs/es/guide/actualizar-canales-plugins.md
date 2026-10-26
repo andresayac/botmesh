@@ -63,6 +63,14 @@ aiPlugin({ provider: 'openai', baseUrl: 'https://mi-proxy.example/v1', maxTokens
   no como interacción `button` con datos vacíos. Un handler que dependía de eso debe leer el
   mensaje.
 - Las subidas de media tienen su propio timeout, `uploadTimeoutMs` (5 minutos por defecto).
+- **Nueva opción `lang`** para las etiquetas que `publishForm()` fija en un Flow (por
+  defecto `'en'`): ponle el `BotConfig.lang` de tu bot. `publishForm(def, { lang })` la
+  sobrescribe.
+- **Deprecados (se quitan en v3):** `toProviderError` (usa `toGraphError` de
+  `@botmesh/graph-core`), `GraphClient` (internos del transporte), los
+  `verifyChallenge`/`verifySignature` reexportados (usa `provider.verifyChallenge(query)` y
+  `provider.ingest()`, o impórtalos de `@botmesh/graph-core`) y `debug` (pasa un `logger`).
+  `phoneNumberId` admite `string | number` en el tipo.
 
 ### `@botmesh/telegram`
 
@@ -71,12 +79,38 @@ aiPlugin({ provider: 'openai', baseUrl: 'https://mi-proxy.example/v1', maxTokens
   cambiar nada.
 - Las subidas de archivos tienen su propio timeout, `uploadTimeoutMs` (5 minutos por
   defecto).
+- **Las encuestas se envían no anónimas y sus votos llegan al bot.** Cada `poll_answer` se
+  convierte en un evento `'poll'` con la misma forma que en WhatsApp (`vote.ref`,
+  `vote.senderId`, `vote.options` con `voters`). Los miembros del chat ven quién votó. Los canales no
+  admiten votantes públicos: una encuesta a un canal se reintenta una vez como anónima (sin
+  votos) y el canal se recuerda. Para
+  mantener encuestas anónimas (sin recibir votos):
+
+```ts
+new TelegramProvider({ token, anonymousPolls: true })
+```
+
+- **`pollTimeoutMs`** sustituye a `pollTimeout` (segundos, deprecado): `pollTimeout: 30`
+  equivale a `pollTimeoutMs: 30_000`. `toProviderError` pasa a ser `toTelegramError` (el
+  nombre antiguo es un alias deprecado), `debug` queda deprecado (pasa un `logger`) y los
+  helpers de cable `parseUpdate`, `parsePollAnswer`, `toOutbound` y `MEDIA_UPLOAD` son
+  `@experimental`.
 
 ### `@botmesh/sqlite-store`
 
 `saveMessage` y `setCursor` lanzan `TypeError` con un id de mensaje, id de chat, clave o
 valor de cursor que lleve un surrogate UTF-16 suelto (antes SQLite lo guardaba como U+FFFD y
 dos ids podían compartir fila). Escapa o quita esos caracteres antes de guardarlos.
+
+**Versionado del esquema.** La base de datos guarda su layout en `PRAGMA user_version`
+(`SQLITE_SCHEMA_VERSION`, ahora `1`). Abrir un archivo escrito por una versión anterior
+(versión `0`) lo migra en el sitio y conserva todas las filas; no hay que hacer nada. Un
+archivo escrito por una versión **más nueva** se rechaza con `SQLiteSchemaVersionError`
+(`code: 'SQLITE_SCHEMA_TOO_NEW'`) y no se toca: no se admite volver atrás, así que haz una
+copia del archivo antes de actualizar si puedes necesitar revertir. Opciones nuevas:
+`busyTimeoutMs` (por defecto 5000, `PRAGMA busy_timeout`) y un `logger` que acepta
+cualquier `LoggerLike`. Las cadenas DDL exportadas `SCHEDULES_SCHEMA` y `DURABLE_SCHEMA`
+quedan deprecadas.
 
 ## Paquetes privados
 
@@ -89,6 +123,10 @@ No están en npm; estas notas solo importan dentro del monorepo o de un fork.
   secas; el token se queda en el provider. `acknowledgeInteraction()` sigue aceptando la
   forma antigua `"<id>:<token>"`. Las interacciones que el bot no confirma en `autoAcknowledgeMs`
   (2 s; `autoAckMs` es su alias obsoleto) se difieren por él; pon `autoAcknowledgeMs: false` para seguir haciéndolo tú.
+  Las ediciones de mensajes (`MESSAGE_UPDATE`) llegan ahora como mensajes con el `ref.id`
+  original (`isEditedMessage(ctx)`; `editedMessages: 'ignore'` las descarta).
+- **Mapeadores de errores renombrados** (los nombres antiguos son alias deprecados):
+  `toDiscordError`, `toMessengerError`, `toInstagramError`, `toTikTokError`, `toEmailError`.
 - **`@botmesh/messenger` / `@botmesh/instagram`:** más de 3 botones (o 10 filas de lista) en
   Messenger, o más de 13 quick replies en Instagram, rechazan con `UnsupportedContentError`
   en vez de cortarse.

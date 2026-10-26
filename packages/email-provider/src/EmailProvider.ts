@@ -61,7 +61,7 @@ import { domainOf, looksLikeAddress, normalizeAddress, type EmailAddress } from 
 import { isAuthenticated } from './auth.js'
 import { detectBounce } from './bounce.js'
 import { composeContent, singleLine, type ResolvedMedia } from './compose.js'
-import { toEmailProviderError } from './errors.js'
+import { toEmailError } from './errors.js'
 import { htmlToText } from './html.js'
 import { ImapIngress, isAuthError, type ImapMessageMeta } from './imap.js'
 import { loadModule } from './loadModule.js'
@@ -711,7 +711,7 @@ export class EmailProvider implements IProvider<EmailRaw> {
     try {
       info = await transport.sendMail(mail)
     } catch (err) {
-      throw toEmailProviderError(err, chatId)
+      throw toEmailError(err, chatId)
     }
     if (info.rejected?.length && !info.accepted?.length) {
       throw new RecipientUnreachableError(chatId, `SMTP server rejected the recipient${info.response ? `: ${info.response}` : ''}`)

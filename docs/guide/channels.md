@@ -178,6 +178,21 @@ Provider authors check them with the helpers of `@botmesh/core/testing`
 - **Waits are bounded.** Every REST call has a timeout (`requestTimeoutMs` on the
   Cloud API, Telegram, Discord, Messenger and Instagram), and a `RateLimitedError`
   never asks for more than 24 h.
+- **An edit keeps the original id.** Where the transport reports text edits (Baileys,
+  Telegram `edited_message`, Discord `MESSAGE_UPDATE`), the edit arrives as a message
+  with the new text and the original `ref.id`; each of those packages exports
+  `isEditedMessage(ctx)` and an `editedMessages: 'ignore'` option. The core dedupe lets
+  an edit through because its content changed, and drops a redelivery of the same edit.
+- **Poll votes have one shape.** Baileys and Telegram emit each vote as a `'poll'` event
+  (`bot.on('poll', (vote) => …)`): `vote.ref` is the poll message, `vote.senderId`
+  the voter and `vote.options` the current tally of every option with its `voters`.
+- **One naming scheme for low-level helpers.** Each provider's error mapper is
+  `to<Channel>Error` (`toTelegramError`, `toDiscordError`, `toTwilioError`…; the Meta
+  channels share `toGraphError` from `@botmesh/graph-core`); the older `toProviderError`
+  names remain as deprecated aliases. `ingest()` returns the HTTP status to answer with
+  (a `number`); WPPConnect returns it as a `Promise<number>` (it checks the token
+  asynchronously) and email's `ingest()` takes a raw message, not a webhook, and returns
+  an `EmailIngestResult`.
 
 | Provider | `maxTextLength` | `maxTextBytes` |
 | --- | --- | --- |
@@ -277,6 +292,10 @@ const provider = new CloudAPIProvider({
   provider has no `typing()` or `deleteMessage()`, so `ctx.typing()` and
   `ctx.delete()` do nothing (see the [cross-channel contract](#cross-channel-contract)).
 - Text over 4096 characters is split into several messages by the core.
+- `publishForm()` bakes the default submit label of a form into the Flow in
+  the provider's `lang` (default `'en'`; set it to your bot's `BotConfig.lang`),
+  or in `publishForm(def, { lang })` for one Flow. A form's own `submitLabel`
+  always wins.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/meta-provider)
 
@@ -310,7 +329,8 @@ const hooked = new TelegramProvider({
   suffix when it names this bot (username from `getMe`, or the `username`
   option when you pass `selfId`).
 - Every Bot API request has a client timeout (`requestTimeoutMs`, 120 s by
-  default; long polls get `pollTimeout` + 15 s; file uploads get
+  default; long polls get `pollTimeoutMs` (30 s by default; the deprecated
+  `pollTimeout` takes seconds) + 15 s; file uploads get
   `uploadTimeoutMs`, 5 min by default), errors never carry the bot token, a
   429 `retry_after` is honoured up to 24 h, and `bot.stop()` cuts the poll
   loop's retry waits at once.
@@ -318,6 +338,14 @@ const hooked = new TelegramProvider({
   original `ref.id` (replies, reactions and edits target the edited message).
   `isEditedMessage(ctx)` tells them apart; the core deduper lets an edit
   through because its content changed. `editedMessages: 'ignore'` turns them off.
+- **Poll votes**: polls are sent non-anonymous (`is_anonymous: false`), so each
+  vote arrives as a `poll_answer` update and becomes a `'poll'` event with the
+  tally, like on WhatsApp. Chat members can see who voted; `anonymousPolls: true`
+  sends anonymous polls, whose votes never reach the bot. Votes are tallied for
+  polls this process sent (in memory, the last 500): a vote on a poll sent before
+  a restart is dropped. Channels do not allow public-voter polls: a poll to a
+  channel is retried once as anonymous (no votes) and that channel gets anonymous
+  polls from then on.
 - **Self-hosted Bot API server**: set `baseUrl` to it. On plain HTTP or a
   private network, media downloads also need `mediaDownload: { allowHttp: true,
   allowPrivateHosts: true }` (plus a larger `maxBytes`). Run the server without
@@ -436,6 +464,13 @@ const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
 - A forwarded message carries the forwarded text and media (from its
   snapshot), not a quoted reply; one with nothing readable arrives as
   `unknown`. A native poll arrives as `type: 'poll'` with its question as body.
+- **Edited messages** (`MESSAGE_UPDATE` with `edited_timestamp`) arrive as
+  messages with the new text and the original `ref.id`; `isEditedMessage(ctx)`
+  from `@botmesh/discord` tells them apart and `editedMessages: 'ignore'` drops
+  them. Other updates (embed unfurls, pins, flags) are not routed: the provider
+  delivers an edit once per `edited_timestamp` (it remembers the last one for
+  the 1000 most recently edited messages), so pinning an edited message does not
+  re-deliver it.
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/discord-provider)
 
@@ -676,6 +711,16 @@ alpha releases. Check these when you upgrade:
   `typing()`/`markRead()` method exists (they had no effect before either), and emits
   epoch-ms timestamps.
 - **`RateLimitedError.retryAfterMs`** is capped at 24 h.
+- **Telegram polls are sent non-anonymous** so their votes reach the bot as `'poll'`
+  events. `new TelegramProvider({ anonymousPolls: true })` keeps anonymous polls.
+- **Discord edits are delivered** as messages with the original `ref.id`; a handler
+  that should not see them checks `isEditedMessage(ctx)` or sets
+  `editedMessages: 'ignore'`.
+- **Renamed helpers** (the old names are deprecated aliases until v3): Telegram
+  `pollTimeout` (seconds) → `pollTimeoutMs`; `toProviderError` → `toTelegramError`,
+  `toDiscordError`, `toMessengerError`, `toInstagramError`, `toTikTokError`;
+  `toEmailProviderError` → `toEmailError`; `@botmesh/meta`'s `toProviderError` →
+  `toGraphError` from `@botmesh/graph-core`.
 
 ## Next steps
 

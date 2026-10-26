@@ -59,8 +59,10 @@ salen de las entradas `core.form.cta` / `core.form.submit` del catálogo en el
 form'` / `'Submit'` en inglés); una definición sin `intro` ni `title` usa
 `core.form.body` como cuerpo del mensaje. La etiqueta de envío forma parte del
 Flow de WhatsApp publicado, así que se fija al publicarlo:
-`toFlowJson(def, { lang: 'es' })` / `publishForm(def, { flowJson: { lang: 'es' } })`
-(por defecto `'en'`, el locale por defecto del core), o define `submitLabel`.
+`toFlowJson(def, { lang: 'es' })` o, para `publishForm()`, la opción `lang` del
+provider (`new CloudAPIProvider({ lang: 'es' })`, ponle el `BotConfig.lang` de tu
+bot) o `publishForm(def, { lang: 'es' })` (por defecto `'en'`, el locale por defecto
+del core), o define `submitLabel`.
 
 Campo por campo, `select`/`multiselect` aceptan el número del menú, la clave o la
 etiqueta (varias elecciones separadas por comas, `;`, `y`/`and` o espacios entre

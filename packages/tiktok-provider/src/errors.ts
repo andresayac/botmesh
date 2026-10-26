@@ -46,7 +46,7 @@ export interface TikTokErrorInput {
 }
 
 /** Translate a failed TikTok response into a typed provider error. */
-export function toProviderError(input: TikTokErrorInput): ProviderError {
+export function toTikTokError(input: TikTokErrorInput): ProviderError {
   const { chatId, httpStatus, code, requestId } = input
   const message = input.message || (code !== undefined ? `TikTok error ${code}` : `TikTok HTTP ${httpStatus}`)
   const detail = `${message}${code !== undefined ? ` (code ${code})` : ''}${requestId ? ` [request_id ${requestId}]` : ''}`
@@ -58,3 +58,9 @@ export function toProviderError(input: TikTokErrorInput): ProviderError {
   if (code !== undefined && NOT_FOUND_CODES.has(code)) return new RecipientUnreachableError(chatId, detail)
   return new TikTokApiError(detail, code, requestId, httpStatus)
 }
+
+/**
+ * @deprecated Use {@link toTikTokError} (channel-prefixed like every provider's error
+ * mapper). Removal planned for v3.
+ */
+export const toProviderError: typeof toTikTokError = toTikTokError

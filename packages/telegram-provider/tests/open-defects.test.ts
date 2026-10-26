@@ -1,7 +1,7 @@
 /** Low-severity defects left open by the alpha exit review (docs/release-readiness.md). */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RateLimitedError } from '@botmesh/core'
-import { TelegramProvider, toProviderError } from '../src/TelegramProvider.js'
+import { TelegramProvider, toTelegramError } from '../src/TelegramProvider.js'
 import { parseUpdate } from '../src/parseInbound.js'
 
 const silent = { debug() {}, info() {}, warn() {}, error() {} }
@@ -86,10 +86,10 @@ describe('commands in media captions', () => {
 
 describe('429 retry_after is clamped', () => {
   it('caps a huge retry_after at 24 h and ignores a negative or non-finite one', () => {
-    expect((toProviderError('1', 429, 'Too Many Requests', 10 ** 12) as RateLimitedError).retryAfterMs).toBe(24 * 60 * 60 * 1000)
-    expect((toProviderError('1', 429, 'x', -5) as RateLimitedError).retryAfterMs).toBe(1000)
-    expect((toProviderError('1', 429, 'x', Number.NaN) as RateLimitedError).retryAfterMs).toBe(1000)
-    expect((toProviderError('1', 429, 'x', 3) as RateLimitedError).retryAfterMs).toBe(3000)
+    expect((toTelegramError('1', 429, 'Too Many Requests', 10 ** 12) as RateLimitedError).retryAfterMs).toBe(24 * 60 * 60 * 1000)
+    expect((toTelegramError('1', 429, 'x', -5) as RateLimitedError).retryAfterMs).toBe(1000)
+    expect((toTelegramError('1', 429, 'x', Number.NaN) as RateLimitedError).retryAfterMs).toBe(1000)
+    expect((toTelegramError('1', 429, 'x', 3) as RateLimitedError).retryAfterMs).toBe(3000)
   })
 })
 

@@ -85,7 +85,7 @@ describe('TelegramProvider.send', () => {
     const res = await p.send('77', { kind: 'poll', question: '¿Color?', options: ['Rojo', 'Azul'] })
     expect(calls[0].url).toContain('/sendPoll')
     expect(JSON.parse(calls[0].init!.body as string)).toEqual({
-      chat_id: '77', question: '¿Color?', options: ['Rojo', 'Azul'], allows_multiple_answers: false,
+      chat_id: '77', question: '¿Color?', options: ['Rojo', 'Azul'], allows_multiple_answers: false, is_anonymous: false,
     })
     expect(res.ref.chatId).toBe('77')
   })
@@ -253,7 +253,7 @@ describe('TelegramProvider long-poll', () => {
     await waitFor(() => gu().length >= 2)
     expect(JSON.parse(gu()[0].init!.body as string).offset).toBeUndefined()
     expect(JSON.parse(gu()[1].init!.body as string).offset).toBe(102)
-    expect(JSON.parse(gu()[0].init!.body as string).allowed_updates).toEqual(['message', 'edited_message', 'callback_query', 'stopped_message_generation'])
+    expect(JSON.parse(gu()[0].init!.body as string).allowed_updates).toEqual(['message', 'edited_message', 'callback_query', 'poll_answer', 'stopped_message_generation'])
     expect(seen).toEqual(['msg:a', 'btn:go'])
     expect(conn).toContain('connecting')
     expect(conn).toContain('ready')

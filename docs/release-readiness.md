@@ -283,8 +283,8 @@ None is a promotion candidate yet; promoting one still means removing `"private"
 switching `workspace:*` to `workspace:^`, a changeset and a README section.
 
 - **channels**: webhook replay windows for Twilio, Gupshup and HighLevel (no signed
-  timestamp; dedupe by id is the mitigation); Discord `MESSAGE_UPDATE` edits are not
-  parsed; TikTok and HighLevel inbound media stay `application/octet-stream`.
+  timestamp; dedupe by id is the mitigation); TikTok and HighLevel inbound media stay
+  `application/octet-stream`.
 - **sandbox** (new): the hub's JSON API has no Origin/Host check (a local web page can
   post to it); prototype keys in the channel lookup return 500; `startHarness` does not
   clean up after a partial failure; the signature-rejection tests post empty payloads;

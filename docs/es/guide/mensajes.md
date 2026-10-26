@@ -323,6 +323,14 @@ puede votar. Una encuesta que crea otra persona sigue llegando como mensaje
 `poll` (`bot.onType('poll')`, el [trigger `POLL`](./triggers#triggers-por-tipo-de-mensaje));
 el voto cifrado ya no. Detalles en el README de `@botmesh/baileys`.
 
+En **Telegram**, las encuestas se envían no anónimas, así que cada voto llega
+como un update `poll_answer` y el provider lo suma en el mismo evento `poll`
+(una selección vacía = voto retirado). Telegram solo informa de votos en
+encuestas que envió el bot, y el provider recuerda las 500 más recientes que
+envió este proceso. Los miembros del chat ven quién votó; `anonymousPolls: true`
+envía encuestas anónimas, cuyos votos nunca llegan al bot. Un canal rechaza los
+votantes públicos: la encuesta se reintenta una vez como anónima y el canal se recuerda.
+
 ## Acceder al contenido del media
 
 El media entrante se descarga de forma **perezosa**: el contexto solo lleva una

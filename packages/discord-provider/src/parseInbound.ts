@@ -4,6 +4,11 @@
  * `member.user.id`): stable, no member-vs-user aliasing leaks out.
  *
  *   MESSAGE_CREATE     → kind 'message'   (bots and system messages are ignored)
+ *   MESSAGE_UPDATE     → kind 'message' for an edit (`edited_timestamp` set), keeping
+ *                        the original `ref.id`; updates of never-edited messages are
+ *                        ignored. This parser is stateless: `DiscordProvider` also drops
+ *                        updates repeating an `edited_timestamp` it already delivered
+ *                        (pins, unfurls, flags of an edited message)
  *   INTERACTION_CREATE → kind 'interaction' (button / select / slash command)
  *
  * Frames are read defensively: a field of the wrong type is ignored, so a
@@ -55,11 +60,29 @@ export function parseDispatch(t: string, d: unknown, selfId?: string | null): In
   switch (t) {
     case 'MESSAGE_CREATE':
       return parseMessageCreate(rec<DiscordMessagePayload>(d), selfId)
+    case 'MESSAGE_UPDATE': {
+      // Only an edited message carries `edited_timestamp`; updates of a never-edited
+      // message (unfurls, pins) do not. Repeats of an earlier edit's timestamp are
+      // filtered by DiscordProvider, which keeps the last one seen per message.
+      const m = rec<DiscordMessagePayload>(d)
+      return m && typeof m.edited_timestamp === 'string' ? parseMessageCreate(m, selfId) : undefined
+    }
     case 'INTERACTION_CREATE':
       return parseInteractionCreate(rec<DiscordInteractionPayload>(d))
     default:
       return undefined
   }
+}
+
+/**
+ * Whether `message` (emitted by this provider) is an edit of an earlier message
+ * (a `MESSAGE_UPDATE` with `edited_timestamp`). An edit keeps the original
+ * `ref.id`, so `ctx.reply`/`ctx.react` target the edited message; its `body` is
+ * the new text and `raw.edited_timestamp` (ISO 8601) is when it was edited.
+ */
+export function isEditedMessage(message: { raw?: unknown }): boolean {
+  const raw = message.raw
+  return typeof raw === 'object' && raw !== null && typeof (raw as { edited_timestamp?: unknown }).edited_timestamp === 'string'
 }
 
 /* --- MESSAGE_CREATE -------------------------------------------------------- */

@@ -61,7 +61,7 @@ describe('Telegram edited_message', () => {
     while (!urls.some((u) => u.url.includes('/getUpdates')) && Date.now() - t0 < 1500) await new Promise((r) => setTimeout(r, 5))
     await polling.stop()
     const gu = urls.find((u) => u.url.includes('/getUpdates'))!
-    expect(JSON.parse(gu.body).allowed_updates).toEqual(['message', 'callback_query', 'stopped_message_generation'])
+    expect(JSON.parse(gu.body).allowed_updates).toEqual(['message', 'callback_query', 'poll_answer', 'stopped_message_generation'])
   })
 
   it('rejects an invalid editedMessages value', () => {

@@ -188,10 +188,12 @@ follow too. To keep the Spanish labels:
 
 ```ts
 toFlowJson(definition, { lang: 'es' })
-provider.publishForm(definition, { flowJson: { lang: 'es' } })
+new CloudAPIProvider({ ...config, lang: 'es' })   // every publishForm() of this provider
+provider.publishForm(definition, { lang: 'es' })  // or one Flow
 ```
 
-A `submitLabel` on the definition always wins. Forms sent by a bot already use
+The provider's `lang` is the language of your bot (`BotConfig.lang`): a bot with
+`lang: 'es'` sets the same value on its `CloudAPIProvider`. A `submitLabel` on the definition always wins. Forms sent by a bot already use
 the user's `ctx.lang` for the button and the body.
 
 ## Presence hints while disconnected

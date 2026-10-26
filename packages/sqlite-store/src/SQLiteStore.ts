@@ -18,6 +18,7 @@ import { createRequire } from 'node:module'
 import type BetterSqlite3 from 'better-sqlite3'
 import type {
   AIMessage,
+  LoggerLike,
   FlowCheckpoint,
   IStore,
   MessageRef,
@@ -34,6 +35,7 @@ import { SqliteUserData } from './userData.js'
 import { SQLiteScheduleStore, rebindScheduleStore } from './schedules.js'
 import { SQLiteDurability, rebindDurableKv } from './durability.js'
 import { openError } from './openError.js'
+import { MIGRATIONS, SQLiteSchemaVersionError, assertSupportedVersion, runMigrations } from './schema.js'
 
 /** `':memory:'` and `''` (anonymous temporary database) only exist while their connection is open. */
 function isInMemory(file: string): boolean {
@@ -64,7 +66,17 @@ export interface SQLiteStoreOptions {
    * integer, else the constructor throws a `RangeError`.
    */
   purgeBatchSize?: number
-  logger?: { error?: (...args: unknown[]) => void }
+  /**
+   * How long a statement waits for another connection's lock before failing with
+   * `SQLITE_BUSY`, in ms (`PRAGMA busy_timeout`). Default 5000. Must be a
+   * non-negative integer, else the constructor throws a `RangeError`.
+   */
+  busyTimeoutMs?: number
+  /**
+   * Logger for close failures and schema migrations. Any {@link LoggerLike}
+   * (pino, the bot's logger) fits; every method is optional.
+   */
+  logger?: Partial<LoggerLike>
 }
 
 /**
@@ -115,7 +127,8 @@ interface Statements {
 export class SQLiteStore implements IStore {
   private db!: BetterSqlite3.Database
   private readonly maxMessagesPerChat?: number
-  private readonly logger?: { error?: (...args: unknown[]) => void }
+  private readonly logger?: Partial<LoggerLike>
+  private readonly busyTimeoutMs: number
   private readonly file: string
   private readonly wal: boolean
   private readonly purgeBatchSize?: number
@@ -134,6 +147,10 @@ export class SQLiteStore implements IStore {
     if (opts.purgeBatchSize != null && !(Number.isInteger(opts.purgeBatchSize) && opts.purgeBatchSize > 0)) {
       throw new RangeError(`SQLiteStore: purgeBatchSize must be a positive integer, got ${opts.purgeBatchSize}`)
     }
+    if (opts.busyTimeoutMs != null && !(Number.isInteger(opts.busyTimeoutMs) && opts.busyTimeoutMs >= 0)) {
+      throw new RangeError(`SQLiteStore: busyTimeoutMs must be a non-negative integer, got ${opts.busyTimeoutMs}`)
+    }
+    this.busyTimeoutMs = opts.busyTimeoutMs ?? 5000
     this.logger = opts.logger
     this.maxMessagesPerChat = opts.maxMessagesPerChat
     try {
@@ -158,14 +175,20 @@ export class SQLiteStore implements IStore {
     let db: BetterSqlite3.Database | undefined
     try {
       db = new this.DatabaseCtor(this.file)
-      if (this.wal) db.pragma('journal_mode = WAL')
+      // Connection-only pragmas first; refuse a newer file before `journal_mode = WAL`,
+      // which is persistent (rewrites the header, creates -wal/-shm).
+      db.pragma(`busy_timeout = ${this.busyTimeoutMs}`)
       db.pragma('synchronous = NORMAL')
+      assertSupportedVersion(db, MIGRATIONS, this.file)
+      if (this.wal) db.pragma('journal_mode = WAL')
       this.db = db
-      this.migrate()
+      const { from, to } = runMigrations(db, MIGRATIONS, this.file)
+      if (from !== to && from !== 0) this.logger?.info?.({ from, to }, 'SQLiteStore: schema migrated')
     } catch (err) {
       // e.g. SQLITE_NOTADB surfaces on the first statement: release the handle (Windows
       // keeps the file locked otherwise) and name the file in the error.
       try { db?.close() } catch { /* already unusable */ }
+      if (err instanceof SQLiteSchemaVersionError) throw err
       throw openError(err, this.file)
     }
     this.userData = new SqliteUserData(this.db, this.purgeBatchSize)
@@ -205,22 +228,6 @@ export class SQLiteStore implements IStore {
     const mergeContact = this.db.transaction(merge(stmts.getContact, stmts.putContact))
     this.mergeChatTx = (chat) => mergeChat.immediate(chat)
     this.mergeContactTx = (contact) => mergeContact.immediate(contact)
-  }
-
-  private migrate(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS messages (
-        id TEXT PRIMARY KEY, chat_id TEXT NOT NULL, sender_id TEXT,
-        timestamp INTEGER NOT NULL, type TEXT NOT NULL, body TEXT,
-        from_me INTEGER, msg_json TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages (chat_id, timestamp);
-      CREATE TABLE IF NOT EXISTS chats (id TEXT PRIMARY KEY, chat_json TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS contacts (id TEXT PRIMARY KEY, contact_json TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS checkpoints (key TEXT PRIMARY KEY, checkpoint_json TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS conversations (key TEXT PRIMARY KEY, messages_json TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS cursors (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-    `)
   }
 
   private prepare(): Statements {

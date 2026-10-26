@@ -77,7 +77,8 @@ const bot = new Bot({
 | `wal` | `boolean` | `true` | Activar modo WAL (mejores lecturas concurrentes) |
 | `maxMessagesPerChat` | `number` | — (sin límite) | Conserva solo los N mensajes más recientes por chat; los más viejos se podan al guardar |
 | `purgeBatchSize` | `number` | `1000` | Filas que borra cada sentencia de `purgeExpiredUserData` (repite hasta que no queda nada expirado) |
-| `logger` | `object` | — | Logger para errores (`{ error: fn }`) |
+| `busyTimeoutMs` | `number` | `5000` | Cuánto espera una sentencia al bloqueo de otra conexión antes de `SQLITE_BUSY` (`PRAGMA busy_timeout`) |
+| `logger` | `Partial<LoggerLike>` | — | Logger para fallos al cerrar y migraciones de esquema (pino o el logger del bot; todos los métodos opcionales) |
 
 ### Qué almacena
 
@@ -120,6 +121,8 @@ bot.use(
 Si el proceso se cae a mitad del flujo, el próximo mensaje de ese usuario **reanuda en el paso exacto** donde se quedó. Ese mensaje solo despierta el flujo: un `ask`/`choose` pendiente se vuelve a enviar (`¿Tu email?` arriba), el flujo sigue con el estado que tenía y la siguiente respuesta del usuario es la que lo contesta (con [durabilidad](./durabilidad) el mensaje que despierta es la respuesta). El checkpoint se escribe al completar un paso, así que un flujo que aún espera su **primera** pregunta no tiene nada guardado: tras un reinicio, el usuario lo vuelve a empezar con su disparador.
 
 `bot.stop()` y un `bot.start()` fallido cierran la base de datos; el siguiente `bot.start()` la reabre, así que un bot puede pararse y volver a arrancar con el mismo `SQLiteStore` (y con los backends `schedules()` / `durability()` que entregó). Una base en memoria (`file: ':memory:'`) nunca la cierra `stop()`: cerrarla perdería sus datos. Llamar a `schedules()` o `durability()` con el store parado la reabre del mismo modo.
+
+**Versionado del esquema.** El archivo guarda su layout en `PRAGMA user_version`. Al abrirlo se ejecutan en orden las migraciones pendientes, cada una en su propia transacción (un paso que falla deja el archivo en la última versión completada), así que una base escrita por una versión anterior se actualiza en el sitio. Un archivo escrito por una versión más nueva se rechaza con `SQLiteSchemaVersionError` (`code: 'SQLITE_SCHEMA_TOO_NEW'`, con `found` y `supported`) y no se toca. `SQLITE_SCHEMA_VERSION` es la versión que escribe esta release. No se admite volver atrás: haz una copia del archivo antes de una actualización que puedas tener que revertir.
 
 SQLite guarda el texto en UTF-8, donde un surrogate UTF-16 suelto se convierte en U+FFFD, así que dos ids distintos podrían compartir fila. `saveMessage` y `setCursor` rechazan (`TypeError`) un id de mensaje, id de chat, clave o valor de cursor con un surrogate suelto, y una búsqueda con uno no encuentra nada.
 

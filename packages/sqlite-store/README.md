@@ -53,7 +53,23 @@ With a durable store, `flow(...).persistent()` checkpoints survive a restart: th
 | `wal`                | `boolean`     | `true`       | Enable WAL journal mode. |
 | `maxMessagesPerChat` | `number`      | — (unbounded) | Keep only the newest N messages per chat; older rows are pruned on each `saveMessage`. Must be a non-negative integer (else `RangeError`). |
 | `purgeBatchSize` | `number` | `1000` | Rows deleted per statement by `purgeExpiredUserData`; the purge loops until nothing expired is left, so a large backlog never runs as one long delete. Must be a positive integer (else `RangeError`). |
-| `logger`             | `{ error? }`  | —            | Receives lifecycle errors (e.g. close failure). |
+| `busyTimeoutMs`      | `number`      | `5000`       | How long a statement waits for another connection's lock before `SQLITE_BUSY` (`PRAGMA busy_timeout`). Must be a non-negative integer (else `RangeError`). |
+| `logger`             | `Partial<LoggerLike>` | —    | Receives lifecycle errors (close failure) and schema migration notes; pino or the bot's logger fit, every method is optional. |
+
+## Schema versioning
+
+The file records its layout in `PRAGMA user_version`; `SQLITE_SCHEMA_VERSION` is
+the version this release writes (`1`). Opening a database runs the pending
+migrations in order, each in its own `IMMEDIATE` transaction together with the
+version bump, so a failed step leaves the file at the last completed version and
+two processes opening one file never run a step twice. Files written before
+versioning existed (version `0`, up to `0.2.0-alpha.0`) are upgraded in place
+with every row kept.
+
+A file written by a newer release is refused, untouched, with
+`SQLiteSchemaVersionError` (`code: 'SQLITE_SCHEMA_TOO_NEW'`, `found`,
+`supported`). Downgrades are not supported: back up the file before an upgrade
+you may need to roll back.
 
 ## Table layout
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { OutsideSessionWindowError, RecipientUnreachableError } from '@botmesh/core'
-import { MessengerProvider, toProviderError } from '../src/MessengerProvider.js'
+import { MessengerProvider, toMessengerError } from '../src/MessengerProvider.js'
 import { toOutbound, toOutboundMessages } from '../src/toOutbound.js'
 import { parseInbound } from '../src/parseInbound.js'
 
@@ -30,7 +30,7 @@ describe('Messenger error mapping', () => {
     const err = await new MessengerProvider(baseCfg).send('PSID2', { kind: 'text', text: 'x' }).catch((e: unknown) => e)
     expect(err).toBeInstanceOf(RecipientUnreachableError)
     expect((err as RecipientUnreachableError).chatId).toBe('PSID2')
-    expect(toProviderError({ code: 100, error_subcode: 2018001, message: 'No matching user found' }, undefined, 'P')).toBeInstanceOf(RecipientUnreachableError)
+    expect(toMessengerError({ code: 100, error_subcode: 2018001, message: 'No matching user found' }, undefined, 'P')).toBeInstanceOf(RecipientUnreachableError)
   })
 })
 

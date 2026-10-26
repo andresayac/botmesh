@@ -21,7 +21,7 @@ export type {
 } from './parseInbound.js'
 export { MemoryIdentityMap, isBsuid } from './identity.js'
 export type { IdentityMap, IdentityLogger, MemoryIdentityMapOptions, MaybePromise } from './identity.js'
-export { verifyChallenge, verifySignature } from '@botmesh/graph-core'
+export { verifyChallenge, verifySignature } from './verify.js'
 export type { ChallengeQuery } from '@botmesh/graph-core'
 export type { CloudAPIProviderConfig, GraphErrorBody, GraphSendMessageResponse } from './types.js'
 export {

@@ -5,7 +5,7 @@
  */
 
 export { InstagramProvider } from './InstagramProvider.js'
-export { GraphClient, toProviderError } from './graphClient.js'
+export { GraphClient, toInstagramError, toProviderError } from './graphClient.js'
 export { toOutbound } from './toOutbound.js'
 export { parseInbound } from './parseInbound.js'
 export type { IgWebhookBody, IgMessagingEvent } from './parseInbound.js'
