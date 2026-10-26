@@ -35,10 +35,10 @@ The store unit tests are hermetic (in-memory fakes or a temporary SQLite file). 
 
 ```bash
 # disposable servers (high ports so they do not clash with a local MySQL/Redis)
-docker run -d --name botwa-it-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=botwa -p 55432:5432 postgres:16
-docker run -d --name botwa-it-mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=botwa -p 53306:3306 mysql:8.4
-docker run -d --name botwa-it-mongo -p 57017:27017 mongo:7
-docker run -d --name botwa-it-redis -p 56379:6379 redis:7
+docker run -d --name botmesh-it-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=botwa -p 55432:5432 postgres:16
+docker run -d --name botmesh-it-mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=botwa -p 53306:3306 mysql:8.4
+docker run -d --name botmesh-it-mongo -p 57017:27017 mongo:7
+docker run -d --name botmesh-it-redis -p 56379:6379 redis:7
 
 export BOTWA_TEST_POSTGRES_URL=postgres://postgres:postgres@127.0.0.1:55432/botwa
 export BOTWA_TEST_MYSQL_URL=mysql://root:root@127.0.0.1:53306/botwa
@@ -47,7 +47,7 @@ export BOTWA_TEST_REDIS_URL=redis://127.0.0.1:56379
 
 pnpm --filter "./packages/*-store" test   # MySQL takes a few seconds to accept connections
 
-docker rm -f botwa-it-postgres botwa-it-mysql botwa-it-mongo botwa-it-redis
+docker rm -f botmesh-it-postgres botmesh-it-mysql botmesh-it-mongo botmesh-it-redis
 ```
 
 On Windows, always use `127.0.0.1` instead of `localhost`: `localhost` resolves to `::1` first and Docker Desktop's IPv6 forwarding accepts the TCP connection only to cut it, so the hooks time out.
@@ -55,27 +55,31 @@ On Windows, always use `127.0.0.1` instead of `localhost`: `localhost` resolves 
 `redis-store` also ships suites against a real **Redis Cluster** (`tests/cluster.integration.test.ts` and `tests/cluster-migrate.integration.test.ts`; the second one also uses `BOTWA_TEST_REDIS_URL`). Ports 47100-47105 stay well away from the ones above; the cluster bus (57100-57105) never leaves the container:
 
 ```bash
-docker run -d --name botwa-it-redis-cluster -e IP=0.0.0.0 -e INITIAL_PORT=47100 -e MASTERS=3 -e SLAVES_PER_MASTER=1 -p 127.0.0.1:47100-47105:47100-47105 grokzen/redis-cluster:7.0.10
+docker run -d --name botmesh-it-redis-cluster -e IP=0.0.0.0 -e INITIAL_PORT=47100 -e MASTERS=3 -e SLAVES_PER_MASTER=1 -p 127.0.0.1:47100-47105:47100-47105 grokzen/redis-cluster:7.0.10
 export BOTWA_TEST_REDIS_CLUSTER_URL=redis://127.0.0.1:47100
 export BOTWA_TEST_REDIS_CLUSTER_CHAOS=1   # optional: failover and slot migration under load
 pnpm --filter @botmesh/redis-store test
-docker rm -f botwa-it-redis-cluster
+docker rm -f botmesh-it-redis-cluster
 ```
 
+The `redis-store` suites run with node-redis 6 (the `redis` devDependency) by default. `BOTWA_TEST_REDIS_CLIENT=v4` or `v5` runs every one of them with that major instead (the package accepts `redis` `^4.7 || ^5 || ^6` as a peer; `vitest.config.ts` aliases `redis` to the `redis-v4` / `redis-v5` devDependencies). Run the three when you touch the Redis components.
+
 In PowerShell, environment variables are set with `$env:BOTWA_TEST_POSTGRES_URL = 'postgres://postgres:postgres@127.0.0.1:55432/botwa'` (and likewise for the rest). You can define only the ones you care about: the other suites skip themselves.
+
+The test-only variables keep the `BOTWA_TEST_*` prefix of the project's former name (also `BOTWA_FUZZ_SEEDS`). They are internal to this repository, never read by a published package, and stay as they are so existing local setups and scripts keep working.
 
 ### Email (`@botmesh/email`) against GreenMail
 
 `packages/email-provider/tests/integration.test.ts` exercises the email provider with real `imapflow` and `nodemailer` against [GreenMail](https://greenmail-mail-test.github.io/greenmail/) (IMAP IDLE, SMTP, threading, attachments, loop protection, restarts and a full `Bot` flow). It turns on with `BOTWA_TEST_EMAIL`:
 
 ```bash
-docker run -d --name botwa-it-greenmail \
+docker run -d --name botmesh-it-greenmail \
   -e GREENMAIL_OPTS="-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled" \
   -p 127.0.0.1:3025:3025 -p 127.0.0.1:3143:3143 greenmail/standalone:2.1.3
 
 BOTWA_TEST_EMAIL=1 pnpm --filter @botmesh/email test
 
-docker rm -f botwa-it-greenmail
+docker rm -f botmesh-it-greenmail
 ```
 
 Host and ports: `BOTWA_TEST_EMAIL_HOST`, `BOTWA_TEST_EMAIL_SMTP_PORT` and `BOTWA_TEST_EMAIL_IMAP_PORT` (default `127.0.0.1`, `3025` and `3143`). More detail in the [package README](packages/email-provider/README.md#integration-tests). If you touch `email-provider`, run it locally: CI does not.
