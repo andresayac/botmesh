@@ -23,9 +23,9 @@
 
 import type { MessageRef } from '../core/provider.js'
 
-import type { JsonValue } from '../testing/transcripts/format.js'
+import type { JsonValue } from '../core/json.js'
 
-/** A JSON-safe value (what the journals persist). Same type as the transcript `JsonValue`. */
+/** A JSON-safe value (what the journals persist). The same type the main entry exports. */
 export type { JsonValue }
 
 /* ============================================================================

@@ -43,8 +43,8 @@ const DEPRECATED_MEMBERS: Array<[file: string, member: RegExp, replacement: RegE
   ['durability/types.ts', /journal\?: DurabilityBackend/, /backend/],
   ['core/provider.ts', /storeConfig\?:/, /store: new MemoryStore/],
   ['index.ts', /export type Config\b/, /BotConfig/],
-  ['index.ts', /export type ConversationFn\b/, /ConversationHandler/],
-  ['index.ts', /export const Whitelist\b/, /bot\.whitelist/],
+  ['index.ts', /ConversationFn,\s*\} from '\.\/conversations\/ConversationRuntime\.js'/, /ConversationHandler/],
+  ['index.ts', /Whitelist,\s*\} from '\.\/gates\/accessList\.js'/, /bot\.whitelist/],
 ]
 
 const CANONICAL_MEMBERS: Array<[file: string, member: RegExp]> = [

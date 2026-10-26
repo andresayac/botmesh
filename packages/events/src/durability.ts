@@ -42,10 +42,8 @@ import {
   type LeaseOptions,
   type MemoryKvSnapshot,
   type OutboxJournal,
-} from '@botmesh/core/spi'
-import {
   type JsonValue,
-} from '@botmesh/core/testing'
+} from '@botmesh/core/spi'
 import {
   EventNotFoundError, FileEventJournal, StaleLeaseError as EventStaleLeaseError,
   type EventContext, type EventEnvelope, type EventRecord, type LeasedEventJournal, type SidecarHandle,

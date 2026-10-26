@@ -55,10 +55,8 @@ import {
   type SendResult,
   type SerializedMediaRef,
   type UserId,
-} from '@botmesh/core'
-import {
   type JsonValue,
-} from '@botmesh/core/testing'
+} from '@botmesh/core'
 import { domainOf, looksLikeAddress, normalizeAddress, type EmailAddress } from './address.js'
 import { isAuthenticated } from './auth.js'
 import { detectBounce } from './bounce.js'

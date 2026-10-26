@@ -11,14 +11,15 @@
 import { createHash } from 'node:crypto'
 
 import type { ChatId, InboundEvent, OutboundContent, StoredMessage } from '../../core/provider.js'
+import type { JsonValue } from '../../core/json.js'
 
 /** Magic string in every transcript file. */
 export const TRANSCRIPT_FORMAT = 'botmesh/transcript'
 /** Current transcript schema version. Bump on breaking changes and migrate in {@link parseTranscript}. */
 export const TRANSCRIPT_VERSION = 1
 
-/** Any JSON value. */
-export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
+/** Any JSON value (defined in the core, re-exported here for transcript authors). */
+export type { JsonValue }
 
 /** A user → bot turn. */
 export interface TranscriptInbound {

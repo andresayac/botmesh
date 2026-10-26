@@ -38,6 +38,7 @@ export type { ScheduleStore } from './scheduler/ScheduleStore.js'
 export type { LeaseProvider, SchedulerLease } from './coordination/lease.js'
 export type { Coordinator, CoordinatorEvents, Fence, LeaseLossReason } from './coordination/types.js'
 export type { BotTracer } from './telemetry/types.js'
+export type { JsonValue } from './core/json.js'
 
 // Stores
 export { messageKey, legacyMessageKey } from './store/IStore.js'

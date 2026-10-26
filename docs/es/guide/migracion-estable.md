@@ -10,7 +10,7 @@ marcadas como **Ruptura**.
 ## Entradas del paquete
 
 La entrada principal (`@botmesh/core`) ahora solo exporta lo que necesita una
-aplicación: 512 nombres antes, 365 después. Todo lo demás pasó a un subpath:
+aplicación: 512 nombres antes, 368 después. Todo lo demás pasó a un subpath:
 
 | Importa de | Qué contiene |
 | --- | --- |
@@ -30,7 +30,10 @@ del import; los valores son los mismos.
 | `toInboundLocation`, `InboundLocationInput`, `formReplyBody`, `parseFormReply`, `assertFormDefinition`, `validateFormValues`, `parseFieldAnswer`, `parseFormDate`, `formOptionEntries`, `isFieldRequired`, `selectionBounds`, `FieldCheck`, `FormFieldError`, `FormValidation`, `I18n`, `I18nOptions`, `I18nLogger`, `normalizeLocale` | `@botmesh/core/spi` |
 | `noopTracer`, `NOOP_TRACING`, `errorTypeOf`, `formatTraceparent`, `parseTraceparent`, `CheckpointTrace` | `@botmesh/core/spi` |
 | `MemoryCoordinator`, `MemoryCoordinationHub`, `MemoryCoordinatorOptions` | `@botmesh/core/testing` |
-| `Dispatcher`, `ConversationRuntime`, `HookSystem`, `Scheduler`, `InboundDeduper`, `createInboundDeduper`, `inboundDedupeKey`, `SentRefRing`, `createEchoFilter`, `UserDataService`, `checkAccess`, `validateHandoffConfig`, `HANDOFF_INDEX_KEY`, `messagingSupport`, `DEFAULT_TYPING`, `cronNextRun`, `sleep`, `withTimeout`, `humanTypingDelay`, `randomId`, `isSchemaLike`, `resolveStreamStrategy`, `findSplitPoint`, `withFormDefaults`, `providerLanguageOf` y sus tipos de opciones | `@botmesh/core/internal` |
+| `Dispatcher`, `ConversationRuntime`, `HookSystem`, `Scheduler`, `InboundDeduper`, `createInboundDeduper`, `inboundDedupeKey`, `SentRefRing`, `createEchoFilter`, `UserDataService`, `checkAccess`, `validateHandoffConfig`, `HANDOFF_INDEX_KEY`, `messagingSupport`, `DEFAULT_TYPING`, `cronNextRun`, `sleep`, `withTimeout`, `humanTypingDelay`, `randomId`, `isSchemaLike`, `resolveStreamStrategy`, `findSplitPoint`, `withFormDefaults`, `providerLanguageOf` | `@botmesh/core/internal` |
+| `Pacer`, `PacerOptions`, `PaceGuard`, `PacerLogger`, `ResolvedTypingConfig`, `RuntimeConfig`, `ConversationHandle`, `CheckpointStore`, `AnswerCodec`, `RuntimeHandover`, `RuntimeHandoverFallback` | `@botmesh/core/internal` |
+| `DispatchContext`, `DispatcherDeps`, `DispatcherMessageHandler`, `DispatcherCommandHandler`, `BroadcastDeps`, `BuildContextDeps`, `HooksLike`, `HookLogger`, `RegisteredHook`, `ConversationTraceHooks`, `ConversationTurnTrace`, `TaskTraceHooks`, `TaskRunInfo` | `@botmesh/core/internal` |
+| `InboundDedupeKey`, `InboundDeduperOptions`, `SentRefRingOptions`, `UserDataServiceOptions`, `DEFAULT_DEDUPE_SIZE`, `DEFAULT_ECHO_FILTER_SIZE`, `DEFAULT_SCHEMA_MESSAGE`, `DEFAULT_USER_NAMESPACE` | `@botmesh/core/internal` |
 | `buildMessageContext`, `createControls`, `createPacer`, `runBroadcast`, `runFormStep`, `resolveFormMode`, `newFormToken`, `MetricsCollector`, `formatUptime`, `ExternalSendClock`, `TYPING_REFRESH_MS`, `normalizeTypingConfig`, `resolveReplyTyping`, `typingDuration`, `parseReplyDelay` | `@botmesh/core/internal` (se quitaron los reexports obsoletos de la entrada principal) |
 
 ```ts
@@ -40,6 +43,13 @@ import { Bot } from '@botmesh/core'
 import { KvDurability, MemoryKv } from '@botmesh/core/spi'
 import { MemoryCoordinator } from '@botmesh/core/testing'
 ```
+
+Algunos tipos del motor que se movieron siguen apareciendo en firmas que usa una
+aplicación, así que la entrada principal los conserva: `MessagingFeature` y
+`MessagingSupport` (`ctx.supports()`), `ResolvedWaitOptions`
+(`ConversationControlsBase.waitAny()`) y `JsonValue` (la forma de
+`SerializedMediaRef.data` y de los registros de los journals; también lo exporta
+`@botmesh/core/spi`). Impórtalos de `@botmesh/core`, no de `/internal` ni de `/testing`.
 
 `@botmesh/core` sigue reexportando las funciones de transcripciones doradas
 (`recordTranscript`, `RecordingProvider`, `redactTranscript`,

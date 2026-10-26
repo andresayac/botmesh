@@ -22,8 +22,7 @@
  */
 
 import { randomUUID } from 'node:crypto'
-import type { DurableKv } from '@botmesh/core'
-import type { JsonValue } from '@botmesh/core/testing'
+import type { DurableKv, JsonValue } from '@botmesh/core'
 import { TenantDocs } from '@botmesh/tenant-kv'
 import { assertDeploymentIds, assertListLimit } from './memory.js'
 import { heldByOther, type CommitInput, type DeploymentStore } from './store.js'

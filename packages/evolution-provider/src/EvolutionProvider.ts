@@ -40,10 +40,8 @@ import type {
   SendResult,
   SerializedMediaRef,
   UserId,
-} from '@botmesh/core'
-import type {
   JsonValue,
-} from '@botmesh/core/testing'
+} from '@botmesh/core'
 import {
   PayloadTooLargeError,
   ProviderError,

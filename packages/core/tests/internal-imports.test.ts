@@ -38,7 +38,7 @@ const DEPRECATED_MAIN = [
   'TRANSCRIPT_FORMAT', 'TRANSCRIPT_VERSION', 'TranscriptFormatError', 'createTranscript', 'parseTranscript',
   'serializeTranscript', 'transcriptFromMessages', 'transcriptFromStore', 'recordTranscript', 'RecordingProvider',
   'DEFAULT_MAX_TURNS', 'redactTranscript', 'createRedactionMap', 'Transcript', 'TranscriptTurn', 'TranscriptInbound',
-  'TranscriptOutbound', 'JsonValue', 'FromMessagesOptions', 'TranscriptMessageSource', 'TranscriptStoreOwner',
+  'TranscriptOutbound', 'FromMessagesOptions', 'TranscriptMessageSource', 'TranscriptStoreOwner',
   'RecordTranscriptOptions', 'TranscriptRecorder', 'RedactOptions', 'RedactionRule', 'RedactionMap',
   'Whitelist', 'ConversationFn', 'Config',
 ]

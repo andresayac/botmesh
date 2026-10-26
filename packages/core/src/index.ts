@@ -146,16 +146,18 @@ export type { SchemaWaitOptions } from './conversations/controls.js'
 
 // Conversations
 export type { ConversationHandler } from './conversations/handler.js'
-import type { ConversationControlsBase as ControlsBaseForAlias, ConversationFn as RuntimeConversationFn } from './conversations/ConversationRuntime.js'
-/**
- * @deprecated Use {@link ConversationHandler}, the handler type of `bot.conversation()` (its
- * `ctx` is the full `MessageContext`). This is the runtime's narrower function type, kept
- * unchanged so code typed with it still compiles; it also lives in `@botmesh/core/internal`.
- */
-export type ConversationFn<C extends ControlsBaseForAlias = ControlsBaseForAlias> = RuntimeConversationFn<C>
+export type {
+  /**
+   * @deprecated Use {@link ConversationHandler}, the handler type of `bot.conversation()` (its
+   * `ctx` is the full `MessageContext`). This is the runtime's narrower function type (the one
+   * `ConversationRegistration.fn` records), kept so code typed with it still compiles.
+   */
+  ConversationFn,
+} from './conversations/ConversationRuntime.js'
 export type {
   RuntimeMessage,
   ConversationControlsBase,
+  ResolvedWaitOptions,
   ConversationRegistration,
   ConversationObserver,
   ConversationSnapshot,
@@ -231,15 +233,14 @@ export type {
 
 // Access lists and human handoff
 export { AccessList } from './gates/accessList.js'
-import { Whitelist as WhitelistClass } from './gates/accessList.js'
-/**
- * @deprecated The class of `bot.whitelist` (an {@link AccessList} with an on/off mode). Use the
- * instance on the bot (`bot.whitelist`) and never construct one; to name its type, write
- * `Bot['whitelist']`.
- */
-export const Whitelist = WhitelistClass
-/** @deprecated The type of `bot.whitelist`: write `Bot['whitelist']`. */
-export type Whitelist = WhitelistClass
+export {
+  /**
+   * @deprecated The class of `bot.whitelist` (an {@link AccessList} with an on/off mode). Use the
+   * instance on the bot (`bot.whitelist`) and never construct one; to name its type, write
+   * `Bot['whitelist']`.
+   */
+  Whitelist,
+} from './gates/accessList.js'
 export type {
   AccessDecision,
   AccessListAction,
@@ -295,7 +296,8 @@ export type { UserData, UserSetOptions } from './user/types.js'
 
 // Messaging: typing indicator (BotConfig.typing), reply options, ctx.edit / ctx.react
 export { PacedSendCancelled } from './core/messaging.js'
-export type { TypingConfig, ReplyOptions, EditOptions, EditResult } from './core/messaging.js'
+export type { TypingConfig, ReplyOptions, EditOptions, EditResult, MessagingFeature, MessagingSupport } from './core/messaging.js'
+export type { JsonValue } from './core/json.js'
 
 // Operations: bot.broadcast(), bot.trigger(), bot.metrics() + Prometheus exporter
 export type { BroadcastOptions, BroadcastFailure, BroadcastProgress } from './ops/broadcast.js'
@@ -391,8 +393,6 @@ export type {
   TranscriptInbound,
   /** @deprecated Import from '@botmesh/core/testing'. */
   TranscriptOutbound,
-  /** @deprecated Import from '@botmesh/core/testing'. */
-  JsonValue,
   /** @deprecated Import from '@botmesh/core/testing'. */
   FromMessagesOptions,
   /** @deprecated Import from '@botmesh/core/testing'. */
