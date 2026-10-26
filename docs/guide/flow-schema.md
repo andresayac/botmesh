@@ -9,7 +9,7 @@ pnpm add @botmesh/core @botmesh/flow-schema
 While the packages are in prerelease, add the dist-tag shown in
 [Getting started](/guide/getting-started). The main entry is covered by semver; the expression engine and the compiler's metadata helpers live in `@botmesh/flow-schema/internal`, with no semver guarantee.
 
-A document is **data only**. It never carries functions, `eval`, module imports or arbitrary expressions: the only computation is a safe expression language and `{{ path }}` templates.
+A document is **data only**. It never carries functions, `eval`, module imports or arbitrary expressions: the only computation is a safe expression language and <code v-pre>{{ path }}</code> templates.
 
 ```ts
 import { compileFlowDocument, validateFlowDocument } from '@botmesh/flow-schema'
@@ -55,7 +55,7 @@ if (validateFlowDocument(document).length === 0) bot.registerFlow(compileFlowDoc
 | `form` | Native form (or degraded question-by-question) with typed fields; see [Forms](./forms.md). |
 | `guard` | `if` expression; when false it sends `message` and ends, or `message` + `redirect` to another flow. |
 | `subflow` | Runs another document inline (same state), resolved by `resolveSubflow`. |
-| `http` | Declarative HTTP request through `@botmesh/http` (anti-SSRF, redirects, timeout and size limits). Stores the JSON/text body in `stateKey`. `{{ path }}` placeholders are allowed only in the URL's path, query or fragment (never in the scheme, credentials, host or port); their values are percent-encoded and a bare `.` or `..` value is refused. String values of the JSON `body` take placeholders too (a string that is exactly one `{{ path }}` sends the value itself, `null` when missing). A non-2xx answer fails the step, a header value that renders with a line break is refused, and errors show the URL template without its query. |
+| `http` | Declarative HTTP request through `@botmesh/http` (anti-SSRF, redirects, timeout and size limits). Stores the JSON/text body in `stateKey`. <code v-pre>{{ path }}</code> placeholders are allowed only in the URL's path, query or fragment (never in the scheme, credentials, host or port); their values are percent-encoded and a bare `.` or `..` value is refused. String values of the JSON `body` take placeholders too (a string that is exactly one <code v-pre>{{ path }}</code> sends the value itself, `null` when missing). A non-2xx answer fails the step, a header value that renders with a line break is refused, and errors show the URL template without its query. |
 | `handoff` | Hands the chat to a human (`ctx.handoff`), with an optional message. |
 | `ai` | One AI turn through `ctx.tools.ai.replyInChat`, optionally restricted to tool ids (`tools: ['lookup']`); stores the answer in `stateKey`. |
 
@@ -74,9 +74,9 @@ The validator also refuses form fields no answer can satisfy: `minLength` above 
 
 No `eval`, no `Function`, no regexes, no indexing, no assignment, no prototype access (`__proto__`, `prototype`, `constructor` are rejected). Limits: 1000 characters, 256 tokens, 32 levels.
 
-Templates (`{{ path }}`) only read own properties of `c.state` plus `$body`, `$from`, `$sender` and `$isGroup`; a missing value renders as an empty string. A rendered value is never read again as a template.
+Templates (<code v-pre>{{ path }}</code>) only read own properties of `c.state` plus `$body`, `$from`, `$sender` and `$isGroup`; a missing value renders as an empty string. A rendered value is never read again as a template.
 
-A state key may contain dots: after `ask` with `stateKey: 'user.name'`, both `{{ user.name }}` and `len(user.name)` read `c.state['user.name']` (a nested `c.state.user.name` object wins when both exist). Keys with `-` or `:` are valid ids but cannot be referenced (`first-name` is a subtraction), so use letters, digits, `_` and `.` for keys you read back. An unknown `$` variable, or `$answer` outside `ask.validate.expr`, is a validation issue.
+A state key may contain dots: after `ask` with `stateKey: 'user.name'`, both <code v-pre>{{ user.name }}</code> and `len(user.name)` read `c.state['user.name']` (a nested `c.state.user.name` object wins when both exist). Keys with `-` or `:` are valid ids but cannot be referenced (`first-name` is a subtraction), so use letters, digits, `_` and `.` for keys you read back. An unknown `$` variable, or `$answer` outside `ask.validate.expr`, is a validation issue.
 
 ## Validation errors
 

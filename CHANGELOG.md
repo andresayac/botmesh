@@ -4,6 +4,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### Informe de preparación de la beta con 36 paquetes (2026-10)
+- `docs/release-readiness.md` reescrito para la publicación de la beta: veredicto por paquete (beta y estable) de los 36 paquetes públicos, defectos abiertos por severidad, qué se ha verificado contra servicios reales y qué solo con fakes o simuladores, notas de congelación de la API, cifras de verificación y los pasos exactos del mantenedor (incluido `pnpm version-packages` antes de `pnpm release` y `npm dist-tag add <paquete>@<versión> latest` para cada paquete).
+- Docs (EN/ES): la guía del esquema JSON de flujos se generaba sin contenido porque Vue interpretaba el `{{ user.name }}` en línea, y las plantillas de la guía de integraciones salían como código vacío; ahora usan `<code v-pre>`. `pnpm docs:check` falla con cualquier `{{ }}` fuera de un bloque de código o de `<code v-pre>`.
+
 ### Revisión de las páginas de inicio de la documentación (2026-10)
 - `create-botmesh --help` sugiere el dist-tag de la versión en curso (`npm create botmesh@beta` durante la beta; sin tag en una versión estable) en lugar del `@alpha` antiguo.
 - Guías de inicio (EN/ES): el simulador en inglés usa textos en inglés y el español fija `lang: 'es'`; el mensaje real de `TelegramProvider` cuando falta el token; la portada lista los cinco stores persistentes; el README deja de marcar solo Messenger e Instagram como publicados desde la beta.

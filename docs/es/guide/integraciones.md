@@ -136,7 +136,7 @@ su URL de webhook).
 | `autoHandoff` | `true` | Pausar el bot cuando responde un agente |
 | `resumeOnResolve` | `true` | Reanudar el bot al resolver la conversación |
 | `resolveOnResume` | `true` | Resolver la conversación cuando el bot se reanuda por otra vía |
-| `handoffNote` | `'🤖 → 👤 Handoff: {{reason}}'` | Nota privada al hacer handoff; `false` la desactiva |
+| `handoffNote` | <code v-pre>'🤖 → 👤 Handoff: {{reason}}'</code> | Nota privada al hacer handoff; `false` la desactiva |
 | `syncInbound` / `syncOutbound` | `true` | Reflejar entrantes / envíos del bot |
 | `syncMode` | `'all'` | `'handoff'` solo refleja los chats que están en handoff |
 | `labels` | — | `{ handoff?, resume?, message?(ctx) }` |
@@ -256,8 +256,8 @@ fuera de la cola) y `closed`. Los ids son strings secuenciales (`'1'`,
 | `onError(error, source)` | log `warn` | Errores de callbacks y notificaciones; nunca hacen fallar la operación |
 | `storage` / `keyPrefix` | store del bot / `'tickets:'` | Persistencia `{ get, set }` propia y prefijo de claves |
 
-Las plantillas admiten `{{id}}`, `{{position}}`, `{{subject}}`,
-`{{priority}}`, `{{assignee}}`, `{{status}}` y `{{reason}}`.
+Las plantillas admiten <code v-pre>{{id}}</code>, <code v-pre>{{position}}</code>, <code v-pre>{{subject}}</code>,
+<code v-pre>{{priority}}</code>, <code v-pre>{{assignee}}</code>, <code v-pre>{{status}}</code> y <code v-pre>{{reason}}</code>.
 
 ### Persistencia
 

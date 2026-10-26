@@ -9,7 +9,7 @@ pnpm add @botmesh/core @botmesh/flow-schema
 Mientras los paquetes estén en prerelease, añade el dist-tag que indica
 [Inicio](/es/guide/inicio). La entrada principal sigue semver; el motor de expresiones y los helpers de metadatos del compilador viven en `@botmesh/flow-schema/internal`, sin garantía semver.
 
-Un documento es **solo datos**. Nunca lleva funciones, `eval`, imports ni expresiones arbitrarias: el único cálculo es un lenguaje de expresiones seguro y plantillas `{{ path }}`.
+Un documento es **solo datos**. Nunca lleva funciones, `eval`, imports ni expresiones arbitrarias: el único cálculo es un lenguaje de expresiones seguro y plantillas <code v-pre>{{ path }}</code>.
 
 ```ts
 import { compileFlowDocument, validateFlowDocument } from '@botmesh/flow-schema'
@@ -55,7 +55,7 @@ if (validateFlowDocument(document).length === 0) bot.registerFlow(compileFlowDoc
 | `form` | Formulario nativo (o pregunta a pregunta) con campos tipados; ver [Formularios](./formularios.md). |
 | `guard` | Expresión `if`; si es falsa envía `message` y termina, o `message` + `redirect` a otro flujo. |
 | `subflow` | Ejecuta otro documento en línea (mismo estado), resuelto con `resolveSubflow`. |
-| `http` | Petición HTTP declarativa a través de `@botmesh/http` (anti-SSRF, redirecciones, timeout y límites de tamaño). Guarda el cuerpo JSON/texto en `stateKey`. Los marcadores `{{ path }}` solo se permiten en la ruta, la query o el fragmento de la URL (nunca en el esquema, las credenciales, el host o el puerto); sus valores se codifican con percent-encoding y un valor `.` o `..` a secas se rechaza. Los valores de texto del `body` JSON también admiten marcadores (una cadena que es exactamente un `{{ path }}` envía el valor tal cual, `null` si falta). Una respuesta que no es 2xx hace fallar el paso, un valor de cabecera que se pinta con un salto de línea se rechaza y los errores muestran la plantilla de la URL sin su query. |
+| `http` | Petición HTTP declarativa a través de `@botmesh/http` (anti-SSRF, redirecciones, timeout y límites de tamaño). Guarda el cuerpo JSON/texto en `stateKey`. Los marcadores <code v-pre>{{ path }}</code> solo se permiten en la ruta, la query o el fragmento de la URL (nunca en el esquema, las credenciales, el host o el puerto); sus valores se codifican con percent-encoding y un valor `.` o `..` a secas se rechaza. Los valores de texto del `body` JSON también admiten marcadores (una cadena que es exactamente un <code v-pre>{{ path }}</code> envía el valor tal cual, `null` si falta). Una respuesta que no es 2xx hace fallar el paso, un valor de cabecera que se pinta con un salto de línea se rechaza y los errores muestran la plantilla de la URL sin su query. |
 | `handoff` | Pasa el chat a una persona (`ctx.handoff`), con mensaje opcional. |
 | `ai` | Un turno de IA con `ctx.tools.ai.replyInChat`, opcionalmente restringido a ids de herramientas (`tools: ['lookup']`); guarda la respuesta en `stateKey`. |
 
@@ -74,9 +74,9 @@ El validador también rechaza los campos que ninguna respuesta puede cumplir: `m
 
 Sin `eval`, sin `Function`, sin regexes, sin índices, sin asignación y sin acceso al prototipo (`__proto__`, `prototype` y `constructor` se rechazan). Límites: 1000 caracteres, 256 tokens, 32 niveles.
 
-Las plantillas (`{{ path }}`) solo leen propiedades propias de `c.state` más `$body`, `$from`, `$sender` y `$isGroup`; un valor ausente se pinta como cadena vacía. Un valor ya pintado nunca se vuelve a leer como plantilla.
+Las plantillas (<code v-pre>{{ path }}</code>) solo leen propiedades propias de `c.state` más `$body`, `$from`, `$sender` y `$isGroup`; un valor ausente se pinta como cadena vacía. Un valor ya pintado nunca se vuelve a leer como plantilla.
 
-Una clave de estado puede llevar puntos: tras un `ask` con `stateKey: 'user.name'`, tanto `{{ user.name }}` como `len(user.name)` leen `c.state['user.name']` (si también existe un objeto anidado `c.state.user.name`, gana el anidado). Las claves con `-` o `:` son ids válidos pero no se pueden leer (`first-name` es una resta), así que usa letras, dígitos, `_` y `.` en las claves que vayas a leer. Una variable `$` desconocida, o `$answer` fuera de `ask.validate.expr`, es un error de validación.
+Una clave de estado puede llevar puntos: tras un `ask` con `stateKey: 'user.name'`, tanto <code v-pre>{{ user.name }}</code> como `len(user.name)` leen `c.state['user.name']` (si también existe un objeto anidado `c.state.user.name`, gana el anidado). Las claves con `-` o `:` son ids válidos pero no se pueden leer (`first-name` es una resta), así que usa letras, dígitos, `_` y `.` en las claves que vayas a leer. Una variable `$` desconocida, o `$answer` fuera de `ask.validate.expr`, es un error de validación.
 
 ## Errores de validación
 

@@ -16,6 +16,7 @@ import {
   resolveLink,
   sidebarLinks,
   stripBase,
+  unescapedMustaches,
 } from './docs-check.mjs'
 
 test('collects element ids and <a> hrefs, decoding entities', () => {
@@ -152,6 +153,43 @@ test('checkSite checks the absolute links of the TypeDoc pages against the base'
     assert.deepEqual(errors.sort(), [
       '/api/classes/Bot: link outside base /botmesh/: /guide/flows',
       '/api/classes/Bot: missing page /botmesh/guide/nope',
+    ])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+const NL = '\n'
+
+test('finds {{ }} that Vue would interpolate outside code fences and <code v-pre>', () => {
+  const md = [
+    '# T',
+    'Templates (`{{ path }}`) only read state.',
+    'Safe: <code v-pre>{{ path }}</code> and <code v-pre>{{a}}</code>.',
+    '```js',
+    "const t = '{{ fenced }}'",
+    '```',
+    '| `note` | `{{reason}}` |',
+    'Mixed <code v-pre>{{ ok }}</code> and `{{ bad }}`.',
+  ].join(NL)
+  assert.deepEqual(unescapedMustaches(md), [2, 7, 8])
+  assert.deepEqual(unescapedMustaches('no templates here' + NL), [])
+})
+
+test('checkSite reports {{ }} that VitePress would interpolate', () => {
+  const root = mkdtempSync(join(tmpdir(), 'botwa-docs-check-mustache-'))
+  try {
+    const src = join(root, 'src')
+    const dist = join(root, 'dist')
+    mkdirSync(join(src, 'guide'), { recursive: true })
+    mkdirSync(join(dist, 'guide'), { recursive: true })
+    writeFileSync(join(src, 'guide/t.md'), ['# T', '', 'Use `{{ user.name }}`.', ''].join(NL))
+    writeFileSync(join(dist, 'guide/t.html'), '<h1 id="t">T</h1>')
+    // A page excluded from the site (no built HTML) is not compiled by Vue.
+    writeFileSync(join(src, 'excluded.md'), ['# E', '', 'Raw `{{ x }}`.', ''].join(NL))
+    const { errors } = checkSite({ distDir: dist, srcDir: src })
+    assert.deepEqual(errors, [
+      'guide/t.md:3: {{ }} outside a code fence is interpolated by Vue (use <code v-pre>…</code>)',
     ])
   } finally {
     rmSync(root, { recursive: true, force: true })

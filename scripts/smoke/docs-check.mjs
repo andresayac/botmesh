@@ -127,6 +127,29 @@ export function repeatedHeadings(md) {
   return duplicates(texts)
 }
 
+/**
+ * 1-based line numbers whose `{{ }}` Vue would interpolate: VitePress compiles each
+ * page as a Vue template, so a mustache outside a code fence (inline code included)
+ * renders empty or breaks the page's SSR. `<code v-pre>…</code>` keeps it literal.
+ */
+export function unescapedMustaches(md) {
+  const lines = []
+  let open = null
+  md.split(/\r?\n/).forEach((line, i) => {
+    const m = /^ {0,3}(`{3,}|~{3,})/.exec(line)
+    if (open) {
+      if (m && m[1][0] === open[0] && m[1].length >= open.length && line.trim() === m[1]) open = null
+      return
+    }
+    if (m) {
+      open = m[1]
+      return
+    }
+    if (line.replace(/<code v-pre>[\s\S]*?<\/code>/g, '').includes('{{')) lines.push(i + 1)
+  })
+  return lines
+}
+
 function walk(dir, skip, out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (skip.has(entry.name)) continue
@@ -221,7 +244,11 @@ export function checkSite({ distDir, srcDir, ignore = [], base = '/' }) {
     for (const text of repeatedHeadings(md)) warnings.push(`${file}: repeated heading "${text}"`)
     const expected = mermaidBlocks(md)
     const htmlFile = file.replace(/\.md$/, '.html')
+    // Pages excluded from the site (srcExclude) are never compiled by Vue.
     if (!existsSync(join(distDir, htmlFile))) continue
+    for (const line of unescapedMustaches(md)) {
+      errors.push(`${file}:${line}: {{ }} outside a code fence is interpolated by Vue (use <code v-pre>…</code>)`)
+    }
     const html = readHtml(htmlFile)
     const rendered = (html.match(/class="mermaid-diagram\b/g) ?? []).length
     const raw = (html.match(/class="language-mermaid\b/g) ?? []).length

@@ -131,7 +131,7 @@ into a second bot throws (create one per bot, each with its webhook URL).
 | `autoHandoff` | `true` | Pause the bot when an agent replies |
 | `resumeOnResolve` | `true` | Resume the bot when the conversation is resolved |
 | `resolveOnResume` | `true` | Resolve the conversation when the bot resumes for another reason |
-| `handoffNote` | `'🤖 → 👤 Handoff: {{reason}}'` | Private note on handoff; `false` disables it |
+| `handoffNote` | <code v-pre>'🤖 → 👤 Handoff: {{reason}}'</code> | Private note on handoff; `false` disables it |
 | `syncInbound` / `syncOutbound` | `true` | Mirror inbound messages / bot sends |
 | `syncMode` | `'all'` | `'handoff'` mirrors only chats that are handed off |
 | `labels` | — | `{ handoff?, resume?, message?(ctx) }` |
@@ -249,8 +249,8 @@ out of the queue) and `closed`. Ids are sequential strings (`'1'`, `'2'`…).
 | `onError(error, source)` | `warn` log | Callback and notification errors; they never fail the operation |
 | `storage` / `keyPrefix` | bot store / `'tickets:'` | Custom `{ get, set }` persistence and key prefix |
 
-Templates accept `{{id}}`, `{{position}}`, `{{subject}}`, `{{priority}}`,
-`{{assignee}}`, `{{status}}` and `{{reason}}`.
+Templates accept <code v-pre>{{id}}</code>, <code v-pre>{{position}}</code>, <code v-pre>{{subject}}</code>, <code v-pre>{{priority}}</code>,
+<code v-pre>{{assignee}}</code>, <code v-pre>{{status}}</code> and <code v-pre>{{reason}}</code>.
 
 ### Persistence
 
