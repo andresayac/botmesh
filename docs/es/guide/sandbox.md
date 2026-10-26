@@ -10,10 +10,23 @@ servidor entrega webhooks firmados con un secreto que él mismo elige, así que 
 firmas, el mapeo de errores, la descarga de media y los reintentos pasan por el mismo código que
 en producción.
 
-::: info Paquete privado
+::: info Aún no está en npm
 `@botmesh/sandbox` vive en el monorepo y no se publica en npm. Úsalo desde un clon:
 `pnpm install && pnpm build`.
 :::
+
+Elige la herramienta según lo que quieras comprobar:
+
+| Quieres | Usa |
+| --- | --- |
+| Probar flujos y handlers con tests unitarios, rápidos y en memoria | [`createTestBot` y `MockProvider`](/es/guide/testing) |
+| Chatear con tu bot en la terminal mientras lo escribes | el [simulador de la terminal](/es/guide/simulador) |
+| Ejecutar el provider real de un canal de extremo a extremo: firmas, forma de las peticiones, errores de la plataforma, media, reintentos | este sandbox |
+| Vincular un número real de WhatsApp | un teléfono de pruebas (ver [Lo que sigue siendo manual](#lo-que-sigue-siendo-manual)) |
+
+Baileys no tiene simulador aquí: WhatsApp Web es un protocolo binario sobre socket, no una API
+HTTP documentada. Prueba los bots de Baileys con `MockProvider` y el simulador de la terminal, y
+vincula un número de pruebas para la comprobación final.
 
 ## Canales
 
@@ -68,6 +81,18 @@ pnpm --filter @botmesh/sandbox start -- --bot bakery      # examples/bakery-ai c
 pnpm --filter @botmesh/sandbox start -- --telegram webhook --no-status
 ```
 
+| Opción | Por defecto | Qué hace |
+| --- | --- | --- |
+| `--port <n>` | `4610` | Puerto del chat web (`0` elige uno libre). |
+| `--host <addr>` | `127.0.0.1` | Dirección donde escuchan el chat web y su API (ver abajo). |
+| `--allow-host <lista>` | | Nombres de host extra aceptados en `Host`/`Origin`, separados por comas. |
+| `--token <valor>` | aleatorio en cada arranque | Token fijo de la API (se imprime al arrancar). |
+| `--channels <lista>` | todos | `whatsapp`, `messenger`, `instagram`, `telegram`, `discord`, `twilio`, `gupshup`, `gohighlevel`, `tiktok`. |
+| `--bot <nombre>` | `demo` | `demo`, `bakery` (el ejemplo de la panadería con un modelo guionizado) o `none`. |
+| `--telegram <modo>` | `polling` | `polling` o `webhook`. |
+| `--no-status` | | No envía automáticamente los acuses de entregado/leído. |
+| `--log <nivel>` | `warn` | Nivel de log de los providers y los bots. |
+
 ### API solo local
 
 La página habla con el hub mediante una pequeña API JSON. Cualquier web que abras en el mismo
@@ -99,8 +124,8 @@ envían el texto de la opción. Los simuladores de Telegram y Discord ya entrega
 que Telegram recibe un voto nativo y Discord el texto de la opción. Un test falla en cuanto un
 provider y el conjunto no coinciden, así que el conjunto se actualiza junto con el provider.
 
-El **bot demo** (`--bot demo`, por defecto) responde a `hola`, `menu`, `ubicacion` y
-`encuesta`, confirma la media y las ubicaciones que recibe, y pasa todo lo demás a `aiPlugin`
+El **bot demo** (`--bot demo`, por defecto) responde a `hola` (o `hi`), `menu`, `ubicacion`
+(una ubicación) y `encuesta` (una encuesta), confirma la media y las ubicaciones que recibe, y pasa todo lo demás a `aiPlugin`
 con un `MockAIProvider` guionizado (sin API key). `--bot bakery` ejecuta el
 [ejemplo de la panadería](https://github.com/andresayac/botmesh/tree/main/examples/bakery-ai)
 en los mismos canales.

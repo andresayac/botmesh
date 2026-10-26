@@ -8,44 +8,50 @@ The **official WhatsApp Cloud API (Meta)** transport for [`@botmesh/core`](https
 pnpm add @botmesh/core @botmesh/meta
 ```
 
+> **Prerelease.** Until the stable release, botmesh is published only under a prerelease dist-tag, so a plain install does not resolve yet. Add the tag to both packages (today `alpha`: `pnpm add @botmesh/core@alpha @botmesh/meta@alpha`); `npm view @botmesh/meta dist-tags` lists the current ones.
+
 Nothing else to install: Graph calls use Node ≥ 22's native `fetch` and `crypto`, and inbound media is downloaded through the SSRF-safe [`@botmesh/http`](https://github.com/andresayac/botmesh/tree/main/packages/http) (installed as a dependency).
 
 ## Requirements (Meta)
 
 1. An app on [developers.facebook.com](https://developers.facebook.com) with the **WhatsApp** product.
-2. A **permanent access token** (system user) with `whatsapp_business_messaging`.
-3. The **phone number id** of your sender number.
-4. A **webhook** pointing at your server (with a `verify_token` you choose and, recommended, the app's `app_secret`).
+2. A **permanent access token** (system user) with `whatsapp_business_messaging` (add `whatsapp_business_management` to publish Flows). The temporary token of the API Setup page expires after 24 hours.
+3. The **phone number id** of your sender number (API Setup page; not the phone number itself).
+4. The app's **app secret** (App settings → Basic): it verifies every webhook.
+5. A public **HTTPS webhook** pointing at your server: under WhatsApp → Configuration, set its URL and a `verify_token` you choose, and subscribe it to the **`messages`** field (messages and delivery statuses both arrive there).
 
 ## Usage
 
 ```ts
 import { Bot } from '@botmesh/core'
-import { CloudAPIProvider } from '@botmesh/meta'
+import { CloudAPIProvider, type ChallengeQuery } from '@botmesh/meta'
 import express from 'express'
 
 const provider = new CloudAPIProvider({
   accessToken: process.env.META_TOKEN!,
   phoneNumberId: process.env.META_PHONE_ID!,
-  verifyToken: 'my-verify-secret',                 // the one you set in Meta
+  verifyToken: process.env.META_VERIFY_TOKEN!,     // the one you set in Meta
   appSecret: process.env.META_APP_SECRET!,         // required: verifies X-Hub-Signature-256
 })
 
 const bot = new Bot({ provider })
-bot.when('hola', (ctx) => ctx.reply('👋 Hello from the official API!'))
+bot.when('hi', (ctx) => ctx.reply('👋 Hello from the official API!'))
 await bot.start()
 
 // ——— YOUR server serves the webhook ———
 const app = express()
 app.get('/webhook', (req, res) => {
-  const challenge = provider.verifyChallenge(req.query as never)
+  const challenge = provider.verifyChallenge(req.query as ChallengeQuery)
   challenge ? res.send(challenge) : res.sendStatus(403)
 })
-app.post('/webhook', express.json({ verify: (req, _res, buf) => { (req as any).rawBody = buf } }), (req, res) => {
-  res.sendStatus(provider.ingest((req as any).rawBody ?? req.body, req.headers))
+// express.raw keeps the exact bytes Meta signed: never parse the body before ingest()
+app.post('/webhook', express.raw({ type: 'application/json', limit: '1mb' }), (req, res) => {
+  res.sendStatus(provider.ingest(req.body, req.headers))
 })
 app.listen(3000)
 ```
+
+The same two routes work in any framework: answer the `GET` with `verifyChallenge(query)` and hand the raw `POST` body and headers to `ingest()`, which returns the status to answer with. `ingest()` does not wait for your handlers.
 
 > **Webhook signature:** `appSecret` is required in production; `ingest` validates `X-Hub-Signature-256`
 > (constant-time HMAC-SHA256) and rejects forged bodies with `403`.
@@ -107,6 +113,9 @@ The core's `flow().form(definition)` is sent here as a native **WhatsApp Flow** 
 A Flow must exist in Meta before it can be sent:
 
 ```ts
+import { writeFileSync } from 'node:fs'
+import { CloudAPIProvider, toFlowJson } from '@botmesh/meta'
+
 const provider = new CloudAPIProvider({ ...cfg, wabaId: process.env.WABA_ID, flows: { signup: '1234567890' } })
 // or create it once from the bot (Flows API, token with whatsapp_business_management):
 const { flowId } = await provider.publishForm(signup, { categories: ['SIGN_UP'] })   // keep flowId for config.flows
@@ -114,11 +123,28 @@ const { flowId } = await provider.publishForm(signup, { categories: ['SIGN_UP'] 
 writeFileSync('signup.flow.json', JSON.stringify(toFlowJson(signup), null, 2))
 ```
 
+`signup` is the same `FormDefinition` you pass to `flow().form(signup)`; see the [Forms guide](https://andresayac.github.io/botmesh/guide/forms).
+
 If a form has no associated Flow (neither `config.flows` nor `.form(def, { nativeId })`), the step asks field by field like on any other channel. `flowJsonWarnings(def)` warns about labels WhatsApp will truncate. The button (`cta`) and the message body follow the user's `ctx.lang` (`core.form.*` catalogue); the submit label stays fixed in the published Flow, so pick its language with `toFlowJson(def, { lang: 'es' })`, the provider's `lang` option for every `publishForm()` (`new CloudAPIProvider({ ..., lang: 'es' })`, the same value as your `BotConfig.lang`) or `publishForm(def, { lang: 'es' })` for one Flow (default `'en'`, the core default locale), or define `submitLabel`. Flows with an endpoint (`data_exchange`, encrypted dynamic screens) are not supported yet.
+
+## Templates
+
+A template is the `template` content kind. Create and approve it in WhatsApp Manager first, then send it with its name, language and the Graph `components` (parameters):
+
+```ts
+await bot.send('573001112233', {
+  kind: 'template',
+  name: 'order_update',
+  language: 'en',
+  components: [{ type: 'body', parameters: [{ type: 'text', text: 'A-1042' }] }],
+})
+```
+
+A quick-reply button of a template comes back as an interaction whose `data` is the button's `payload`.
 
 ## 24-hour window
 
-Outside the 24 hours since the user's last message, Meta only allows **templates**. A free-form send throws `OutsideSessionWindowError` (code 131047) — answer with a `kind: 'template'`.
+Outside the 24 hours since the user's last message, Meta only allows **templates**. A free-form send rejects with `OutsideSessionWindowError` (code 131047): send a template instead. The [24-hour window guide](https://andresayac.github.io/botmesh/guide/session-window) covers the manager below in detail.
 
 With `sessionWindow` the provider handles it on its own: it stores the time of the last inbound message of each chat, and when a free-form send fails with 131047 (or the window is already known to be closed) it sends an approved template to reopen the conversation, queues the original message and retries it when the user replies.
 
@@ -145,7 +171,7 @@ await provider.sessionWindow!.isOpen('573001112233')
 Every `status` event carries the normalized webhook `pricing` object in `platformData.pricing` (`billable`, `pricingModel` `PMP`/`CBP`, `category`, `type` — `regular`, `free_customer_service`, `free_entry_point`) and, when present, `platformData.conversation`. `provider.usage` aggregates per chat and per category (each message counts once):
 
 ```ts
-const provider = new CloudAPIProvider({ /* ... */, usage: { rates: { marketing: 0.0125, utility: 0.0008 } } })
+const provider = new CloudAPIProvider({ /* ... */ usage: { rates: { marketing: 0.0125, utility: 0.0008 } } })
 provider.usage!.forChat('573001112233') // { messages, billable, free, estimatedCost, byCategory }
 provider.usage!.totals()
 ```
@@ -239,3 +265,16 @@ Details:
 - `get` is only queried for users that arrive without a phone and that the session does not know yet; `set` is called once per pair and session (make it idempotent).
 - If `get` fails, the event is emitted with the BSUID and the error is logged; if `set` fails, it is only logged.
 - `parseInbound(body)` (exported) is **stateless**: it resolves the identity inside that body. Continuity between webhooks is provided by `provider.ingest()`.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| Meta says the callback URL could not be verified | The `GET` route answered `403`: the `verify_token` set in Meta differs from `verifyToken`, or the route does not return `verifyChallenge(query)` as plain text. |
+| Every webhook `POST` gets `403` | The signature check failed: `appSecret` is not the app's secret, or the body reached `ingest()` re-serialized (parse nothing before it; pass the raw bytes). |
+| Webhook `POST`s get `400` | The body is not a JSON object, or a parsed object was passed while `appSecret` is set. |
+| The webhook verifies but no message arrives | The app is not subscribed to the `messages` field, or the number is not linked to the app (WhatsApp → API Setup). |
+| `OutsideSessionWindowError` (131047) | More than 24 h since the user's last message: send a template, or enable `sessionWindow`. |
+| `RecipientUnreachableError` | The number cannot receive messages (not on WhatsApp, or, with a test number, not in the allowed recipient list). |
+| `ProviderError` with Graph code 190 | The access token expired or was revoked: use a system-user token. |
+| `UnsupportedContentError` on buttons or lists | More than 3 reply buttons, more than 10 list rows, or repeated ids or titles: send a list instead of more than 3 buttons. |
