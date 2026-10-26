@@ -457,7 +457,7 @@ tools: {
 ```
 
 The full bakery example is in the
-[AI tools](https://github.com/andresayac/botmesh/blob/main/docs/guide/ai-tools.md#best-practices-for-tools-with-side-effects)
+[AI tools](https://andresayac.github.io/botmesh/guide/ai-tools#best-practices-for-side-effecting-tools)
 guide and the `ai-full` template of `create-botmesh` ships the same tools.
 
 For tests, `MockAIProvider` accepts turns with tool calls:
@@ -613,7 +613,7 @@ Non-goals of this first version, already accounted for in the design of
 
 ## More documentation
 
-- [Site guide (EN)](https://github.com/andresayac/botmesh/blob/main/docs/guide/ai.md) ·
-  [Site guide (ES)](https://github.com/andresayac/botmesh/blob/main/docs/es/guide/ai.md)
+- [Site guide (EN)](https://andresayac.github.io/botmesh/guide/ai) ·
+  [Site guide (ES)](https://andresayac.github.io/botmesh/es/guide/ai)
 - [`@botmesh/core`](https://github.com/andresayac/botmesh/blob/main/packages/core/README.md) — the base framework (plugins,
   DI, conversations)

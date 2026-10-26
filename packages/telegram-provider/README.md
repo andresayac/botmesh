@@ -116,7 +116,7 @@ string or the parsed object, and plain or Fetch `Headers` (any case). It
 returns the HTTP status to answer with (Telegram retries anything non-2xx); an
 Update the provider cannot normalize is logged (without its content) and
 acknowledged with 200, since a retry would fail the same way. With
-[`@botmesh/server`](https://github.com/andresayac/botmesh/blob/main/docs/guide/server.md)
+[`@botmesh/server`](https://andresayac.github.io/botmesh/guide/server)
 mount the provider as a route; no extra wiring is needed.
 
 ## Media

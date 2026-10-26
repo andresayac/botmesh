@@ -6,7 +6,7 @@
 
 A **transport-agnostic** bot engine: declarative flows to get going in 30 seconds, an async conversation runtime when you need full control, hooks/plugins/DI and a scheduler. You inject the transport (WhatsApp through [`@botmesh/baileys`](https://github.com/andresayac/botmesh/tree/main/packages/baileys-provider); Telegram/Discord use the same `IProvider` contract).
 
-> **v2 is a transport-agnostic rewrite.** If you come from v1 (`BaileysClass`), read the [migration guide](https://github.com/andresayac/botmesh/blob/main/docs/MIGRATION-v1-to-v2.md).
+> **v2 is a transport-agnostic rewrite.** If you come from v1 (`BaileysClass`), read the [migration guide](https://andresayac.github.io/botmesh/MIGRATION-v1-to-v2).
 
 ## Installation
 
@@ -82,7 +82,7 @@ No camera? Set `pairingCode: '+57300XXXXXXX'` on `BaileysProvider` (full interna
 | `@botmesh/core/dev` | The `botmesh dev` terminal simulator. |
 | `@botmesh/core/internal` | Engine classes and helpers. No semver guarantee. |
 
-Coming from an earlier alpha? See [Migrating to the stable API](https://github.com/andresayac/botmesh/blob/main/docs/guide/stable-migration.md).
+Coming from an earlier alpha? See [Migrating to the stable API](https://andresayac.github.io/botmesh/guide/stable-migration).
 
 ## Persistent store (SQLite)
 
@@ -112,7 +112,7 @@ const bot = new Bot({
 
 ## Documentation
 
-- [Migration guide v1 → v2](https://github.com/andresayac/botmesh/blob/main/docs/MIGRATION-v1-to-v2.md)
+- [Migration guide v1 → v2](https://andresayac.github.io/botmesh/MIGRATION-v1-to-v2)
 - API (TypeDoc): generate it locally with `pnpm docs:api` (output in `docs/api/`)
 
 ## Acknowledgements

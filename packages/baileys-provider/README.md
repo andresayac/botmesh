@@ -137,7 +137,7 @@ new BaileysProvider({
 })
 ```
 
-More detail in the [Rate limiting](https://github.com/andresayac/botmesh/blob/main/docs/guide/rate-limiting.md) guide.
+More detail in the [Rate limiting](https://andresayac.github.io/botmesh/guide/rate-limiting) guide.
 
 ### Reconnect and backoff
 

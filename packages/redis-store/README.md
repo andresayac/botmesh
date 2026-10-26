@@ -126,7 +126,7 @@ const bot = new Bot({
 - **Watchdog.** Heartbeat, turns and leaderships are renewed every `leaseMs / 3`. A lease found gone aborts its `signal` (`'expired'`); with no successful renewal for 90% of `leaseMs`, every lease is given up locally (`'coordinator-down'`) before Redis can hand it to another replica.
 - Keys live under `{prefix}:co:`; a chat's counters expire `idleTtlMs` (default 1 day) after its last turn.
 - Limits: a failover that loses the last writes can grant a lease twice (Sentinel or Cluster). On Redis Cluster the coordinator uses the cluster layout: each chat's turn keys share a hash tag, and a waiting turn probes another replica's heartbeat with a separate call before skipping its ticket.
-- Guide: [Running N replicas](https://github.com/andresayac/botmesh/blob/main/docs/guide/replicas.md).
+- Guide: [Running N replicas](https://andresayac.github.io/botmesh/guide/replicas).
 
 ## Distributed lock
 
@@ -206,7 +206,7 @@ const store = new RedisStore({ client: cluster, prefix: 'mybot' })            //
 - **Migration** of an existing keyspace, offline: `migrateToClusterLayout({ source, target?, prefix, dryRun?, deleteSource? })` (messages read from each chat's log, TTLs kept, fences, terms and schedule fencing tokens only grow, resumable). The layout marker is written only by a complete run (not one limited by `include`). `inspectKeyspace({ client, prefix })` counts keys per layout. A cluster-layout store on a single node refuses to start over legacy data unless `allowLegacyData: true`; a legacy-layout store on a prefix carrying the marker logs a warning (switch every replica at once).
 - **Rollback**: `direction: 'cluster-to-legacy'` into a single node, from a single node or a cluster client. It mirrors by default (`mirror: true`): the legacy target is made to match the cluster-layout source, so writes and deletions made after the forward pass are carried back (`report.pruned`), and a complete rollback removes the layout marker. `mirror: false` copies only (existing legacy keys win).
 - A client the store, `RedisCoordinator` or `RedisDurability` creates (`url` or `cluster`) always has an `'error'` listener (errors go to `logger`), so a dropped node connection never crashes the process.
-- Guide: [Redis Cluster](https://github.com/andresayac/botmesh/blob/main/docs/guide/redis-cluster.md).
+- Guide: [Redis Cluster](https://andresayac.github.io/botmesh/guide/redis-cluster).
 
 ## Notes
 

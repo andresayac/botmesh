@@ -23,7 +23,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/sqlite-store"
   },
-  "homepage": "https://github.com/andresayac/botmesh/tree/main/packages/sqlite-store#readme",
+  "homepage": "https://andresayac.github.io/botmesh/guide/store",
   "bugs": { "url": "https://github.com/andresayac/botmesh/issues" },
   "files": ["./lib/**/*"],
   "scripts": {
