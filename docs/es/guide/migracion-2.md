@@ -19,6 +19,7 @@ español y `maxAttempts` donde una espera usaba `retries`.
 | [Logs append dañados](#logs-append-danados) | `FileDurability` / `SharedFileEventJournal` con `appendLog` | Repara el log si `open` lo rechaza |
 | [`MemoryCoordinationHub` expulsa chats inactivos](#memorycoordinationhub-expulsa-chats-inactivos) | Tests que inspeccionan el hub | Nada |
 | [`broadcast({ maxRetries })`](#reintentos-de-broadcast) | Difusiones | Renómbralo a `retries` (el alias se mantiene) |
+| [Las etiquetas de WhatsApp Flows pasan a inglés](#las-etiquetas-de-whatsapp-flows-pasan-a-ingles) | Formularios de `@botmesh/meta` publicados con `toFlowJson` / `publishForm` | Pasa `lang: 'es'` |
 
 ## Los textos internos pasan a inglés
 
@@ -67,6 +68,22 @@ flow('x').ask('¿Email?', 'email', { validate, maxAttempts: 3 })
 Pasar las dos con valores que no cuadran lanza un `TypeError`. Los valores
 inválidos (`maxAttempts: 0`, `retries: -1`) lanzan al definir el flujo.
 `bot.broadcast()` sigue la misma convención (ver [más abajo](#reintentos-de-broadcast)).
+
+El código que aún no hayas renombrado sigue funcionando con una respuesta más que
+antes. Para que se note, el bot escribe **un aviso** (`logger.warn`, una vez por
+bot) la primera vez que una espera, un formulario o un paso de flujo usa
+`retries` sin `maxAttempts`. Poner `maxAttempts` (sola o con un `retries` que
+cuadre) lo silencia.
+
+Los documentos de flujo JSON (`@botmesh/flow-schema`, que guardan el manager y
+`@botmesh/deployments`) no cambian de significado: el formato pasa a la
+**versión 2** y un documento de la versión 1 se migra al cargarlo
+(`validateFlowDocument`, `compileFlowDocument`, `flowFromArtifact` o, de forma
+explícita, `migrateFlowDocument`). La migración 1 → 2 reescribe `retries: N` como
+`maxAttempts: N` (un `retries: 0` antiguo se comportaba como 1 y pasa a
+`maxAttempts: 1`), así que los flujos v1 publicados conservan su presupuesto. En
+un documento de la versión 2, `retries` tiene el significado nuevo.
+`isFlowDocument()` solo acepta la versión actual.
 
 ## Los envíos necesitan el bot en marcha
 
@@ -153,7 +170,8 @@ El hub de coordinación en proceso guardaba el estado de cada chat para siempre.
 Ahora expulsa los chats inactivos por encima de `maxIdleKeys` (por defecto
 10.000; `Infinity` los conserva todos). Los fences siguen siendo monótonos tras
 una expulsión; un chat recreado informa `previousHolder: null`, así que su
-siguiente titular refresca su estado.
+siguiente titular refresca su estado. El chat que se está usando nunca se
+expulsa, así que `maxIdleKeys: 0` conserva solo el último chat inactivo.
 
 ## Reintentos de `broadcast` {#reintentos-de-broadcast}
 
@@ -161,3 +179,21 @@ siguiente titular refresca su estado.
 mismo significado (reintentos después del primer envío de cada chat).
 `maxRetries` sigue funcionando y queda obsoleto. `autoReconnect.maxRetries` del
 manager se renombra igual.
+
+## Las etiquetas de WhatsApp Flows pasan a inglés
+
+`@botmesh/meta` construye el WhatsApp Flow nativo de un formulario con
+`toFlowJson()` y `provider.publishForm()`. La etiqueta del botón de envío queda
+fijada en el Flow publicado, y su valor por defecto seguía en español
+(`'Enviar'`) mientras el core pasaba a inglés. Ahora usa el locale por defecto del
+core: `'Submit'`. Los textos de reserva que se usan al enviar una definición sin
+contexto de bot (`'Open form'`, `'Fill in the form.'`) también. Para conservar
+las etiquetas en español:
+
+```ts
+toFlowJson(definicion, { lang: 'es' })
+provider.publishForm(definicion, { flowJson: { lang: 'es' } })
+```
+
+Un `submitLabel` en la definición siempre manda. Los formularios que envía un bot
+ya usan el `ctx.lang` del usuario para el botón y el cuerpo.

@@ -386,7 +386,8 @@ export interface WaitOptions {
    * Retries AFTER the first answer: `retries: N` is `maxAttempts: N + 1`. Pass one of the two.
    *
    * Breaking in 2.0: during the alphas `retries: N` meant N total attempts; use
-   * `maxAttempts: N` to keep that behaviour.
+   * `maxAttempts: N` to keep that behaviour. A wait that sets `retries` without
+   * `maxAttempts` logs one warning per bot (`logger.warn`) to flag the change.
    */
   retries?: number
   otherwise?: string

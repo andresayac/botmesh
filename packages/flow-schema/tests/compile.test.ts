@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { FLOW_STEP_SOURCE, FlowDocumentError, compileFlowDocument, flowStepSource, type FlowDocument } from '../src/index.js'
 
-const doc = (steps: FlowDocument['steps']): FlowDocument => ({ version: 1, id: 'flow', trigger: 'hola', steps })
+const doc = (steps: FlowDocument['steps']): FlowDocument => ({ version: 2, id: 'flow', trigger: 'hola', steps })
 
 /** Minimal stand-ins for the conversation controls and context an action receives. */
 function runtime(state: Record<string, unknown> = {}) {
@@ -58,7 +58,7 @@ describe('compileFlowDocument', () => {
 
   it('throws FlowDocumentError with issues for an invalid document', () => {
     try {
-      compileFlowDocument({ version: 1 })
+      compileFlowDocument({ version: 2 })
       expect.unreachable()
     } catch (error) {
       expect(error).toBeInstanceOf(FlowDocumentError)
@@ -124,13 +124,13 @@ describe('compileFlowDocument', () => {
   })
 
   it('inlines a resolved subflow and rejects missing ones and cycles', () => {
-    const child: FlowDocument = { version: 1, id: 'child', trigger: 'child', steps: [{ kind: 'say', text: 'hijo' }] }
+    const child: FlowDocument = { version: 2, id: 'child', trigger: 'child', steps: [{ kind: 'say', text: 'hijo' }] }
     const parent = doc([{ kind: 'subflow', flowId: 'child' }])
     const flow = compileFlowDocument(parent, { resolveSubflow: (id) => (id === 'child' ? child : undefined) })
     expect(flow.steps[0]).toMatchObject({ kind: 'use', flow: { id: 'child' } })
     expect(() => compileFlowDocument(parent)).toThrow(/cannot be resolved/)
     expect(() => compileFlowDocument(doc([{ kind: 'subflow', flowId: 'flow' }]), {
-      resolveSubflow: () => ({ version: 1, id: 'flow', trigger: 'x', steps: [{ kind: 'say', text: 'x' }] }),
+      resolveSubflow: () => ({ version: 2, id: 'flow', trigger: 'x', steps: [{ kind: 'say', text: 'x' }] }),
     })).toThrow(/cycle/)
   })
 })

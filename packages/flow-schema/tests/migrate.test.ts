@@ -4,12 +4,12 @@ import { FLOW_DOCUMENT_VERSION, FlowMigrationError, migrateFlowDocument, validat
 const v1 = () => ({ version: FLOW_DOCUMENT_VERSION, id: 'x', trigger: 'x', steps: [{ kind: 'say', text: 'x' }] })
 
 describe('migrateFlowDocument', () => {
-  it('stamps a pre-versioned document as v1', () => {
+  it('stamps a pre-versioned document and brings it to the current version', () => {
     const { version, ...old } = v1()
     const result = migrateFlowDocument(old)
     expect(result.from).toBe(0)
-    expect(result.applied).toEqual([{ from: 0, to: 1 }])
-    expect(result.document.version).toBe(1)
+    expect(result.applied).toEqual([{ from: 0, to: 1 }, { from: 1, to: 2 }])
+    expect(result.document.version).toBe(2)
     expect(validateFlowDocument(result.document)).toEqual([])
   })
 
@@ -21,7 +21,7 @@ describe('migrateFlowDocument', () => {
   })
 
   it('rejects newer versions, invalid versions and missing migration paths', () => {
-    expect(() => migrateFlowDocument({ ...v1(), version: 2 })).toThrow(/newer/)
+    expect(() => migrateFlowDocument({ ...v1(), version: 3 })).toThrow(/newer/)
     expect(() => migrateFlowDocument({ ...v1(), version: 1.5 })).toThrow(/non-negative integer/)
     expect(() => migrateFlowDocument({ ...v1(), version: -1 })).toThrow(/non-negative integer/)
     expect(() => migrateFlowDocument(null)).toThrow(/object/)

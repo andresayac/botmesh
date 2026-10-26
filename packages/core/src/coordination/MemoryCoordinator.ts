@@ -82,13 +82,14 @@ class HubState {
   /**
    * Record that `key` was used: an idle key moves to the most-recent end of the eviction
    * order, a busy one leaves it; then the oldest idle keys beyond `maxIdleKeys` are evicted.
+   * The key being touched is never evicted (it is about to be used: `state()` creates a key
+   * idle and only then adds its ticket), so `maxIdleKeys: 0` keeps at most that one key.
    */
   touch(key: string): void {
     const s = this.keys.get(key)
     this.idle.delete(key)
     if (!s || s.tickets.size > 0 || s.owner) return
-    this.idle.add(key)
-    while (this.idle.size > this.maxIdleKeys) {
+    while (this.idle.size > 0 && this.idle.size >= this.maxIdleKeys) {
       const oldest = this.idle.values().next().value as string
       this.idle.delete(oldest)
       const victim = this.keys.get(oldest)
@@ -96,6 +97,7 @@ class HubState {
       this.floor = Math.max(this.floor, victim.seq)
       this.keys.delete(oldest)
     }
+    this.idle.add(key)
   }
 }
 
@@ -108,7 +110,8 @@ const hubStates = new WeakMap<MemoryCoordinationHub, HubState>()
 export class MemoryCoordinationHub {
   /**
    * @param opts.maxIdleKeys Idle chats kept (least recently used evicted first). Default `10_000`;
-   *   `Infinity` keeps them all (the old behaviour).
+   *   `Infinity` keeps them all (the old behaviour). The chat being used is never evicted, so
+   *   `0` keeps only the most recently used idle chat.
    */
   constructor(opts: { maxIdleKeys?: number } = {}) {
     const max = opts.maxIdleKeys ?? DEFAULT_MAX_IDLE_KEYS

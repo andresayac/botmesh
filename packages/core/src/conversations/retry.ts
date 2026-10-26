@@ -64,6 +64,14 @@ export function attemptBudget(opts: AttemptOptions | undefined, where = 'wait'):
   return DEFAULT_MAX_ATTEMPTS
 }
 
+/**
+ * Whether `opts` sets `retries` without `maxAttempts` — the alpha spelling whose meaning changed
+ * in 2.0 (`retries: N` was N total answers, now N + 1). The runtime warns once about it.
+ */
+export function usesLegacyRetries(opts: AttemptOptions | undefined): boolean {
+  return opts?.retries !== undefined && opts.maxAttempts === undefined
+}
+
 /** Tracker whose out-of-band callback (`c.idle()`) owns the current async context, if any. */
 const outOfBand = new AsyncLocalStorage<WaitTracker>()
 
@@ -141,6 +149,8 @@ export interface WaitTrackerDeps {
    * first wait then does not send its prompt again.
    */
   skipPrompt?(): boolean
+  /** Report a wait/form that sets `retries` without `maxAttempts` (see {@link usesLegacyRetries}). */
+  legacyRetries?(): void
 }
 
 /** Rewind carried from a caught {@link ConversationRetry} into the target step's first wait. */
@@ -168,6 +178,11 @@ export class WaitTracker {
 
   private get inOutOfBand(): boolean {
     return outOfBand.getStore() === this
+  }
+
+  /** Report `opts` if it uses the alpha `retries` spelling (warned once by the runtime). */
+  noteAttempts(opts: AttemptOptions | undefined): void {
+    if (usesLegacyRetries(opts)) this.deps.legacyRetries?.()
   }
 
   /** Throw the conversation's control error if it was cancelled/replaced (interpreter hook). */
@@ -362,6 +377,11 @@ const trackers = new WeakMap<object, WaitTracker>()
 /** Associate a controls object with its tracker (called by `createControls`). */
 export function bindTracker(controls: object, tracker: WaitTracker): void {
   trackers.set(controls, tracker)
+}
+
+/** Report a form step's attempt options (see {@link usesLegacyRetries}). No-op for foreign controls. */
+export function noteAttempts(controls: object, opts: AttemptOptions | undefined): void {
+  trackers.get(controls)?.noteAttempts(opts)
 }
 
 /** Interpreter hook: step `index` of `flow` (or a new phase of it) starts. No-op for foreign controls. */

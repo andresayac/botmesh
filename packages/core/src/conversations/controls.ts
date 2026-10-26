@@ -133,6 +133,7 @@ export function createControls(rt: ConversationRuntime, handle: ConversationHand
       unsubscribe = rt.observe(handle, { end: () => { clearTimeout(timer); resolve() } })
     }),
     skipPrompt: () => rt.takeHandover(handle),
+    legacyRetries: () => rt.warnLegacyRetries(),
   })
 
   /** `promptFor(message?)`: text sent before waiting (and re-sent by c.retry()); default: just the retry message. */
@@ -144,6 +145,7 @@ export function createControls(rt: ConversationRuntime, handle: ConversationHand
   ): Promise<T> {
     let budget: number
     try { budget = attemptBudget(opts) } catch (error) { return Promise.reject(error) }
+    tracker.noteAttempts(opts)
     return tracker.wait<T>(budget, promptFor, async () => accept(await rawWait(opts, accepts)))
   }
 

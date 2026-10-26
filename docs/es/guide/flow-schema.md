@@ -8,7 +8,7 @@ Un documento es **solo datos**. Nunca lleva funciones, `eval`, imports ni expres
 import { compileFlowDocument, validateFlowDocument } from '@botmesh/flow-schema'
 
 const document = {
-  version: 1 as const,
+  version: 2 as const,
   id: 'checkout',
   trigger: { keywords: ['comprar', 'pedido'], match: 'contains' },
   timeout: '5m',
@@ -26,7 +26,7 @@ if (validateFlowDocument(document).length === 0) bot.registerFlow(compileFlowDoc
 
 | Campo | Notas |
 | --- | --- |
-| `version` | Debe ser `1`. Usa `migrateFlowDocument()` para formas antiguas. |
+| `version` | `2`. Un documento de la versión 1 se sigue aceptando y se migra al cargarlo (su `retries: N` pasa a `maxAttempts: N`); usa `migrateFlowDocument()` para formas antiguas. |
 | `id` | `^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$`; es el nombre del flujo en el bot. |
 | `trigger` | Una keyword, un array, o `{ keywords, match: 'equals' \| 'contains' \| 'startsWith' \| 'endsWith', scope: 'dm' \| 'group' \| 'all' }`. |
 | `timeout` | Timeout del flujo (ms o `'30s'`, `'5m'`, `'1h'`; como máximo 7 días). |
@@ -72,7 +72,7 @@ Las plantillas (`{{ path }}`) solo leen propiedades propias de `c.state` más `$
 `validateFlowDocument()` devuelve rutas tipo JSON Pointer:
 
 ```ts
-validateFlowDocument({ version: 1, id: 'x', trigger: 'x', steps: [{ kind: 'ask', text: '', stateKey: 'bad key' }] })
+validateFlowDocument({ version: 2, id: 'x', trigger: 'x', steps: [{ kind: 'ask', text: '', stateKey: 'bad key' }] })
 // [{ path: '/steps/0/text', message: '...' }, { path: '/steps/0/stateKey', message: '...' }]
 ```
 
@@ -96,7 +96,7 @@ import { migrateFlowDocument } from '@botmesh/flow-schema'
 const { document, from, applied } = migrateFlowDocument(storedDraft)
 ```
 
-La versión 0 (sin `version`, la forma anterior a la versionada) pasa a la 1. Una versión más nueva que el paquete se rechaza; las migraciones se pueden ampliar y encadenar (`migrateFlowDocument(input, migrations, target)`).
+La versión 0 (sin `version`, la forma anterior a la versionada) pasa a la 1. La versión 1 pasa a la 2: en v1 `retries` de los pasos `ask`/`form` eran las respuestas en total, así que `retries: N` se reescribe como `maxAttempts: N` (un `retries: 0`, como `maxAttempts: 1`) y el flujo conserva su comportamiento; en v2 `retries` cuenta las respuestas después de la primera, como en el core. `validateFlowDocument`, `compileFlowDocument` y `flowFromArtifact` aplican esa migración a los documentos v1 al cargarlos; `isFlowDocument` solo acepta la versión 2. Una versión más nueva que el paquete se rechaza; las migraciones se pueden ampliar y encadenar (`migrateFlowDocument(input, migrations, target)`).
 
 ## Exportación inversa
 

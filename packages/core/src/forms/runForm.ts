@@ -8,7 +8,7 @@
 import type { RuntimeMessage } from '../conversations/ConversationRuntime.js'
 import type { ConversationControls } from '../conversations/controls.js'
 import { RetriesExceeded } from '../conversations/errors.js'
-import { attemptBudget } from '../conversations/retry.js'
+import { attemptBudget, noteAttempts } from '../conversations/retry.js'
 import { UnsupportedContentError, type ProviderCapabilities } from '../core/provider.js'
 import { CORE_MESSAGES as M } from '../i18n/builtins.js'
 import type { Translate } from '../i18n/types.js'
@@ -53,6 +53,7 @@ export async function runFormStep(
   flowTimeoutMs?: number,
 ): Promise<FormValues> {
   const timeout = opts.timeout ?? flowTimeoutMs
+  noteAttempts(c, opts)
   const mode = resolveFormMode(ctx, opts, def)
   let values: FormValues
   if (mode === 'native') {

@@ -19,6 +19,7 @@ behaviour where that is still possible. Most bots need at most two edits:
 | [Corrupt append logs](#corrupt-append-logs) | `FileDurability` / `SharedFileEventJournal` with `appendLog` | Repair the log if open refuses it |
 | [`MemoryCoordinationHub` evicts idle chats](#memorycoordinationhub-evicts-idle-chats) | Tests that inspect the hub | Nothing |
 | [`broadcast({ maxRetries })`](#broadcast-retries) | Broadcasts | Rename to `retries` (alias kept) |
+| [WhatsApp Flow labels default to English](#whatsapp-flow-labels-default-to-english) | `@botmesh/meta` forms published with `toFlowJson` / `publishForm` | Pass `lang: 'es'` |
 
 ## Built-in texts default to English
 
@@ -65,6 +66,20 @@ flow('x').ask('Email?', 'email', { validate, maxAttempts: 3 })
 Passing both with values that disagree throws a `TypeError`. Invalid values
 (`maxAttempts: 0`, `retries: -1`) throw when the flow is defined.
 `bot.broadcast()` follows the same convention (see [below](#broadcast-retries)).
+
+Code you have not renamed yet keeps running with one more answer than before.
+To make that visible, the bot logs **one warning** (`logger.warn`, once per bot)
+the first time a wait, form or flow step sets `retries` without `maxAttempts`.
+Setting `maxAttempts` (alone, or together with a matching `retries`) silences it.
+
+JSON flow documents (`@botmesh/flow-schema`, stored by the manager and
+`@botmesh/deployments`) do not change meaning: the format moves to **version 2**,
+and a version 1 document is migrated when it is loaded (`validateFlowDocument`,
+`compileFlowDocument`, `flowFromArtifact`, or explicitly with
+`migrateFlowDocument`). The 1 → 2 migration rewrites `retries: N` to
+`maxAttempts: N` (an old `retries: 0` behaved like 1 and becomes `maxAttempts: 1`),
+so published v1 flows keep their budget. In a version 2 document `retries` has
+the new meaning. `isFlowDocument()` only accepts the current version.
 
 ## Sends need a running bot
 
@@ -145,10 +160,28 @@ Snapshots can now be flushed to disk before they replace the previous one:
 The in-process coordination hub kept per-chat state forever. It now evicts idle
 chats beyond `maxIdleKeys` (default 10,000, `Infinity` keeps them all). Fences
 stay monotonic across an eviction; a re-created chat reports
-`previousHolder: null`, so its next holder refreshes its state.
+`previousHolder: null`, so its next holder refreshes its state. The chat being
+used is never evicted, so `maxIdleKeys: 0` keeps only the most recent idle chat.
 
 ## `broadcast` retries {#broadcast-retries}
 
 `bot.broadcast(ids, content, { maxRetries })` is now `{ retries }`, with the same
 meaning (retries after the first send of each chat). `maxRetries` still works and
 is deprecated. The manager's `autoReconnect.maxRetries` is renamed the same way.
+
+## WhatsApp Flow labels default to English
+
+`@botmesh/meta` builds the native WhatsApp Flow of a form with `toFlowJson()` and
+`provider.publishForm()`. The submit label is baked into the published Flow, and
+its default followed Spanish (`'Enviar'`) while the core moved to English. It now
+uses the core default locale: `'Submit'`. The fallbacks used when a bare form
+definition is sent without a bot context (`'Open form'`, `'Fill in the form.'`)
+follow too. To keep the Spanish labels:
+
+```ts
+toFlowJson(definition, { lang: 'es' })
+provider.publishForm(definition, { flowJson: { lang: 'es' } })
+```
+
+A `submitLabel` on the definition always wins. Forms sent by a bot already use
+the user's `ctx.lang` for the button and the body.

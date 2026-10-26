@@ -124,7 +124,7 @@ describe('flow_migrate, flow_diff and flow_digest', () => {
   it('migrates a document without version from 0 to the current one', async () => {
     const result = await call('flow_migrate', { document: { id: 'viejo', trigger: 'viejo', steps: [{ kind: 'say', text: 'hola' }] } })
     expect(result.from).toBe(0)
-    expect(result.to).toBe(1)
+    expect(result.to).toBe(2)
     expect(result.applied.length).toBeGreaterThan(0)
     expect(result.issues).toEqual([])
   })
@@ -161,7 +161,7 @@ describe('flow_schema and flow_example', () => {
   it('returns the schema, the limits and every accepted step kind', async () => {
     const result = await call('flow_schema', {})
     expect(result.schema.$schema).toBe('https://json-schema.org/draft/2020-12/schema')
-    expect(result.version).toBe(1)
+    expect(result.version).toBe(2)
     expect(result.stepKinds.sort()).toEqual([
       'ai', 'ask', 'choose', 'condition', 'delay', 'end', 'form', 'goto', 'guard', 'handoff', 'http', 'media', 'say', 'subflow',
     ])

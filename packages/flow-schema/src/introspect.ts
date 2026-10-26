@@ -10,6 +10,7 @@
 
 import type { CompiledFlow, CompiledStep, FormDefinition, FormField, Trigger } from '@botmesh/core'
 import { flowDocumentSource, flowStepSource } from './compile.js'
+import { FLOW_DOCUMENT_VERSION } from './schema.js'
 import type { FlowDocument, FlowDocumentIssue, FlowFormDocument, FlowFormFieldDocument, FlowMediaDocumentSource, FlowStepDocument } from './schema.js'
 
 /** Thrown when a compiled flow cannot be represented as a JSON document. */
@@ -43,7 +44,7 @@ export function exportFlowDocument(flow: CompiledFlow): FlowDocument {
   // exported as it is.
   const source = flowDocumentSource(flow)
   return {
-    version: 1,
+    version: FLOW_DOCUMENT_VERSION,
     id: flow.id,
     trigger: source?.trigger ?? exportTrigger(flow.trigger),
     ...(source?.name !== undefined ? { name: source.name } : {}),

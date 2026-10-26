@@ -5,6 +5,7 @@
  */
 
 import { FLOW_DOCUMENT_VERSION, type FlowDocument } from './schema.js'
+import { upgradeV1ToV2 } from './legacy.js'
 
 /** One `from → to` migration. It receives a shallow copy and returns a new document. */
 export interface FlowMigration {
@@ -24,7 +25,9 @@ export class FlowMigrationError extends Error {
 /**
  * Built-in migrations. Version 1 is the first versioned format; a pre-versioned document
  * (no `version`, or `version: 0`) is the same shape without the field, so it only needs
- * the stamp (and the schema id when absent).
+ * the stamp (and the schema id when absent). Version 2 changed `retries` on `ask` / `form`
+ * steps to the core meaning (retries after the first answer): 1 → 2 rewrites a v1
+ * `retries: N` (N total answers) to `maxAttempts: N`, so the flow keeps its behaviour.
  */
 export const FLOW_MIGRATIONS: readonly FlowMigration[] = [
   {
@@ -34,7 +37,23 @@ export const FLOW_MIGRATIONS: readonly FlowMigration[] = [
       return { version: 1, ...document }
     },
   },
+  {
+    from: 1,
+    to: 2,
+    migrate: upgradeV1ToV2,
+  },
 ]
+
+/**
+ * Upgrade a loaded document of an older, still accepted version (1) to the current one;
+ * anything else is returned as is (validation reports it). Internal to the loaders.
+ */
+export function upgradeLoadedDocument(input: unknown): unknown {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) return input
+  const version = (input as Record<string, unknown>).version
+  if (version !== 1) return input
+  return migrateFlowDocument(input).document
+}
 
 /** Result of {@link migrateFlowDocument}. */
 export interface MigrationResult {

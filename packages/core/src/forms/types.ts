@@ -171,7 +171,7 @@ export interface FormStepOptions {
   timeout?: number | string
   /** Total answers accepted per field (degraded) or submissions (native), the first included. Default 3. */
   maxAttempts?: number
-  /** Retries after the first answer (`retries: N` = `maxAttempts: N + 1`). Breaking in 2.0: it meant total attempts. */
+  /** Retries after the first answer (`retries: N` = `maxAttempts: N + 1`). Breaking in 2.0: it meant total attempts (without `maxAttempts`, the bot warns once). */
   retries?: number
   /** Degraded mode: word that skips an optional field. Default: the locale's `core.form.skipWord` (`'skip'` in English, `'omitir'` in Spanish). */
   skipWord?: string

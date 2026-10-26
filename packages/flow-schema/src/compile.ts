@@ -30,6 +30,7 @@ import {
   type Trigger,
   type WaitOptions,
 } from '@botmesh/core'
+import { upgradeLoadedDocument } from './migrate.js'
 import { pauseControls, runFormStep } from '@botmesh/core/internal'
 import { secureFetch, type SecureFetchOptions, type SecureFetchResponse } from '@botmesh/http'
 import { evaluateCondition, hasTemplate, parseExpression, renderTemplate, type ExpressionNode } from './expression.js'
@@ -82,6 +83,8 @@ export function flowDocumentSource(flow: CompiledFlow): FlowDocument | undefined
  * when the document is invalid or a subflow cannot be resolved.
  */
 export function compileFlowDocument(input: unknown, options: CompileFlowOptions = {}): CompiledFlow {
+  // A version 1 document is migrated first, so its `retries` keep their v1 meaning.
+  input = upgradeLoadedDocument(input)
   const issues = validateFlowDocument(input)
   if (issues.length) throw new FlowDocumentError(issues)
   const scoped = memoizedResolver(options)
@@ -100,7 +103,7 @@ function memoizedResolver(options: CompileFlowOptions): CompileFlowOptions {
   const scoped: CompileFlowOptions = {
     ...options,
     resolveSubflow: (id) => {
-      if (!cache.has(id)) cache.set(id, resolve(id))
+      if (!cache.has(id)) cache.set(id, upgradeLoadedDocument(resolve(id)) as FlowDocument | undefined)
       return cache.get(id)
     },
   }

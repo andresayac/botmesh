@@ -802,6 +802,21 @@ export class ConversationRuntime {
     }
   }
 
+  /**
+   * Soft path for the 2.0 meaning of `retries` (attempts AFTER the first; during the alphas it
+   * meant total attempts): warn once per runtime when a wait, form or flow step sets `retries`
+   * without `maxAttempts`, so alpha users notice their validation budget grew by one.
+   */
+  warnLegacyRetries(): void {
+    if (this.legacyRetriesWarned) return
+    this.legacyRetriesWarned = true
+    this.cfg.logger?.warn?.(
+      '`retries: N` on a wait/form now means N retries after the first answer (N + 1 answers in total; during the 2.0 alphas it meant N in total). Use `maxAttempts` (total answers) to state the budget explicitly and silence this warning.',
+    )
+  }
+
+  private legacyRetriesWarned = false
+
   /** Consume the handover flag of `handle`'s conversation: its first wait then skips its prompt (once). */
   takeHandover(handle: ConversationHandle): boolean {
     const entry = handle as ActiveConversation

@@ -11,12 +11,21 @@
 
 import { parseExpression, ExpressionError } from './expression.js'
 import { linearPatternIssue } from './pattern.js'
+import { upgradeV1ToV2 } from './legacy.js'
 
-/** Current (and only) flow document format version. */
-export const FLOW_DOCUMENT_VERSION = 1 as const
+/**
+ * Current flow document format version. Version 2 gave `retries` on `ask` / `form` steps
+ * the core meaning (retries AFTER the first answer; `maxAttempts` is the total). Version 1
+ * documents are still accepted where documents are loaded (validate, compile, artifacts):
+ * they are migrated first (`retries: N` becomes `maxAttempts: N`), so they keep their behaviour.
+ */
+export const FLOW_DOCUMENT_VERSION = 2 as const
 
-/** Stable `$id` of the v1 schema. */
-export const FLOW_DOCUMENT_SCHEMA_ID = 'https://botmesh.dev/schemas/flow-document/v1.json'
+/** Older format versions still accepted on load (migrated with `migrateFlowDocument`). */
+export const FLOW_DOCUMENT_LEGACY_VERSIONS: readonly number[] = Object.freeze([1])
+
+/** Stable `$id` of the current (v2) schema. */
+export const FLOW_DOCUMENT_SCHEMA_ID = 'https://botmesh.dev/schemas/flow-document/v2.json'
 
 /** Structural limits of a flow document (also enforced by the validator). */
 export const FLOW_DOCUMENT_LIMITS = Object.freeze({
@@ -106,7 +115,7 @@ export type FlowStepDocument =
   | { kind: 'handoff'; reason?: string; message?: string }
   | { kind: 'ai'; prompt: string; tools?: string[]; stateKey?: string }
 
-/** A declarative, code-free flow (format version 1). */
+/** A declarative, code-free flow (format version 2). */
 export interface FlowDocument {
   $schema?: string
   version: typeof FLOW_DOCUMENT_VERSION
@@ -163,7 +172,7 @@ export const FLOW_DOCUMENT_SCHEMA = Object.freeze({
   additionalProperties: false,
   properties: {
     $schema: { type: 'string' },
-    version: { const: FLOW_DOCUMENT_VERSION },
+    version: { enum: [...FLOW_DOCUMENT_LEGACY_VERSIONS, FLOW_DOCUMENT_VERSION], description: `Format version (current: ${FLOW_DOCUMENT_VERSION}). Version 1 is accepted and migrated on load: its retries: N becomes maxAttempts: N.` },
     id: identifier,
     name: { type: 'string', maxLength: 200 },
     description: { type: 'string', maxLength: 2000 },
@@ -400,14 +409,19 @@ const DOC_KEYS = ['$schema', 'version', 'id', 'name', 'description', 'trigger', 
  * Validate an untrusted value as a {@link FlowDocument}. Returns every issue found
  * (empty array = valid). Checks the schema rules, the structural limits, the syntax of
  * every expression and the cross-field rules (location fields, form fields, URLs...).
+ * A version 1 document is validated as its migration to the current version (the form
+ * `compileFlowDocument` and `flowFromArtifact` load); {@link isFlowDocument} stays strict.
  */
 export function validateFlowDocument(input: unknown): FlowDocumentIssue[] {
   const issues: FlowDocumentIssue[] = []
   const add = (path: string, message: string) => { if (issues.length < 100) issues.push({ path, message }) }
   if (!isObject(input)) return [{ path: '', message: 'must be an object' }]
+  // A version 1 document is checked as its migration (what compile / flowFromArtifact load).
+  if (input.version === 1) input = upgradeV1ToV2(input)
+  if (!isObject(input)) return [{ path: '', message: 'must be an object' }]
   extraKeys(input, DOC_KEYS, '', add)
   if (input.$schema !== undefined && typeof input.$schema !== 'string') add('/$schema', 'must be a string')
-  if (input.version !== FLOW_DOCUMENT_VERSION) add('/version', `must be ${FLOW_DOCUMENT_VERSION}`)
+  if (input.version !== FLOW_DOCUMENT_VERSION) add('/version', `must be ${FLOW_DOCUMENT_VERSION} (or 1, migrated on load; see migrateFlowDocument)`)
   checkId(input.id, '/id', add)
   if (input.name !== undefined && (typeof input.name !== 'string' || input.name.length > 200)) add('/name', 'must be a string of at most 200 characters')
   if (input.description !== undefined && (typeof input.description !== 'string' || input.description.length > 2000)) add('/description', 'must be a string of at most 2000 characters')
@@ -420,9 +434,12 @@ export function validateFlowDocument(input: unknown): FlowDocumentIssue[] {
   return issues
 }
 
-/** Type guard over {@link validateFlowDocument}. */
+/**
+ * Type guard over {@link validateFlowDocument} for a document AT the current version
+ * (a valid version 1 document needs `migrateFlowDocument` first).
+ */
 export function isFlowDocument(input: unknown): input is FlowDocument {
-  return validateFlowDocument(input).length === 0
+  return isObject(input) && input.version === FLOW_DOCUMENT_VERSION && validateFlowDocument(input).length === 0
 }
 
 /* ── validate ─────────────────────────────────────────────────────────── */

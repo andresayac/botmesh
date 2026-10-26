@@ -58,4 +58,17 @@ describe('MemoryCoordinationHub idle eviction', () => {
     expect(new MemoryCoordinationHub().maxIdleKeys).toBe(10_000)
     expect(() => new MemoryCoordinationHub({ maxIdleKeys: -1 })).toThrow(/maxIdleKeys/)
   })
+
+  it.each([0, 1])('grants turns with maxIdleKeys: %i (never evicts the chat it is using)', async (maxIdleKeys) => {
+    const hub = new MemoryCoordinationHub({ maxIdleKeys })
+    const c = new MemoryCoordinator({ hub, replicaId: 'r1' })
+    await c.start()
+    const first = await turn(c, 'a')
+    const second = await turn(c, 'b')
+    const third = await turn(c, 'a')
+    expect(second.fence).toBeGreaterThan(0)
+    expect(third.fence).toBeGreaterThan(first.fence)
+    expect(hub.size).toBeLessThanOrEqual(Math.max(1, maxIdleKeys))
+    await c.stop()
+  })
 })

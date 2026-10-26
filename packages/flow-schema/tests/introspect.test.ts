@@ -3,7 +3,7 @@ import { flow } from '@botmesh/core'
 import { FlowExportError, compileFlowDocument, exportFlowDocument, type FlowDocument } from '../src/index.js'
 
 const fullDocument = (): FlowDocument => ({
-  version: 1,
+  version: 2,
   id: 'full',
   trigger: { keywords: ['hola', 'buenas'], match: 'contains', scope: 'all' },
   timeout: '5m',
@@ -28,7 +28,7 @@ const fullDocument = (): FlowDocument => ({
 
 describe('exportFlowDocument', () => {
   it('round-trips a document compiled by the package', () => {
-    const child: FlowDocument = { version: 1, id: 'child', trigger: 'child', steps: [{ kind: 'say', text: 'hijo' }] }
+    const child: FlowDocument = { version: 2, id: 'child', trigger: 'child', steps: [{ kind: 'say', text: 'hijo' }] }
     const original = fullDocument()
     const flow = compileFlowDocument(original, { resolveSubflow: () => child })
     const exported = exportFlowDocument(flow)
@@ -36,7 +36,7 @@ describe('exportFlowDocument', () => {
   })
 
   it('carries maxAttempts (total attempts) and retries (after the first) to the core wait', () => {
-    const compiled = compileFlowDocument({ version: 1, id: 'a', trigger: 'a', steps: [
+    const compiled = compileFlowDocument({ version: 2, id: 'a', trigger: 'a', steps: [
       { kind: 'ask', text: 'Q', stateKey: 'q', maxAttempts: 2 },
       { kind: 'ask', text: 'R', stateKey: 'r', retries: 2 },
     ] })
@@ -50,15 +50,15 @@ describe('exportFlowDocument', () => {
   })
 
   it('rejects maxAttempts outside 1-21 and disagreeing maxAttempts/retries', () => {
-    expect(() => compileFlowDocument({ version: 1, id: 'a', trigger: 'a', steps: [{ kind: 'ask', text: 'Q', stateKey: 'q', maxAttempts: 0 }] })).toThrow(/maxAttempts/)
-    expect(() => compileFlowDocument({ version: 1, id: 'a', trigger: 'a', steps: [{ kind: 'ask', text: 'Q', stateKey: 'q', maxAttempts: 3, retries: 5 }] })).toThrow(/maxAttempts/)
+    expect(() => compileFlowDocument({ version: 2, id: 'a', trigger: 'a', steps: [{ kind: 'ask', text: 'Q', stateKey: 'q', maxAttempts: 0 }] })).toThrow(/maxAttempts/)
+    expect(() => compileFlowDocument({ version: 2, id: 'a', trigger: 'a', steps: [{ kind: 'ask', text: 'Q', stateKey: 'q', maxAttempts: 3, retries: 5 }] })).toThrow(/maxAttempts/)
   })
 
   it('exports the declarative steps of a DSL flow', () => {
     const compiled = flow('hola').say('Hola').goto('other').compile()
     const exported = exportFlowDocument(compiled)
     expect(exported).toMatchObject({
-      version: 1,
+      version: 2,
       id: compiled.id,
       trigger: compiled.trigger,
       steps: [{ kind: 'say', text: 'Hola' }, { kind: 'goto', target: 'other' }],

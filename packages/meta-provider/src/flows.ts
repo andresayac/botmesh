@@ -73,14 +73,19 @@ export interface FlowJsonOptions {
    * Language of the default submit label (`core.form.submit` of the built-in
    * catalog) when the definition has no `submitLabel`. The label is part of the
    * published Flow, so it cannot follow each user's `ctx.lang`: publish one Flow
-   * per language or set `submitLabel`. Default `'es'` (`'Enviar'`).
+   * per language or set `submitLabel`. Default `'en'` (`'Submit'`), the core default locale;
+   * pass `'es'` for `'Enviar'` (the default during the 2.0 alphas).
    */
   lang?: string
 }
 
-/** Built-in catalog (es/en) for the defaults used without a bot context. */
+/**
+ * Built-in catalog (es/en) for the defaults used without a bot context. Its default
+ * locale is the core's (`'en'`), so a bot without language options gets the same
+ * language in its core texts and in its Flow labels.
+ */
 const catalog = new I18n()
-const builtin = (key: string, lang?: string): string => catalog.translate(lang ?? 'es', key)
+const builtin = (key: string, lang?: string): string => catalog.translate(lang ?? catalog.defaultLocale, key)
 
 /** Screen id of a form: upper-case letters and `_` only (`SUCCESS` is reserved by Meta). */
 export function flowScreenId(def: FormDefinition): string {
