@@ -70,7 +70,11 @@ export function parseTimerDuration(duration: string | number, api: string): numb
   return ms
 }
 
-/** Race a promise against a timeout — rejects with `TimeoutError` if exceeded. */
+/**
+ * Race a promise against a timeout — rejects with `TimeoutError` if exceeded.
+ *
+ * @category Errors
+ */
 export class TimeoutError extends Error {
   constructor(message = 'Operation timed out') {
     super(message)

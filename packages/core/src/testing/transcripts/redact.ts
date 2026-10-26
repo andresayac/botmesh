@@ -25,7 +25,11 @@
 
 import { isRecord, type JsonValue, type Transcript, type TranscriptTurn } from './format.js'
 
-/** One custom redaction rule. Every match becomes `<name:N>`. */
+/**
+ * One custom redaction rule. Every match becomes `<name:N>`.
+ *
+ * @category Golden transcripts
+ */
 export interface RedactionRule {
   /** Placeholder label (`[a-z0-9_-]+`). */
   name: string
@@ -33,10 +37,18 @@ export interface RedactionRule {
   pattern: RegExp
 }
 
-/** Shared value → placeholder table (see {@link createRedactionMap}). */
+/**
+ * Shared value → placeholder table (see {@link createRedactionMap}).
+ *
+ * @category Golden transcripts
+ */
 export type RedactionMap = Map<string, string>
 
-/** Options for {@link redactTranscript}. */
+/**
+ * Options for {@link redactTranscript}.
+ *
+ * @category Golden transcripts
+ */
 export interface RedactOptions {
   /** Redact emails in texts (default `true`). */
   emails?: boolean
@@ -98,12 +110,20 @@ export function placeholderCategory(value: string): string | undefined {
   return undefined
 }
 
-/** A fresh, empty placeholder table to share between {@link redactTranscript} calls. */
+/**
+ * A fresh, empty placeholder table to share between {@link redactTranscript} calls.
+ *
+ * @category Golden transcripts
+ */
 export function createRedactionMap(): RedactionMap {
   return new Map()
 }
 
-/** Return a redacted copy of `transcript` (the input is not modified). */
+/**
+ * Return a redacted copy of `transcript` (the input is not modified).
+ *
+ * @category Golden transcripts
+ */
 export function redactTranscript(transcript: Transcript, options: RedactOptions = {}): Transcript {
   const redactor = new Redactor(options)
   const turns: TranscriptTurn[] = transcript.turns.map((turn) => ({ ...turn }))

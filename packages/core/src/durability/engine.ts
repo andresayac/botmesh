@@ -39,7 +39,11 @@ import type {
   OutboxJournal, OutboxPut, OutboxRecord, RetryBackoff,
 } from './types.js'
 
-/** Counters behind `bot.durability.metrics()`. */
+/**
+ * Counters behind `bot.durability.metrics()`.
+ *
+ * @category Durability
+ */
 export interface DurabilityMetrics {
   /** Inbound events written to the inbox. */
   inboundJournaled: number
@@ -69,7 +73,11 @@ export interface DurabilityMetrics {
   outboxDiverged: number
 }
 
-/** `bot.durability`: the journals plus operator controls. */
+/**
+ * `bot.durability`: the journals plus operator controls.
+ *
+ * @category Durability
+ */
 export interface DurabilityControl {
   readonly backend: DurabilityBackend
   readonly inbox: InboxJournal

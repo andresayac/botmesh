@@ -18,6 +18,8 @@ const DURATION_RE = /^(\d+(?:\.\d+)?)\s*(ms|milli|millis|millisecond|millisecond
  * Parse a duration into milliseconds. The single grammar every duration option of
  * the bot uses (`'500ms'`, `'90s'`, `'2m'`, `'1h'`, `'1d'`, `'1w'`, long forms such as
  * `'5 minutes'`, or a number / digit string meaning milliseconds).
+ *
+ * @category Utilities
  */
 export function parseDuration(input: string | number): number {
   if (typeof input === 'number') return input

@@ -4,7 +4,11 @@
 
 import type { UserId } from '../core/provider.js'
 
-/** Options for {@link UserData.set} and {@link UserData.update}. */
+/**
+ * Options for {@link UserData.set} and {@link UserData.update}.
+ *
+ * @category User data
+ */
 export interface UserSetOptions {
   /**
    * Time-to-live of the TOP-LEVEL key being written: a duration string accepted
@@ -81,6 +85,8 @@ export interface UserSetOptions {
  *   await ctx.user.ns('game').clear()
  * })
  * ```
+ *
+ * @category User data
  */
 export interface UserData {
   /** Subject this profile belongs to (`ctx.sender`). */

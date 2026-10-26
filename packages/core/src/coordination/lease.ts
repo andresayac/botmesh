@@ -14,6 +14,8 @@ import type { Coordinator } from './types.js'
 /**
  * Leadership backend of the persistent scheduler: a fenced {@link LeaseProvider}, or a
  * multi-replica {@link Coordinator} (only its `tryLead` is used).
+ *
+ * @category Coordination
  */
 export type SchedulerLease = LeaseProvider | Pick<Coordinator, 'tryLead'>
 
@@ -22,7 +24,11 @@ export function isCoordinatorLease(lease: SchedulerLease): lease is Pick<Coordin
   return typeof (lease as Partial<Coordinator>).tryLead === 'function'
 }
 
-/** A granted lease: `token` is a fencing token, strictly increasing per key. */
+/**
+ * A granted lease: `token` is a fencing token, strictly increasing per key.
+ *
+ * @category Coordination
+ */
 export interface LeaseGrant {
   token: number
 }
@@ -34,6 +40,8 @@ export interface LeaseGrant {
  * - `renew` extends the lease only when `owner` still holds it with `token`.
  * - `release` frees the key only when `owner` holds it with `token` (else no-op).
  * Tokens never go backwards for a key, even across release and expiry.
+ *
+ * @category Coordination
  */
 export interface LeaseProvider {
   acquire(key: string, owner: string, ttlMs: number): Promise<LeaseGrant | null>
@@ -46,6 +54,8 @@ interface LeaseRow { owner?: string; token: number; until: number }
 /**
  * In-process {@link LeaseProvider}, the reference implementation of the contract. Only
  * useful within one process (tests, or several schedulers sharing it).
+ *
+ * @category Coordination
  */
 export class MemoryLeaseProvider implements LeaseProvider {
   private readonly rows = new Map<string, LeaseRow>()

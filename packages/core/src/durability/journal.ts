@@ -80,7 +80,11 @@ function leased<R extends { fencingToken: number; attempts: number }>(r: R, o: L
   return { ...r, owner: o.owner, leaseUntil: o.now + o.leaseMs, fencingToken: r.fencingToken + 1, attempts: r.attempts + 1 }
 }
 
-/** {@link InboxJournal} over a {@link DurableKv}. */
+/**
+ * {@link InboxJournal} over a {@link DurableKv}.
+ *
+ * @category Durability
+ */
 export class KvInbox implements InboxJournal {
   /** @param table The KV table (`'inbox'`, or `'inbox:<scope>'` for a scoped view). */
   constructor(private readonly kv: DurableKv, private readonly table: DurableTable = 'inbox') {}
@@ -220,7 +224,11 @@ function outboxClaimable(r: OutboxRecord, now: number, owner: string, reclaimOwn
   return false
 }
 
-/** {@link OutboxJournal} over a {@link DurableKv}. */
+/**
+ * {@link OutboxJournal} over a {@link DurableKv}.
+ *
+ * @category Durability
+ */
 export class KvOutbox implements OutboxJournal {
   /** @param table The KV table (`'outbox'`, or `'outbox:<scope>'` for a scoped view). */
   constructor(private readonly kv: DurableKv, private readonly table: DurableTable = 'outbox') {}
@@ -353,7 +361,11 @@ export class KvOutbox implements OutboxJournal {
   }
 }
 
-/** Options of {@link KvDurability}. */
+/**
+ * Options of {@link KvDurability}.
+ *
+ * @category Durability
+ */
 export interface KvDurabilityOptions {
   /** Only one process uses this storage at a time (see `DurabilityBackend.exclusive`). */
   exclusive?: boolean
@@ -364,6 +376,8 @@ export interface KvDurabilityOptions {
 /**
  * A {@link DurabilityBackend} over any {@link DurableKv}. Store packages build their
  * backends this way (`new KvDurability(new PostgresDurableKv(pool))`).
+ *
+ * @category Durability
  */
 export class KvDurability implements DurabilityBackend {
   readonly inbox: InboxJournal

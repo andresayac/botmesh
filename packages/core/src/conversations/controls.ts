@@ -17,14 +17,23 @@ import { CORE_MESSAGES } from '../i18n/builtins.js'
 import type { TranslateParams } from '../i18n/types.js'
 import type { InboundLocation } from '../core/provider.js'
 
-/** Wait options with a zod-compatible `schema`: the wait resolves with the schema's parsed value. */
+/**
+ * Wait options with a zod-compatible `schema`: the wait resolves with the schema's parsed value.
+ *
+ * @category Conversations
+ */
 export type SchemaWaitOptions<T> = WaitOptions & { schema: SchemaLike<T> }
 
-/** Media kinds `c.waitMedia(types)` accepts. */
+/**
+ * Media kinds `c.waitMedia(types)` accepts.
+ *
+ * @category Conversations
+ */
 export type WaitMediaType = 'image' | 'video' | 'audio' | 'document' | 'sticker' | 'voice'
 /** Types `c.waitMedia()` takes by default (voice notes only when asked for: `waitMedia(['voice'])`). */
 const MEDIA_TYPES: readonly WaitMediaType[] = ['image', 'video', 'audio', 'document', 'sticker']
 
+/** @category Conversations */
 export interface ConversationControls extends ConversationControlsBase {
   /**
    * Send `text` and wait for a text answer. With `{ schema }` (any zod-compatible `safeParse`)

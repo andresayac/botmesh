@@ -34,6 +34,11 @@ import {
   type AnswerCodec, type HandoverOutcome, type InterruptedConversation, type RuntimeHandover,
 } from './handover.js'
 
+/**
+ * The message shape conversations work with. Every {@link MessageContext} satisfies it.
+ *
+ * @category Conversations
+ */
 export interface RuntimeMessage {
   from: string; sender: string; body: string; type: string; isGroup: boolean
   /** `opts` is honored by bot contexts (pacing, `cancelIf`); other implementations may ignore it. */
@@ -52,9 +57,16 @@ export interface RuntimeMessage {
  * What a pending wait takes as an answer (diagnostics / plugins, see
  * {@link ConversationSnapshot.accepts}): `'text'` (`ask`, `waitText`), a list of
  * message types (`waitMedia`), or `'any'` (`choose`, which reads `body`, and `waitAny`).
+ *
+ * @category Conversations
  */
 export type WaitAccepts = 'text' | 'any' | readonly string[]
 
+/**
+ * Wait options after defaults are applied and durations converted to milliseconds.
+ *
+ * @category Conversations
+ */
 export interface ResolvedWaitOptions {
   timeoutMs?: number
   filter?: (ctx: RuntimeMessage) => boolean
@@ -65,7 +77,11 @@ export interface ResolvedWaitOptions {
 /** Opaque identity of a live conversation; keeps a stale teardown from touching a newer entry. */
 export interface ConversationHandle { readonly key: string }
 
-/** Minimal controls surface; `controls.ts` extends it with ask/waitText/choose/... */
+/**
+ * Minimal controls surface; `controls.ts` extends it with ask/waitText/choose/...
+ *
+ * @category Conversations
+ */
 export interface ConversationControlsBase {
   waitAny(opts?: ResolvedWaitOptions): Promise<RuntimeMessage>
   say(text: string): Promise<void>
@@ -73,12 +89,19 @@ export interface ConversationControlsBase {
   end(farewell?: string): never
 }
 
+/**
+ * Body of a conversation: receives the conversation controls and the message that started it.
+ *
+ * @category Conversations
+ */
 export type ConversationFn<C extends ConversationControlsBase = ConversationControlsBase> =
   (c: C, ctx: RuntimeMessage) => Promise<void>
 
 /**
  * One `register()` / `registerCompiled()` call, as recorded by `ConversationRuntime.listRegistrations`.
  * Exactly one of `flow` / `fn` is set.
+ *
+ * @category Conversations
  */
 export interface ConversationRegistration {
   /** Conversation name (the `CompiledFlow.id` for DSL flows). */
@@ -201,10 +224,16 @@ export interface RuntimeConfig {
  * - `timedOut` — a wait expired;
  * - `retriesExceeded` — `c.retry()` ran out of attempts;
  * - `error` — the conversation threw anything else.
+ *
+ * @category Conversations
  */
 export type ConversationOutcome = 'completed' | 'ended' | 'guarded' | 'cancelled' | 'timedOut' | 'retriesExceeded' | 'error'
 
-/** Options of `ConversationRuntime.enter`. */
+/**
+ * Options of `ConversationRuntime.enter`.
+ *
+ * @category Conversations
+ */
 export interface EnterOptions {
   /** Initial `c.state` (shallow-copied). Used by `bot.trigger(name, { data })`. */
   state?: Record<string, unknown>
@@ -212,6 +241,11 @@ export interface EnterOptions {
   name?: string
 }
 
+/**
+ * Describes a conversation instance when it starts.
+ *
+ * @category Conversations
+ */
 export interface ConversationStartInfo {
   /** Unique per conversation instance: pairs a start with its end (several can share `key`/`name`). */
   id: string
@@ -220,6 +254,11 @@ export interface ConversationStartInfo {
   ctx: RuntimeMessage
 }
 
+/**
+ * Describes a conversation instance when it ends: its outcome, duration and `goto` target.
+ *
+ * @category Conversations
+ */
 export interface ConversationEndInfo extends ConversationStartInfo {
   outcome: ConversationOutcome
   durationMs: number
@@ -238,6 +277,8 @@ interface PendingWait {
 /**
  * Lifecycle observer of ONE live conversation (see `ConversationRuntime.observe`).
  * Used by `c.idle()` watchdogs; callbacks must be cheap and must not throw.
+ *
+ * @category Conversations
  */
 export interface ConversationObserver {
   /** Any inbound message routed to the conversation's key — even one its pending wait filters out. */
@@ -309,7 +350,11 @@ function revisionOf(cp: FlowCheckpoint | undefined): number {
   return cp?.revision ?? 0
 }
 
-/** Read-only view of a live conversation (diagnostics / dev tooling). */
+/**
+ * Read-only view of a live conversation (diagnostics / dev tooling).
+ *
+ * @category Conversations
+ */
 export interface ConversationSnapshot {
   /** Conversation key (`keyFor`): the chat id, or `${chatId}:${senderId}` per group participant. */
   key: string

@@ -32,10 +32,18 @@
 
 import type { ChatId, UserId } from '../core/provider.js'
 
-/** Which list a change belongs to. */
+/**
+ * Which list a change belongs to.
+ *
+ * @category Handoff & access lists
+ */
 export type AccessListName = 'blacklist' | 'whitelist'
 
-/** What happened to a list. `enable`/`disable` only exist on the {@link Whitelist}. */
+/**
+ * What happened to a list. `enable`/`disable` only exist on the {@link Whitelist}.
+ *
+ * @category Handoff & access lists
+ */
 export type AccessListAction = 'add' | 'remove' | 'clear' | 'load' | 'enable' | 'disable'
 
 /**
@@ -43,6 +51,8 @@ export type AccessListAction = 'add' | 'remove' | 'clear' | 'load' | 'enable' | 
  *
  * `ids` holds the ids that were actually added (`add`), actually removed (`remove`,
  * `clear`), or the full new contents (`load`). It is empty for `enable`/`disable`.
+ *
+ * @category Handoff & access lists
  */
 export interface AccessListChange {
   list: AccessListName
@@ -50,23 +60,39 @@ export interface AccessListChange {
   ids: string[]
 }
 
-/** JSON-serializable snapshot of an {@link AccessList}. */
+/**
+ * JSON-serializable snapshot of an {@link AccessList}.
+ *
+ * @category Handoff & access lists
+ */
 export interface AccessListSnapshot {
   ids: string[]
 }
 
-/** JSON-serializable snapshot of a {@link Whitelist} (ids + whether whitelist mode is on). */
+/**
+ * JSON-serializable snapshot of a {@link Whitelist} (ids + whether whitelist mode is on).
+ *
+ * @category Handoff & access lists
+ */
 export interface WhitelistSnapshot extends AccessListSnapshot {
   enabled: boolean
 }
 
-/** Combined snapshot returned by `bot.exportAccessLists()` and accepted by `bot.loadAccessLists()`. */
+/**
+ * Combined snapshot returned by `bot.exportAccessLists()` and accepted by `bot.loadAccessLists()`.
+ *
+ * @category Handoff & access lists
+ */
 export interface AccessListsSnapshot {
   blacklist: AccessListSnapshot
   whitelist: WhitelistSnapshot
 }
 
-/** Outcome of `checkAccess`. Anything other than `'allowed'` means the message is dropped. */
+/**
+ * Outcome of `checkAccess`. Anything other than `'allowed'` means the message is dropped.
+ *
+ * @category Handoff & access lists
+ */
 export type AccessDecision = 'allowed' | 'blacklisted' | 'not-whitelisted'
 
 /** Normalize `string | string[]` input and validate every id BEFORE any mutation. */
@@ -83,6 +109,8 @@ function toIds(input: unknown, list: AccessListName, method: string): string[] {
 /**
  * A set of opaque ids with change notifications. Used as `bot.blacklist`; the
  * {@link Whitelist} subclass adds the enable/disable switch.
+ *
+ * @category Handoff & access lists
  */
 export class AccessList {
   protected readonly ids = new Set<string>()
@@ -175,6 +203,8 @@ export class AccessList {
  * (the default) its entries have no effect. While **enabled**, only messages whose
  * senderId OR chatId is on the list are processed; an enabled, empty whitelist
  * blocks everyone. The blacklist always wins over the whitelist.
+ *
+ * @category Handoff & access lists
  */
 export class Whitelist extends AccessList {
   private on = false

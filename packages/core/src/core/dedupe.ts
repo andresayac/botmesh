@@ -41,7 +41,11 @@ import { parseDuration } from '../utils/duration.js'
 /** Default number of inbound keys remembered by a {@link InboundDeduper}. */
 export const DEFAULT_DEDUPE_SIZE = 1000
 
-/** User-facing options for `BotConfig.dedupe`. */
+/**
+ * User-facing options for `BotConfig.dedupe`.
+ *
+ * @category Bot
+ */
 export interface InboundDedupeOptions {
   /**
    * Maximum number of remembered inbound keys. When exceeded, the

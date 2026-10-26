@@ -28,6 +28,8 @@ import { parseIdlePeriod } from '../utils/timers.js'
  * call `c.end(farewell)` / `c.goto(name)` to finish the conversation, or `c.retry()` to
  * re-prompt the pending question. It cannot start waits (`c.ask()`…). Thrown errors are
  * reported, never unhandled.
+ *
+ * @category Conversations
  */
 export type IdleCallback = () => unknown | Promise<unknown>
 

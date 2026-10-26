@@ -6,13 +6,19 @@
 import { parseDuration } from '../utils/duration.js'
 import type { RetryBackoff } from './types.js'
 
-/** Default retry policy: 1s, 2s, 4s… capped at 60s, ±20% jitter. */
+/**
+ * Default retry policy: 1s, 2s, 4s… capped at 60s, ±20% jitter.
+ *
+ * @category Durability
+ */
 export const DEFAULT_BACKOFF = { baseMs: 1_000, capMs: 60_000, jitter: 0.2 } as const
 
 /**
  * Delay in ms before the next attempt, after `attempt` (1-based) failed attempts.
  * Capped exponential with symmetric jitter; a function policy is called as-is.
  * Never negative; non-finite results become `0`.
+ *
+ * @category Durability
  */
 export function computeBackoff(policy: RetryBackoff | undefined, attempt: number, random: () => number = Math.random): number {
   if (typeof policy === 'function') {

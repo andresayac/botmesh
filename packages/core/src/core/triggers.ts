@@ -41,6 +41,8 @@ import type { TriggerScope } from './types.js'
 /**
  * A trigger that matches on the inbound kind (`ctx.type`) instead of the body.
  * Build one with {@link typeTrigger} or use the exported constants.
+ *
+ * @category Triggers
  */
 export interface TypeTrigger {
   readonly kind: 'type'
@@ -52,7 +54,11 @@ export interface TypeTrigger {
   readonly label?: string
 }
 
-/** The first-contact trigger. Use the {@link WELCOME} constant. */
+/**
+ * The first-contact trigger. Use the {@link WELCOME} constant.
+ *
+ * @category Triggers
+ */
 export interface WelcomeTrigger {
   readonly kind: 'welcome'
   /** Restrict to DMs or groups, like `TriggerObject.scope`. Default `'all'`. */
@@ -72,14 +78,22 @@ export function typeTriggerSpecificity(trigger: TypeTrigger): number {
   return trigger.types.length === 1 ? SINGLE_TYPE_SPECIFICITY : MULTI_TYPE_SPECIFICITY
 }
 
-/** Is `value` a {@link TypeTrigger}? */
+/**
+ * Is `value` a {@link TypeTrigger}?
+ *
+ * @category Triggers
+ */
 export function isTypeTrigger(value: unknown): value is TypeTrigger {
   return typeof value === 'object' && value !== null
     && (value as { kind?: unknown }).kind === 'type'
     && Array.isArray((value as { types?: unknown }).types)
 }
 
-/** Is `value` the {@link WELCOME} trigger (possibly spread with a `scope`)? */
+/**
+ * Is `value` the {@link WELCOME} trigger (possibly spread with a `scope`)?
+ *
+ * @category Triggers
+ */
 export function isWelcomeTrigger(value: unknown): value is WelcomeTrigger {
   return typeof value === 'object' && value !== null
     && !Array.isArray(value)
@@ -94,6 +108,8 @@ export function isWelcomeTrigger(value: unknown): value is WelcomeTrigger {
  * // any visual media, but not audio/documents
  * bot.when(typeTrigger('image', 'video'), (ctx) => ctx.reply('¡Qué buena toma!'))
  * ```
+ *
+ * @category Triggers
  */
 export function typeTrigger(...types: MessageType[]): TypeTrigger {
   return freezeTypeTrigger([...types], types.join('|'))
@@ -136,31 +152,71 @@ function freezeTypeTrigger(types: MessageType[], label: string): TypeTrigger {
  * // or as an onboarding flow (add `.id('onboarding')` to make it `.persistent()`)
  * bot.use(flow(WELCOME).ask('¿Cómo te llamas?', 'name').say((_, c) => `¡Hola ${c.state.name}!`))
  * ```
+ *
+ * @category Triggers
  */
 export const WELCOME: WelcomeTrigger = Object.freeze({ kind: 'welcome' as const })
 
-/** Any downloadable media: image, video, audio, voice note, document or sticker. */
+/**
+ * Any downloadable media: image, video, audio, voice note, document or sticker.
+ *
+ * @category Triggers
+ */
 export const MEDIA: TypeTrigger = freezeTypeTrigger(['image', 'video', 'audio', 'voice', 'document', 'sticker'], 'MEDIA')
-/** An inbound image (same tier as `bot.onImage`). */
+/**
+ * An inbound image (same tier as `bot.onImage`).
+ *
+ * @category Triggers
+ */
 export const IMAGE: TypeTrigger = freezeTypeTrigger(['image'], 'IMAGE')
-/** An inbound video. */
+/**
+ * An inbound video.
+ *
+ * @category Triggers
+ */
 export const VIDEO: TypeTrigger = freezeTypeTrigger(['video'], 'VIDEO')
 /**
  * An inbound audio **file** (`ctx.type === 'audio'`). Voice notes are
  * `VOICE_NOTE`; use `typeTrigger('audio', 'voice')` to catch both.
+ *
+ * @category Triggers
  */
 export const AUDIO: TypeTrigger = freezeTypeTrigger(['audio'], 'AUDIO')
-/** An inbound voice note (push-to-talk, `ctx.type === 'voice'`). */
+/**
+ * An inbound voice note (push-to-talk, `ctx.type === 'voice'`).
+ *
+ * @category Triggers
+ */
 export const VOICE_NOTE: TypeTrigger = freezeTypeTrigger(['voice'], 'VOICE_NOTE')
-/** An inbound document/file. */
+/**
+ * An inbound document/file.
+ *
+ * @category Triggers
+ */
 export const DOCUMENT: TypeTrigger = freezeTypeTrigger(['document'], 'DOCUMENT')
-/** An inbound sticker. */
+/**
+ * An inbound sticker.
+ *
+ * @category Triggers
+ */
 export const STICKER: TypeTrigger = freezeTypeTrigger(['sticker'], 'STICKER')
-/** An inbound shared location. */
+/**
+ * An inbound shared location.
+ *
+ * @category Triggers
+ */
 export const LOCATION: TypeTrigger = freezeTypeTrigger(['location'], 'LOCATION')
-/** An inbound shared contact card. */
+/**
+ * An inbound shared contact card.
+ *
+ * @category Triggers
+ */
 export const CONTACT: TypeTrigger = freezeTypeTrigger(['contact'], 'CONTACT')
-/** An inbound poll (creation). Vote updates arrive on `bot.on('poll')`. */
+/**
+ * An inbound poll (creation). Vote updates arrive on `bot.on('poll')`.
+ *
+ * @category Triggers
+ */
 export const POLL: TypeTrigger = freezeTypeTrigger(['poll'], 'POLL')
 
 /**
@@ -197,5 +253,7 @@ export const POLL: TypeTrigger = freezeTypeTrigger(['poll'], 'POLL')
  * ```ts
  * bot.when(CALL, (ctx) => ctx.reply('📵 No atiendo llamadas, escríbeme por aquí.'))
  * ```
+ *
+ * @category Triggers
  */
 export const CALL: TypeTrigger = freezeTypeTrigger(['call'], 'CALL')

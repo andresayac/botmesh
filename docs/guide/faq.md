@@ -18,13 +18,9 @@ const bot = new Bot({
   }),
 })
 
-// v2 emits the auth artifact (QR string / pairing code) through the 'qr' event:
-bot.on('qr', (artifact) => console.log('Auth artifact:', artifact))
+// The pairing code arrives on the 'qr' event (the same event that carries the QR string)
+bot.on('qr', (code) => console.log('Type this code in WhatsApp > Linked devices:', code))
 ```
-
-There is no dedicated `pairing_code` event in v2 — the pairing code arrives
-as the `qr` event payload (a string auth artifact the core forwards
-verbatim from the provider).
 
 ## Does the bot work in groups?
 
@@ -151,19 +147,23 @@ gives you autocomplete and type-checking, but it's optional.
 ## Why do I get `ERR_REQUIRE_ESM` or "require is not defined"?
 
 You're trying to `require('@botmesh/core')` (or a transport package) from a
-CommonJS file. There is no CJS build — switch to `import` (add
+CommonJS file. There is no CJS build: switch to `import` (add
 `"type": "module"` to your `package.json`, or use a `.mjs` extension).
-Node >= 22.12 can also `require()` an ESM package via its experimental
-`require(esm)` support.
+More install errors (pnpm build scripts, native modules) are in
+[Troubleshooting](./troubleshooting#installing).
 
 ## Where is the full API reference?
 
-At the [API Reference](/api/) — generated with TypeDoc from the source code. It
-covers **`@botmesh/core`** (every public export, including the internals-free
-`/internal` split); the channel, store and plugin packages are documented in
-their guide pages and in each package's `README.md` (`packages/<pkg>/README.md`).
+At the [API Reference](/api/), generated with TypeDoc from the source code and
+grouped by topic (Bot, Messages & context, Flows, Store, Errors…). It covers the
+three semver-covered entries of **`@botmesh/core`**: the main entry, `/spi` (for
+authors of stores, backends and transports) and `/testing`.
+`@botmesh/core/internal` is not documented on purpose: it has no semver guarantee.
+The channel, store and plugin packages are documented in their guide pages and in
+each package's README on npm.
 
 ## Still having problems?
 
+- [Troubleshooting](./troubleshooting): the common errors and their fixes
 - [Open an issue on GitHub](https://github.com/andresayac/botmesh/issues)
 - [Check the examples](/examples/messages)

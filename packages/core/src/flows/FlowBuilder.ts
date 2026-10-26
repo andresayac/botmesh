@@ -29,12 +29,18 @@ import { attemptBudget } from '../conversations/retry.js'
  * TYPED FLOW STATE
  * ========================================================================== */
 
-/** Empty flow state — the default of `flow<S>()`. */
+/**
+ * Empty flow state — the default of `flow<S>()`.
+ *
+ * @category Flows
+ */
 export type EmptyFlowState = Record<never, never>
 
 /**
  * Conversation controls as seen by a flow step: `c.state` carries the keys the flow captured
  * so far (`.ask(..., 'edad', { schema })` → `c.state.edad: number`) plus any other key as `unknown`.
+ *
+ * @category Flows
  */
 export type FlowControls<S extends object = EmptyFlowState> = ConversationControls & { state: S & Record<string, unknown> }
 
@@ -42,29 +48,66 @@ export type FlowControls<S extends object = EmptyFlowState> = ConversationContro
  * `S` with key `K` set to `V` (replacing any previous type of `K`). A non-literal key
  * (`K = string`) cannot be tracked, so `S` is returned unchanged — the value stays reachable
  * as `unknown` through the open index signature of {@link FlowControls}.
+ *
+ * @category Flows
  */
 export type FlowStateWith<S, K extends string, V> = string extends K
   ? S
   : { [P in keyof S | K]: P extends K ? V : P extends keyof S ? S[P] : never }
 
-/** `S` merged with `T` (keys of `T` win) — the state after `.use(subFlow)`. */
+/**
+ * `S` merged with `T` (keys of `T` win) — the state after `.use(subFlow)`.
+ *
+ * @category Flows
+ */
 export type FlowStateMerge<S, T> = { [P in keyof S | keyof T]: P extends keyof T ? T[P] : P extends keyof S ? S[P] : never }
 
-/** State type captured by a builder: `FlowStateOf<typeof registro>`. */
+/**
+ * State type captured by a builder: `FlowStateOf<typeof registro>`.
+ *
+ * @category Flows
+ */
 export type FlowStateOf<F> = F extends FlowBuilder<infer S> ? S : never
 
+/**
+ * Text computed when the step runs, from the message and the flow controls,
+ * for example `(ctx, c) => 'Hi ' + c.state.name`.
+ *
+ * @category Flows
+ */
 export type DynamicText<S extends object = EmptyFlowState> = (ctx: RuntimeMessage, c: FlowControls<S>) => string | Promise<string>
+/**
+ * A `.do()` step: code that runs with the message and the flow controls.
+ *
+ * @category Flows
+ */
 export type FlowAction<S extends object = EmptyFlowState> = (ctx: RuntimeMessage, c: FlowControls<S>) => unknown | Promise<unknown>
-/** `.guard()` predicate: a falsy result stops the flow. */
+/**
+ * `.guard()` predicate: a falsy result stops the flow.
+ *
+ * @category Flows
+ */
 export type FlowGuard<S extends object = EmptyFlowState> = (ctx: RuntimeMessage, c: FlowControls<S>) => unknown | Promise<unknown>
 
-/** A pause before a step is sent: `'2s'`, `'500ms'`, or milliseconds. */
+/**
+ * A pause before a step is sent: `'2s'`, `'500ms'`, or milliseconds.
+ *
+ * @category Flows
+ */
 export type FlowDelay = string | number
 
-/** Options of `.say(text, opts)`. */
+/**
+ * Options of `.say(text, opts)`.
+ *
+ * @category Flows
+ */
 export interface SayStepOptions { delay?: FlowDelay }
 
-/** Options of `.ask(text, key, opts)`: every wait option plus a zod-compatible `schema` and a `delay`. */
+/**
+ * Options of `.ask(text, key, opts)`: every wait option plus a zod-compatible `schema` and a `delay`.
+ *
+ * @category Flows
+ */
 export interface AskStepOptions<T = string> extends WaitOptions {
   /**
    * Validate (and transform) the answer with any `safeParse()` schema (zod-compatible). The parsed
@@ -98,10 +141,18 @@ function assertChooseOptions(options: unknown): void {
   }
 }
 
-/** Options of `.choose(prompt, options, stateKey, opts)`. */
+/**
+ * Options of `.choose(prompt, options, stateKey, opts)`.
+ *
+ * @category Flows
+ */
 export interface ChooseStepOptions extends WaitOptions { delay?: FlowDelay }
 
-/** What a `.guard()` does when its predicate fails. A string / dynamic text is a farewell message (the conversation ends). */
+/**
+ * What a `.guard()` does when its predicate fails. A string / dynamic text is a farewell message (the conversation ends).
+ *
+ * @category Flows
+ */
 export type GuardFailure<S extends object = EmptyFlowState> =
   | string
   | DynamicText<S>
@@ -112,7 +163,11 @@ export type GuardFailure<S extends object = EmptyFlowState> =
       redirect?: string | FlowBuilder<object>
     }
 
-/** One option of `.choose()`: a label, or a label plus what happens when it is picked. */
+/**
+ * One option of `.choose()`: a label, or a label plus what happens when it is picked.
+ *
+ * @category Flows
+ */
 export type ChooseOption<S extends object = EmptyFlowState> =
   | string
   | {
@@ -127,9 +182,18 @@ export type ChooseOption<S extends object = EmptyFlowState> =
  * COMPILED FLOWS
  * ========================================================================== */
 
-/** Compiled `.ask()` options (`delay` is lifted to the step). */
+/**
+ * Compiled `.ask()` options (`delay` is lifted to the step).
+ *
+ * @category Flows
+ */
 export type CompiledAskOptions = WaitOptions & { schema?: SchemaLike<unknown> }
 
+/**
+ * One option of a compiled `choose` step.
+ *
+ * @category Flows
+ */
 export interface CompiledChooseOption {
   label: string
   then?: CompiledFlow | FlowAction
@@ -137,6 +201,11 @@ export interface CompiledChooseOption {
   goto?: string
 }
 
+/**
+ * One step of a {@link CompiledFlow}.
+ *
+ * @category Flows
+ */
 export type CompiledStep =
   | { kind: 'say'; text: string | DynamicText; delayMs?: number }
   | { kind: 'ask'; text: string | DynamicText; stateKey: string; opts?: CompiledAskOptions; delayMs?: number }
@@ -155,6 +224,12 @@ export type CompiledStep =
   /** `.form()`: a native form, or one question per field on providers without forms. */
   | { kind: 'form'; form: FormDefinition; opts?: FormStepOptions }
 
+/**
+ * A flow in compiled form (`builder.compile()`): id, trigger, steps and options.
+ * `bot.use()` accepts it as well as a {@link FlowBuilder}.
+ *
+ * @category Flows
+ */
 export interface CompiledFlow {
   id: string
   trigger: Trigger
@@ -162,6 +237,11 @@ export interface CompiledFlow {
   opts: { timeoutMs?: number; persistent?: boolean; scope?: TriggerScope }
 }
 
+/**
+ * Type guard for {@link CompiledFlow}.
+ *
+ * @category Flows
+ */
 export function isCompiledFlow(x: unknown): x is CompiledFlow {
   return typeof x === 'object' && x !== null && 'steps' in x && 'trigger' in x && 'id' in x
 }
@@ -169,9 +249,15 @@ export function isCompiledFlow(x: unknown): x is CompiledFlow {
 /**
  * Start a DSL flow. `S` optionally declares state the flow expects up front; `.ask()`,
  * `.choose()` and `.use()` add the keys they capture, so `c.state` is typed without casts.
+ *
+ * @category Flows
  */
 export function flow<S extends object = EmptyFlowState>(trigger: Trigger): FlowBuilder<S> { return new FlowBuilder<S>(trigger) }
-/** @deprecated Use {@link flow} (same function; the name kept for code migrated from bot-whatsapp/BuilderBot). */
+/**
+ * @deprecated Use {@link flow} (same function; the name kept for code migrated from bot-whatsapp/BuilderBot).
+ *
+ * @category Flows
+ */
 export const addKeyword = flow
 
 function delayOf(d: FlowDelay | undefined): number | undefined {
@@ -194,6 +280,13 @@ function targetOf(t: string | FlowBuilder<object>): string {
   return typeof t === 'string' ? t : t.compile().id
 }
 
+/**
+ * Builder returned by {@link flow}. Chain steps (`say`, `ask`, `choose`, `do`,
+ * `media`, `form`, `use`, `goto`…) and register the flow with `bot.use()`. Every method returns
+ * the builder, and the type of `c.state` grows with each `ask`, `choose` and `use`.
+ *
+ * @category Flows
+ */
 export class FlowBuilder<S extends object = EmptyFlowState> {
   private steps: CompiledStep[] = []
   private _id?: string

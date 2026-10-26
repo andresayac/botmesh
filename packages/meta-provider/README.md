@@ -1,14 +1,16 @@
 # @botmesh/meta
 
-The **official WhatsApp Cloud API (Meta)** transport for [`@botmesh/core`](https://github.com/andresayac/botmesh/tree/main/packages/core). Unlike Baileys (WhatsApp Web, unofficial), the Cloud API is **official: no ban risk**, with **native buttons, lists and templates**. It is webhook-based (it opens no socket).
+The **official WhatsApp Cloud API (Meta)** transport for [`@botmesh/core`](https://github.com/andresayac/botmesh/tree/main/packages/core). Unlike WhatsApp Web clients such as Baileys, it is Meta's supported API: no risk of a ban for using an unofficial client, plus **native buttons, lists, templates and WhatsApp Flows forms**. It is webhook-based: your server receives Meta's webhook and hands it to the provider (no socket, no QR).
 
-## Installation
+## Install
 
 ```bash
 pnpm add @botmesh/core @botmesh/meta
 ```
 
-Nothing else to install: Graph calls use Node ≥ 22's native `fetch` and `crypto`, and inbound media is downloaded through the SSRF-safe [`@botmesh/http`](https://github.com/andresayac/botmesh/tree/main/packages/http) (installed as a dependency).
+> **Prerelease.** Until the stable release, botmesh packages are published under a prerelease dist-tag instead of `latest`: add it to the command (`pnpm add @botmesh/core@alpha @botmesh/meta@alpha`, or `@beta` during the beta).
+
+Nothing else to install: Graph calls use Node.js 22's native `fetch` and `crypto`, and inbound media is downloaded through the SSRF-safe [`@botmesh/http`](https://www.npmjs.com/package/@botmesh/http) (a dependency).
 
 ## Requirements (Meta)
 
@@ -32,26 +34,30 @@ const provider = new CloudAPIProvider({
 })
 
 const bot = new Bot({ provider })
-bot.when('hola', (ctx) => ctx.reply('👋 Hello from the official API!'))
+bot.when('hi', (ctx) => ctx.reply('👋 Hello from the official API!'))
 await bot.start()
 
-// ——— YOUR server serves the webhook ———
+// Your server serves the webhook
 const app = express()
 app.get('/webhook', (req, res) => {
-  const challenge = provider.verifyChallenge(req.query as never)
-  challenge ? res.send(challenge) : res.sendStatus(403)
+  const challenge = provider.verifyChallenge(req.query as Record<string, string>)
+  if (challenge === null) res.sendStatus(403)
+  else res.send(challenge)
 })
-app.post('/webhook', express.json({ verify: (req, _res, buf) => { (req as any).rawBody = buf } }), (req, res) => {
-  res.sendStatus(provider.ingest((req as any).rawBody ?? req.body, req.headers))
+// express.raw keeps the exact bytes Meta signed (express.json would re-serialize them)
+app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  res.sendStatus(provider.ingest(req.body, req.headers))
 })
 app.listen(3000)
 ```
 
-> **Webhook signature:** `appSecret` is required in production; `ingest` validates `X-Hub-Signature-256`
-> (constant-time HMAC-SHA256) and rejects forged bodies with `403`.
-> Pass it the **raw body** (not the parsed one) so the signature matches.
-> Only for local development can you opt in explicitly with `allowUnsignedWebhooks: true`.
-> A body that is not a JSON object is answered with `400` (it never throws).
+`ingest(body, headers)` returns the HTTP status to answer with and never throws: `200` accepted, `400` for a body that is not a JSON object (or one already parsed while `appSecret` is set), `403` for a bad signature.
+
+> **Webhook signature.** `appSecret` is required: `ingest` checks `X-Hub-Signature-256` (constant-time
+> HMAC-SHA256 over the raw bytes) and rejects forged bodies with `403`. If every webhook gets `403`, the body was
+> parsed before reaching `ingest` or the app secret is wrong (see
+> [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting#webhook-signature-mismatch-403)).
+> Only for local development can you opt out explicitly with `allowUnsignedWebhooks: true`.
 
 ## Configuration checks and timeouts
 
@@ -66,7 +72,7 @@ rejects with a `ProviderError`. Media uploads (up to 100 MB) use `uploadTimeoutM
 const provider = new CloudAPIProvider({ /* ... */ requestTimeoutMs: 20_000 })
 ```
 
-**Deprecated exports** (kept until v3): `toProviderError` (use `toGraphError` from `@botmesh/graph-core`),
+**Deprecated exports** (to be removed in the next major): `toProviderError` (use `toGraphError` from `@botmesh/graph-core`),
 `GraphClient` (transport internals), the re-exported `verifyChallenge` / `verifySignature` (use
 `provider.verifyChallenge(query)` and `provider.ingest()`, or import them from `@botmesh/graph-core`) and the `debug`
 option (pass a `logger`).
@@ -145,7 +151,7 @@ await provider.sessionWindow!.isOpen('573001112233')
 Every `status` event carries the normalized webhook `pricing` object in `platformData.pricing` (`billable`, `pricingModel` `PMP`/`CBP`, `category`, `type` — `regular`, `free_customer_service`, `free_entry_point`) and, when present, `platformData.conversation`. `provider.usage` aggregates per chat and per category (each message counts once):
 
 ```ts
-const provider = new CloudAPIProvider({ /* ... */, usage: { rates: { marketing: 0.0125, utility: 0.0008 } } })
+const provider = new CloudAPIProvider({ /* ... */ usage: { rates: { marketing: 0.0125, utility: 0.0008 } } })
 provider.usage!.forChat('573001112233') // { messages, billable, free, estimatedCost, byCategory }
 provider.usage!.totals()
 ```
@@ -239,3 +245,22 @@ Details:
 - `get` is only queried for users that arrive without a phone and that the session does not know yet; `set` is called once per pair and session (make it idempotent).
 - If `get` fails, the event is emitted with the BSUID and the error is logged; if `set` fails, it is only logged.
 - `parseInbound(body)` (exported) is **stateless**: it resolves the identity inside that body. Continuity between webhooks is provided by `provider.ingest()`.
+
+## Errors you may see
+
+Sends reject with the typed errors of `@botmesh/core` (mapping in [`@botmesh/graph-core`](https://www.npmjs.com/package/@botmesh/graph-core#error-mapping)):
+
+| Error | Typical cause | What to do |
+|---|---|---|
+| `OutsideSessionWindowError` (Graph `131047`) | More than 24 h since the user's last message | Send an approved template (`kind: 'template'`) or configure [`sessionWindow`](#24-hour-window). |
+| `RecipientUnreachableError` (`131026`, `131030`) | The number cannot receive messages, or (test number) it is not in the allowed recipients list | Add the number to the test number's recipient list in the Meta dashboard. |
+| `RateLimitedError` (`130429`, `131056`, `4`, `80007`…) | Throughput or pair rate limit | Wait `retryAfterMs`; `bot.broadcast()` and `ctx` sends already retry short waits. |
+| `UnsupportedContentError` | Polls, more than 3 reply buttons, a link mixed with reply buttons, more than 10 list rows | Use a list, buttons or WhatsApp Flows instead. |
+| `ProviderError` "check the token" (`190`) | Expired or temporary access token | Use a permanent system-user token with `whatsapp_business_messaging`. |
+| `ProviderError` "check the configured id" (`100`/`33`) | Wrong `phoneNumberId`, or the token cannot reach it | Copy the **phone number id** (not the phone number) from the API setup page. |
+| Constructor error naming a field | `accessToken`, `phoneNumberId` or `verifyToken` missing or empty | Check the environment variables. |
+
+## Links
+
+- [Channels guide](https://andresayac.github.io/botmesh/guide/channels) · [24-hour window](https://andresayac.github.io/botmesh/guide/session-window) · [Forms](https://andresayac.github.io/botmesh/guide/forms) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/meta-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/meta-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

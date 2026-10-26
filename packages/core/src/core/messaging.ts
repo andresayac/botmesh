@@ -22,7 +22,11 @@ import { parseDuration } from '../utils/duration.js'
 import { MAX_TIMER_MS, abortableSleep } from '../utils/timers.js'
 import type { ChatId, IProvider, MessageRef, OutboundContent } from './provider.js'
 
-/** Automatic typing-indicator policy (`BotConfig.typing`, `ctx.reply(text, { typing })`). */
+/**
+ * Automatic typing-indicator policy (`BotConfig.typing`, `ctx.reply(text, { typing })`).
+ *
+ * @category Messages & context
+ */
 export interface TypingConfig {
   /** Show the indicator before text replies. Defaults to `false` globally, `true` when set per reply. */
   enabled?: boolean
@@ -50,7 +54,11 @@ export const DEFAULT_TYPING: Readonly<ResolvedTypingConfig> = Object.freeze({
   charsPerSecond: 20,
 })
 
-/** Per-reply pacing options accepted by `ctx.reply/say/answer/text/quote(text, opts)`. */
+/**
+ * Per-reply pacing options accepted by `ctx.reply/say/answer/text/quote(text, opts)`.
+ *
+ * @category Messages & context
+ */
 export interface ReplyOptions {
   /**
    * Override the bot-wide typing policy for this reply: `true` shows it with the
@@ -72,13 +80,25 @@ export interface ReplyOptions {
   cancelIf?: () => boolean
 }
 
-/** How a provider supports a messaging feature. */
+/**
+ * How a provider supports a messaging feature.
+ *
+ * @category Messages & context
+ */
 export type MessagingSupport = 'native' | 'degraded' | 'unsupported'
 
-/** Messaging features whose support can be queried with `ctx.supports()` / `messagingSupport`. */
+/**
+ * Messaging features whose support can be queried with `ctx.supports()` / `messagingSupport`.
+ *
+ * @category Messages & context
+ */
 export type MessagingFeature = 'typing' | 'delay' | 'edit' | 'react'
 
-/** Options for `ctx.edit()`. */
+/**
+ * Options for `ctx.edit()`.
+ *
+ * @category Messages & context
+ */
 export interface EditOptions {
   /**
    * What to do when the provider cannot edit (no `capabilities.edit`, no
@@ -89,7 +109,11 @@ export interface EditOptions {
   fallback?: 'send' | 'skip'
 }
 
-/** Result of `ctx.edit()`: a {@link SentMessage}-shaped object plus whether it was edited in place. */
+/**
+ * Result of `ctx.edit()`: a {@link SentMessage}-shaped object plus whether it was edited in place.
+ *
+ * @category Messages & context
+ */
 export interface EditResult {
   ref: MessageRef
   id: string
@@ -305,7 +329,11 @@ function skipOrThrow<T>(guard: PaceGuard<T> | undefined): T {
   throw new PacedSendCancelled()
 }
 
-/** Thrown by `Pacer.run` when a reply is cancelled during its wait and no guard supplies a result. */
+/**
+ * Thrown by `Pacer.run` when a reply is cancelled during its wait and no guard supplies a result.
+ *
+ * @category Messages & context
+ */
 export class PacedSendCancelled extends Error {
   constructor() {
     super('paced reply cancelled before it was sent')

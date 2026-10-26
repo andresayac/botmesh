@@ -278,7 +278,11 @@ async function streamToBuffer(stream: NodeJS.ReadableStream, maxBytes: number): 
   return Buffer.concat(chunks)
 }
 
-/** Options of {@link loadMediaOf}. */
+/**
+ * Options of {@link loadMediaOf}.
+ *
+ * @category Messages & context
+ */
 export interface LoadMediaOptions {
   /**
    * Refuse media larger than this many bytes with a `MediaTooLargeError`: checked
@@ -293,6 +297,8 @@ export interface LoadMediaOptions {
 /**
  * Public accessor — `ctx.media` is populated on first call via the provider's downloader.
  * Resolves `undefined` when the message carries no media or (by default) the download fails.
+ *
+ * @category Messages & context
  */
 export async function loadMediaOf(ctx: IMessageContext, options: LoadMediaOptions = {}): Promise<MediaPayload | undefined> {
   const maxBytes = options.maxBytes ?? Infinity

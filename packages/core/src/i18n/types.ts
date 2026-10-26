@@ -5,7 +5,11 @@
 
 import type { MessageContext } from '../core/provider.js'
 
-/** CLDR plural categories, as returned by `Intl.PluralRules#select`. */
+/**
+ * CLDR plural categories, as returned by `Intl.PluralRules#select`.
+ *
+ * @category i18n
+ */
 export type PluralCategory = 'zero' | 'one' | 'two' | 'few' | 'many' | 'other'
 
 /**
@@ -18,6 +22,8 @@ export type PluralCategory = 'zero' | 'one' | 'two' | 'few' | 'many' | 'other'
  * ```ts
  * { zero: 'Sin artículos', one: '{count} artículo', other: '{count} artículos' }
  * ```
+ *
+ * @category i18n
  */
 export interface PluralForms {
   zero?: string
@@ -32,15 +38,25 @@ export interface PluralForms {
  * A locale's message tree: leaves are strings (with `{param}` placeholders) or
  * {@link PluralForms}; objects nest (`ctx.t('menu.title')`). A key may also
  * contain dots literally (`{ 'menu.title': '…' }`).
+ *
+ * @category i18n
  */
 export interface LocaleMessages {
   [key: string]: string | PluralForms | LocaleMessages
 }
 
-/** Values interpolated into `{param}` placeholders; `count` also selects the plural form. */
+/**
+ * Values interpolated into `{param}` placeholders; `count` also selects the plural form.
+ *
+ * @category i18n
+ */
 export type TranslateParams = Record<string, string | number | boolean | bigint | null | undefined>
 
-/** `ctx.t` / `c.t` / `bot.t` shape (bound to a language). */
+/**
+ * `ctx.t` / `c.t` / `bot.t` shape (bound to a language).
+ *
+ * @category i18n
+ */
 export type Translate = (key: string, params?: TranslateParams) => string
 
 /**
@@ -48,16 +64,24 @@ export type Translate = (key: string, params?: TranslateParams) => string
  * `ctx.user` preference and the provider-reported language). Return a locale
  * code, or nothing to fall through to the default. Errors are logged (debug)
  * and treated as "no answer". A code with no registered locale is ignored.
+ *
+ * @category i18n
  */
 export type LanguageDetector = (ctx: MessageContext) => string | null | undefined | Promise<string | null | undefined>
 
 /**
  * Where `ctx.lang` came from: the `ctx.user` preference (or `ctx.setLang()`), the
  * provider-reported language, the custom detector, or the default fallback.
+ *
+ * @category i18n
  */
 export type LangSource = 'user' | 'provider' | 'detector' | 'default'
 
-/** i18n options — `BotConfig.i18n` or `bot.locale({ ... })`. */
+/**
+ * i18n options — `BotConfig.i18n` or `bot.locale({ ... })`.
+ *
+ * @category i18n
+ */
 export interface I18nConfig {
   /** Language used when nothing else resolves, and the fallback for missing keys. Default `'en'` (or `BotConfig.lang`). */
   defaultLocale?: string

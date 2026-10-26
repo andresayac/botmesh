@@ -13,7 +13,11 @@ import { RateLimitedError } from '../core/provider.js'
 import type { ChatId, OutboundContent, SendOptions, SentMessage } from '../core/types.js'
 import { parseDuration } from '../utils/duration.js'
 
-/** Progress info passed to {@link BroadcastOptions.onProgress} after each chat settles. */
+/**
+ * Progress info passed to {@link BroadcastOptions.onProgress} after each chat settles.
+ *
+ * @category Operations
+ */
 export interface BroadcastProgress {
   chatId: ChatId
   /** `true` when the provider accepted the send (or a `before('send')` hook skipped it). */
@@ -22,6 +26,12 @@ export interface BroadcastProgress {
   failed: number
 }
 
+/**
+ * Options of `bot.broadcast()`: batching, pacing, retries on rate limits, progress
+ * callbacks and cancellation.
+ *
+ * @category Operations
+ */
 export interface BroadcastOptions {
   /** Chats per batch (default 10). */
   batchSize?: number
@@ -46,11 +56,21 @@ export interface BroadcastOptions {
   signal?: AbortSignal
 }
 
+/**
+ * A chat whose broadcast send failed for good, with its error.
+ *
+ * @category Operations
+ */
 export interface BroadcastFailure {
   chatId: ChatId
   error: Error
 }
 
+/**
+ * What `bot.broadcast()` resolves to: counts, failures and the accepted sends.
+ *
+ * @category Operations
+ */
 export interface BroadcastResult {
   /** Distinct chats targeted (duplicate ids are sent once). */
   total: number

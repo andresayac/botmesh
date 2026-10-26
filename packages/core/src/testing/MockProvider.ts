@@ -45,13 +45,22 @@ const DEFAULT_MIMETYPES: Partial<Record<MediaRef['kind'], string>> = {
 /** Default journal cap ({@link MockProviderOptions.maxJournal}). */
 const DEFAULT_MAX_JOURNAL = 10_000
 
+/**
+ * A send recorded by {@link MockProvider}: target chat, content and options.
+ *
+ * @category MockProvider
+ */
 export interface MockOutgoing {
   chatId: ChatId
   content: OutboundContent
   options?: SendOptions
 }
 
-/** Bytes or URL behind a simulated inbound media (the `MediaRef.token` the mock builds). */
+/**
+ * Bytes or URL behind a simulated inbound media (the `MediaRef.token` the mock builds).
+ *
+ * @category MockProvider
+ */
 export interface MockMediaToken {
   /** What {@link MockProvider.downloadMedia} returns (a copy). Absent: the download rejects. */
   bytes?: Buffer | Uint8Array
@@ -59,10 +68,18 @@ export interface MockMediaToken {
   url?: string
 }
 
-/** Source of a simulated inbound media: the bytes, or a URL with optional bytes. */
+/**
+ * Source of a simulated inbound media: the bytes, or a URL with optional bytes.
+ *
+ * @category MockProvider
+ */
 export type MockMediaSource = Buffer | Uint8Array | { url: string; bytes?: Buffer | Uint8Array }
 
-/** Media fields of {@link MockProvider.incomingMedia}. */
+/**
+ * Media fields of {@link MockProvider.incomingMedia}.
+ *
+ * @category MockProvider
+ */
 export interface MockMediaOptions {
   /** Message body (`ctx.body`), as real providers set it. Default `''`. */
   caption?: string
@@ -73,7 +90,11 @@ export interface MockMediaOptions {
   size?: number
 }
 
-/** Options of {@link MockProvider.incoming} / {@link MockProvider.interaction}. */
+/**
+ * Options of {@link MockProvider.incoming} / {@link MockProvider.interaction}.
+ *
+ * @category MockProvider
+ */
 export interface MockIncomingOptions {
   from?: ChatId
   sender?: string
@@ -96,12 +117,20 @@ export interface MockIncomingOptions {
   respondBy?: number
 }
 
-/** One entry of {@link MockProvider.journal}: what the "user" did or what the bot sent, in order. */
+/**
+ * One entry of {@link MockProvider.journal}: what the "user" did or what the bot sent, in order.
+ *
+ * @category MockProvider
+ */
 export type MockJournalEntry =
   | { dir: 'in'; seq: number; at: number; event: Extract<InboundEvent, { kind: 'message' | 'interaction' }> }
   | { dir: 'out'; seq: number; at: number; chatId: ChatId; content: OutboundContent; options?: SendOptions; ref: MessageRef }
 
-/** Options of {@link MockProvider}. */
+/**
+ * Options of {@link MockProvider}.
+ *
+ * @category MockProvider
+ */
 export interface MockProviderOptions {
   /**
    * Streaming mode to simulate (`capabilities.streaming`). `'edit'` also exposes
@@ -151,7 +180,11 @@ export interface MockProviderOptions {
   interactionsRequireAck?: boolean
 }
 
-/** {@link MockProviderOptions.supports}. */
+/**
+ * {@link MockProviderOptions.supports}.
+ *
+ * @category MockProvider
+ */
 export interface MockProviderSupports {
   /** `editMessage` (recorded in `edits`); also sets `capabilities.edit` unless given. */
   edit?: boolean
@@ -161,13 +194,21 @@ export interface MockProviderSupports {
   drafts?: boolean
 }
 
-/** One recorded {@link MockProvider.editMessage} call. */
+/**
+ * One recorded {@link MockProvider.editMessage} call.
+ *
+ * @category MockProvider
+ */
 export interface MockEdit {
   ref: MessageRef
   content: OutboundContent
 }
 
-/** One recorded {@link MockProvider.sendDraft} call. */
+/**
+ * One recorded {@link MockProvider.sendDraft} call.
+ *
+ * @category MockProvider
+ */
 export interface MockDraft {
   chatId: ChatId
   draftId: number
@@ -186,6 +227,7 @@ function followMethod(caps: ProviderCapabilities, flag: 'typing' | 'readReceipts
   })
 }
 
+/** @category MockProvider */
 export class MockProvider implements IProvider {
   readonly id = 'mock'
   readonly capabilities: ProviderCapabilities

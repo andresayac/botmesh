@@ -16,6 +16,12 @@ import type {
   UserId,
 } from '../core/provider.js'
 
+/**
+ * Tenant, environment, bot, provider and connection that scope every store key
+ * (see {@link NamespacedStore}).
+ *
+ * @category Store
+ */
 export interface StoreNamespace {
   tenantId: string
   environmentId: string
@@ -27,6 +33,8 @@ export interface StoreNamespace {
 /**
  * Isolates every opaque store key by tenant/bot/provider connection while
  * preserving the public, unprefixed ids seen by callers.
+ *
+ * @category Store
  */
 export class NamespacedStore implements IStore {
   private readonly prefix: string

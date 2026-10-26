@@ -18,7 +18,11 @@ const TRACEPARENT = /^([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})(
 /** W3C limit of a `tracestate` header value. */
 const MAX_TRACESTATE = 512
 
-/** A span context as stored in a checkpoint (`FlowCheckpoint.trace`). */
+/**
+ * A span context as stored in a checkpoint (`FlowCheckpoint.trace`).
+ *
+ * @category Tracing
+ */
 export interface CheckpointTrace {
   /** W3C `traceparent` of the turn that wrote the checkpoint. */
   traceparent: string
@@ -29,6 +33,8 @@ export interface CheckpointTrace {
 /**
  * The W3C `traceparent` of `ctx` (version `00`), or `undefined` when its ids are not
  * W3C-shaped. `traceFlags` defaults to `01` (sampled).
+ *
+ * @category Tracing
  */
 export function formatTraceparent(ctx: SpanContextRef): string | undefined {
   const { traceId, spanId } = ctx
@@ -42,6 +48,8 @@ export function formatTraceparent(ctx: SpanContextRef): string | undefined {
 /**
  * Parse a W3C `traceparent` (and an optional `tracestate`) into a remote span context, or
  * `undefined` when it is malformed. A `tracestate` longer than 512 chars is dropped.
+ *
+ * @category Tracing
  */
 export function parseTraceparent(traceparent: string, tracestate?: string): SpanContextRef | undefined {
   if (typeof traceparent !== 'string') return undefined

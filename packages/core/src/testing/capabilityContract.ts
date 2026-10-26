@@ -22,17 +22,29 @@
 
 import type { ChatId, IProvider, MessageRef, OutboundContent, ProviderCapabilities } from '../core/provider.js'
 
-/** Machine-readable rule ids reported in {@link CapabilityViolation.rule}. */
+/**
+ * Machine-readable rule ids reported in {@link CapabilityViolation.rule}.
+ *
+ * @category Contract checks
+ */
 export type CapabilityRule = 'typing' | 'read-receipts' | 'edit' | 'drafts' | 'content-kinds' | 'text-limit' | 'presence-disconnected'
 
-/** One disagreement between a provider's capabilities and its methods. */
+/**
+ * One disagreement between a provider's capabilities and its methods.
+ *
+ * @category Contract checks
+ */
 export interface CapabilityViolation {
   rule: CapabilityRule
   /** Human-readable explanation. */
   message: string
 }
 
-/** Thrown by {@link assertCapabilityContract}; carries every violation found. */
+/**
+ * Thrown by {@link assertCapabilityContract}; carries every violation found.
+ *
+ * @category Contract checks
+ */
 export class CapabilityContractError extends Error {
   readonly violations: CapabilityViolation[]
   constructor(providerId: string, violations: CapabilityViolation[]) {
@@ -50,7 +62,11 @@ const FLAG_KINDS: FlagKind[] = [
   ['buttons', 'buttons'], ['lists', 'list'], ['polls', 'poll'], ['reactions', 'reaction'], ['templates', 'template'],
 ]
 
-/** Check a provider instance against the capability contract; empty array = conforming. */
+/**
+ * Check a provider instance against the capability contract; empty array = conforming.
+ *
+ * @category Contract checks
+ */
 export function checkCapabilityContract(provider: Pick<IProvider, 'capabilities'> & Partial<IProvider>): CapabilityViolation[] {
   const caps = provider.capabilities
   const out: CapabilityViolation[] = []
@@ -83,13 +99,19 @@ export function checkCapabilityContract(provider: Pick<IProvider, 'capabilities'
  * contract (see {@link checkCapabilityContract}).
  *
  * @throws {CapabilityContractError}
+ *
+ * @category Contract checks
  */
 export function assertCapabilityContract(provider: Pick<IProvider, 'capabilities'> & Partial<IProvider>): void {
   const violations = checkCapabilityContract(provider)
   if (violations.length > 0) throw new CapabilityContractError(String(provider.id ?? 'unknown'), violations)
 }
 
-/** Target of {@link checkPresenceWhileDisconnected}: a chat for `typing()`, a message for `markRead()`. */
+/**
+ * Target of {@link checkPresenceWhileDisconnected}: a chat for `typing()`, a message for `markRead()`.
+ *
+ * @category Contract checks
+ */
 export interface PresenceProbe {
   chatId: ChatId
   /** Message passed to `markRead()`; default `{ id: 'probe', chatId }`. */
@@ -109,6 +131,8 @@ export interface PresenceProbe {
  *
  * await assertPresenceWhileDisconnected(new MyProvider({ fetch: offlineFetch }), { chatId: '123' })
  * ```
+ *
+ * @category Contract checks
  */
 export async function checkPresenceWhileDisconnected(provider: Partial<IProvider>, probe: PresenceProbe): Promise<CapabilityViolation[]> {
   const out: CapabilityViolation[] = []
@@ -134,6 +158,8 @@ export async function checkPresenceWhileDisconnected(provider: Partial<IProvider
  * presence-while-disconnected rule (see {@link checkPresenceWhileDisconnected}).
  *
  * @throws {CapabilityContractError}
+ *
+ * @category Contract checks
  */
 export async function assertPresenceWhileDisconnected(provider: Partial<IProvider>, probe: PresenceProbe): Promise<void> {
   const violations = await checkPresenceWhileDisconnected(provider, probe)

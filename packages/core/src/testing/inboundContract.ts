@@ -26,10 +26,18 @@
 
 import type { InboundEvent, InboundInteraction, InboundMessage, MessageType } from '../core/provider.js'
 
-/** Anything a provider test may hold: the `InboundEvent` wrapper or a bare message/interaction. */
+/**
+ * Anything a provider test may hold: the `InboundEvent` wrapper or a bare message/interaction.
+ *
+ * @category Contract checks
+ */
 export type InboundContractInput = InboundEvent | InboundMessage | InboundInteraction
 
-/** Tuning for {@link checkInboundContract}. */
+/**
+ * Tuning for {@link checkInboundContract}.
+ *
+ * @category Contract checks
+ */
 export interface InboundContractOptions {
   /** Reference "now" (epoch ms) for the future check. Default `Date.now()`. */
   now?: number
@@ -42,7 +50,11 @@ export interface InboundContractOptions {
   minTimestamp?: number
 }
 
-/** Machine-readable rule ids reported in {@link InboundViolation.rule}. */
+/**
+ * Machine-readable rule ids reported in {@link InboundViolation.rule}.
+ *
+ * @category Contract checks
+ */
 export type InboundRule =
   | 'timestamp-missing'
   | 'timestamp-unit'
@@ -52,7 +64,11 @@ export type InboundRule =
   | 'mentions'
   | 'message-type'
 
-/** One broken promise of the inbound shape contract. */
+/**
+ * One broken promise of the inbound shape contract.
+ *
+ * @category Contract checks
+ */
 export interface InboundViolation {
   rule: InboundRule
   /** Human-readable explanation. */
@@ -61,7 +77,11 @@ export interface InboundViolation {
   index: number
 }
 
-/** Thrown by {@link assertInboundContract}; carries every violation found. */
+/**
+ * Thrown by {@link assertInboundContract}; carries every violation found.
+ *
+ * @category Contract checks
+ */
 export class InboundContractError extends Error {
   readonly violations: InboundViolation[]
   constructor(violations: InboundViolation[]) {
@@ -85,6 +105,8 @@ const DAY_MS = 86_400_000
  * Check normalized events against the inbound shape contract (epoch-ms timestamps,
  * message fields) and return every violation (empty array = conforming). Events without
  * a timestamp (connection, reaction, group, …) are skipped but keep their index.
+ *
+ * @category Contract checks
  */
 export function checkInboundContract(
   events: ReadonlyArray<InboundContractInput>,
@@ -138,6 +160,8 @@ export function checkInboundContract(
  * the inbound shape contract (see {@link checkInboundContract}).
  *
  * @throws {InboundContractError}
+ *
+ * @category Contract checks
  */
 export function assertInboundContract(events: ReadonlyArray<InboundContractInput>, options: InboundContractOptions = {}): void {
   const violations = checkInboundContract(events, options)

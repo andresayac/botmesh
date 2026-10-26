@@ -3,5 +3,9 @@
  * (`SerializedMediaRef.data`, the durability journal records) and by golden transcripts.
  */
 
-/** Any JSON value: what `JSON.stringify` / `JSON.parse` round-trip unchanged. */
+/**
+ * Any JSON value: what `JSON.stringify` / `JSON.parse` round-trip unchanged.
+ *
+ * @category Utilities
+ */
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }

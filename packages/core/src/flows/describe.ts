@@ -39,7 +39,11 @@ import {
  * PUBLIC GRAPH TYPES
  * ========================================================================== */
 
-/** Kind of a node in a {@link FlowGraph}. */
+/**
+ * Kind of a node in a {@link FlowGraph}.
+ *
+ * @category Flow inspection
+ */
 export type FlowGraphNodeKind =
   /** Entry point of a DSL flow, labelled with its triggers. */
   | 'entry'
@@ -67,7 +71,11 @@ export type FlowGraphNodeKind =
   /** A step kind this version does not know — rendered generically. */
   | 'step'
 
-/** Where an `ask`/`choose` wait timeout comes from. */
+/**
+ * Where an `ask`/`choose` wait timeout comes from.
+ *
+ * @category Flow inspection
+ */
 export type FlowGraphTimeoutSource =
   /** The step's own `{ timeout }` option. */
   | 'step'
@@ -78,7 +86,11 @@ export type FlowGraphTimeoutSource =
   /** Nothing configured: the runtime's built-in 5-minute fallback. */
   | 'builtin'
 
-/** One option of a `choose` node. */
+/**
+ * One option of a `choose` node.
+ *
+ * @category Flow inspection
+ */
 export interface FlowGraphOption {
   /** Option key (stored in `c.state` when picked). */
   key: string
@@ -94,7 +106,11 @@ export interface FlowGraphOption {
   goto?: string
 }
 
-/** Summary of a `form` node: what it collects and how it renders. */
+/**
+ * Summary of a `form` node: what it collects and how it renders.
+ *
+ * @category Flow inspection
+ */
 export interface FlowGraphFormInfo {
   /** Form id. */
   id: string
@@ -105,7 +121,11 @@ export interface FlowGraphFormInfo {
   fields: Array<{ name: string; type: string; label: string; required: boolean; options?: string[] }>
 }
 
-/** A node of the flow graph. Ids are stable and identical to the Mermaid node ids. */
+/**
+ * A node of the flow graph. Ids are stable and identical to the Mermaid node ids.
+ *
+ * @category Flow inspection
+ */
 export interface FlowGraphNode {
   /** Node id, e.g. `f0_in`, `f0_s3`, `f0_s3_o1_s0`, `f0_end`, `f1` (conversation), `x0` (missing target). */
   id: string
@@ -152,7 +172,11 @@ export interface FlowGraphNode {
   stepKind?: string
 }
 
-/** Kind of an edge in a {@link FlowGraph}. */
+/**
+ * Kind of an edge in a {@link FlowGraph}.
+ *
+ * @category Flow inspection
+ */
 export type FlowGraphEdgeKind =
   /** Sequential flow from one step to the next. */
   | 'next'
@@ -163,7 +187,11 @@ export type FlowGraphEdgeKind =
   /** A `goto` jump to another conversation (or to a `missing` node). */
   | 'goto'
 
-/** A directed edge between two {@link FlowGraphNode}s. */
+/**
+ * A directed edge between two {@link FlowGraphNode}s.
+ *
+ * @category Flow inspection
+ */
 export interface FlowGraphEdge {
   from: string
   to: string
@@ -174,7 +202,11 @@ export interface FlowGraphEdge {
   option?: string
 }
 
-/** An inline `then` sub-flow drawn inside its parent flow (a nested Mermaid subgraph). */
+/**
+ * An inline `then` sub-flow drawn inside its parent flow (a nested Mermaid subgraph).
+ *
+ * @category Flow inspection
+ */
 export interface FlowGraphGroup {
   id: string
   label: string
@@ -188,7 +220,11 @@ export interface FlowGraphGroup {
   subflow: string
 }
 
-/** A registered conversation: a DSL flow or an opaque async conversation. */
+/**
+ * A registered conversation: a DSL flow or an opaque async conversation.
+ *
+ * @category Flow inspection
+ */
 export interface FlowGraphFlow {
   /** Graph id (`f0`, `f1`, …) — also the Mermaid subgraph/node id. */
   id: string
@@ -205,7 +241,11 @@ export interface FlowGraphFlow {
   persistent: boolean
 }
 
-/** JSON-serializable graph of every registered flow (see {@link describeFlows}). */
+/**
+ * JSON-serializable graph of every registered flow (see {@link describeFlows}).
+ *
+ * @category Flow inspection
+ */
 export interface FlowGraph {
   /** Schema version of this graph format. */
   version: 1
@@ -215,7 +255,11 @@ export interface FlowGraph {
   edges: FlowGraphEdge[]
 }
 
-/** Options for {@link describeFlows} / `bot.describe()`. */
+/**
+ * Options for {@link describeFlows} / `bot.describe()`.
+ *
+ * @category Flow inspection
+ */
 export interface DescribeOptions {
   /** `'mermaid'` (default) returns a Mermaid flowchart string; `'json'` returns a {@link FlowGraph}. */
   format?: 'mermaid' | 'json'
@@ -248,6 +292,8 @@ export interface DescribeOptions {
  *   out of their node or inject `%%{init}%%` directives.
  *
  * Node ids are stable and shared by both formats and by `lintFlows()` diagnostics.
+ *
+ * @category Flow inspection
  */
 export function describeFlows(source: FlowSource, options: DescribeOptions & { format: 'json' }): FlowGraph
 export function describeFlows(source: FlowSource, options?: DescribeOptions & { format?: 'mermaid' }): string

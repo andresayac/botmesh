@@ -16,6 +16,8 @@ import { LeaseLostError, type CoordinationConfig, type Coordinator, type Leaders
 /**
  * `bot.send()` (or a reply) on a replica that is not the provider session's leader, with
  * `providerSession: 'leader'`: this replica's transport is not connected.
+ *
+ * @category Errors
  */
 export class ProviderNotLeaderError extends ProviderError {
   constructor(readonly providerId: string) {

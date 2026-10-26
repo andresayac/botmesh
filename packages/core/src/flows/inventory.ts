@@ -15,7 +15,11 @@ import { NamespacedStore } from '../store/NamespacedStore.js'
 import { FlowBuilder, type CompiledFlow } from './FlowBuilder.js'
 import { isTypeTrigger, isWelcomeTrigger } from '../core/triggers.js'
 
-/** One trigger → handler registration, in registration order. */
+/**
+ * One trigger → handler registration, in registration order.
+ *
+ * @category Flow inspection
+ */
 export interface FlowRoute {
   /** Registration sequence number; breaks ties in dispatch order (same specificity → lower `seq` wins). */
   readonly seq: number
@@ -28,6 +32,8 @@ export interface FlowRoute {
 /**
  * Snapshot of a bot's flow registrations. Obtain one with `bot.flowInventory()`,
  * or build it yourself to lint flows without a Bot.
+ *
+ * @category Flow inspection
  */
 export interface FlowInventory {
   /** Every conversation registration, oldest first (re-registering a name appends; the last one is live). */
@@ -40,7 +46,11 @@ export interface FlowInventory {
   readonly durableStore?: boolean
 }
 
-/** Anything that can hand out a {@link FlowInventory} — a `Bot` is one. */
+/**
+ * Anything that can hand out a {@link FlowInventory} — a `Bot` is one.
+ *
+ * @category Flow inspection
+ */
 export interface FlowInventoryProvider {
   flowInventory(): FlowInventory
 }
@@ -49,15 +59,25 @@ export interface FlowInventoryProvider {
  * What `describeFlows()` / `lintFlows()` accept: a `Bot` (or any
  * {@link FlowInventoryProvider}), a ready {@link FlowInventory}, or a plain list of
  * flows — each one is then treated as `bot.use(flow)` (routed by its own trigger).
+ *
+ * @category Flow inspection
  */
 export type FlowSource = FlowInventoryProvider | FlowInventory | ReadonlyArray<FlowBuilder | CompiledFlow>
 
-/** A text or regex pattern of a trigger. */
+/**
+ * A text or regex pattern of a trigger.
+ *
+ * @category Flow inspection
+ */
 export type TriggerPatternInfo =
   | { type: 'text'; value: string }
   | { type: 'regex'; source: string; flags: string }
 
-/** Serializable description of a {@link Trigger}, mirroring the dispatcher's matching rules. */
+/**
+ * Serializable description of a {@link Trigger}, mirroring the dispatcher's matching rules.
+ *
+ * @category Flow inspection
+ */
 export interface TriggerInfo {
   /** Human-readable form, e.g. `"hola"`, `"a", "b"`, `/\d+/i`, `contains "factura" (dm only)`, `(predicate)`. */
   label: string
@@ -180,6 +200,8 @@ export function functionName(fn: unknown): string | undefined {
  * @example
  * describeTrigger({ pattern: 'factura', match: 'contains', scope: 'dm' }).label
  * // → 'contains "factura" (dm only)'
+ *
+ * @category Flow inspection
  */
 export function describeTrigger(trigger: Trigger): TriggerInfo {
   if (isWelcomeTrigger(trigger)) {

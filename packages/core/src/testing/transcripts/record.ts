@@ -33,7 +33,11 @@ import {
   type TranscriptTurn,
 } from './format.js'
 
-/** Options for {@link recordTranscript}. */
+/**
+ * Options for {@link recordTranscript}.
+ *
+ * @category Golden transcripts
+ */
 export interface RecordTranscriptOptions {
   /** Clock used for `t` offsets (default `Date.now`). */
   now?: () => number
@@ -48,10 +52,18 @@ export interface RecordTranscriptOptions {
   maxTurns?: number
 }
 
-/** Default {@link RecordTranscriptOptions.maxTurns}. */
+/**
+ * Default {@link RecordTranscriptOptions.maxTurns}.
+ *
+ * @category Golden transcripts
+ */
 export const DEFAULT_MAX_TURNS = 10_000
 
-/** Handle returned by {@link recordTranscript}. */
+/**
+ * Handle returned by {@link recordTranscript}.
+ *
+ * @category Golden transcripts
+ */
 export interface TranscriptRecorder<P extends IProvider = IProvider> {
   /** The recording provider to hand to `new Bot({ provider })`. */
   readonly provider: RecordingProvider<P>
@@ -72,7 +84,11 @@ interface PendingOut {
   failed: boolean
 }
 
-/** Transparent {@link IProvider} wrapper that records a transcript. */
+/**
+ * Transparent {@link IProvider} wrapper that records a transcript.
+ *
+ * @category Golden transcripts
+ */
 export class RecordingProvider<P extends IProvider = IProvider> implements IProvider {
   readonly id: string
   readonly capabilities: ProviderCapabilities
@@ -212,6 +228,8 @@ export class RecordingProvider<P extends IProvider = IProvider> implements IProv
 /**
  * Wrap `provider` in a {@link RecordingProvider}. Give `recorder.provider` to the
  * bot; read the conversation back with `recorder.transcript()`.
+ *
+ * @category Golden transcripts
  */
 export function recordTranscript<P extends IProvider>(provider: P, options: RecordTranscriptOptions = {}): TranscriptRecorder<P> {
   const recording = new RecordingProvider(provider, options)

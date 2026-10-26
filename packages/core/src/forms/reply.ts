@@ -13,12 +13,20 @@ export function newFormToken(formId: string): string {
   return `${formId}.${randomBytes(9).toString('base64url')}`
 }
 
-/** Serialize a normalized submission into the `body` of a `'form'` inbound message. */
+/**
+ * Serialize a normalized submission into the `body` of a `'form'` inbound message.
+ *
+ * @category Forms
+ */
 export function formReplyBody(reply: FormReply): string {
   return JSON.stringify(reply.token === undefined ? { values: reply.values } : { token: reply.token, values: reply.values })
 }
 
-/** Parse the `body` of a `'form'` inbound message; `undefined` when it is not a form reply. */
+/**
+ * Parse the `body` of a `'form'` inbound message; `undefined` when it is not a form reply.
+ *
+ * @category Forms
+ */
 export function parseFormReply(body: string): FormReply | undefined {
   let parsed: unknown
   try { parsed = JSON.parse(body) } catch { return undefined }

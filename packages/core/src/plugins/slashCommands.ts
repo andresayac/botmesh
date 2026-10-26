@@ -28,6 +28,11 @@ import { definePlugin } from './definePlugin.js'
 import type { MessageContext } from '../core/types.js'
 import { CORE_MESSAGES } from '../i18n/builtins.js'
 
+/**
+ * Options of {@link slashCommandsPlugin}.
+ *
+ * @category Hooks & plugins
+ */
 export interface SlashCommandsConfig {
   /** Greeting/help text shown on /start and /help. Defaults to the localized `core.commands.help`. */
   greeting?: string
@@ -40,6 +45,18 @@ interface CommandUnknownPayload {
   command: string
 }
 
+/**
+ * Built-in plugin with `/start`, `/help`, `/reset`, `/cancel`, `/id` and `/ping`, plus a
+ * reply to unknown commands. Its texts are localized (`core.commands.*`). Plug it before catch-all
+ * plugins such as `aiPlugin` so its commands win.
+ *
+ * @example
+ * ```ts
+ * bot.plug(slashCommandsPlugin, { greeting: 'Hi! Type /reset to start over.' })
+ * ```
+ *
+ * @category Hooks & plugins
+ */
 export const slashCommandsPlugin = definePlugin<SlashCommandsConfig>({
   name: 'slash-commands',
   version: '2.0.0',

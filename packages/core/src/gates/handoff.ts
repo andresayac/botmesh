@@ -50,7 +50,11 @@ import type { ChatId, StoredChat } from '../core/provider.js'
 import { normalizeText } from '../core/matching.js'
 import { ConfigValidationError } from '../utils/validateConfig.js'
 
-/** `BotConfig.handoff` — human-handoff behaviour. */
+/**
+ * `BotConfig.handoff` — human-handoff behaviour.
+ *
+ * @category Handoff & access lists
+ */
 export interface HandoffConfig {
   /**
    * Commands that keep routing while a chat is handed off (e.g. `['/bot']` so the user
@@ -69,7 +73,11 @@ export interface HandoffConfig {
   persist?: boolean
 }
 
-/** Options for `bot.handoff()` / `ctx.handoff()`. */
+/**
+ * Options for `bot.handoff()` / `ctx.handoff()`.
+ *
+ * @category Handoff & access lists
+ */
 export interface HandoffOptions {
   /** Free-form reason, forwarded to the `'handoff'` event and persisted. */
   reason?: string
@@ -77,13 +85,21 @@ export interface HandoffOptions {
   meta?: Record<string, unknown>
 }
 
-/** Options for `bot.resume()`. */
+/**
+ * Options for `bot.resume()`.
+ *
+ * @category Handoff & access lists
+ */
 export interface ResumeOptions {
   /** Free-form reason, forwarded to the `'resume'` event (not persisted). */
   reason?: string
 }
 
-/** Handoff state as persisted on {@link StoredChat.handoff}. */
+/**
+ * Handoff state as persisted on {@link StoredChat.handoff}.
+ *
+ * @category Handoff & access lists
+ */
 export interface StoredHandoff {
   /** Epoch ms when the handoff started. */
   since: number
@@ -91,15 +107,27 @@ export interface StoredHandoff {
   meta?: Record<string, unknown>
 }
 
-/** A chat's current handoff state (`bot.getHandoff()` / `bot.listHandoffs()`). */
+/**
+ * A chat's current handoff state (`bot.getHandoff()` / `bot.listHandoffs()`).
+ *
+ * @category Handoff & access lists
+ */
 export interface HandoffState extends StoredHandoff {
   chatId: ChatId
 }
 
-/** Payload of the `'handoff'` bot event. */
+/**
+ * Payload of the `'handoff'` bot event.
+ *
+ * @category Handoff & access lists
+ */
 export type HandoffEvent = HandoffState
 
-/** Payload of the `'resume'` bot event. */
+/**
+ * Payload of the `'resume'` bot event.
+ *
+ * @category Handoff & access lists
+ */
 export interface ResumeEvent {
   chatId: ChatId
   /** Epoch ms when the bot resumed. */

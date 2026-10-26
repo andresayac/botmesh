@@ -14,7 +14,7 @@
  *
  * const bot = new Bot({ provider: new BaileysProvider({ session: 'demo' }) })
  * bot.on('ready', () => bot.logger.info('connected'))
- * bot.when('hola', async (ctx) => await ctx.reply('¡Hola! 👋'))
+ * bot.when('hi', (ctx) => ctx.reply('Hello! 👋'))
  * await bot.start()
  * ```
  */
@@ -96,11 +96,25 @@ import type { RouteRegistrar } from './bot/routes.js'
 import type { PluginHost } from './bot/pluginHost.js'
 import type { BotOps } from './bot/ops.js'
 
-/** A user message handler — receives the full inbound {@link MessageContext}. */
+/**
+ * A user message handler — receives the full inbound {@link MessageContext}.
+ *
+ * @category Bot
+ */
 export type MessageHandler = (ctx: MessageContext) => unknown | Promise<unknown>
-/** A slash-command handler — receives the context plus the parsed argument list. */
+/**
+ * A slash-command handler — receives the context plus the parsed argument list.
+ *
+ * @category Bot
+ */
 export type CommandHandler = (ctx: MessageContext, args: string[]) => unknown | Promise<unknown>
 
+/**
+ * Events the bot emits, by name, with their payload type. Listen with
+ * `bot.on(name, listener)`, e.g. `bot.on('ready', () => …)` or `bot.on('error', (err) => …)`.
+ *
+ * @category Bot
+ */
 export interface BotEvents {
   /** Emitted once the provider's connection state reaches `'ready'`. */
   ready: void
@@ -167,9 +181,18 @@ export interface BotEvents {
   'durability:ambiguous': { key: string; chatId: ChatId }
 }
 
+/**
+ * Listener arguments of a {@link BotEvents} entry (none for `void` events).
+ *
+ * @category Bot
+ */
 export type BotEventArgs<K extends keyof BotEvents> = BotEvents[K] extends void ? [] : [BotEvents[K]]
 
-/** Options of {@link Bot.stop}. */
+/**
+ * Options of {@link Bot.stop}.
+ *
+ * @category Bot
+ */
 export interface StopOptions {
   /** Wait for in-flight sends to complete before stopping (default `false`). */
   drain?: boolean
@@ -181,6 +204,8 @@ export interface StopOptions {
  * Identifies one conversation: the chat, the participant and whether it is a group
  * (group conversations are per participant by default). Every inbound
  * {@link MessageContext} satisfies it, so `ctx` can be passed as-is.
+ *
+ * @category Bot
  */
 export interface ConversationTarget {
   from: ChatId
@@ -190,6 +215,31 @@ export interface ConversationTarget {
 
 export type { SubjectDataExport, SubjectDeletionResult } from './subjectData.js'
 
+/**
+ * The bot engine. Register handlers, flows, conversations, hooks and plugins, then
+ * call {@link Bot.start | start()}. A bot drives exactly one transport ({@link BotConfig.provider});
+ * everything it receives and sends goes through the neutral {@link IProvider} contract, so the same
+ * code runs on WhatsApp, Telegram or any other channel.
+ *
+ * @example
+ * ```ts
+ * import { Bot, flow } from '@botmesh/core'
+ * import { BaileysProvider } from '@botmesh/baileys'
+ *
+ * const bot = new Bot({ provider: new BaileysProvider({ session: 'my-bot' }) })
+ *
+ * bot.when('hi', (ctx) => ctx.reply('Hello! 👋'))
+ * bot.use(
+ *   flow('register')
+ *     .ask('What is your name?', 'name')
+ *     .say((_ctx, c) => `Nice to meet you, ${c.state.name}!`),
+ * )
+ *
+ * await bot.start()
+ * ```
+ *
+ * @category Bot
+ */
 export class Bot extends EventEmitter {
   readonly logger: Logger
 

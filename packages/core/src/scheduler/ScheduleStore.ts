@@ -13,10 +13,18 @@
 
 import type { LeaseProvider, SchedulerLease } from '../coordination/lease.js'
 
-/** Kind of a durable task. */
+/**
+ * Kind of a durable task.
+ *
+ * @category Scheduler
+ */
 export type ScheduleKind = 'cron' | 'interval' | 'once'
 
-/** Persisted state of one durable task. */
+/**
+ * Persisted state of one durable task.
+ *
+ * @category Scheduler
+ */
 export interface ScheduleRecord {
   id: string
   kind: ScheduleKind
@@ -39,19 +47,33 @@ export interface ScheduleRecord {
   updatedAt: number
 }
 
-/** A successful claim: the record as claimed, and the claim's fencing token. */
+/**
+ * A successful claim: the record as claimed, and the claim's fencing token.
+ *
+ * @category Scheduler
+ */
 export interface ClaimResult {
   record: ScheduleRecord
   fencingToken: number
 }
 
-/** What {@link ScheduleStore.complete} writes. Omitted `lastRunAt`/`lastStatus` keep their stored values. */
+/**
+ * What {@link ScheduleStore.complete} writes. Omitted `lastRunAt`/`lastStatus` keep their stored values.
+ *
+ * @category Scheduler
+ */
 export interface CompletePatch {
   nextRunAt: number | null
   lastRunAt?: number
   lastStatus?: 'ok' | 'error'
 }
 
+/**
+ * Storage for durable scheduled tasks (`BotConfig.scheduler.store`). In memory by
+ * default; `SQLiteStore` and `RedisStore` (among others) provide one through `store.schedules()`.
+ *
+ * @category Scheduler
+ */
 export interface ScheduleStore {
   /** Optional setup (schema, connection) — called by the scheduler before first use. Must be idempotent. */
   start?(): Promise<void>
@@ -89,6 +111,8 @@ export interface ScheduleStore {
 /**
  * Options of a `Scheduler` (and of `BotConfig.scheduler`). They only affect
  * durable tasks — plain `schedule/every/delay(spec, fn)` tasks stay in-memory.
+ *
+ * @category Scheduler
  */
 export interface SchedulerOptions {
   /**
@@ -140,7 +164,11 @@ export interface SchedulerOptions {
 
 const clone = (r: ScheduleRecord): ScheduleRecord => ({ ...r })
 
-/** Reference, in-process {@link ScheduleStore}. Nothing survives the process. */
+/**
+ * Reference, in-process {@link ScheduleStore}. Nothing survives the process.
+ *
+ * @category Scheduler
+ */
 export class MemoryScheduleStore implements ScheduleStore {
   private readonly rows = new Map<string, ScheduleRecord>()
   /** Fencing token of deleted ids (high-water marks). */
@@ -206,12 +234,20 @@ export class MemoryScheduleStore implements ScheduleStore {
   }
 }
 
-/** The claim condition of the contract, shared by the JS-side backends. */
+/**
+ * The claim condition of the contract, shared by the JS-side backends.
+ *
+ * @category Scheduler
+ */
 export function isScheduleClaimable(row: ScheduleRecord, now: number): boolean {
   return row.nextRunAt !== null && row.nextRunAt <= now && (row.leaseUntil === undefined || row.leaseUntil <= now)
 }
 
-/** The record after a successful `complete` (lease cleared), shared by the JS-side backends. */
+/**
+ * The record after a successful `complete` (lease cleared), shared by the JS-side backends.
+ *
+ * @category Scheduler
+ */
 export function applyScheduleComplete(row: ScheduleRecord, patch: CompletePatch, now: number): ScheduleRecord {
   const next: ScheduleRecord = { ...row, nextRunAt: patch.nextRunAt, updatedAt: now }
   if (patch.lastRunAt !== undefined) next.lastRunAt = patch.lastRunAt

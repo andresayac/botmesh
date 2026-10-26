@@ -33,7 +33,11 @@ import type { BotConfig } from '../core/provider.js'
 
 export type { TestChat } from './testChat.js'
 
-/** Extra knobs for {@link createTestBot}. */
+/**
+ * Extra knobs for {@link createTestBot}.
+ *
+ * @category Test bot
+ */
 export interface CreateTestBotOptions {
   /** Wrap the MockProvider in a {@link ChaosProvider} with these options. */
   chaos?: ChaosOptions
@@ -41,7 +45,11 @@ export interface CreateTestBotOptions {
   provider?: MockProviderOptions
 }
 
-/** What {@link createTestBot} returns. */
+/**
+ * What {@link createTestBot} returns.
+ *
+ * @category Test bot
+ */
 export interface TestBot {
   bot: Bot
   /** The MockProvider (drive inbound traffic and read `outbox` / `journal` here). */
@@ -56,6 +64,25 @@ export interface TestBot {
   group(groupId: string, opts?: { as?: string; displayName?: string }): TestChat
 }
 
+/**
+ * Starts a {@link Bot} on a {@link MockProvider}: no network and no phone. Resolves to
+ * the bot, the provider and chat helpers that send inbound messages and check the replies.
+ * `options.chaos` wraps the provider in a {@link ChaosProvider}.
+ *
+ * @example
+ * ```ts
+ * import { createTestBot } from '@botmesh/core/testing'
+ *
+ * const { bot, chat } = await createTestBot()
+ * bot.when('hi', (ctx) => ctx.reply('Hello!'))
+ *
+ * await chat.send('hi')
+ * await chat.expectReply('Hello!')
+ * await bot.stop()
+ * ```
+ *
+ * @category Test bot
+ */
 export async function createTestBot(config?: Omit<BotConfig, 'provider'>, options?: CreateTestBotOptions & { chaos?: undefined }): Promise<TestBot>
 export async function createTestBot(
   config: Omit<BotConfig, 'provider'> | undefined,

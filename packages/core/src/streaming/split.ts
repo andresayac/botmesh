@@ -10,7 +10,11 @@
 
 import type { TextFormat } from '../core/provider.js'
 
-/** Limits and markup of {@link splitMessage} / `findSplitPoint`. */
+/**
+ * Limits and markup of {@link splitMessage} / `findSplitPoint`.
+ *
+ * @category Messages & context
+ */
 export interface SplitTextOptions {
   /** Max UTF-16 code units per part (`capabilities.maxTextLength`). */
   maxLength?: number
@@ -511,6 +515,8 @@ function firstSpanFrom(spans: readonly Span[], from: number): number {
  *   await ctx.reply(part)
  * }
  * ```
+ *
+ * @category Messages & context
  */
 export function splitMessage(text: string, limit: number | SplitTextOptions): string[] {
   const limits = normalize(limit)

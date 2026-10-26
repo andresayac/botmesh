@@ -7,7 +7,11 @@
 
 import type { ConversationOutcome } from '../conversations/ConversationRuntime.js'
 
-/** Per-outcome conversation counters (also used per flow). */
+/**
+ * Per-outcome conversation counters (also used per flow).
+ *
+ * @category Operations
+ */
 export interface ConversationCounters {
   started: number
   /** The function / flow returned (or `c.goto()`-ed elsewhere). */
@@ -24,7 +28,11 @@ export interface ConversationCounters {
   avgDurationMs: number
 }
 
-/** Snapshot returned by `bot.metrics()`. Plain JSON — safe to serialise. */
+/**
+ * Snapshot returned by `bot.metrics()`. Plain JSON — safe to serialise.
+ *
+ * @category Operations
+ */
 export interface BotMetricsSnapshot {
   /** Epoch ms of the last `start()`; `undefined` while the bot is not running. */
   startedAt?: number
@@ -211,7 +219,11 @@ export function formatUptime(ms: number): string {
   return parts.length ? parts.join(' ') : '0s'
 }
 
-/** Payload of the bot `'conversation:started'` event. */
+/**
+ * Payload of the bot `'conversation:started'` event.
+ *
+ * @category Operations
+ */
 export interface ConversationStartedEvent {
   /** Unique per conversation instance — matches a `'conversation:ended'` to its `'conversation:started'`. */
   id: string
@@ -223,7 +235,11 @@ export interface ConversationStartedEvent {
   key: string
 }
 
-/** Payload of the bot `'conversation:ended'` event. */
+/**
+ * Payload of the bot `'conversation:ended'` event.
+ *
+ * @category Operations
+ */
 export interface ConversationEndedEvent extends ConversationStartedEvent {
   outcome: ConversationOutcome
   /** Shorthand for `outcome === 'completed'`. */

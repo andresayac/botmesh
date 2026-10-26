@@ -13,10 +13,16 @@
  * A journal table: `'inbox'` / `'outbox'`, or a scoped one (`'inbox:<scope>'`, see
  * `DurabilityBackend.scope`). A backend stores any table name as an opaque string and
  * keeps tables fully separate (ids, indexes, ranges).
+ *
+ * @category Durability
  */
 export type DurableTable = string
 
-/** A stored document and its opaque version (changes on every write). */
+/**
+ * A stored document and its opaque version (changes on every write).
+ *
+ * @category Durability
+ */
 export interface DurableKvEntry {
   value: string
   version: string
@@ -26,6 +32,8 @@ export interface DurableKvEntry {
  * Index scores of a document (epoch ms), `null` = not in that index.
  * `due`: when a non-terminal record next needs attention (retry time or lease expiry).
  * `done`: when a terminal record completed (retention purge).
+ *
+ * @category Durability
  */
 export interface DurableKvIndex {
   due: number | null
@@ -36,6 +44,8 @@ export interface DurableKvIndex {
  * One committed write, as handed to `MemoryKv.changed()`. Append-only file backends record
  * it in a log instead of rewriting the whole snapshot; the version it carries is what the
  * next reader must see (the store's opaque version, here the numeric counter as a string).
+ *
+ * @category Durability
  */
 export type KvMutation =
   | { op: 'insert' | 'replace'; table: DurableTable; id: string; value: string; version: string; index: DurableKvIndex }
@@ -52,6 +62,8 @@ export type KvMutation =
  *  - `range` returns ids whose index score is `<= max`, ascending by score, at most `limit`.
  *    It may return ids whose document changed since (callers re-read); it must not miss a
  *    document whose committed score is `<= max` beyond `limit`.
+ *
+ * @category Durability
  */
 export interface DurableKv {
   start?(): Promise<void>
@@ -69,7 +81,11 @@ interface MemoryRow {
   index: DurableKvIndex
 }
 
-/** Serializable state of a {@link MemoryKv} (the file backend's snapshot). */
+/**
+ * Serializable state of a {@link MemoryKv} (the file backend's snapshot).
+ *
+ * @category Durability
+ */
 export interface MemoryKvSnapshot {
   version: 1
   tables: Record<string, Array<[id: string, value: string, version: number, due: number | null, done: number | null]>>
@@ -77,7 +93,11 @@ export interface MemoryKvSnapshot {
   logSeq?: number
 }
 
-/** In-process {@link DurableKv}: the reference implementation. */
+/**
+ * In-process {@link DurableKv}: the reference implementation.
+ *
+ * @category Durability
+ */
 export class MemoryKv implements DurableKv {
   private tables = new Map<DurableTable, Map<string, MemoryRow>>()
 
@@ -186,6 +206,8 @@ function isScore(value: unknown): value is number | null {
 /**
  * Throw unless `value` is a {@link KvMutation} (what an append-only log replays): a
  * damaged log entry must be refused, never applied as a malformed row.
+ *
+ * @category Durability
  */
 export function assertKvMutation(value: unknown): asserts value is KvMutation {
   const m = value as Partial<Record<keyof KvMutation | 'value' | 'version' | 'index', unknown>> | null

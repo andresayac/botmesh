@@ -14,6 +14,8 @@ import { MemoryKv } from './kv.js'
  * process, but everything it holds is lost when the process dies: use
  * `FileDurability` (single process) or a store-backed backend
  * (`@botmesh/postgres-store`, `@botmesh/redis-store`) to survive a crash.
+ *
+ * @category Durability
  */
 export class MemoryDurability extends KvDurability {
   constructor() { super(new MemoryKv(), { exclusive: true }) }

@@ -13,12 +13,20 @@
  * ```
  */
 
-/** One validation issue, as reported by zod-like libraries. */
+/**
+ * One validation issue, as reported by zod-like libraries.
+ *
+ * @category Flows
+ */
 export interface SchemaIssueLike {
   message?: string
 }
 
-/** Result of {@link SchemaLike.safeParse}: zod's `SafeParseReturnType` shape. */
+/**
+ * Result of {@link SchemaLike.safeParse}: zod's `SafeParseReturnType` shape.
+ *
+ * @category Flows
+ */
 export type SchemaParseResult<T> =
   | { success: true; data: T }
   | { success: false; error?: { issues?: ReadonlyArray<SchemaIssueLike>; message?: string } | unknown }
@@ -27,13 +35,19 @@ export type SchemaParseResult<T> =
  * Structural, zod-compatible schema: anything with `safeParse(input)`. When `safeParseAsync`
  * exists it is preferred (zod schemas with async refinements throw from `safeParse`).
  * `T` is the parsed (output) type stored in `c.state` / returned by `c.ask`.
+ *
+ * @category Flows
  */
 export interface SchemaLike<T = unknown> {
   safeParse(input: unknown): SchemaParseResult<T> | Promise<SchemaParseResult<T>>
   safeParseAsync?(input: unknown): Promise<SchemaParseResult<T>>
 }
 
-/** Output type of a {@link SchemaLike}. */
+/**
+ * Output type of a {@link SchemaLike}.
+ *
+ * @category Flows
+ */
 export type InferSchema<Sch> = Sch extends SchemaLike<infer T> ? T : never
 
 /**
