@@ -197,9 +197,10 @@ pregunta pendiente se envía otra vez (`¿Y tu email?` arriba) y la siguiente
 respuesta del usuario es la que cuenta. Con [durabilidad](./durabilidad), el
 mensaje que lo despierta se toma como la respuesta.
 
-El checkpoint se escribe cuando termina un paso, así que un flujo que aún
-espera su **primera** pregunta no tiene nada guardado: tras un reinicio, el
-usuario lo empieza de nuevo con su trigger.
+Se escribe un checkpoint al empezar el flujo y después de cada paso, así que
+incluso un flujo que aún espera su **primera** pregunta se retoma ahí. Un
+reinicio a mitad de un [`.form()`](./formularios) vuelve a preguntar el
+formulario desde su primer campo: todo el formulario es un solo paso.
 
 ## RedisStore
 

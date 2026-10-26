@@ -194,9 +194,10 @@ the pending question is sent again (`And your email?` above) and the user's
 next reply is its answer. With [durability](./durability) the waking message is
 taken as the answer instead.
 
-The checkpoint is written when a step completes, so a flow still waiting on its
-**first** question has nothing saved yet: after a restart the user starts it
-again with its trigger.
+A checkpoint is written when the flow starts and after every step, so even a
+flow still waiting on its **first** question resumes there. A restart in the
+middle of a [`.form()`](./forms) asks the form again from its first field: the
+whole form is one step.
 
 ## RedisStore
 

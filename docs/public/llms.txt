@@ -85,6 +85,7 @@
 - [Migrating to stable: dependencies](https://andresayac.github.io/botmesh/guide/migration)
 - [Troubleshooting: install errors, 428 handshake, LID identity, webhook signatures, rate limits](https://andresayac.github.io/botmesh/guide/troubleshooting)
 - [FAQ](https://andresayac.github.io/botmesh/guide/faq)
+- Intermediate examples (complete bot.js files, run by the test suite): [appointment booking](https://andresayac.github.io/botmesh/examples/appointment-booking), [order tracking](https://andresayac.github.io/botmesh/examples/order-tracking), [human handoff](https://andresayac.github.io/botmesh/examples/human-handoff), [multi-language bot](https://andresayac.github.io/botmesh/examples/multi-language), [group bot](https://andresayac.github.io/botmesh/examples/group-bot), [WhatsApp and Telegram at once](https://andresayac.github.io/botmesh/examples/whatsapp-and-telegram)
 - Recipes: [send messages](https://andresayac.github.io/botmesh/examples/messages), [media](https://andresayac.github.io/botmesh/examples/media), [registration flow](https://andresayac.github.io/botmesh/examples/registration-flow), [shopping flow](https://andresayac.github.io/botmesh/examples/shopping-flow), [support with timeout](https://andresayac.github.io/botmesh/examples/support-flow), [rate-limiter plugin](https://andresayac.github.io/botmesh/examples/rate-limiter)
 
 ## Package status (44 packages)

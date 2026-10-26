@@ -114,6 +114,21 @@ const enSidebar = {
   ],
   '/examples/': [
     {
+      text: 'Examples',
+      items: [{ text: 'All examples', link: '/examples/' }],
+    },
+    {
+      text: 'Intermediate',
+      items: [
+        { text: 'Appointment booking', link: '/examples/appointment-booking' },
+        { text: 'Order tracking', link: '/examples/order-tracking' },
+        { text: 'Human handoff', link: '/examples/human-handoff' },
+        { text: 'Multi-language bot', link: '/examples/multi-language' },
+        { text: 'Group bot', link: '/examples/group-bot' },
+        { text: 'WhatsApp and Telegram at once', link: '/examples/whatsapp-and-telegram' },
+      ],
+    },
+    {
       text: 'Recipes',
       items: [
         { text: 'Send messages', link: '/examples/messages' },
@@ -203,6 +218,21 @@ const esSidebar = {
     },
   ],
   '/es/ejemplos/': [
+    {
+      text: 'Ejemplos',
+      items: [{ text: 'Todos los ejemplos', link: '/es/ejemplos/' }],
+    },
+    {
+      text: 'Intermedios',
+      items: [
+        { text: 'Reserva de citas', link: '/es/ejemplos/reserva-citas' },
+        { text: 'Seguimiento de pedidos', link: '/es/ejemplos/seguimiento-pedidos' },
+        { text: 'Handoff humano', link: '/es/ejemplos/handoff-humano' },
+        { text: 'Bot multi-idioma', link: '/es/ejemplos/multi-idioma' },
+        { text: 'Bot de grupo', link: '/es/ejemplos/bot-de-grupo' },
+        { text: 'WhatsApp y Telegram a la vez', link: '/es/ejemplos/whatsapp-y-telegram' },
+      ],
+    },
     {
       text: 'Recetas',
       items: [
@@ -374,7 +404,7 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Guide', link: '/guide/getting-started' },
-          { text: 'Examples', link: '/examples/messages' },
+          { text: 'Examples', link: '/examples/' },
           // TypeDoc output is plain HTML, not a VitePress page: bypass the SPA router.
           { text: 'API', link: '/api/', target: '_self' },
         ],
@@ -395,7 +425,7 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Guía', link: '/es/guide/inicio' },
-          { text: 'Ejemplos', link: '/es/ejemplos/mensajes' },
+          { text: 'Ejemplos', link: '/es/ejemplos/' },
           { text: 'API', link: '/api/', target: '_self' },
         ],
         sidebar: esSidebar,
