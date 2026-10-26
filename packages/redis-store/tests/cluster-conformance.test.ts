@@ -9,6 +9,7 @@ import { storeKeys } from '../src/layout.js'
 import { ClusterFakeRedisClient, ScanningLayoutFakeRedisClient } from './fakeClusterRedis.js'
 import { runStoreConformance } from '../../../test-utils/store-conformance.js'
 import { runUserDataConformance } from '../../../test-utils/user-data-conformance.js'
+import { runStoreModelFuzz } from '../../../test-utils/store-model-fuzz.js'
 import { runScheduleStoreConformance } from '../../../test-utils/schedule-store-conformance.js'
 import { runLeaseConformance } from '../../../test-utils/lease-conformance.js'
 import { runDurabilityConformance, runDurableKvConformance } from '../../../test-utils/durability-conformance.js'
@@ -43,6 +44,14 @@ for (const v of variants) {
       const store = new RedisStore(v.label === 'cluster fake' ? { client } : { client, layout: 'cluster' })
       await store.start()
       return { store, teardown: () => store.stop(), seedLegacyMessage: clusterLegacySeeder(client) }
+    },
+  })
+
+  runStoreModelFuzz(`RedisStore (${v.label})`, {
+    async make() {
+      const store = v.make()
+      await store.start()
+      return { store, teardown: () => store.stop() }
     },
   })
 

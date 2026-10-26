@@ -7,6 +7,7 @@ import { legacyMessageKey, type StoredMessage } from '@botmesh/core'
 import { SQLiteStore } from '../src/SQLiteStore.js'
 import { runStoreConformance } from '../../../test-utils/store-conformance.js'
 import { runUserDataConformance } from '../../../test-utils/user-data-conformance.js'
+import { runStoreModelFuzz } from '../../../test-utils/store-model-fuzz.js'
 
 /**
  * A fresh database in its own temp directory per test: on Windows a just-closed
@@ -35,3 +36,10 @@ async function make() {
 
 runStoreConformance('SQLiteStore', { make, checkpointCas: true })
 runUserDataConformance('SQLiteStore', { make })
+
+runStoreModelFuzz('SQLiteStore', {
+  async make() {
+    const { store, teardown } = await make()
+    return { store, teardown }
+  },
+})

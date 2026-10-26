@@ -25,6 +25,7 @@ import {
 import { CLUSTER_PROBES, probeMeets, probeOutcome } from './cluster-probes.js'
 import { runStoreConformance } from '../../../test-utils/store-conformance.js'
 import { runUserDataConformance } from '../../../test-utils/user-data-conformance.js'
+import { runStoreModelFuzz } from '../../../test-utils/store-model-fuzz.js'
 import { runScheduleStoreConformance } from '../../../test-utils/schedule-store-conformance.js'
 import { runLeaseConformance } from '../../../test-utils/lease-conformance.js'
 import { runDurabilityConformance, runDurableKvConformance } from '../../../test-utils/durability-conformance.js'
@@ -72,6 +73,17 @@ if (CLUSTER_URL) {
           await client.zAdd(keys.msgSet(m.chatId), { score: m.timestamp, value: member })
         },
       }
+    },
+  })
+
+  runStoreModelFuzz('RedisStore (real cluster)', {
+    seeds: [1, 2],
+    async make() {
+      const client = await sharedClient()
+      const prefix = freshPrefix('fuzz')
+      const store = new RedisStore({ client, prefix })
+      await store.start()
+      return { store, teardown: () => cleanupPrefix(client, prefix) }
     },
   })
 
