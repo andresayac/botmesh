@@ -34,9 +34,25 @@ export function normalizeJid(jid: unknown): string | undefined {
   if (!trimmed) return undefined
   const at = trimmed.indexOf('@')
   if (at < 0) return trimmed
-  const user = trimmed.slice(0, at).replace(/(?::\d+)+$/, '')
-  return `${user}${trimmed.slice(at)}`
+  return `${stripDeviceSuffixes(trimmed.slice(0, at))}${trimmed.slice(at)}`
 }
+
+/**
+ * Drop every trailing `:<digits>` segment. A scan from the end, not a regex: `/(?::\d+)+$/`
+ * backtracks quadratically on a long run of `:1` that ends in a non-digit.
+ */
+function stripDeviceSuffixes(user: string): string {
+  let end = user.length
+  for (;;) {
+    let i = end
+    while (i > 0 && isDigit(user.charCodeAt(i - 1))) i--
+    if (i === end || i === 0 || user.charCodeAt(i - 1) !== 0x3a /* ':' */) break
+    end = i - 1
+  }
+  return user.slice(0, end)
+}
+
+const isDigit = (code: number): boolean => code >= 0x30 && code <= 0x39
 
 /** True for a WhatsApp LID (`…@lid`). */
 export const isLidJid = (jid: string): boolean => jid.endsWith('@lid')

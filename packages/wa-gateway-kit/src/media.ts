@@ -54,6 +54,12 @@ const DATA_URI = /^data:([\w.+-]+\/[\w.+-]+)(?:;[\w-]+=[\w.-]+)*;base64,([\s\S]*
 
 const isHttpUrl = (value: string): boolean => /^https?:\/\//i.test(value)
 
+/** The scheme of a rejected `{ url }`, for the error message (never the URL itself, which may be a secret path). */
+function describeScheme(value: string): string {
+  const scheme = /^([a-z][a-z\d+.-]*):/i.exec(value)?.[1]
+  return scheme && scheme.length > 1 ? `a ${scheme.toLowerCase()}: URL` : 'a local path'
+}
+
 /** A `file:` URL as a local path; anything else unchanged (read as a path). */
 function localPathOf(value: string): string {
   if (!/^file:/i.test(value)) return value
@@ -83,14 +89,16 @@ export async function readLocalMedia(kind: OutboundContent['kind'], path: string
 }
 
 /**
- * Resolve a {@link MediaSource}. Only `http(s)` URLs are handed to the gateway to download; a
- * base64 `data:` URI is sent inline, and any other string or `{ url }` (a local path or a `file:`
- * URL) is read here and sent inline, so the gateway is never asked to open a path on its own host. `{ native: string }` is passed
+ * Resolve a {@link MediaSource}. Only `http(s)` URLs are handed to the gateway to download and a
+ * base64 `data:` URI is sent inline. `{ url }` accepts nothing else: a path or `file:` URL there
+ * rejects (it is a link, never a local read). A local file is read here and sent inline when it is
+ * given as `{ path }` or a plain string (a path or `file:` URL), so the gateway is never asked to
+ * open a path on its own host. `{ native: string }` is passed
  * through untouched as a URL-or-base64 value the gateway understands natively (escape hatch:
  * never put untrusted input there).
  *
- * @throws {UnsupportedContentError} for a source of the wrong shape, an unreadable path or a
- * stream that does not yield bytes.
+ * @throws {UnsupportedContentError} for a source of the wrong shape, a `{ url }` that is not
+ * http(s) or `data:`, an unreadable path or a stream that does not yield bytes.
  */
 export async function resolveMedia(
   kind: OutboundContent['kind'],
@@ -116,7 +124,12 @@ export async function resolveMedia(
   if (typeof source !== 'object' || source === null) {
     throw new UnsupportedContentError(kind, `${kind}: unsupported media source (${source === null ? 'null' : typeof source}); expected a URL, Buffer, path, stream or { native: string }`)
   }
-  if ('url' in source && typeof source.url === 'string') return urlOrPath(source.url)
+  if ('url' in source && typeof source.url === 'string') {
+    // `{ url }` is a link (as on every other channel), never a local read: a URL that comes from
+    // a user or a model must not be able to pull a file off the bot's host.
+    if (isHttpUrl(source.url) || DATA_URI.test(source.url)) return urlOrPath(source.url)
+    throw new UnsupportedContentError(kind, `${kind}: \`{ url }\` must be an http(s) URL or a base64 data: URI (got ${describeScheme(source.url)}); send a local file as { path } or a plain path string`)
+  }
   if ('buffer' in source) return inline(source.buffer, opts.filename)
   if ('path' in source) return inline(await readLocalMedia(kind, source.path), opts.filename ?? basename(source.path))
   if ('stream' in source) return inline(await streamToBuffer(kind, source.stream), opts.filename)

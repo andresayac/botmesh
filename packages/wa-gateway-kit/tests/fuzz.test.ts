@@ -60,6 +60,14 @@ describe('normalizeJid (fuzz)', () => {
   it('strips a device suffix even when stacked', () => {
     expect(normalizeJid('57:1:2@s.whatsapp.net')).toBe('57@s.whatsapp.net')
   })
+
+  it('runs in linear time on a long run of device-like suffixes that does not match', () => {
+    const user = ':1'.repeat(100_000)
+    const started = performance.now()
+    expect(normalizeJid(`${user}x@s.whatsapp.net`)).toBe(`${user}x@s.whatsapp.net`)
+    expect(normalizeJid(`57${user}@s.whatsapp.net`)).toBe('57@s.whatsapp.net')
+    expect(performance.now() - started).toBeLessThan(250)
+  })
 })
 
 describe('WaIdentityStore (fuzz)', () => {

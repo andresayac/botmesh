@@ -172,10 +172,11 @@ New on npm in the beta (they were private before). If you used them from the mon
   fragment, `identityCacheSize` must be a positive integer (or `Infinity`), and
   `http.timeoutMs` / `http.maxBytes` are checked when the provider is built, not on the
   first request.
-- Only an `http(s)` URL is handed to the gateway to download. A `{ url }` holding a local
-  path or a `file:` URL is read by the bot and sent as base64 (it used to be passed as is,
-  and the gateway tried to open that path on its own host), and a base64 `data:` URI is sent
-  inline.
+- Only an `http(s)` URL is handed to the gateway to download. `{ url }` is always a link, as
+  on Meta and Telegram: it accepts `http(s)` or a base64 `data:` URI (sent inline), and a local
+  path or `file:` URL there rejects with `UnsupportedContentError` instead of being read (it
+  used to be passed as is, and the gateway tried to open that path on its own host). Send a
+  local file as `{ path }` or a plain path string; the bot reads it and sends it as base64.
 
 ## Plugins promoted to npm
 

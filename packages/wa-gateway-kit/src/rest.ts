@@ -79,10 +79,26 @@ export function gatewayBaseUrl(owner: string, baseUrl: unknown): string {
   return raw.replace(/\/+$/, '')
 }
 
-/** The base URL as shown in errors: user info (`user:password@`) masked, at most 120 characters. */
+/**
+ * The base URL as shown in errors: user info (`user:password@`) masked, at most 120 characters.
+ * The URL parser splits user info at the *last* `@` of the authority (a password may contain `@`),
+ * so everything up to that `@` is masked. When the value does not parse, the authority cannot be
+ * trusted, so everything up to the last `@` anywhere is masked (over-masking is harmless).
+ */
 function redactUrl(value: unknown): string {
   if (typeof value !== 'string') return JSON.stringify(value) ?? String(value)
-  const masked = value.replace(/^([a-z][a-z\d+.-]*:\/\/)?[^/?#@]*@/i, '$1***@')
+  const scheme = /^[a-z][a-z\d+.-]*:\/\//i.exec(value)?.[0] ?? ''
+  const rest = value.slice(scheme.length)
+  let parses = true
+  try {
+    new URL(value)
+  } catch {
+    parses = false
+  }
+  const authorityEnd = parses ? rest.search(/[/?#]/) : -1
+  const authority = authorityEnd < 0 ? rest : rest.slice(0, authorityEnd)
+  const at = authority.lastIndexOf('@')
+  const masked = at < 0 ? value : `${scheme}***${rest.slice(at)}`
   return JSON.stringify(masked.length > 120 ? `${masked.slice(0, 120)}…` : masked)
 }
 

@@ -34,6 +34,23 @@ describe('gatewayBaseUrl rejects URLs that cannot be a prefix', () => {
     expect((err as Error).message).not.toContain('s3cretpw')
   })
 
+  it.each([
+    ['http://admin:s3cr@tPass@gw:8080', ['s3cr', 'tPass']],
+    ['http://admin:a@b@c@d@gw:8080', ['a@b', 'b@c', 'c@d']],
+    ['ftp://u:p@ss@host', ['p@ss', 'ss@host']],
+    ['admin:pw@x@gw.local', ['pw@x', 'x@gw']],
+    ['http://admin:pw@x@gw:8080/path?q=a@b', ['pw@x']],
+  ])('masks the whole user info of %j, also when the password has an @', (url, secrets) => {
+    let err: unknown
+    try {
+      gatewayBaseUrl('X', url)
+    } catch (e) {
+      err = e
+    }
+    expect(err).toBeInstanceOf(TypeError)
+    for (const secret of secrets) expect((err as Error).message).not.toContain(secret)
+  })
+
   it('does not echo credentials of an invalid URL either', () => {
     expect(() => gatewayBaseUrl('X', 'admin:s3cretpw@gw.local')).toThrow(TypeError)
     try {
@@ -104,11 +121,18 @@ describe('resolveMedia rejects malformed sources with typed errors', () => {
     await expect(resolveMedia('image', { stream })).rejects.toBeInstanceOf(UnsupportedContentError)
   })
 
-  it('never hands a non-http(s) { url } to the gateway: file: URLs and paths are read locally', async () => {
-    await expect(resolveMedia('image', { url: pathToFileURL(file).href })).resolves.toEqual({ base64: 'AQID', filename: 'pic.png', mimetype: 'image/png' })
-    await expect(resolveMedia('image', { url: file })).resolves.toEqual({ base64: 'AQID', filename: 'pic.png', mimetype: 'image/png' })
-    await expect(resolveMedia('image', { url: 'ftp://gw.local/etc/passwd' })).rejects.toBeInstanceOf(UnsupportedContentError)
+  it('treats { url } as a link only: a path or file: URL in it is rejected, never read on either host', async () => {
+    for (const url of [pathToFileURL(file).href, file, 'file://127.0.0.1/c$/x', 'ftp://gw.local/etc/passwd', 'pic.png', '']) {
+      const err = await resolveMedia('image', { url }).catch((e: unknown) => e)
+      expect(err, url).toBeInstanceOf(UnsupportedContentError)
+      expect((err as Error).message).toMatch(/\{ path \}/)
+    }
     await expect(resolveMedia('image', { url: 'https://cdn.example.com/a.png' })).resolves.toEqual({ url: 'https://cdn.example.com/a.png', filename: undefined, mimetype: undefined })
+  })
+
+  it('still reads local files given as { path } or a bare string', async () => {
+    await expect(resolveMedia('image', { path: file })).resolves.toEqual({ base64: 'AQID', filename: 'pic.png', mimetype: 'image/png' })
+    await expect(resolveMedia('image', file)).resolves.toEqual({ base64: 'AQID', filename: 'pic.png', mimetype: 'image/png' })
   })
 })
 
