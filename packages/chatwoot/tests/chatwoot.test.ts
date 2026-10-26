@@ -504,3 +504,38 @@ describe('chatwootPlugin — node webhookHandler', () => {
     await bot.stop()
   })
 })
+
+describe('chatwootPlugin — webhookHandler on a real keep-alive connection', () => {
+  it('an early 405/413 does not poison the next request on the same socket (proxies reuse upstream connections)', async () => {
+    const { createServer, request, Agent } = await import('node:http')
+    const { bot } = await createTestBot()
+    const { plugin } = setup()
+    bot.plug(plugin)
+    const server = createServer(plugin.webhookHandler({ maxBytes: 64 }))
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
+    const { port } = server.address() as { port: number }
+    const agent = new Agent({ keepAlive: true, maxSockets: 1 })
+    const call = (method: string, path: string, body: string, chunked = false) => new Promise<number | string>((resolve) => {
+      const headers: Record<string, string> = { 'content-type': 'application/json', ...(chunked ? { 'transfer-encoding': 'chunked' } : {}) }
+      const req = request({ host: '127.0.0.1', port, method, path, agent, headers }, (res) => {
+        res.resume()
+        res.on('end', () => resolve(res.statusCode ?? 0))
+      })
+      req.on('error', (e: NodeJS.ErrnoException) => resolve(e.code ?? 'error'))
+      req.end(body)
+    })
+    try {
+      expect(await call('GET', '/chatwoot', '{"probe":true}')).toBe(405)
+      expect(await call('POST', '/chatwoot', '{}')).toBe(401)
+      expect(await call('POST', '/chatwoot?token=hook-token', 'x'.repeat(500))).toBe(413)
+      expect(await call('POST', '/chatwoot?token=hook-token', JSON.stringify({ event: 'ping' }))).toBe(200)
+      // No content-length: the limit trips while streaming.
+      expect(await call('POST', '/chatwoot?token=hook-token', 'y'.repeat(500), true)).toBe(413)
+      expect(await call('POST', '/chatwoot?token=hook-token', JSON.stringify({ event: 'ping' }))).toBe(200)
+    } finally {
+      agent.destroy()
+      await new Promise((r) => server.close(r))
+      await bot.stop()
+    }
+  })
+})

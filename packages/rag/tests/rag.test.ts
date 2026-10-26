@@ -243,3 +243,21 @@ describe('Rag', () => {
     expect(formatContext([{ text: 'A', citation: 'x.md' }, { text: 'B', citation: 'y.md › S' }])).toBe('[1] (x.md)\nA\n\n[2] (y.md › S)\nB')
   })
 })
+
+describe('Rag — memory stays bounded by the index', () => {
+  it('forgets the vectors of replaced or removed chunks (a doc updated every hour does not leak)', async () => {
+    const embedder = new CountingEmbedder()
+    const rag = createRag({ embeddings: embedder })
+    await rag.addText('Abrimos de 9 a 18.', { source: 'hours' })
+    await rag.addText('Abrimos de 10 a 19.', { source: 'hours' })
+    // The old text is gone from the index: its vector must not be kept around…
+    await rag.addText('Abrimos de 9 a 18.', { source: 'hours' })
+    expect(embedder.seen.filter((t) => t === 'Abrimos de 9 a 18.')).toHaveLength(2)
+    // …while an unchanged chunk is still reused (no new embedding).
+    await rag.addText('Abrimos de 9 a 18.', { source: 'hours' })
+    expect(embedder.seen.filter((t) => t === 'Abrimos de 9 a 18.')).toHaveLength(2)
+    await rag.removeDocument('hours')
+    await rag.addText('Abrimos de 9 a 18.', { source: 'hours' })
+    expect(embedder.seen.filter((t) => t === 'Abrimos de 9 a 18.')).toHaveLength(3)
+  })
+})

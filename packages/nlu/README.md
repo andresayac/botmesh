@@ -47,7 +47,8 @@ intent **appends** utterances. Throws on empty intent names or empty utterance l
 
 ### `engine.match(text, threshold?) → IntentMatch | null`
 
-Returns the best intent at or above the threshold (per-call override optional):
+Returns the best intent at or above the threshold (per-call override optional; like the
+constructor option, it must be a number in `[0, 1]` or `match()` throws):
 
 ```ts
 interface IntentMatch {
@@ -80,7 +81,10 @@ nlu.match('vuelo de Bogotá a Lima')
 ```
 
 Limits (by design): slots are single-token and the pattern is anchored to the whole
-message. If the input doesn't line up with the pattern (extra words, different order),
+message. Two slots must be separated by a space or a word: `define()` throws on adjacent
+slots such as `'{a}{b}'` (ambiguous, and slow to match on long tokens). Slots glued by
+a word inside one token (`'{qty}x{item}'`) are allowed: the first slot stops at the first
+character of the glue, so `3xbox` gives `qty: '3'`, `item: 'box'`. If the input doesn't line up with the pattern (extra words, different order),
 the utterance still participates in normal token-overlap scoring — it just won't
 extract entities.
 

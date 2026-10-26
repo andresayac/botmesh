@@ -497,15 +497,18 @@ export function chatwootPlugin(config: ChatwootPluginConfig): ChatwootPlugin {
 
   const webhookHandler = (opts: { maxBytes?: number } = {}) => (req: IncomingMessage, res: ServerResponse) => {
     const maxBytes = opts.maxBytes ?? 1024 * 1024
-    const reply = (status: number, body: string) => {
+    const reply = (status: number, body: string, close = false) => {
       if (res.headersSent) return
       res.statusCode = status
       res.setHeader('content-type', 'text/plain; charset=utf-8')
+      // Answered without reading the body: the connection cannot carry another request
+      // (a keep-alive client or proxy would send its next request into the unread body).
+      if (close) res.setHeader('connection', 'close')
       res.end(body)
     }
-    if ((req.method ?? 'GET').toUpperCase() !== 'POST') return reply(405, 'method not allowed')
+    if ((req.method ?? 'GET').toUpperCase() !== 'POST') return reply(405, 'method not allowed', true)
     const declared = Number(header(req.headers, 'content-length') ?? '0')
-    if (declared > maxBytes) return reply(413, 'payload too large')
+    if (declared > maxBytes) return reply(413, 'payload too large', true)
     const chunks: Buffer[] = []
     let size = 0
     let aborted = false
@@ -514,8 +517,10 @@ export function chatwootPlugin(config: ChatwootPluginConfig): ChatwootPlugin {
       size += chunk.length
       if (size > maxBytes) {
         aborted = true
-        reply(413, 'payload too large')
-        req.destroy()
+        reply(413, 'payload too large', true)
+        // Stop reading once the answer is out (destroying first would reset it unread).
+        if (typeof res.once === 'function') res.once('finish', () => req.destroy())
+        else req.destroy()
         return
       }
       chunks.push(chunk)

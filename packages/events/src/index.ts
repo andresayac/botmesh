@@ -390,6 +390,8 @@ export class MemoryEventJournal implements LeasedEventJournal {
     }
     if (record.attempts >= maxAttempts) {
       record.state = 'dead'
+      // Like an explicit `dead: true`: purge({ includeDead }) keys on completedAt.
+      record.completedAt = now
       return
     }
     record.state = 'failed'

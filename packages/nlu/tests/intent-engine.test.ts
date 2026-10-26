@@ -172,3 +172,41 @@ describe('IntentEngine — {slot} entities', () => {
     expect(nlu.match('saluda a ANDRÉS')?.entities).toEqual({ nombre: 'andres' })
   })
 })
+
+describe('IntentEngine — hostile input and config mistakes', () => {
+  it('rejects adjacent slots: ambiguous, and their regex backtracks quadratically on long tokens', () => {
+    const nlu = new IntentEngine()
+    expect(() => nlu.define('x', ['{a}{b} foo'])).toThrow(/adjacent slots \{a\}\{b\}.*separate them/)
+    expect(() => nlu.define('x', ['mi {a} {b}'])).not.toThrow()
+    expect(nlu.intents()).toEqual(['x'])
+  })
+
+  it('scores a 64 KiB single-token message quickly', () => {
+    const nlu = new IntentEngine()
+    nlu.define('x', ['{a} foo', 'pedido {id}'])
+    const started = performance.now()
+    nlu.rank(`${'a'.repeat(65_536)} bar`)
+    expect(performance.now() - started).toBeLessThan(500)
+  })
+
+  it('matches slots joined by letters inside one token in linear time', () => {
+    const nlu = new IntentEngine()
+    nlu.define('order', ['{qty}x{item} please', '{a}2{b} end', '{a}x{b}y{c} ok'])
+    for (const body of ['x'.repeat(60_000), `${'x'.repeat(60_000)} please`, '2'.repeat(60_000), 'xy'.repeat(30_000)]) {
+      const started = performance.now()
+      nlu.rank(body)
+      expect(performance.now() - started).toBeLessThan(500)
+    }
+    expect(nlu.match('3xbox please')).toEqual({ intent: 'order', confidence: 1, entities: { qty: '3', item: 'box' } })
+    expect(nlu.match('ab2cd end')).toEqual({ intent: 'order', confidence: 1, entities: { a: 'ab', b: 'cd' } })
+    expect(nlu.match('1x2y3 ok')).toEqual({ intent: 'order', confidence: 1, entities: { a: '1', b: '2', c: '3' } })
+  })
+
+  it('validates the per-call threshold like the constructor one', () => {
+    const nlu = new IntentEngine()
+    nlu.define('greeting', ['hola'])
+    expect(() => nlu.match('hola', Number.NaN)).toThrow(/threshold must be a number in \[0, 1\]/)
+    expect(() => nlu.match('hola', 2)).toThrow(/threshold/)
+    expect(nlu.match('hola', 1)).toEqual({ intent: 'greeting', confidence: 1 })
+  })
+})

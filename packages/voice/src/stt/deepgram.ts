@@ -50,7 +50,7 @@ export function deepgramStt(options: DeepgramSttOptions = {}): SttAdapter {
           headers: { authorization: `Token ${apiKey}`, 'content-type': effectiveMimetype(audio.buffer, audio.mimetype) },
           body: audio.buffer,
           signal: opts.signal, timeoutMs: opts.timeoutMs,
-          defaultMaxBytes: 1024 * 1024,
+          defaultMaxBytes: 1024 * 1024, secret: apiKey,
         },
         options,
       )

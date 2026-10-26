@@ -20,6 +20,8 @@ export interface VoiceRequest {
   timeoutMs?: number
   /** Default response cap when the adapter options don't set one. */
   defaultMaxBytes: number
+  /** The credential sent with the request: scrubbed from any error detail the service echoes. */
+  secret?: string
 }
 
 export interface VoiceResponse {
@@ -59,9 +61,9 @@ export async function voiceRequest(req: VoiceRequest, http: VoiceHttpOptions = {
 
   const { response, body } = result
   if (response.status === 429) {
-    throw new VoiceRateLimitedError(req.service, parseRetryAfter(response.headers.get('retry-after')), errorDetail(body))
+    throw new VoiceRateLimitedError(req.service, parseRetryAfter(response.headers.get('retry-after')), errorDetail(body, req.secret))
   }
-  if (!response.ok) throw new VoiceHttpError(req.service, response.status, errorDetail(body))
+  if (!response.ok) throw new VoiceHttpError(req.service, response.status, errorDetail(body, req.secret))
   return { body, headers: response.headers }
 }
 
@@ -88,8 +90,15 @@ function parseRetryAfter(value: string | null): number | undefined {
   return Number.isNaN(date) ? undefined : Math.max(0, date - Date.now())
 }
 
-/** Best-effort short error detail from the common shapes (OpenAI, Deepgram, ElevenLabs). */
-function errorDetail(body: Buffer): string | undefined {
+/** OpenAI-style keys, whole or masked (`sk-proj-****abcd`), as services quote them in errors. */
+const KEY_LIKE = /(?<![A-Za-z0-9_-])sk-[A-Za-z0-9*_-]{4,}/g
+
+/**
+ * Best-effort short error detail from the common shapes (OpenAI, Deepgram, ElevenLabs).
+ * Error messages are logged, so the request's credential (and anything key-shaped) is
+ * scrubbed before the detail is cut to length.
+ */
+function errorDetail(body: Buffer, secret?: string): string | undefined {
   let parsed: unknown
   try {
     parsed = JSON.parse(body.toString('utf8'))
@@ -108,5 +117,8 @@ function errorDetail(body: Buffer): string | undefined {
     pick(obj(root.detail)?.message) ??
     pick(root.detail) ??
     pick(root.message)
-  return detail ? detail.slice(0, 200) : undefined
+  if (!detail) return undefined
+  let safe = secret && secret.length >= 4 ? detail.split(secret).join('[redacted]') : detail
+  safe = safe.replace(KEY_LIKE, '[redacted]')
+  return safe.slice(0, 200)
 }

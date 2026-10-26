@@ -56,6 +56,8 @@ States: `open` (queued), `assigned`, `pending` (waiting for the customer, out of
 
 By default it uses the bot store's cursors API (`tickets:seq`, `tickets:index`, `tickets:t:<id>`), implemented by all six stores; with `MemoryStore` it lives in RAM. `tickets:index` lists only unclosed tickets: in memory only active ones live there and closed ones are read on demand (`get`, and `list` when the filter may include `closed`). It loads lazily on the first call (`install` is synchronous) and mutations are serialized; if a store write fails, the call rejects and memory does not change. You can pass your own `storage: { get, set }`.
 
+One process per store namespace: the index and the id sequence live in memory and writes are serialized in this process only, so two replicas over the same store would hand out the same id. Run the plugin on one replica.
+
 ## Callbacks and messages
 
 `onCreate`, `onAssign`, `onClose` and `onUpdate(ticket, previous)` run after the change is persisted; their errors (and send errors) go to `onError` (`warn` log by default) and never make the operation fail. Templates accept `{{id}}`, `{{position}}`, `{{subject}}`, `{{priority}}`, `{{assignee}}`, `{{status}}` and `{{reason}}`.

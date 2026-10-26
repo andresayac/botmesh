@@ -70,7 +70,7 @@ export function elevenlabsTts(options: ElevenLabsTtsOptions = {}): TtsAdapter {
           headers: { 'xi-api-key': apiKey, 'content-type': 'application/json', accept: mimetype.split(';')[0]! },
           body: JSON.stringify(payload),
           signal: opts.signal, timeoutMs: opts.timeoutMs,
-          defaultMaxBytes: 16 * 1024 * 1024,
+          defaultMaxBytes: 16 * 1024 * 1024, secret: apiKey,
         },
         options,
       )

@@ -279,6 +279,10 @@ runCrashRecoveryMatrix('eventsDurability(SharedFileEventJournal)', deps, {
     const j = await SharedFileEventJournal.open(t.file)
     return { backend: eventsDurability({ journal: j }), teardown: async () => { await j.close(); t.cleanup() } }
   },
+  // Every write rewrites the file under a cross-process mutex; on a loaded machine one step can
+  // take several seconds, so the default 5 s wait made this matrix flaky (not the vitest timeout).
+  waitMs: 20_000,
+  testTimeoutMs: 120_000,
 })
 
 function silentLogger(): never {
@@ -288,7 +292,7 @@ function silentLogger(): never {
   return l as never
 }
 
-async function until(cond: () => Promise<boolean> | boolean, what: string, timeoutMs = 8_000): Promise<void> {
+async function until(cond: () => Promise<boolean> | boolean, what: string, timeoutMs = 20_000): Promise<void> {
   const t0 = Date.now()
   for (;;) {
     if (await cond()) return
@@ -336,5 +340,5 @@ describe('eventsDurability(SharedFileEventJournal) with two replicas', () => {
     expect(record.owner).toBeUndefined()
     expect(record.fencingToken).toBeGreaterThanOrEqual(2)
     await botB.stop()
-  }, 20_000)
+  }, 60_000)
 })

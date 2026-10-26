@@ -91,8 +91,18 @@ function compileUtterance(raw: string): CompiledUtterance {
   const slotNames: string[] = []
   const withSlots: string[] = []
   const withoutSlots: string[] = []
+  let previousSlot: string | undefined
   for (const seg of raw.split(SLOT_SPLITTER)) {
+    if (seg === '') continue
     const m = SLOT_SEGMENT.exec(seg)
+    if (m && previousSlot !== undefined) {
+      // `(\S+)(\S+)` is ambiguous (which token boundary?) and backtracks quadratically on a
+      // long token, so a crafted message could stall the chat queue.
+      throw new Error(
+        `IntentEngine.define: utterance ${JSON.stringify(raw)} has adjacent slots {${previousSlot}}{${m[1]}}; separate them with a space or a word`,
+      )
+    }
+    previousSlot = m ? m[1] : undefined
     if (m) {
       slotNames.push(m[1])
       withSlots.push(seg)
@@ -109,13 +119,32 @@ function compileUtterance(raw: string): CompiledUtterance {
     // Build the pattern from the loose-normalized segments directly (a full
     // normalizeText pass would strip the `{` `}` markers that delimit slots).
     const body = withSlots
-      .map((seg) => (SLOT_SEGMENT.test(seg) ? '(\\S+)' : escapeRegExp(seg)))
+      .map((seg, i) => {
+        if (!SLOT_SEGMENT.test(seg)) return escapeRegExp(seg)
+        // A slot glued to the next slot by a literal with no whitespace (`{qty}x{item}`) would
+        // compile to `(\S+)x(\S+)`, which backtracks quadratically on one long token. Stop the
+        // slot at the literal's first character instead: linear, and that slot never contains
+        // the separator (the ambiguous case anyway).
+        const glue = withSlots[i + 1]
+        const following = withSlots[i + 2]
+        if (glue !== undefined && following !== undefined && SLOT_SEGMENT.test(following) && /^\S+$/u.test(glue)) {
+          return `([^\\s${escapeRegExp(String.fromCodePoint(glue.codePointAt(0) as number))}]+)`
+        }
+        return '(\\S+)'
+      })
       .join('')
       .trim()
       .replace(/\s+/g, '\\s+')
     regex = new RegExp(`^${body}$`, 'u')
   }
   return { normalized, tokens, slotNames, regex }
+}
+
+function checkThreshold(threshold: unknown): number {
+  if (typeof threshold !== 'number' || Number.isNaN(threshold) || threshold < 0 || threshold > 1) {
+    throw new Error(`IntentEngine: threshold must be a number in [0, 1], got ${String(threshold)}`)
+  }
+  return threshold
 }
 
 /**
@@ -127,11 +156,7 @@ export class IntentEngine {
   private readonly defaultThreshold: number
 
   constructor(options: IntentEngineOptions = {}) {
-    const threshold = options.threshold ?? 0.5
-    if (typeof threshold !== 'number' || Number.isNaN(threshold) || threshold < 0 || threshold > 1) {
-      throw new Error(`IntentEngine: threshold must be a number in [0, 1], got ${String(threshold)}`)
-    }
-    this.defaultThreshold = threshold
+    this.defaultThreshold = checkThreshold(options.threshold ?? 0.5)
   }
 
   /** Minimum confidence `match()` requires (constructor value). */
@@ -172,6 +197,7 @@ export class IntentEngine {
    * earliest-defined intent.
    */
   match(text: string, threshold: number = this.defaultThreshold): IntentMatch | null {
+    checkThreshold(threshold)
     const best = this.rank(text)[0]
     return best && best.confidence >= threshold ? best : null
   }

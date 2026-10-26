@@ -230,3 +230,35 @@ describe('whenDialogflowIntent — flow identity', () => {
     await bot.stop()
   })
 })
+
+describe('dialogflowPlugin — hostile parameters and foreign flow builders', () => {
+  it('never lets a "__proto__" parameter change the prototype of c.state', async () => {
+    const google = new FakeGoogle()
+    google.detect = () => ({ json: esResponse('book.table', JSON.parse('{"__proto__":{"polluted":"yes"},"constructor":"x","people":3}') as Record<string, unknown>) })
+    const { bot, chat } = await createTestBot()
+    bot.plug(dialogflowPlugin({ credentials, http: google.http }))
+    const df = bot.injectTools.dialogflow!
+    whenDialogflowIntent(bot, df, 'book.table', flow('booking').say((_ctx, c) =>
+      `people=${String(c.state.people)} polluted=${String((c.state as Record<string, unknown>).polluted)} proto=${Object.getPrototypeOf(c.state) === Object.prototype}`))
+    whenDialogflowIntent(bot, df, 'book.table', flow('nested').say((_ctx, c) => `nested=${String(Object.getPrototypeOf(c.state.p) === Object.prototype)}`), { stateKey: 'p', minConfidence: 2 })
+    await chat.send('reservar')
+    await chat.expectReply('people=3 polluted=undefined proto=true')
+    await bot.stop()
+  })
+
+  it('accepts a flow builder from another copy of @botmesh/core (no instanceof)', async () => {
+    const { bot, chat, df } = await setup()
+    const compiled = flow('foreign').say('reserva foránea').compile()
+    const foreignBuilder = { compile: () => compiled } as unknown as ReturnType<typeof flow>
+    whenDialogflowIntent(bot, df, 'book.table', foreignBuilder)
+    await chat.send('reservar')
+    await chat.expectReply('reserva foránea')
+    await bot.stop()
+  })
+
+  it('rejects a target that is neither a handler nor a flow with a clear error', async () => {
+    const { bot, df } = await setup()
+    expect(() => whenDialogflowIntent(bot, df, 'x', 'nope' as never)).toThrow(/handler function, a flow\(\) builder or a compiled flow/)
+    await bot.stop()
+  })
+})

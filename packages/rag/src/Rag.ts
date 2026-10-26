@@ -92,7 +92,7 @@ export class Rag {
   private readonly chunking: Required<ChunkOptions>
   private readonly topK: number
   private readonly minScore: number
-  /** Vectors from the persisted index, by chunk-text hash (reused on rebuild). */
+  /** Vectors of the indexed chunks (and, while ingesting, of the persisted index), by chunk-text hash. */
   private cache = new Map<string, number[]>()
   private init?: Promise<void>
   /** Last failed ingest (drives the retrieve() fail-fast window). */
@@ -167,6 +167,7 @@ export class Rag {
     if (configured.length === 0) {
       // No corpus configured: serve the persisted index as-is (prebuilt index).
       if (usable) this.index = usable
+      this.pruneCache()
       return
     }
     const docs = await this.loadDocuments(configured)
@@ -178,7 +179,17 @@ export class Rag {
     if (usable) next.upsert(usable.all().filter((e) => e.runtime && !configuredIds.has(e.docId)))
     const changed = embedded > 0 || !usable || usable.size !== next.size || next.all().some((e) => usable.get(e.id)?.hash !== e.hash)
     this.index = next
+    this.pruneCache()
     if (changed) await this.persist()
+  }
+
+  /**
+   * Keep only the vectors of chunks still in the index: a replaced or removed chunk's vector
+   * is dropped, so memory follows the index (a document re-added later is embedded again).
+   */
+  private pruneCache(): void {
+    const live = new Set(this.index.all().map((e) => e.hash))
+    for (const hash of this.cache.keys()) if (!live.has(hash)) this.cache.delete(hash)
   }
 
   private async loadDocuments(items: ReadonlyArray<string | RagDocument>): Promise<RagDocument[]> {
@@ -227,6 +238,7 @@ export class Rag {
       const ids = new Set(valid.map((d) => d.id))
       this.index.removeWhere((e) => ids.has(e.docId))
       this.index.upsert(entries)
+      this.pruneCache()
       await this.persist()
       return entries.length
     })
@@ -250,6 +262,7 @@ export class Rag {
     await this.ready()
     return this.serial(async () => {
       const n = this.index.removeWhere((e) => e.docId === id)
+      if (n > 0) this.pruneCache()
       if (n > 0) await this.persist()
       return n > 0
     })

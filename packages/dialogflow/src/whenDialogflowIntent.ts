@@ -9,8 +9,8 @@
  */
 
 import {
-  FlowBuilder,
   isCompiledFlow,
+  type FlowBuilder,
   type Bot,
   type CompiledFlow,
   type CompiledStep,
@@ -32,6 +32,24 @@ export interface WhenDialogflowIntentOptions {
   stateKey?: string
 }
 
+/** Keys that would reach an object's prototype when assigned. */
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
+/**
+ * The parameters as a plain object without prototype-reaching keys: they come from a remote
+ * service, and `Object.assign` with an own `__proto__` key would replace c.state's prototype.
+ */
+function safeParameters(parameters: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(parameters)) if (!UNSAFE_KEYS.has(key)) out[key] = value
+  return out
+}
+
+/** A flow() builder, of this or another copy of @botmesh/core (so no `instanceof`). */
+function isFlowBuilder(x: unknown): x is FlowBuilder {
+  return typeof x === 'object' && x !== null && typeof (x as { compile?: unknown }).compile === 'function'
+}
+
 /**
  * Prepend a step that copies the matched parameters into `c.state`.
  *
@@ -47,8 +65,8 @@ export function withDialogflowState(flow: CompiledFlow, df: DialogflowContext, s
     fn: (ctx, c) => {
       const result = df.resultFor(ctx)
       if (!result) return
-      if (stateKey) c.state[stateKey] = { ...result.parameters }
-      else Object.assign(c.state, result.parameters)
+      if (stateKey) c.state[stateKey] = safeParameters(result.parameters)
+      else Object.assign(c.state, safeParameters(result.parameters))
     },
   }
   const id = `${flow.id}#dialogflow${stateKey ? `:${stateKey}` : ''}`
@@ -78,8 +96,11 @@ export function whenDialogflowIntent(
   const predicate = (c: { body: string; isGroup: boolean }) => df.matches(df.resultFor(c), intents, opts.minConfidence)
 
   let unsub: () => void
-  if (target instanceof FlowBuilder || isCompiledFlow(target)) {
-    const compiled = target instanceof FlowBuilder ? target.compile() : target
+  if (typeof target !== 'function') {
+    if (!isFlowBuilder(target) && !isCompiledFlow(target)) {
+      throw new TypeError(`whenDialogflowIntent(${JSON.stringify(intents)}): target must be a handler function, a flow() builder or a compiled flow`)
+    }
+    const compiled = isFlowBuilder(target) ? target.compile() : target
     unsub = bot.when(predicate, withDialogflowState(compiled, df, opts.stateKey))
   } else {
     const handler = target
