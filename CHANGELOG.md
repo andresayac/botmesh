@@ -4,6 +4,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### `@botmesh/otel`: revisión como usuario exigente y atacante (2026-10)
+- **Cubetas de histograma acordes a su unidad.** Los histogramas en segundos usaban las cubetas por defecto del SDK (0 a 10000, pensadas para milisegundos): toda latencia caía en la primera y los percentiles no servían. Ahora llevan *advice* con límites propios: de 5 ms a 10 s para `botmesh.inbound/dispatch/send/lifecycle.duration` y `botmesh.queue.wait`, las cubetas de las convenciones semánticas de GenAI para `gen_ai.client.operation.duration` y `gen_ai.client.token.usage`, y de 1 s a 1 día para `botmesh.conversation.duration`. Una `View` del SDK sigue mandando. Comprobado de punta a punta contra un OpenTelemetry Collector real (exportador Prometheus) y un Jaeger v2 en Docker.
+- Las métricas derivadas de spans respetan `startTimeMs`/`endTimeMs` (antes medían siempre desde la creación del objeto).
+- Un `prefix` (o `spanMetrics.prefix`) inválido lanza un `TypeError` que dice qué caracteres se admiten, en lugar de crear instrumentos que el SDK solo avisa por su logger de diagnóstico.
+- `otelMetricsPlugin()` sin `api` inyectado ya no provoca un *unhandled rejection* (que tumba el proceso) si el puente falla al registrarse tras cargar `@opentelemetry/api`: se registra en el logger del plugin.
+- Guías de trazas (EN/ES): el `NodeSDK` del ejemplo usa `metricReaders: [reader]` (las versiones actuales de `@opentelemetry/sdk-node` ya no aceptan `metricReader`), y la tabla de opciones documenta `api` y `meterName`.
+
 ### Integración de los 26 paquetes promovidos en `main` (2026-10)
 - Las siete rondas de promoción (canales de Meta, gateways REST de WhatsApp, canales, stores, infra, plugins y tooling) quedan integradas: 36 paquetes públicos (los 10 de la alpha y 26 que salen por primera vez con la beta como `1.0.0-beta.0`) y 9 privados (`tiktok`, `manager`, `sandbox` y los paquetes de producto). README, `AGENTS.md`, `CONTRIBUTING.md`, `llms.txt`, `api-check`, `pack:smoke` y las guías de canales, producción, seguridad, plugins y notas de actualización (EN/ES) usan la misma lista.
 - Se quitan las notas de "aún no está en npm" / "privado" que quedaban sobre paquetes ya públicos en las guías y en los ejemplos de RAG, webhook de la Cloud API y handoff humano (EN/ES).
