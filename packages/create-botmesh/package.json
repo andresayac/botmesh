@@ -5,7 +5,10 @@
   "description": "Scaffold a new @botmesh bot project (npm create botmesh).",
   "main": "lib/index.js", "types": "lib/index.d.ts",
   "bin": { "create-botmesh": "lib/cli.js" },
-  "exports": { ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" } },
+  "exports": {
+    ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" },
+    "./internal": { "types": "./lib/internal.d.ts", "default": "./lib/internal.js" }
+  },
   "engines": { "node": ">=22" },
   "keywords": ["botmesh", "cli", "scaffolder", "create"],
   "author": "Andres Aya", "license": "MIT",

@@ -48,7 +48,21 @@ export type SecureHttpErrorCode =
 
 export type HostResolver = (hostname: string) => Promise<readonly string[]>
 
-export interface SecureFetchOptions extends RequestInit {
+/**
+ * Options of {@link secureFetch} and {@link fetchBuffer}: the request fields the client
+ * honours plus its safety policy. A closed set: it no longer extends `RequestInit`, whose
+ * `redirect` the client always overrides (redirects are followed by hand and validated hop
+ * by hop; tune them with `maxRedirects`) and whose browser-only fields mean nothing here.
+ */
+export interface SecureFetchOptions {
+  /** HTTP method (default `GET`). */
+  method?: string
+  /** Request headers. Credential headers are dropped when a redirect changes origin. */
+  headers?: RequestInit['headers']
+  /** Request body. A 303 (or a 301/302 after a POST) continues as a body-less `GET`. */
+  body?: RequestInit['body']
+  /** Aborts the request; it rejects with the signal's `reason`. */
+  signal?: AbortSignal | null
   /** Reject plain HTTP unless this is explicitly enabled. Defaults to false. */
   allowHttp?: boolean
   /** Permit loopback/private/link-local destinations. Intended only for tests or controlled networks. */
@@ -59,7 +73,7 @@ export interface SecureFetchOptions extends RequestInit {
   maxBytes?: number
   /** Number of redirect hops permitted. Defaults to 3. */
   maxRedirects?: number
-  /** Override DNS resolution for tests or controlled egress gateways. */
+  /** Override DNS resolution for tests or controlled egress gateways (default {@link resolveHost}). */
   resolver?: HostResolver
   /**
    * Override fetch (tests, instrumentation, Node's global `fetch`). Every URL and
@@ -71,6 +85,16 @@ export interface SecureFetchOptions extends RequestInit {
   fetch?: typeof globalThis.fetch
 }
 
+/**
+ * {@link SecureFetchOptions} plus the other `RequestInit` fields (`cache`, `keepalive`,
+ * `integrity`...), which are still forwarded to `fetch` as they were when the options
+ * extended `RequestInit`. `redirect` is not among them: it was always overridden.
+ *
+ * @deprecated Pass only {@link SecureFetchOptions}. The extra fields stop being accepted
+ * at stable; open an issue if one of them matters to you.
+ */
+export type LegacySecureFetchOptions = SecureFetchOptions & Omit<RequestInit, keyof SecureFetchOptions | 'redirect'>
+
 export interface SecureFetchResponse {
   url: URL
   response: Response
@@ -81,14 +105,20 @@ export interface SecureFetchResponse {
  * Fetch a URL only after validating its protocol, hostname and DNS results.
  * Redirects are followed manually, so every target gets the same validation.
  */
-export async function secureFetch(input: string | URL, options: SecureFetchOptions = {}): Promise<SecureFetchResponse> {
+export function secureFetch(input: string | URL, options?: SecureFetchOptions): Promise<SecureFetchResponse>
+/**
+ * @deprecated Extra `RequestInit` fields: pass only {@link SecureFetchOptions} (see
+ * {@link LegacySecureFetchOptions}).
+ */
+export function secureFetch(input: string | URL, options: LegacySecureFetchOptions): Promise<SecureFetchResponse>
+export async function secureFetch(input: string | URL, options: LegacySecureFetchOptions = {}): Promise<SecureFetchResponse> {
   const {
     allowHttp = false,
     allowPrivateHosts = false,
     timeoutMs = 15_000,
     maxBytes = 16 * 1024 * 1024,
     maxRedirects = 3,
-    resolver = resolvePublicHost,
+    resolver = resolveHost,
     fetch: fetchImpl = defaultFetch,
     signal: parentSignal,
     ...init
@@ -231,7 +261,13 @@ function rewritesToGet(status: number, method: string): boolean {
  * {@link secureFetch} that returns only the body and rejects a non-2xx final
  * response with a `HTTP_STATUS` {@link SecureHttpError} carrying its `status`.
  */
-export async function fetchBuffer(input: string | URL, options: SecureFetchOptions = {}): Promise<Buffer> {
+export function fetchBuffer(input: string | URL, options?: SecureFetchOptions): Promise<Buffer>
+/**
+ * @deprecated Extra `RequestInit` fields: pass only {@link SecureFetchOptions} (see
+ * {@link LegacySecureFetchOptions}).
+ */
+export function fetchBuffer(input: string | URL, options: LegacySecureFetchOptions): Promise<Buffer>
+export async function fetchBuffer(input: string | URL, options: LegacySecureFetchOptions = {}): Promise<Buffer> {
   const result = await secureFetch(input, options)
   if (!result.response.ok) throw new SecureHttpError(`request failed: HTTP ${result.response.status}`, 'HTTP_STATUS', { status: result.response.status })
   return result.body
@@ -250,7 +286,7 @@ export async function assertSafeTarget(
   // Resolve once and return the addresses so the caller can PIN the connection
   // to a validated IP (defeating DNS rebinding). We resolve even when private
   // hosts are allowed, purely to have something to pin to.
-  const addresses = await (options.resolver ?? resolvePublicHost)(url.hostname)
+  const addresses = await (options.resolver ?? resolveHost)(url.hostname)
   if (options.allowPrivateHosts) return addresses
 
   if (isPrivateAddress(url.hostname)) throw new SecureHttpError(`blocked private host: ${url.hostname}`, 'UNSAFE_HOST')
@@ -298,10 +334,21 @@ export function isAllowedHostUrl(url: unknown, policy: HostAllowList): url is st
   })
 }
 
-export async function resolvePublicHost(hostname: string): Promise<readonly string[]> {
+/**
+ * Resolve every address of `hostname` with the system resolver (`dns.lookup`, all
+ * families). It does not judge them: {@link assertSafeTarget} rejects private answers.
+ * The default `resolver` of {@link secureFetch}.
+ */
+export async function resolveHost(hostname: string): Promise<readonly string[]> {
   const records = await lookup(hostname, { all: true, verbatim: true })
   return records.map((record) => record.address)
 }
+
+/**
+ * @deprecated Renamed {@link resolveHost}: it resolves any host and never filtered out
+ * private addresses (that is {@link assertSafeTarget}'s job), so the old name misled.
+ */
+export const resolvePublicHost: HostResolver = resolveHost
 
 export function isPrivateAddress(address: string): boolean {
   // A fully-qualified name (`localhost.`) is the same host as without the dot.

@@ -6,8 +6,9 @@ Shared **Meta Graph** helpers for the Meta transports of [`@botmesh/core`](https
 return the same Graph error codes; this package gathers that logic in one place so it is not
 duplicated in every provider.
 
-> **Internal package.** The providers use it; you do not need to import it to build a bot. It is
-> published as a dependency of `@botmesh/meta` under the `alpha` dist-tag.
+> **Shared package.** The providers use it; you do not need to import it to build a bot. It is
+> published as a dependency of `@botmesh/meta` under the `alpha` dist-tag. Its exports are public API
+> and are covered by semver like any other public `@botmesh` package: a breaking change is a major bump.
 
 ## Installation
 
@@ -24,7 +25,7 @@ No extra dependencies: only `@botmesh/core` and Node ≥ 22's native `crypto`.
 | `DEFAULT_GRAPH_API_VERSION` | The Graph API version the Meta providers call by default (`'v26.0'`). It follows Meta's current version and can move in a minor release; pin `apiVersion` on the provider to stay on one. |
 | `verifyChallenge(query, verifyToken)` | Webhook `GET` handshake. Returns the `hub.challenge` to answer (HTTP 200) or `null` when the token does not match (answer 403). |
 | `verifySignature(rawBody, header, appSecret)` | Verifies `X-Hub-Signature-256` = HMAC-SHA256 of the body with the app secret, in constant time. `false` when the secret or header is missing, or they do not match. |
-| `checkGraphSignature(body, headers, appSecret, logger?)` | Ingest guard: `{ ok: true }` or `{ ok: false, status }`. With an `appSecret` it requires the **raw** body (`string`/`Buffer`/`Uint8Array`) and rejects an already-parsed one with `400`; an invalid signature gives `403`. |
+| `checkGraphSignature({ body, headers, appSecret, logger })` | Ingest guard: `{ ok: true }` or `{ ok: false, status }`. With an `appSecret` it requires the **raw** body (`string`/`Buffer`/`Uint8Array`) and rejects an already-parsed one with `400`; an invalid signature gives `403`. The positional form `(body, headers, appSecret, logger?)` still works and is deprecated. |
 | `tryParseGraphBody<T>(body)` | Like `parseGraphBody`, but never throws: `{ ok: true, body }` or `{ ok: false, status: 400 }` when the body is not a JSON object. Use it in `ingest()` to answer 400 to a malformed body. |
 | `parseGraphBody<T>(body)` | Turns the body (string, `Buffer`/`Uint8Array` or an already-parsed object) into `T`. Throws `SyntaxError` when the raw body is not JSON. |
 | `toGraphError(err, { chatId?, retryAfterMs?, contentKind? })` | Translates a Graph error into the core's `ProviderError` subclasses. |
@@ -43,7 +44,7 @@ const challenge = verifyChallenge(query, process.env.META_VERIFY_TOKEN!)
 // challenge === null → 403
 
 // POST /webhook: verify the signature and parse
-const sig = checkGraphSignature(rawBody, headers, process.env.META_APP_SECRET, logger)
+const sig = checkGraphSignature({ body: rawBody, headers, appSecret: process.env.META_APP_SECRET, logger })
 if (!sig.ok) return sig.status // 400 (body not raw) or 403 (invalid signature)
 const parsed = tryParseGraphBody<MyWebhookBody>(rawBody)
 if (!parsed.ok) return parsed.status // 400: not a JSON object

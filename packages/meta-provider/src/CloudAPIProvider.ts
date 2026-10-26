@@ -316,7 +316,7 @@ export class CloudAPIProvider implements IProvider<unknown> {
    * emitted once it settles, preserving webhook order.
    */
   ingest(body: unknown, headers?: Record<string, string | string[] | undefined>): number {
-    const sig = checkGraphSignature(body, headers, this.config.appSecret, this.logger)
+    const sig = checkGraphSignature({ body, headers, appSecret: this.config.appSecret, logger: this.logger })
     if (!sig.ok) return sig.status
     const parsed = tryParseGraphBody<GraphWebhookBody>(body)
     if (!parsed.ok) {

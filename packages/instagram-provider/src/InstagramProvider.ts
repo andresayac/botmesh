@@ -162,7 +162,7 @@ export class InstagramProvider implements IProvider<unknown> {
    * a JSON object answers 400 instead of throwing.
    */
   ingest(body: unknown, headers?: Record<string, string | string[] | undefined>): number {
-    const sig = checkGraphSignature(body, headers, this.config.appSecret, this.logger)
+    const sig = checkGraphSignature({ body, headers, appSecret: this.config.appSecret, logger: this.logger })
     if (!sig.ok) return sig.status
     const parsed = tryParseGraphBody<IgWebhookBody>(body)
     if (!parsed.ok) {

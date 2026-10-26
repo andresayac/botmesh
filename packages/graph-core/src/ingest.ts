@@ -15,6 +15,25 @@ export type GraphSignatureResult =
   | { ok: true }
   | { ok: false; status: number }
 
+/** Headers as Node's `IncomingMessage` (or most frameworks) hand them over. */
+export type GraphWebhookHeaders = Record<string, string | string[] | undefined>
+
+/** Input of {@link checkGraphSignature}. */
+export interface GraphSignatureOptions {
+  /**
+   * The request body exactly as received: a `string`, `Buffer`, `Uint8Array` or
+   * `ArrayBuffer`. An already-parsed object is rejected (400) when `appSecret` is set,
+   * because Meta signs the bytes it sent and re-serialization is not equivalent.
+   */
+  body: unknown
+  /** Request headers; `X-Hub-Signature-256` is read case-insensitively. */
+  headers?: GraphWebhookHeaders
+  /** The app secret. Without it the request passes (local development only). */
+  appSecret?: string
+  /** Receives a warning when a request is rejected. */
+  logger?: GraphIngestLogger
+}
+
 /**
  * Verify an inbound webhook's signature when `appSecret` is configured.
  *
@@ -24,11 +43,32 @@ export type GraphSignatureResult =
  *   A non-raw (already-parsed) body is rejected because Meta signs the exact
  *   bytes it sent and re-serialization is not equivalent.
  */
+export function checkGraphSignature(options: GraphSignatureOptions): GraphSignatureResult
+/**
+ * @deprecated Pass one options object: `checkGraphSignature({ body, headers, appSecret, logger })`.
+ * The positional form stays until the next major.
+ */
 export function checkGraphSignature(
   body: unknown,
-  headers: Record<string, string | string[] | undefined> | undefined,
+  headers: GraphWebhookHeaders | undefined,
   appSecret: string | undefined,
   logger?: GraphIngestLogger,
+): GraphSignatureResult
+export function checkGraphSignature(
+  ...args: [GraphSignatureOptions] | [unknown, GraphWebhookHeaders | undefined, string | undefined, GraphIngestLogger?]
+): GraphSignatureResult {
+  // One argument is the options object; two or more are the positional form, whatever the body is.
+  const { body, headers, appSecret, logger } = args.length === 1
+    ? (args[0] ?? { body: undefined })
+    : { body: args[0], headers: args[1], appSecret: args[2], logger: args[3] }
+  return verifyGraphSignature(body, headers, appSecret, logger)
+}
+
+function verifyGraphSignature(
+  body: unknown,
+  headers: GraphWebhookHeaders | undefined,
+  appSecret: string | undefined,
+  logger: GraphIngestLogger | undefined,
 ): GraphSignatureResult {
   if (!appSecret) return { ok: true }
   const raw = rawBodyOf(body)
@@ -49,7 +89,7 @@ export function checkGraphSignature(
 }
 
 /** Case-insensitive header read (hosts may hand over `X-Hub-Signature-256` as sent). */
-function headerValue(headers: Record<string, string | string[] | undefined> | undefined, name: string): string | string[] | undefined {
+function headerValue(headers: GraphWebhookHeaders | undefined, name: string): string | string[] | undefined {
   if (!headers) return undefined
   if (headers[name] !== undefined) return headers[name]
   for (const [key, value] of Object.entries(headers)) if (key.toLowerCase() === name) return value

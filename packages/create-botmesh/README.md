@@ -126,6 +126,11 @@ console.log(result.files) // ['package.json', 'src/bot.js', '.env.example', '.gi
 
 It refuses to write into a non-empty target directory unless `overwrite: true` is passed.
 
+The main entry (`scaffold`, `sanitizeName`, `getTemplate`, `TEMPLATE_NAMES`) is covered by semver. The template
+table, the AGENTS.md renderer and the monorepo probe (`TEMPLATES`, `agentsMd`, `findBotMeshMonorepo`) live in
+`create-botmesh/internal`, which has no semver promise; the main entry still re-exports them as deprecated until
+stable. Use `getTemplate(name)` instead of `TEMPLATES[name]`.
+
 ## Development
 
 ```bash

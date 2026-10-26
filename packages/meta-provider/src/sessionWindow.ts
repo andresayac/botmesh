@@ -148,6 +148,7 @@ export interface SessionReport {
   error?: unknown
 }
 
+/** Configuration of a {@link SessionWindowManager} (`CloudAPIProvider`'s `sessionWindow` option). */
 export interface SessionWindowOptions {
   /**
    * Window state store. Default: bounded {@link MemorySessionWindowStore}. May
@@ -220,7 +221,11 @@ export class SessionWindowReopenedError extends OutsideSessionWindowError {
   }
 }
 
-/** The underlying (unmanaged) send the manager wraps. */
+/**
+ * The underlying (unmanaged) send the manager wraps.
+ *
+ * @experimental Provider plumbing (see {@link SessionWindowManager.send}): outside semver.
+ */
 export type RawSend = (chatId: ChatId, content: OutboundContent, options?: SendOptions) => Promise<SendResult<unknown>>
 
 interface PendingSend {
@@ -251,6 +256,14 @@ interface PendingChat {
 
 /* --- Manager -------------------------------------------------------------- */
 
+/**
+ * The 24 h window of one business number (see the module comment). Apps create it
+ * (or let `CloudAPIProvider` create it from {@link SessionWindowOptions}), share it
+ * with {@link SessionWindowManager.forScope} and query it (`state`, `isOpen`,
+ * `expiresAt`, `pending`, `clearPending`); that surface is covered by semver.
+ * The provider drives it through `send`, `noteInbound` and `noteFailedStatus`,
+ * which are `@experimental` plumbing.
+ */
 export class SessionWindowManager {
   readonly store: SessionWindowStore
   readonly windowMs: number
@@ -390,6 +403,9 @@ export class SessionWindowManager {
   /**
    * Record an inbound message from the user (opens the window) and retry the
    * chat's queued sends through `rawSend`. `at` is epoch ms (default now).
+   *
+   * @experimental Provider plumbing: `CloudAPIProvider` calls it for every inbound
+   * message. Outside semver; apps should not call it.
    */
   async noteInbound(chatId: ChatId, rawSend: RawSend, at?: number): Promise<void> {
     const when = this.at(at)
@@ -439,7 +455,13 @@ export class SessionWindowManager {
 
   /* Sending -------------------------------------------------------------- */
 
-  /** Send through `rawSend`, reopening + queueing when the window is closed. */
+  /**
+   * Send through `rawSend`, reopening + queueing when the window is closed.
+   *
+   * @experimental Provider plumbing: `CloudAPIProvider.send()` calls it after uploading
+   * one-shot media once (the content must be replayable). Outside semver; send through
+   * the provider or the bot instead.
+   */
   async send(chatId: ChatId, content: OutboundContent, options: SendOptions | undefined, rawSend: RawSend): Promise<SendResult<unknown>> {
     // Templates are allowed outside the window; they are the way back in.
     if (content.kind === 'template') return rawSend(chatId, content, options)
@@ -482,6 +504,9 @@ export class SessionWindowManager {
    * as of the earlier of `at` and the failed message's send time, so a late or
    * replayed 131047 about a message sent before the user's latest reply does
    * not close the window that reply opened; that content is resent right away.
+   *
+   * @experimental Provider plumbing: `CloudAPIProvider` calls it for `failed` statuses.
+   * Outside semver; apps should not call it.
    */
   async noteFailedStatus(chatId: ChatId, messageId: string, code: number | string | undefined, rawSend: RawSend, at?: number): Promise<void> {
     if (Number(code) !== SESSION_WINDOW_ERROR_CODE) return
