@@ -493,8 +493,9 @@ const provider = new GupshupProvider({
 // POST /gupshup → res.sendStatus(provider.ingestRequest({ url: req.originalUrl, body, headers }))
 ```
 
-- Buttons go out as quick replies (up to 3), then as a list (up to 10),
-  then as numbered text; lists are native up to 10 rows.
+- Buttons go out as quick replies (up to 3), then as a list (up to 10;
+  its button reads `listButtonText`, `'Opciones'` by default), then as
+  numbered text; lists are native up to 10 rows.
 - `chatId` = the sender's phone digits (no `+`), exactly what the send API
   expects.
 - Media only from public URLs. Gupshup also documents IP allow-listing: do

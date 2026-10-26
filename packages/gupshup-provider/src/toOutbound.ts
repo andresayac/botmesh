@@ -52,7 +52,13 @@ function listMessage(text: string, buttonText: string, sections: ListSection[], 
   }
 }
 
-function buttonsMessage(text: string, buttons: Button[], footer?: string): Record<string, unknown> {
+/** Options of {@link toOutbound}. */
+export interface GupshupOutboundOptions {
+  /** Label of the list button when 4-10 reply buttons go out as a list. Default `'Opciones'`. */
+  listButtonText?: string
+}
+
+function buttonsMessage(text: string, buttons: Button[], footer?: string, listButtonText = 'Opciones'): Record<string, unknown> {
   if (buttons.length <= MAX_QUICK_REPLIES && buttons.every((b) => !b.url)) {
     return {
       type: 'quick_reply',
@@ -61,7 +67,7 @@ function buttonsMessage(text: string, buttons: Button[], footer?: string): Recor
     }
   }
   if (buttons.length <= MAX_LIST_ROWS && buttons.every((b) => !b.url)) {
-    return listMessage(text, 'Opciones', [{ rows: buttons.map((b) => ({ id: b.id, title: b.title })) }], footer)
+    return listMessage(text, listButtonText, [{ rows: buttons.map((b) => ({ id: b.id, title: b.title })) }], footer)
   }
   return { type: 'text', text: numberedText(text, buttons, footer) }
 }
@@ -75,7 +81,7 @@ function templateParams(components: unknown): string[] {
   throw new UnsupportedContentError('template', 'Gupshup template components must be a params array (or { params: [...] })')
 }
 
-export function toOutbound(content: OutboundContent): GupshupOutbound {
+export function toOutbound(content: OutboundContent, options: GupshupOutboundOptions = {}): GupshupOutbound {
   const msg = (message: Record<string, unknown>): GupshupOutbound => ({ endpoint: 'msg', message })
   switch (content.kind) {
     case 'text':
@@ -112,7 +118,7 @@ export function toOutbound(content: OutboundContent): GupshupOutbound {
         },
       })
     case 'buttons':
-      return msg(buttonsMessage(content.text, content.buttons, content.footer))
+      return msg(buttonsMessage(content.text, content.buttons, content.footer, options.listButtonText))
     case 'list':
       if (content.sections.reduce((n, s) => n + s.rows.length, 0) > MAX_LIST_ROWS) {
         return msg({ type: 'text', text: numberedText(content.text, content.sections.flatMap((s) => s.rows), content.footer) })

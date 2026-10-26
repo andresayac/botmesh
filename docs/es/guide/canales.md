@@ -511,7 +511,8 @@ const provider = new GupshupProvider({
 ```
 
 - Los botones salen como quick replies (hasta 3), después como lista (hasta
-  10) y después como texto numerado; las listas son nativas hasta 10 filas.
+  10; su botón dice `listButtonText`, `'Opciones'` por defecto) y después
+  como texto numerado; las listas son nativas hasta 10 filas.
 - `chatId` = los dígitos del teléfono del remitente (sin `+`), justo lo que
   espera la API de envío.
 - Media solo desde URLs públicas. Gupshup también documenta restringir por

@@ -175,7 +175,7 @@ export class GupshupProvider implements IProvider<GupshupCallback> {
 
   async send(chatId: ChatId, content: OutboundContent, options?: SendOptions): Promise<SendResult<GupshupCallback>> {
     if (options?.quoted) this.logger.debug('Gupshup v1 send API has no reply context; ignoring options.quoted')
-    const out = toOutbound(content)
+    const out = toOutbound(content, this.config.listButtonText !== undefined ? { listButtonText: this.config.listButtonText } : {})
     const form = new URLSearchParams()
     form.append('channel', 'whatsapp')
     form.append('source', this.config.source)

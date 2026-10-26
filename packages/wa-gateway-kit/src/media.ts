@@ -44,6 +44,24 @@ async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
 }
 
 /**
+ * Read a local media file. A path that cannot be read rejects with an
+ * `UnsupportedContentError` that names it and the cause (`ENOENT`, `EACCES`…),
+ * the original error as `cause`, instead of a raw filesystem error.
+ */
+export async function readLocalMedia(kind: OutboundContent['kind'], path: string): Promise<Buffer> {
+  try {
+    return await readFile(path)
+  } catch (err) {
+    const code = (err as { code?: string }).code
+    const shown = path.length > 80 ? `${path.slice(0, 80)}…` : path
+    throw Object.assign(
+      new UnsupportedContentError(kind, `${kind}: ${JSON.stringify(shown)} is neither an http(s) URL nor a readable file (${code ?? 'read failed'}). Pass a URL, a Buffer or { buffer }.`),
+      { cause: err },
+    )
+  }
+}
+
+/**
  * Resolve a {@link MediaSource}. `{ native: string }` is passed through as a
  * URL-or-base64 value the gateway understands natively.
  */
@@ -60,12 +78,12 @@ export async function resolveMedia(
   if (typeof source === 'string') {
     if (/^https?:\/\//i.test(source)) return { url: source, filename: opts.filename, mimetype: opts.mimetype }
     const filename = opts.filename ?? basename(source)
-    return inline(await readFile(source), filename)
+    return inline(await readLocalMedia(kind, source), filename)
   }
   if (Buffer.isBuffer(source)) return inline(source, opts.filename)
   if ('url' in source) return { url: source.url, filename: opts.filename, mimetype: opts.mimetype }
   if ('buffer' in source) return inline(source.buffer, opts.filename)
-  if ('path' in source) return inline(await readFile(source.path), opts.filename ?? basename(source.path))
+  if ('path' in source) return inline(await readLocalMedia(kind, source.path), opts.filename ?? basename(source.path))
   if ('stream' in source) return inline(await streamToBuffer(source.stream), opts.filename)
   if ('native' in source && typeof source.native === 'string') {
     return { url: source.native, filename: opts.filename, mimetype: opts.mimetype }

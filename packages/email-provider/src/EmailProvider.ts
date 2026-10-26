@@ -600,12 +600,12 @@ export class EmailProvider implements IProvider<EmailRaw> {
   private async resolveMedia(source: MediaSource, kind: OutboundContent['kind']): Promise<ResolvedMedia> {
     if (typeof source === 'string') {
       if (/^https?:\/\//i.test(source)) return this.fetchUrl(source, kind)
-      return { content: await readFile(source), filename: basename(source) }
+      return { content: await readLocalFile(kind, source), filename: basename(source) }
     }
     if (Buffer.isBuffer(source)) return { content: source }
     if ('url' in source) return this.fetchUrl(source.url, kind)
     if ('buffer' in source) return { content: source.buffer }
-    if ('path' in source) return { content: await readFile(source.path), filename: basename(source.path) }
+    if ('path' in source) return { content: await readLocalFile(kind, source.path), filename: basename(source.path) }
     if ('stream' in source) {
       const chunks: Buffer[] = []
       let total = 0
@@ -700,5 +700,23 @@ export class EmailProvider implements IProvider<EmailRaw> {
     }
     await this.tracker.recordOutbound(chatId, id, thread ? undefined : { counterpart: to, subject: baseSubject(subject) })
     return { ref: { id, chatId } }
+  }
+}
+
+/**
+ * Read a local attachment. A path that cannot be read rejects with an
+ * `UnsupportedContentError` naming it and the cause (`ENOENT`, `EACCES`…), the original
+ * error as `cause`, instead of a raw filesystem error.
+ */
+async function readLocalFile(kind: OutboundContent['kind'], path: string): Promise<Buffer> {
+  try {
+    return await readFile(path)
+  } catch (err) {
+    const code = (err as { code?: string }).code
+    const shown = path.length > 80 ? `${path.slice(0, 80)}…` : path
+    throw Object.assign(
+      new UnsupportedContentError(kind, `Email ${kind}: ${JSON.stringify(shown)} is neither an http(s) URL nor a readable file (${code ?? 'read failed'}). Pass a URL, a Buffer or { buffer }.`),
+      { cause: err },
+    )
   }
 }

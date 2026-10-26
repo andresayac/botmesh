@@ -33,6 +33,11 @@ export interface GupshupProviderConfig {
   http?: ProviderHttpOptions
   /** The bot's own id (defaults to `source`). */
   selfId?: string
+  /**
+   * Label of the list button when 4-10 reply buttons are sent as a WhatsApp list
+   * (WhatsApp shows at most 3 quick replies). Default `'Opciones'`; up to 20 characters.
+   */
+  listButtonText?: string
   debug?: boolean
   logger?: LoggerLike
 }
