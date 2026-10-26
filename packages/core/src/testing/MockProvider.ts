@@ -109,6 +109,8 @@ export interface MockProviderOptions {
   streaming?: StreamingMode
   /** `capabilities.maxTextLength` to simulate. Default: unset. */
   maxTextLength?: number
+  /** `capabilities.maxTextBytes` (UTF-8) to simulate. Default: unset. */
+  maxTextBytes?: number
   /** `capabilities.textFormat` to simulate (e.g. `'whatsapp'`). Default: unset. */
   textFormat?: TextFormat
   /**
@@ -166,6 +168,17 @@ export interface MockDraft {
   opts?: DraftOptions
 }
 
+/** Make `caps[flag]` read `present()` until something assigns it (then the assigned value). */
+function followMethod(caps: ProviderCapabilities, flag: 'typing' | 'readReceipts', present: () => boolean): void {
+  let assigned: boolean | undefined
+  Object.defineProperty(caps, flag, {
+    get: () => assigned ?? present(),
+    set: (value: boolean) => { assigned = value },
+    enumerable: true,
+    configurable: true,
+  })
+}
+
 export class MockProvider implements IProvider {
   readonly id = 'mock'
   readonly capabilities: ProviderCapabilities
@@ -203,14 +216,20 @@ export class MockProvider implements IProvider {
     this.capabilities = {
       contentKinds: buttons ? kinds : kinds.filter((k) => k !== 'buttons'),
       buttons, lists: true, polls: true, reactions: true, edit,
-      typing: true, presence: true, readReceipts: true, groups: true, templates: false,
+      typing: false, presence: true, readReceipts: false, groups: true, templates: false,
       interactionsRequireAck: false, pushIngress: false,
       streaming,
       forms: 'degraded',
       ...(options.maxTextLength !== undefined ? { maxTextLength: options.maxTextLength } : {}),
+      ...(options.maxTextBytes !== undefined ? { maxTextBytes: options.maxTextBytes } : {}),
       ...(options.textFormat !== undefined ? { textFormat: options.textFormat } : {}),
       ...(options.exclusiveSession !== undefined ? { exclusiveSession: options.exclusiveSession } : {}),
     }
+    // The mock has no typing()/markRead() seams: those flags follow the methods, so a subclass
+    // or a test that adds one (even after construction) gets the flag, and assigning the flag
+    // still overrides it (capabilities agree with the methods, see assertCapabilityContract).
+    followMethod(this.capabilities, 'typing', () => typeof (this as IProvider).typing === 'function')
+    followMethod(this.capabilities, 'readReceipts', () => typeof (this as IProvider).markRead === 'function')
     if (options.textFormatFor) this.textFormatFor = options.textFormatFor
     hideSeam(this, 'editMessage', supports.edit, edit)
     hideSeam(this, 'deleteMessage', supports.delete, supports.delete ?? streaming !== 'none')
@@ -328,7 +347,7 @@ export class MockProvider implements IProvider {
       from, sender: senderId, chatId: from, senderId,
       isGroup, isBroadcast: false, fromMe: false,
       type, body: type === 'text' ? text : text ?? '',
-      timestamp: Math.floor(Date.now() / 1000),
+      timestamp: Date.now(),
       mentions: opts.mentions ?? [],
       media,
       ...(opts.location ? { location: { ...opts.location } } : {}),
@@ -383,7 +402,7 @@ export class MockProvider implements IProvider {
         senderInfo: senderInfoOf(senderId, opts),
         from, sender: senderId, chatId: from, senderId,
         isGroup, kind: opts.kind ?? 'button', data,
-        timestamp: Math.floor(Date.now() / 1000),
+        timestamp: Date.now(),
         raw: {},
       },
     })

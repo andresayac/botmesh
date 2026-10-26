@@ -3,13 +3,16 @@
  * `after('send')` hooks, the outbound ledger, paced (delay + typing) replies, typing
  * indicators and the `ctx.stream()` primitives.
  */
+import { Buffer } from 'node:buffer'
 import { abortableSleep, randomId } from '../../utils/timers.js'
 import { isEditableSend, messagingSupport, type ReplyOptions } from '../messaging.js'
 import { RateLimitedError, type BuildContextDeps, type DraftOptions } from '../provider.js'
 import { toStoredError } from '../ledger.js'
 import { assertOutboundContent } from '../outboundCheck.js'
+import { splitMessage } from '../../streaming/split.js'
 import { isSendDeferred } from '../../durability/bind.js'
 import type { ChatId, MessageRef, OutboundContent, SendOptions, SendResult, SentMessage } from '../types.js'
+import type { TextFormat } from '../provider.js'
 import { assertCoordinated, type BotKernel } from './kernel.js'
 import { SPAN_NAMES, TRACE_ATTR } from '../../telemetry/attributes.js'
 import type { BotSpan } from '../../telemetry/types.js'
@@ -32,6 +35,19 @@ function shortRateLimit(error: unknown): number | undefined {
   return Number.isFinite(wait) && wait >= 0 && wait <= CTX_RATE_LIMIT_MAX_WAIT_MS ? wait : undefined
 }
 
+/** A usable text limit (a positive finite number), else `undefined`. */
+function validLimit(value: number | undefined): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 1 ? Math.floor(value) : undefined
+}
+
+/** Options of part `i` of a split text: only the first quotes; explicit keys get `#n`. */
+function partOptions(options: SendOptions | undefined, i: number): SendOptions | undefined {
+  if (!options || i === 0) return options
+  const { quoted: _quoted, ...rest } = options
+  if (rest.idempotencyKey !== undefined) rest.idempotencyKey = `${rest.idempotencyKey}#${i + 1}`
+  return rest
+}
+
 export class OutboundPipeline {
   constructor(private readonly k: BotKernel) {}
 
@@ -43,10 +59,58 @@ export class OutboundPipeline {
    * so an implicit `ctx.edit(content)` never edits a reply that was followed by it.
    */
   send(chatId: ChatId, content: OutboundContent, options?: SendOptions, origin: 'ctx' | 'api' = 'api', stream?: 'message'): Promise<SendResult> {
+    // A text over the transport's limit goes out as several sends (BotConfig.splitLongText).
+    const parts = stream ? undefined : this.textParts(chatId, content)
+    if (parts && parts.length > 1) return this.sendParts(chatId, parts, options, origin)
+    // Only trimmed whitespace made it fit: send that one part.
+    if (parts?.length === 1) return this.sendOne(chatId, { kind: 'text', text: parts[0] as string }, options, origin, stream)
+    return this.sendOne(chatId, content, options, origin, stream)
+  }
+
+  /** One send through the pipeline (see {@link send}). */
+  private sendOne(chatId: ChatId, content: OutboundContent, options: SendOptions | undefined, origin: 'ctx' | 'api', stream?: 'message'): Promise<SendResult> {
     // Tracing: one `bot.send` span (kind client); the provider call runs inside it, so the
     // backend's http instrumentation nests under it. No content, only its kind.
     return this.traceSend(chatId, content, { [TRACE_ATTR.sendOrigin]: origin, [TRACE_ATTR.sendStream]: stream },
       (span) => this.sendNow(chatId, content, options, origin, stream, span), isSendDeferred)
+  }
+
+  /**
+   * The parts of a `text` send that exceeds `capabilities.maxTextLength`/`maxTextBytes`,
+   * cut in the chat's text format; `undefined` when it fits, is not text, or splitting is
+   * off (`BotConfig.splitLongText: false`).
+   */
+  private textParts(chatId: ChatId, content: OutboundContent): string[] | undefined {
+    // A non-string text is left to assertOutboundContent (a TypeError naming the field).
+    if (content.kind !== 'text' || typeof content.text !== 'string' || this.k.config.splitLongText === false) return undefined
+    const { provider } = this.k
+    const caps = provider.capabilities
+    const maxLength = validLimit(caps?.maxTextLength)
+    const maxBytes = validLimit(caps?.maxTextBytes)
+    if (maxLength === undefined && maxBytes === undefined) return undefined
+    const text = content.text
+    if ((maxLength === undefined || text.length <= maxLength) && (maxBytes === undefined || Buffer.byteLength(text, 'utf8') <= maxBytes)) return undefined
+    let format: TextFormat | undefined
+    try { format = provider.textFormatFor?.(chatId) ?? caps.textFormat } catch { format = caps.textFormat }
+    const parts = splitMessage(text, {
+      ...(maxLength !== undefined ? { maxLength } : {}),
+      ...(maxBytes !== undefined ? { maxBytes } : {}),
+      ...(format !== undefined ? { format } : {}),
+    })
+    return parts.length > 0 ? parts : undefined
+  }
+
+  /**
+   * Send the parts of a split text in order, each a full send (hooks, ledger, outbox).
+   * Only the first part quotes; an explicit idempotency key gets a per-part suffix.
+   */
+  private async sendParts(chatId: ChatId, parts: string[], options: SendOptions | undefined, origin: 'ctx' | 'api'): Promise<SendResult> {
+    const results: SendResult[] = []
+    for (const [i, text] of parts.entries()) {
+      results.push(await this.sendOne(chatId, { kind: 'text', text }, partOptions(options, i), origin))
+    }
+    const last = results[results.length - 1] as SendResult
+    return { ...last, parts: results.map((r) => r.ref) }
   }
 
   /** The body of {@link send}; `span` is its `bot.send` span when traced (outcome attributes). */

@@ -15,6 +15,7 @@
  */
 
 import { humanTypingDelay, sleep } from '../utils/timers.js'
+import { normalizeTimestamp } from './ledger.js'
 import { unavailableUserData } from '../user/UserDataService.js'
 import { isEditableSend, isMessageRef, type EditOptions, type EditResult, type ReplyOptions } from './messaging.js'
 import { MediaTooLargeError, UnsupportedContentError } from './provider.js'
@@ -60,7 +61,7 @@ export function buildMessageContext(deps: BuildContextDeps): IMessageContext {
     if (chatId === from && !r.skipped && isEditableSend(content)) {
       ownLast = { ref: r.ref, kind: content.kind, at: deps.sendClock?.now() ?? 0 }
     }
-    return { ref: r.ref, id: r.ref.id, chatId: r.ref.chatId, raw: r.raw, skipped: r.skipped }
+    return { ref: r.ref, id: r.ref.id, chatId: r.ref.chatId, raw: r.raw, skipped: r.skipped, ...(r.parts ? { parts: r.parts } : {}) }
   }
   const sendOut = (content: OutboundContent, opts?: SendOptions): Promise<SentMessage> => sendTo(from, content, opts)
 
@@ -124,7 +125,7 @@ export function buildMessageContext(deps: BuildContextDeps): IMessageContext {
     sharedLocation: inbound.location,
     ref: inbound.ref,
     raw: inbound.raw,
-    timestamp: inbound.timestamp,
+    timestamp: normalizeTimestamp(inbound.timestamp),
 
     // Interaction projection (Telegram/Discord). acknowledge() no-ops without one.
     interaction: deps.interaction,

@@ -340,7 +340,7 @@ export class Bot extends EventEmitter {
    */
   async send(chatId: ChatId, content: string | OutboundContent, options?: SendOptions): Promise<SentMessage> {
     const r = await this.outbound.send(chatId, toOutbound(content), options)
-    return { ref: r.ref, id: r.ref.id, chatId: r.ref.chatId, raw: r.raw, skipped: r.skipped }
+    return { ref: r.ref, id: r.ref.id, chatId: r.ref.chatId, raw: r.raw, skipped: r.skipped, ...(r.parts ? { parts: r.parts } : {}) }
   }
 
   /**

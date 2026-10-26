@@ -431,6 +431,7 @@ export type { FlowTriggerOptions, FlowTriggerTarget, RegisteredFlowInfo } from '
 // ctx.stream(): live replies (native drafts / throttled edits / sentence chunks).
 export { streamText, resolveStreamStrategy } from './streaming/streamText.js'
 export { splitMessage, findSplitPoint } from './streaming/split.js'
+export type { SplitTextOptions } from './streaming/split.js'
 export type { StreamSource, StreamStrategy, StreamOptions, StreamResult, StreamTarget } from './streaming/types.js'
 export type { StreamingMode, TextFormat, DraftOptions } from './core/provider.js'
 // wa-flows
