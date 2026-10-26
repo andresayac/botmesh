@@ -31,7 +31,8 @@ flowchart LR
 
 ## Configuración
 
-Pasa `rateLimit` al constructor del **provider**:
+Pasa `rateLimit` al constructor del **provider** (`BotConfig.rateLimit` está
+obsoleta: el core la ignora y avisa en el log):
 
 ```ts
 import { Bot } from '@botmesh/core'

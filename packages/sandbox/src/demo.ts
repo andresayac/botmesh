@@ -15,10 +15,10 @@ export interface DemoOptions {
 }
 
 const PRODUCTS = [
-  { id: 'croissant', title: 'Croissant', price: 2.5, description: 'De mantequilla' },
-  { id: 'baguette', title: 'Baguette', price: 1.8, description: 'Recién horneada' },
-  { id: 'pan_queso', title: 'Pan de queso', price: 1.2, description: 'Receta de la casa' },
-  { id: 'cafe', title: 'Café', price: 1.5, description: 'Americano o con leche' },
+  { id: 'croissant', title: 'Croissant', price: 2.5, description: 'All butter' },
+  { id: 'baguette', title: 'Baguette', price: 1.8, description: 'Freshly baked' },
+  { id: 'pan_queso', title: 'Cheese bread', price: 1.2, description: 'House recipe' },
+  { id: 'cafe', title: 'Coffee', price: 1.5, description: 'Black or with milk' },
 ]
 
 /** The scripted "model": answers with what it understood and points at the menu. */
@@ -28,7 +28,7 @@ export function demoModel(): MockAIProvider {
     reply: (input: GenerateInput) => {
       const last = input.messages[input.messages.length - 1]
       const text = last?.role === 'user' && typeof last.content === 'string' ? last.content : ''
-      return `🤖 (IA simulada) Entendí: "${text.slice(0, 120)}". Escribe *menu* para ver el catálogo, *ubicacion* para saber dónde estamos o *encuesta* para votar.`
+      return `🤖 (simulated AI) I understood: "${text.slice(0, 120)}". Type *menu* to see the catalog, *location* to find us or *poll* to vote.`
     },
   })
 }
@@ -37,18 +37,18 @@ export function demoModel(): MockAIProvider {
 export function setupDemoBot(bot: Bot, channel: ChannelName, opts: DemoOptions): void {
   const image = (id: string) => ({ url: `${opts.assetsUrl}/assets/${id}.svg` })
 
-  bot.when(['hola', 'hi', 'hello', 'inicio', 'start', '/start'], (ctx) =>
-    ctx.buttons(`¡Hola! Soy la panadería de prueba en ${channel}. ¿Qué quieres hacer?`, [
-      { id: 'menu', title: 'Ver menú' },
-      { id: 'ubicacion', title: 'Ubicación' },
-      { id: 'encuesta', title: 'Encuesta' },
+  bot.when(['hi', 'hello', 'start', '/start', 'hola', 'inicio'], (ctx) =>
+    ctx.buttons(`Hi! I am the test bakery on ${channel}. What would you like to do?`, [
+      { id: 'menu', title: 'See the menu' },
+      { id: 'ubicacion', title: 'Location' },
+      { id: 'encuesta', title: 'Poll' },
     ]))
 
   bot.when(['menu', 'menú', '/menu'], (ctx) => bot.send(ctx.from, {
     kind: 'list',
-    text: 'Nuestro menú de hoy',
-    buttonText: 'Ver productos',
-    sections: [{ title: 'Panadería', rows: PRODUCTS.map((p) => ({ id: p.id, title: p.title, description: `$${p.price.toFixed(2)} · ${p.description}` })) }],
+    text: "Today's menu",
+    buttonText: 'See products',
+    sections: [{ title: 'Bakery', rows: PRODUCTS.map((p) => ({ id: p.id, title: p.title, description: `$${p.price.toFixed(2)} · ${p.description}` })) }],
   }))
 
   for (const p of PRODUCTS) {
@@ -58,24 +58,24 @@ export function setupDemoBot(bot: Bot, channel: ChannelName, opts: DemoOptions):
       } catch {
         await ctx.reply(`${p.title}: $${p.price.toFixed(2)}`)
       }
-      await ctx.buttons('¿Lo agrego a tu pedido?', [{ id: `pedir_${p.id}`, title: 'Sí, pedir' }, { id: 'menu', title: 'Ver menú' }])
+      await ctx.buttons('Add it to your order?', [{ id: `pedir_${p.id}`, title: 'Yes, order' }, { id: 'menu', title: 'See the menu' }])
     })
-    bot.when(`pedir_${p.id}`, (ctx) => ctx.reply(`✅ Pedido: 1 × ${p.title} ($${p.price.toFixed(2)}). Gracias por probar el sandbox.`))
+    bot.when(`pedir_${p.id}`, (ctx) => ctx.reply(`✅ Order: 1 × ${p.title} ($${p.price.toFixed(2)}). Thanks for trying the sandbox.`))
   }
 
-  bot.when(['ubicacion', 'ubicación', 'donde'], async (ctx) => {
+  bot.when(['location', 'where', 'ubicacion', 'ubicación', 'donde'], async (ctx) => {
     try {
-      await ctx.location(4.6533, -74.0836, 'Panadería Sandbox')
+      await ctx.location(4.6533, -74.0836, 'Sandbox Bakery')
     } catch {
-      await ctx.reply('Estamos en 4.6533, -74.0836 (Panadería Sandbox): https://maps.google.com/?q=4.6533,-74.0836')
+      await ctx.reply('We are at 4.6533, -74.0836 (Sandbox Bakery): https://maps.google.com/?q=4.6533,-74.0836')
     }
   })
 
-  bot.when(['encuesta', '/encuesta'], async (ctx) => {
+  bot.when(['poll', '/poll', 'encuesta', '/encuesta'], async (ctx) => {
     try {
-      await ctx.poll('¿Qué prefieres para el desayuno?', ['Croissant', 'Pan de queso', 'Café'])
+      await ctx.poll('What do you prefer for breakfast?', ['Croissant', 'Cheese bread', 'Coffee'])
     } catch {
-      await ctx.buttons('¿Qué prefieres para el desayuno?', [{ id: 'croissant', title: 'Croissant' }, { id: 'pan_queso', title: 'Pan de queso' }, { id: 'cafe', title: 'Café' }])
+      await ctx.buttons('What do you prefer for breakfast?', [{ id: 'croissant', title: 'Croissant' }, { id: 'pan_queso', title: 'Cheese bread' }, { id: 'cafe', title: 'Coffee' }])
     }
   })
 
@@ -83,16 +83,16 @@ export function setupDemoBot(bot: Bot, channel: ChannelName, opts: DemoOptions):
     bot.onType(type, async (ctx) => {
       const media = await loadMediaOf(ctx).catch(() => undefined)
       await ctx.reply(media
-        ? `📎 Recibí tu ${type}: ${(media.buffer.length / 1024).toFixed(1)} KB (${media.mimetype}).`
-        : `📎 Recibí tu ${type}, pero no pude descargarlo (¿URL vencida?).`)
+        ? `📎 Got your ${type}: ${(media.buffer.length / 1024).toFixed(1)} KB (${media.mimetype}).`
+        : `📎 Got your ${type}, but I could not download it (expired URL?).`)
     })
   }
   bot.onType('location', (ctx) => {
     const l = ctx.sharedLocation
-    return ctx.reply(l ? `📍 Recibí tu ubicación: ${l.latitude}, ${l.longitude}${l.name ? ` (${l.name})` : ''}.` : '📍 Recibí una ubicación sin coordenadas válidas.')
+    return ctx.reply(l ? `📍 Got your location: ${l.latitude}, ${l.longitude}${l.name ? ` (${l.name})` : ''}.` : '📍 Got a location without valid coordinates.')
   })
 
-  bot.plug(aiPlugin({ instance: demoModel(), persona: 'Asistente de una panadería de prueba.' }))
+  bot.plug(aiPlugin({ instance: demoModel(), persona: 'Assistant of a test bakery.' }))
 }
 
 /** A tiny SVG "photo" of a product, served by the UI server for the demo bot. */

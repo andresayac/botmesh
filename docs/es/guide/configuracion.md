@@ -60,7 +60,7 @@ los textos internos, ver [Mensajes internos](./i18n#mensajes-internos).
 | `typing` | `boolean \| { enabled?, minMs?, maxMs?, charsPerSecond? }` | desactivado | Muestra "escribiendo…" antes de cada texto enviado con `ctx` y con `.say` de los flujos. `true` = `{ minMs: '800ms', maxMs: '3s', charsPerSecond: 20 }`. Ver [Indicador de escritura](./mensajes#indicador-de-escritura-y-pausas). |
 | `splitLongText` | `boolean` | `true` | Divide un texto más largo que el límite del canal en varios mensajes (en límites de párrafo, frase o palabra). Con `false` se envía entero y el provider puede rechazarlo con `PayloadTooLargeError`. |
 | `rateLimitRetry` | `{ retries?, maxWaitMs? } \| false` | `{ retries: 1, maxWaitMs: '5s' }` | Reintenta en el sitio un envío de `ctx` cuando el transporte responde "límite de envío, reintenta en N s" y N es corto. `retries` cuenta los intentos después del primero. Ver [Rate limiting](./rate-limiting). |
-| `rateLimit` | `object` | ninguno | Reservada. El core no dosifica envíos; pasa `rateLimit` al provider (ver [Rate limiting](./rate-limiting)). |
+| `rateLimit` | `object` | ninguno | **Obsoleta, se ignora.** El core no dosifica envíos y avisa en el log si la pasas; pasa `rateLimit` al provider (ver [Rate limiting](./rate-limiting)) y usa `rateLimitRetry` para las respuestas limitadas. Se quitará en la próxima major. |
 
 ### Identidad y espacio de nombres
 

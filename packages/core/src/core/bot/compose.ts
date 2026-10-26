@@ -152,6 +152,14 @@ export function composeBot(host: ComposeHost, inputConfig: BotConfig, fields: Co
       logger.warn('BotConfig.storeConfig is deprecated: pass store: new MemoryStore({ file, maxMessagesPerChat, autoSaveInterval }) instead')
     }
   }
+  // `rateLimit` (deprecated) is a v1 leftover: pacing moved to the transports in v2 and
+  // nothing in the core ever read it, so say so instead of silently ignoring it.
+  if (config.rateLimit !== undefined) {
+    logger.warn(
+      'BotConfig.rateLimit is ignored (nothing in the core reads it): configure pacing on the provider ' +
+        '(e.g. new BaileysProvider({ rateLimit })) and the retry of rate-limited replies with BotConfig.rateLimitRetry',
+    )
+  }
   const baseStore =
     (typeof config.store === 'object' && config.store !== null
       ? (config.store as IStore)

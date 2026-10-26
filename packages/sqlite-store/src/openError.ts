@@ -2,8 +2,8 @@
  * Turns the errors of opening a better-sqlite3 database into actionable ones (internal).
  *
  * The usual first-run failures are not about SQLite at all: the native module was never
- * built (pnpm >= 10 skips dependency build scripts unless approved) or was built for
- * another Node.js version, and better-sqlite3 then reports a dozen probed paths. A missing
+ * built (pnpm >= 10 skips dependency build scripts unless approved: `allowBuilds` on
+ * pnpm 11, `onlyBuiltDependencies` on pnpm 10) or was built for another Node.js version, and better-sqlite3 then reports a dozen probed paths. A missing
  * parent directory does not name the file. The original error stays as `cause`.
  */
 
@@ -23,8 +23,9 @@ function describe(err: unknown, file: string): Error {
   if (/could not locate the bindings file/i.test(message) || /cannot find module .*better_sqlite3\.node/i.test(first)) {
     return new Error(
       'SQLiteStore: better-sqlite3 is installed but its native module was never built ' +
-        `(${first.replace(/\s*Tried:$/, '')}). With pnpm >= 10, allow its build script ` +
-        '(`pnpm approve-builds`, or `onlyBuiltDependencies: [better-sqlite3]` in pnpm-workspace.yaml) and reinstall; ' +
+        `(${first.replace(/\s*Tried:$/, '')}). With pnpm >= 10, allow its build script and reinstall: ` +
+        'run `pnpm approve-builds`, or in pnpm-workspace.yaml set `allowBuilds: { better-sqlite3: true }` (pnpm 11) ' +
+        'or `onlyBuiltDependencies: [better-sqlite3]` (pnpm 10); ' +
         'with npm, check that `npm install` did not run with --ignore-scripts.',
       { cause: err },
     )

@@ -60,7 +60,7 @@ translate the built-ins instead, see [Built-in messages](./i18n#built-in-message
 | `typing` | `boolean \| { enabled?, minMs?, maxMs?, charsPerSecond? }` | off | Show "typing…" before each text reply sent through `ctx` and flow `.say`. `true` = `{ minMs: '800ms', maxMs: '3s', charsPerSecond: 20 }`. See [Typing indicator](./messages#typing-indicator-and-reply-delays). |
 | `splitLongText` | `boolean` | `true` | Split a text longer than the channel's limit into several messages (at paragraph, sentence or word boundaries). `false` sends it whole, and the provider may reject it with `PayloadTooLargeError`. |
 | `rateLimitRetry` | `{ retries?, maxWaitMs? } \| false` | `{ retries: 1, maxWaitMs: '5s' }` | Retry a `ctx` send in place when the transport answers "rate limited, retry in N s" and N is short. `retries` counts attempts after the first. See [Rate limiting](./rate-limiting). |
-| `rateLimit` | `object` | none | Reserved. The core does not pace sends; pass `rateLimit` to the provider instead (see [Rate limiting](./rate-limiting)). |
+| `rateLimit` | `object` | none | **Deprecated, ignored.** The core does not pace sends and logs a warning if you set it; pass `rateLimit` to the provider instead (see [Rate limiting](./rate-limiting)) and use `rateLimitRetry` for rate-limited replies. Removed in the next major. |
 
 ### Identity and storage namespace
 

@@ -116,6 +116,8 @@ Un trigger vacío (`''`, `'   '`, un template literal vacío, `[]`, `['']`,
 `{ pattern: '' }`) no coincide con ningún mensaje real o, con `contains`,
 coincide con todos. Se revisa en `flow(...)` / `addKeyword(...)`,
 `bot.when(...)` y la opción `trigger` de `bot.conversation(name, fn, { trigger })`.
+El core además lanza un `TypeError` al registrar un patrón de texto vacío; la
+regla lo detecta (igual que `[]`) antes de ejecutar el código.
 
 Sin opciones.
 

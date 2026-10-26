@@ -36,7 +36,7 @@ export interface GupshupProviderConfig {
   /**
    * Label of the list button used when `buttons` (4–10, no URLs) are sent as a WhatsApp
    * list (lists sent as `list` content use their own `buttonText`). Max 20 characters.
-   * Default `'Opciones'`.
+   * Default `'Options'` (e.g. `'Opciones'` for a Spanish bot).
    */
   listButtonText?: string
   debug?: boolean

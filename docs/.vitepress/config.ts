@@ -290,6 +290,10 @@ export default defineConfig({
 
   base,
 
+  // `head` links are not rewritten by VitePress: prefix the base so the icon also
+  // resolves when the site is built under a sub-path (DOCS_BASE=/botmesh/).
+  head: [['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}favicon.svg` }]],
+
   sitemap: { hostname: siteUrl },
 
   // Canonical URL of every page on the published site.

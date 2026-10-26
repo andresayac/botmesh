@@ -77,12 +77,12 @@ function templateParams(components: unknown): string[] {
 
 /** Options of {@link toOutbound}. */
 export interface GupshupOutboundOptions {
-  /** Label of the list button when `buttons` degrade to a list. Default `'Opciones'`. */
+  /** Label of the list button when `buttons` degrade to a list. Default `'Options'`. */
   listButtonText?: string
 }
 
 /** Default label of the list button when `buttons` degrade to a list. */
-export const DEFAULT_LIST_BUTTON_TEXT = 'Opciones'
+export const DEFAULT_LIST_BUTTON_TEXT = 'Options'
 
 export function toOutbound(content: OutboundContent, options: GupshupOutboundOptions = {}): GupshupOutbound {
   const msg = (message: Record<string, unknown>): GupshupOutbound => ({ endpoint: 'msg', message })

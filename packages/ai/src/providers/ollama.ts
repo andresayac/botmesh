@@ -15,12 +15,21 @@ interface OllamaChatResponse {
   error?: string
 }
 
+/** Options of {@link OllamaProvider}: the shared provider options plus `apiKey`. */
+export interface OllamaProviderConfig extends AIProviderConfig {
+  /**
+   * Sent as `Authorization: Bearer <apiKey>` (Ollama Cloud at `https://ollama.com`, or an
+   * Ollama behind an authenticated proxy). Without it no `Authorization` header is sent.
+   */
+  apiKey?: string
+}
+
 export class OllamaProvider implements AIProvider {
   readonly name = 'ollama'
   private base: string
   private callSeq = 0
   constructor(
-    private cfg: AIProviderConfig,
+    private cfg: OllamaProviderConfig,
     private fetchImpl: typeof fetch = fetch,
   ) {
     this.base = (cfg.baseUrl ?? 'http://localhost:11434').replace(/\/$/, '')
@@ -58,7 +67,12 @@ export class OllamaProvider implements AIProvider {
   private async post(input: GenerateInput, stream: boolean): Promise<Response> {
     const res = await this.fetchImpl(`${this.base}/api/chat`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      // `apiKey` (Ollama Cloud, or a proxy with auth) goes only in this header: never logged
+      // and never part of an error message (those carry the status and the server's text).
+      headers: {
+        'content-type': 'application/json',
+        ...(this.cfg.apiKey ? { authorization: `Bearer ${this.cfg.apiKey}` } : {}),
+      },
       body: JSON.stringify(this.body(input, stream)),
       signal: input.signal,
     })

@@ -80,7 +80,7 @@ before going live. This is practical guidance, not legal advice.
 | `anthropic` (default) | `@anthropic-ai/sdk` | `apiKey` or `ANTHROPIC_API_KEY` | `claude-opus-5-5` |
 | `openai` | `openai` | `apiKey` or `OPENAI_API_KEY` | none: set `model` |
 | `gemini` | `@google/genai` | `apiKey`, `GEMINI_API_KEY` or `GOOGLE_API_KEY` | `gemini-3.8-flash` |
-| `ollama` | nothing (plain `fetch`) | none (local) | none: set `model` |
+| `ollama` | nothing (plain `fetch`) | none (local); `apiKey` for the cloud API | none: set `model` |
 | `deepseek`, `qwen`, `glm`, `kimi`, `groq`, `openrouter`, `mistral`, `grok`, `together` | `openai` | each preset's env var (`DEEPSEEK_API_KEY`, `GROQ_API_KEY`…) | per preset |
 
 ```ts
@@ -93,8 +93,8 @@ aiPlugin({ provider: 'deepseek' })                            // DEEPSEEK_API_KE
 - `baseUrl` points `openai` at Azure OpenAI or any OpenAI-compatible server
   (vLLM, LM Studio, a gateway), and `ollama` at another host.
 - **Ollama cloud models**: sign in your local Ollama (`ollama signin`) and use
-  a `-cloud` model name; or call `https://ollama.com` directly with an
-  `OllamaProvider` and a `fetch` that adds the `Authorization` header (see the
+  a `-cloud` model name; or call `https://ollama.com` directly with
+  `baseUrl: 'https://ollama.com'` and `apiKey` (sent as `Authorization: Bearer`; see the
   [guide](https://andresayac.github.io/botmesh/guide/ai#ollama-local-or-cloud)).
 - **Vertex AI**: `aiPlugin({ instance: new GeminiProvider(fromGoogleGenAI(new GoogleGenAI({ vertexai: true, project, location })), { model }) })`.
 - The SDKs are optional peers, loaded only when used: `@anthropic-ai/sdk`

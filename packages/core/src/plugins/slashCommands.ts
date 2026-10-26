@@ -60,7 +60,7 @@ interface CommandUnknownPayload {
 export const slashCommandsPlugin = definePlugin<SlashCommandsConfig>({
   name: 'slash-commands',
   version: '2.0.0',
-  description: '/start /help /reset /cancel /id /ping + aviso de comando desconocido',
+  description: '/start /help /reset /cancel /id /ping + unknown-command reply',
 
   install(pluginCtx, config = {}) {
     const bot = pluginCtx.bot

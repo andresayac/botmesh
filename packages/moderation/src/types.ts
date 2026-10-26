@@ -52,7 +52,10 @@ export interface WarningPolicy {
   then: 'mute' | 'kick'
 }
 
-/** User-visible texts. `{name}`, `{reason}`, `{count}` and `{max}` are replaced. */
+/**
+ * User-visible texts. `{name}`, `{reason}`, `{count}` and `{max}` are replaced. Without them the
+ * built-in texts follow the chat language: English by default, Spanish with `lang: 'es'`.
+ */
 export interface ModerationMessages {
   warn?: string
   reasons?: Partial<Record<ModerationRule, string>>

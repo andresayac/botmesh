@@ -22,8 +22,8 @@ export class AdminMockProvider extends MockProvider {
   }
 }
 
-export async function startBot<P extends MockProvider>(provider: P): Promise<Bot> {
-  const bot = new Bot({ provider })
+export async function startBot<P extends MockProvider>(provider: P, lang?: string): Promise<Bot> {
+  const bot = new Bot({ provider, ...(lang ? { lang } : {}) })
   await bot.start()
   return bot
 }

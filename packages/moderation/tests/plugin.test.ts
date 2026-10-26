@@ -37,7 +37,7 @@ describe('moderationPlugin — anti-spam', () => {
     expect(warn.chatId).toBe('g1')
     expect(warn.options?.mentions).toEqual(['u1'])
     expect(warn.options?.quoted?.chatId).toBe('g1')
-    expect(textsTo(provider, 'g1')[0]).toBe('⚠️ Ana: no envíes tantos mensajes seguidos. Advertencia 1/3.')
+    expect(textsTo(provider, 'g1')[0]).toBe('⚠️ Ana: please do not send so many messages in a row. Warning 1/3.')
 
     // The window restarts after a violation, and other senders are counted separately.
     t += 100
@@ -408,5 +408,22 @@ describe('moderationPlugin — scope and per-group config', () => {
     const failed = await bot.injectTools.moderation!.kick('g1', 'u9')
     expect(failed.status).toBe('failed')
     await bot.stop()
+  })
+})
+
+describe('moderationPlugin — default texts follow the bot language', () => {
+  it("are English by default and Spanish with lang: 'es'", async () => {
+    for (const [lang, expected] of [
+      [undefined, '⚠️ Ana: links to other groups are not allowed. Warning 1/3.'],
+      ['es', '⚠️ Ana: no se permiten enlaces de otros grupos. Advertencia 1/3.'],
+    ] as const) {
+      const provider = new AdminMockProvider()
+      const bot = await startBot(provider, lang)
+      bot.plug(moderationPlugin({ provider, linkFilter: { action: 'warn' } }))
+      groupMsg(provider, 'join https://chat.whatsapp.com/AbCdEf123')
+      await flush()
+      expect(textsTo(provider, 'g1')[0]).toBe(expected)
+      await bot.stop()
+    }
   })
 })

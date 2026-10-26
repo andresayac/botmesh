@@ -17,8 +17,8 @@ describe('startSandbox (UI server + every channel)', () => {
     for (const channel of CHANNELS) {
       const res = await fetch(`${sandbox.url}/api/${channel}/send`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-sandbox-token': sandbox!.token }, body: JSON.stringify({ text: 'hola' }) })
       expect(res.status, channel).toBe(200)
-      const reply = await sandbox.sims[channel]!.waitForOutbound((r) => r.kind === 'buttons' || (r.text ?? '').includes('Hola'), 8_000)
-      expect(reply.text ?? '', channel).toContain('panadería de prueba')
+      const reply = await sandbox.sims[channel]!.waitForOutbound((r) => r.kind === 'buttons' || (r.text ?? '').includes('Hi'), 8_000)
+      expect(reply.text ?? '', channel).toContain('test bakery')
       expect(sandbox.sims[channel]!.issues(), channel).toEqual([])
     }
   }, 60_000)
@@ -26,7 +26,7 @@ describe('startSandbox (UI server + every channel)', () => {
   it('the AI fallback answers free text with the scripted model', async () => {
     sandbox = await startSandbox({ port: 0, logger, channels: ['telegram'], autoStatus: false })
     await sandbox.sims.telegram!.sendText('quiero algo dulce')
-    expect((await sandbox.sims.telegram!.waitForOutbound((r) => r.kind === 'text')).text).toContain('IA simulada')
+    expect((await sandbox.sims.telegram!.waitForOutbound((r) => r.kind === 'text')).text).toContain('simulated AI')
   })
 
   it('accepts media and locations from the UI API and serves media back', async () => {

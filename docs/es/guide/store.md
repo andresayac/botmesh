@@ -108,7 +108,7 @@ prepared statement, por una regresión de Node.js
 | Error al construir el store | Solución |
 |---|---|
 | `better-sqlite3` no está instalado | `pnpm add better-sqlite3` |
-| `better-sqlite3 is installed but its native module was never built` | pnpm 10 y posteriores se saltan los scripts de build de las dependencias. Ejecuta `pnpm approve-builds` una vez (o añade `better-sqlite3` a `onlyBuiltDependencies` en `pnpm-workspace.yaml`) y reinstala. |
+| `better-sqlite3 is installed but its native module was never built` | pnpm 10 y posteriores se saltan los scripts de build de las dependencias. Ejecuta `pnpm approve-builds` una vez (o, en `pnpm-workspace.yaml`, pon `allowBuilds:` con `better-sqlite3: true` en pnpm 11, o añádelo a `onlyBuiltDependencies` en pnpm 10) y reinstala. |
 | El binario se compiló para otra versión de Node.js | `npm rebuild better-sqlite3` (tras actualizar Node.js) |
 | La carpeta no existe | Crea la carpeta de `file` |
 | `SQLITE_NOTADB` | `file` apunta a algo que no es una base de datos SQLite |

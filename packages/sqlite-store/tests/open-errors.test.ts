@@ -65,6 +65,10 @@ describe('SQLiteStore open errors', () => {
     expect(err.message.split('\n')).toHaveLength(1)
     expect(err.message).toMatch(/native module/)
     expect(err.message).toMatch(/pnpm approve-builds/)
+    // pnpm 11 replaced onlyBuiltDependencies with the allowBuilds map; name both.
+    expect(err.message).toMatch(/allowBuilds: \{ better-sqlite3: true \}/)
+    expect(err.message).toMatch(/pnpm 11/)
+    expect(err.message).toMatch(/onlyBuiltDependencies: \[better-sqlite3\]/)
     expect(err.message).not.toContain('Tried:')
     expect(err.cause).toBe(native)
   })

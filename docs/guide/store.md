@@ -107,7 +107,7 @@ runs on N-API and is not affected.
 | Error when the store is constructed | Fix |
 |---|---|
 | `better-sqlite3` is not installed | `pnpm add better-sqlite3` |
-| `better-sqlite3 is installed but its native module was never built` | pnpm 10 and later skip dependency build scripts. Run `pnpm approve-builds` once (or list `better-sqlite3` under `onlyBuiltDependencies` in `pnpm-workspace.yaml`) and reinstall. |
+| `better-sqlite3 is installed but its native module was never built` | pnpm 10 and later skip dependency build scripts. Run `pnpm approve-builds` once (or, in `pnpm-workspace.yaml`, set `allowBuilds:` with `better-sqlite3: true` on pnpm 11, or list it under `onlyBuiltDependencies` on pnpm 10) and reinstall. |
 | The binary was built for another Node.js version | `npm rebuild better-sqlite3` (after a Node.js upgrade) |
 | The folder does not exist | Create the folder of `file` |
 | `SQLITE_NOTADB` | `file` points at something that is not a SQLite database |

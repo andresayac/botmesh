@@ -39,12 +39,12 @@ describe('capability contract', () => {
 })
 
 describe('Gupshup — list label', () => {
-  it('labels the list button of degraded buttons with listButtonText (default "Opciones")', async () => {
+  it('labels the list button of degraded buttons with listButtonText (default "Options")', async () => {
     const { toOutbound } = await import('../src/toOutbound.js')
     const buttons = Array.from({ length: 5 }, (_, i) => ({ id: `b${i}`, title: `T${i}` }))
     const label = (out: ReturnType<typeof toOutbound>) =>
       out.endpoint === 'msg' ? (out.message.globalButtons as Array<{ title: string }>)[0]?.title : undefined
-    expect(label(toOutbound({ kind: 'buttons', text: 'x', buttons }))).toBe('Opciones')
+    expect(label(toOutbound({ kind: 'buttons', text: 'x', buttons }))).toBe('Options')
     expect(label(toOutbound({ kind: 'buttons', text: 'x', buttons }, { listButtonText: 'Options' }))).toBe('Options')
   })
 

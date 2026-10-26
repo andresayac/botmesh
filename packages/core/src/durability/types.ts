@@ -364,7 +364,9 @@ export type RetryBackoff =
 export interface DurabilityConfig {
   /**
    * Where the inbox and outbox records live: `MemoryDurability`, `FileDurability`, or a store's
-   * backend (`PostgresStore#durability()`, `RedisStore#durability()`, …). Default: a new
+   * backend (`new PostgresDurability({ pool })` from `@botmesh/postgres-store`,
+   * `new RedisDurability({ client })` from `@botmesh/redis-store`, `SQLiteStore#durability()`,
+   * or a `KvDurability` over any `DurableKv`). Default: a new
    * `MemoryDurability` (survives nothing but redeliveries within the process).
    */
   backend?: DurabilityBackend

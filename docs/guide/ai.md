@@ -97,7 +97,7 @@ before going live.
 | `anthropic` (default) | `@anthropic-ai/sdk` | `apiKey` or `ANTHROPIC_API_KEY` | `claude-opus-5-5` | [Thinking](#thinking-anthropic) and `effort` |
 | `openai` | `openai` | `apiKey` or `OPENAI_API_KEY` | none: set `model` | Also Azure OpenAI and OpenAI-compatible servers (`baseUrl`) |
 | `gemini` | `@google/genai` | `apiKey`, `GEMINI_API_KEY` or `GOOGLE_API_KEY` | `gemini-3.8-flash` | Vertex AI through `instance` |
-| `ollama` | nothing (plain `fetch`) | none (local) | none: set `model` | Local server, or Ollama's cloud models |
+| `ollama` | nothing (plain `fetch`) | none (local); `apiKey` for the cloud API or an authenticated proxy | none: set `model` | Local server, or Ollama's cloud models |
 | `deepseek`, `qwen`, `glm`, `kimi`, `groq`, `openrouter`, `mistral`, `grok`, `together` | `openai` | each preset's env var ([table](#presets)) | per preset | OpenAI-compatible endpoints |
 
 Every provider supports tool calling (on Ollama and the presets, when the
@@ -195,20 +195,16 @@ bot.plug(aiPlugin({
   (`ollama signin`) and use a cloud model name (the ones ending in `-cloud`,
   such as `gpt-oss:120b-cloud`) with the same config. Ollama forwards the
   request to its cloud; your bot still talks to `localhost`.
-- **Ollama's cloud API directly** (no local server) needs an
-  `Authorization` header, which the `ollama` provider does not build from
-  `apiKey`. Pass a `fetch` that adds it:
+- **Ollama's cloud API directly** (no local server), or an Ollama behind a
+  proxy with auth: set `apiKey` and it is sent as `Authorization: Bearer <key>`
+  (never logged, never in an error message):
 
   ```ts
-  import { OllamaProvider, aiPlugin } from '@botmesh/ai'
-
-  const withKey: typeof fetch = (url, init) => fetch(url, {
-    ...init,
-    headers: { ...(init?.headers as Record<string, string>), authorization: `Bearer ${process.env.OLLAMA_API_KEY}` },
-  })
-
   bot.plug(aiPlugin({
-    instance: new OllamaProvider({ baseUrl: 'https://ollama.com', model: 'gpt-oss:120b' }, withKey),
+    provider: 'ollama',
+    baseUrl: 'https://ollama.com',
+    model: 'gpt-oss:120b',
+    apiKey: process.env.OLLAMA_API_KEY,
     persona,
   }))
   ```
@@ -495,7 +491,7 @@ the process alive. A call that exceeds `timeoutMs` rejects with
 |---|---|---|---|
 | `provider` | `'anthropic' \| 'openai' \| 'ollama' \| 'gemini' \| 'deepseek' \| 'qwen' \| 'glm' \| 'kimi' \| 'groq' \| 'openrouter' \| 'mistral' \| 'grok' \| 'together'` | `'anthropic'` | Provider to resolve. |
 | `model` | `string` | per provider | Model to use (required for `openai` and `ollama`). |
-| `apiKey` | `string` | env var | API key. If omitted, each provider reads its conventional env var. |
+| `apiKey` | `string` | env var | API key. If omitted, each provider reads its conventional env var. With `ollama` (no env var) it is sent as `Authorization: Bearer` only when set. |
 | `baseUrl` | `string` | per provider | Endpoint override (SDK `baseURL` for anthropic/openai/presets, `httpOptions.baseUrl` for gemini, the Ollama host). |
 | `instance` | `AIProvider` | — | A ready-built provider (`MockAIProvider` in tests, a `GeminiProvider` for Vertex AI, your own): skips `provider`/`apiKey`/`model` resolution and the SDK load. |
 | `persona` | `string` | — | System prompt. |
