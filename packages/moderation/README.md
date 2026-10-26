@@ -78,7 +78,7 @@ The config is validated when you call `moderationPlugin()` (and again by `setGro
 
 - Words are compared without case or accents (`'scam'` detects `'SCÁM'`), except `ñ`, which is a different letter from `n` (`'ano'` does not detect `'año'`), and as a whole word (`'spam'` does not detect `'spammer'` unless `wholeWord: false`). RegExps are tested against the raw text.
 - Evasion tricks are folded away before words and links are matched: invisible characters (zero-width spaces and joiners, soft hyphens, bidi controls) are dropped and compatibility forms are read as plain letters, so `sp\u200Bam`, `ｓｐａｍ` and `𝐬𝐩𝐚𝐦` match `'spam'`, and `chat.whats\u200Bapp.com/…` or a fullwidth invite is still an invite.
-- An invite host must start the link: `chat.me/+abcd` or `mydiscord.gg/x` are not invites (`www.t.me/+abcd` is).
+- An invite host must start its hostname: `chat.me/+abcd`, `mydiscord.gg/x` or `ñchat.whatsapp.com/x` are not invites (`www.t.me/+abcd` is). WhatsApp formatting marks around a link do not hide it: `_chat.whatsapp.com/…_` (italic), `*…*` and `~…~` are still caught, by the invite filter and by `allLinks`.
 - `allowInvites` accepts codes or full invite links (with or without `https://`) and compares the **exact code**: a URL that merely contains the code (e.g. in the query) is not allowed.
 - Recognized invites: WhatsApp (`chat.whatsapp.com/…`), Telegram (`t.me/+…`, `t.me/joinchat/…`) and Discord (`discord.gg/…`, `discord.com/invite/…`). Add others with `invitePatterns` (the first capture group is the code).
 - `action` accepts one or several actions in order: `['delete', 'warn']`.

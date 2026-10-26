@@ -317,7 +317,8 @@ own messages are never moderated.
 - Invisible characters (zero-width, soft hyphen, bidi controls) are dropped
   and compatibility forms such as fullwidth `ｓｐａｍ` are read as plain
   letters before words and links are matched, so they cannot hide a banned
-  word or an invite.
+  word or an invite. WhatsApp formatting around a link (`_italic_`,
+  `*bold*`, `~strike~`) does not hide it either.
 - Recognized invites: WhatsApp (`chat.whatsapp.com/…`), Telegram
   (`t.me/+…`, `t.me/joinchat/…`) and Discord (`discord.gg/…`,
   `discord.com/invite/…`). `allowInvites` matches the exact code.

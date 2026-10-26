@@ -328,6 +328,8 @@ interacciones y los mensajes propios del bot nunca se moderan.
   (espacios de ancho cero, guion suave, controles bidi) y las formas de
   compatibilidad como `ｓｐａｍ` (ancho completo) se leen como letras
   normales, así que no sirven para esconder una palabra o una invitación.
+  El formato de WhatsApp alrededor de un enlace (`_cursiva_`, `*negrita*`,
+  `~tachado~`) tampoco lo esconde.
 - Invitaciones reconocidas: WhatsApp (`chat.whatsapp.com/…`), Telegram
   (`t.me/+…`, `t.me/joinchat/…`) y Discord (`discord.gg/…`,
   `discord.com/invite/…`). `allowInvites` compara el código exacto.

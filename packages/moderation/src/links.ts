@@ -18,13 +18,16 @@ export interface InviteLink {
 }
 
 /**
- * Each host must start the token (`(?<![\w-])`): `chat.me/+x` or `mydiscord.gg/x` are
- * not invites. A leading `.` is allowed, so `www.t.me/+x` still is.
+ * Each host must start its hostname: a letter (any script), digit, combining mark or `-`
+ * right before it (`chat.me/+x`, `mydiscord.gg/x`, `ñchat.whatsapp.com/x`) makes it part
+ * of another host, so it is not an invite. Anything else may precede it: a leading `.`
+ * (`www.t.me/+x`), a scheme, or WhatsApp formatting marks such as `_italic_`, `*bold*`
+ * and `~strike~`. (`\w` would wrongly count the `_` of `_italic_` as part of the host.)
  */
 const INVITE_PATTERNS: Array<{ platform: string; re: RegExp }> = [
-  { platform: 'whatsapp', re: /(?<![\w-])(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([A-Za-z0-9]{6,})/gi },
-  { platform: 'telegram', re: /(?<![\w-])(?:https?:\/\/)?(?:t|telegram)\.me\/(?:joinchat\/|\+)([\w-]{4,})/gi },
-  { platform: 'discord', re: /(?<![\w-])(?:https?:\/\/)?(?:discord\.gg|discord(?:app)?\.com\/invite)\/([\w-]{2,})/gi },
+  { platform: 'whatsapp', re: /(?<![\p{L}\p{N}\p{M}-])(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([A-Za-z0-9]{6,})/giu },
+  { platform: 'telegram', re: /(?<![\p{L}\p{N}\p{M}-])(?:https?:\/\/)?(?:t|telegram)\.me\/(?:joinchat\/|\+)([\w-]{4,})/giu },
+  { platform: 'discord', re: /(?<![\p{L}\p{N}\p{M}-])(?:https?:\/\/)?(?:discord\.gg|discord(?:app)?\.com\/invite)\/([\w-]{2,})/giu },
 ]
 
 /** Find every group invite link in `text` (built-in platforms plus `extra` patterns). */
@@ -54,11 +57,12 @@ export function linkScanText(text: string): string {
 /**
  * Scheme links (`http://…`, `https://…`) and bare `www.` links. Bare
  * `domain.tld` words are NOT treated as links to avoid false positives on
- * ordinary text like `hola.que`.
+ * ordinary text like `hola.que`. The start is a Unicode boundary rather than
+ * `\b`, so a link in WhatsApp italics (`_https://x.test_`) is still a link.
  */
-const LINK_RE = /\b(?:https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi
-/** Bare-host invite domains are links too, even without a scheme. */
-const BARE_INVITE_RE = /\b(?:chat\.whatsapp\.com|t\.me|telegram\.me|discord\.gg|discord(?:app)?\.com)\/[^\s<>"']*/gi
+const LINK_RE = /(?<![\p{L}\p{N}\p{M}])(?:https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/giu
+/** Bare-host invite domains are links too, even without a scheme (same host boundary as the invite patterns). */
+const BARE_INVITE_RE = /(?<![\p{L}\p{N}\p{M}-])(?:chat\.whatsapp\.com|t\.me|telegram\.me|discord\.gg|discord(?:app)?\.com)\/[^\s<>"']*/giu
 
 /** Every link-like token in `text` (scheme links, `www.` links and bare invite hosts). */
 export function findLinks(text: string): string[] {
@@ -68,16 +72,21 @@ export function findLinks(text: string): string[] {
   // (comparing every bare match with every link was O(n²) on a crafted body).
   const spans: Array<[start: number, end: number]> = []
   for (const m of text.matchAll(LINK_RE)) {
-    seen.add(m[0])
+    seen.add(trimFormatting(m[0]))
     spans.push([m.index, m.index + m[0].length])
   }
   let span = 0
   for (const m of text.matchAll(BARE_INVITE_RE)) {
     while (span < spans.length && spans[span]![1] <= m.index) span++
     const inside = span < spans.length && spans[span]![0] <= m.index
-    if (!inside) seen.add(m[0])
+    if (!inside) seen.add(trimFormatting(m[0]))
   }
   return [...seen]
+}
+
+/** Drop closing WhatsApp formatting marks (`_`, `*`, `~`) glued to the end of a link token. */
+function trimFormatting(link: string): string {
+  return link.replace(/[_*~]+$/, '')
 }
 
 /** Lower-cased hostname of a link token, or `undefined` when it cannot be parsed. */

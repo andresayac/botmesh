@@ -196,6 +196,36 @@ describe('moderation — filter evasion', () => {
     expect(findInviteLinks('www.t.me/+abcd')).toHaveLength(1)
     expect(findInviteLinks('(https://t.me/+abcd)')).toHaveLength(1)
   })
+
+  it('catches invites wrapped in WhatsApp formatting (_italic_, *bold*, ~strike~)', async () => {
+    const m = new Moderator({ linkFilter: { action: 'delete' } }, quiet, async () => undefined)
+    for (const body of [
+      'join _chat.whatsapp.com/ABCDEFGH_', '_t.me/+abcdef_', '_discord.gg/abcd_', '_https://chat.whatsapp.com/ABCDEFGH_',
+      '*chat.whatsapp.com/ABCDEFGH*', '~t.me/joinchat/abcdef~', '```discord.gg/abcd```',
+    ]) {
+      expect((await m.check(fakeCtx('g', 'u', body))).kind, body).toBe('violation')
+    }
+  })
+
+  it('allLinks catches formatted links and still honours allowDomains for them', async () => {
+    const m = new Moderator(
+      { linkFilter: { action: 'delete', groupInvites: false, allLinks: true, allowDomains: ['example.com'] } },
+      quiet, async () => undefined,
+    )
+    for (const body of ['_https://evil.test/x_', '*www.evil.test*', '~chat.whatsapp.com/ABCDEFGH~', 'see _discord.gg/abcd_']) {
+      expect((await m.check(fakeCtx('g', 'u', body))).kind, body).toBe('violation')
+    }
+    for (const body of ['_https://example.com_', '*www.example.com*', '~https://docs.example.com/a~']) {
+      expect((await m.check(fakeCtx('g', 'u', body))).kind, body).toBe('allow')
+    }
+  })
+
+  it('treats a letter in any script before the host as part of another host', () => {
+    expect(findInviteLinks('ñchat.whatsapp.com/ABCDEFGH xchat.whatsapp.com/ABCDEFGH 1t.me/+abcd déiscord.gg/abc')).toEqual([])
+    expect(findInviteLinks('_chat.whatsapp.com/ABCDEFGH_')).toEqual([
+      { platform: 'whatsapp', code: 'ABCDEFGH', url: 'chat.whatsapp.com/ABCDEFGH' },
+    ])
+  })
 })
 
 describe('moderation — warning text with a hostile display name', () => {
@@ -234,11 +264,23 @@ describe('moderation — anti-spam windows of different lengths', () => {
       },
       quiet, async () => undefined,
     )
-    for (let i = 0; i < 10_001; i++) await m.check(fakeCtx('slow', `filler${i}`, 'hi'))
+    // 9,999 fillers + the victim fill the map to the sweep threshold (10,000 keys), so
+    // the sweep fires on the fast group's hit, with the fast group's clock and window.
+    for (let i = 0; i < 9_999; i++) await m.check(fakeCtx('slow', `filler${i}`, 'hi'))
     for (let i = 0; i < 3; i++) await m.check(fakeCtx('slow', 'victim', 'hi'))
     t = 2000
     await m.check(fakeCtx('fast', 'other', 'hi'))
     expect((await m.check(fakeCtx('slow', 'victim', 'hi'))).kind).toBe('violation')
+  })
+
+  it('RateWindow sweeps each key with its own window, not the caller’s', async () => {
+    const { RateWindow } = await import('../src/rateWindow.js')
+    const w = new RateWindow(2)
+    w.hit('long', 0, 60_000)
+    w.hit('expired', 0, 1000)
+    w.hit('short', 2000, 1000) // size 3 > 2: this hit sweeps
+    expect(w.size).toBe(2) // 'expired' went, 'long' stayed
+    expect(w.hit('long', 2500, 60_000)).toBe(2)
   })
 
   it('stays fast with many active senders (the sweep is amortized)', async () => {
