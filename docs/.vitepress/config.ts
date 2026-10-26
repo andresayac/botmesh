@@ -114,6 +114,10 @@ const enSidebar = {
   ],
   '/examples/': [
     {
+      text: 'Examples',
+      items: [{ text: 'All examples', link: '/examples/' }],
+    },
+    {
       text: 'Recipes',
       items: [
         { text: 'Send messages', link: '/examples/messages' },
@@ -122,6 +126,16 @@ const enSidebar = {
         { text: 'Shopping flow', link: '/examples/shopping-flow' },
         { text: 'Support with timeout', link: '/examples/support-flow' },
         { text: 'Plugin: rate limiter', link: '/examples/rate-limiter' },
+      ],
+    },
+    {
+      text: 'Advanced',
+      items: [
+        { text: 'Cloud API webhook server', link: '/examples/cloud-api-webhook' },
+        { text: 'Production-ready bot', link: '/examples/production-bot' },
+        { text: 'Scheduled daily digest', link: '/examples/daily-digest' },
+        { text: 'Testing your bot', link: '/examples/testing-your-bot' },
+        { text: 'Build a plugin: FAQ', link: '/examples/faq-plugin' },
       ],
     },
   ],
@@ -204,6 +218,10 @@ const esSidebar = {
   ],
   '/es/ejemplos/': [
     {
+      text: 'Ejemplos',
+      items: [{ text: 'Todos los ejemplos', link: '/es/ejemplos/' }],
+    },
+    {
       text: 'Recetas',
       items: [
         { text: 'Enviar mensajes', link: '/es/ejemplos/mensajes' },
@@ -212,6 +230,16 @@ const esSidebar = {
         { text: 'Flujo de compra', link: '/es/ejemplos/flujo-compra' },
         { text: 'Soporte con timeout', link: '/es/ejemplos/flujo-soporte' },
         { text: 'Plugin: rate limiter', link: '/es/ejemplos/rate-limiter' },
+      ],
+    },
+    {
+      text: 'Avanzado',
+      items: [
+        { text: 'Webhooks de la Cloud API', link: '/es/ejemplos/webhook-cloud-api' },
+        { text: 'Bot listo para producción', link: '/es/ejemplos/bot-produccion' },
+        { text: 'Resumen diario programado', link: '/es/ejemplos/resumen-diario' },
+        { text: 'Probar tu bot', link: '/es/ejemplos/probar-tu-bot' },
+        { text: 'Crear un plugin: FAQ', link: '/es/ejemplos/plugin-faq' },
       ],
     },
   ],
@@ -374,7 +402,7 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Guide', link: '/guide/getting-started' },
-          { text: 'Examples', link: '/examples/messages' },
+          { text: 'Examples', link: '/examples/' },
           // TypeDoc output is plain HTML, not a VitePress page: bypass the SPA router.
           { text: 'API', link: '/api/', target: '_self' },
         ],
@@ -395,7 +423,7 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Guía', link: '/es/guide/inicio' },
-          { text: 'Ejemplos', link: '/es/ejemplos/mensajes' },
+          { text: 'Ejemplos', link: '/es/ejemplos/' },
           { text: 'API', link: '/api/', target: '_self' },
         ],
         sidebar: esSidebar,

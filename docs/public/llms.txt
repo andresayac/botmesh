@@ -86,6 +86,7 @@
 - [Troubleshooting: install errors, 428 handshake, LID identity, webhook signatures, rate limits](https://andresayac.github.io/botmesh/guide/troubleshooting)
 - [FAQ](https://andresayac.github.io/botmesh/guide/faq)
 - Recipes: [send messages](https://andresayac.github.io/botmesh/examples/messages), [media](https://andresayac.github.io/botmesh/examples/media), [registration flow](https://andresayac.github.io/botmesh/examples/registration-flow), [shopping flow](https://andresayac.github.io/botmesh/examples/shopping-flow), [support with timeout](https://andresayac.github.io/botmesh/examples/support-flow), [rate-limiter plugin](https://andresayac.github.io/botmesh/examples/rate-limiter)
+- Advanced examples (each runs in the test suite): [Cloud API webhook server](https://andresayac.github.io/botmesh/examples/cloud-api-webhook), [production-ready bot](https://andresayac.github.io/botmesh/examples/production-bot), [scheduled daily digest](https://andresayac.github.io/botmesh/examples/daily-digest), [testing your bot](https://andresayac.github.io/botmesh/examples/testing-your-bot), [build a plugin](https://andresayac.github.io/botmesh/examples/faq-plugin); index: https://andresayac.github.io/botmesh/examples/
 
 ## Package status (44 packages)
 Public = published on npm and covered by semver (prerelease dist-tag until the stable
