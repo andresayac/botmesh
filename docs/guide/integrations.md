@@ -266,6 +266,18 @@ used without a bot: `new TicketDesk({ storage: memoryTicketStorage() })`.
 
 - There is no agent UI or agent identity: `assignee` is a free string.
   Build the panel on `bot.injectTools.tickets` and protect it yourself.
+- With `handoffOnAssign`, only the first assignment hands the chat off: a
+  reassignment keeps the handoff and its `meta.assignee` (read the ticket
+  for the current agent), and unassigning (`assignee: null`) puts the
+  ticket back in the queue but keeps the chat handed off. Call
+  `bot.resume(chatId)` yourself if the bot should answer again.
+- `meta` must be a plain JSON object (no `Date`, `Map`, class instances,
+  functions or `BigInt`); anything else is rejected before the ticket is
+  stored. A property set to `undefined` is dropped, as in JSON, so
+  `{ email: user?.email }` or `{ ...prev, key: undefined }` (to remove a
+  key) work; `undefined` inside an array is rejected.
+- In shared mode every call re-reads the index and every active ticket, so
+  its cost grows with the number of open tickets.
 - `list()` with a filter that may include `closed` scans every id from 1
   to the last one.
 - The default storage (the store's cursors) has no compare-and-set, so it

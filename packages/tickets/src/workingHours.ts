@@ -17,7 +17,7 @@
 export interface WorkingHoursWindow {
   /** Days of the week (0 = Sunday … 6 = Saturday). Default: every day. */
   days?: number[]
-  /** Opening time: `'HH:mm'` or a whole hour (`9`). */
+  /** Opening time: `'HH:mm'` or a whole hour (`9`), before `24:00`. */
   start: string | number
   /** Closing time (exclusive): `'HH:mm'` or a whole hour (`18`). */
   end: string | number
@@ -66,6 +66,7 @@ function parseWindow(w: WorkingHoursWindow): NormalizedWindow {
   }
   const start = parseTime(w.start, 'start')
   const end = parseTime(w.end, 'end')
+  if (start === 24 * 60) throw invalid('start must be before 24:00 (use 0 or "00:00" for midnight)')
   if (start === end) throw invalid('start and end must differ')
   return { days: [...new Set(days)].sort((a, b) => a - b), start, end }
 }
@@ -109,6 +110,7 @@ export function localClock(date: Date, timeZone?: string): { day: number; minute
 
 /** Whether `date` falls inside the working hours (evaluated in `timeZone`). */
 export function isWithinWorkingHours(hours: WorkingHours, date: Date, timeZone?: string): boolean {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) throw new TypeError('isWithinWorkingHours: date must be a valid Date')
   if (typeof hours === 'function') return hours(date)
   const { day, minutes } = localClock(date, timeZone)
   const yesterday = (day + 6) % 7
