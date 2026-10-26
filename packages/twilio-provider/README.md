@@ -57,7 +57,7 @@ app.listen(3000)
 
 | Kind | Twilio |
 | --- | --- |
-| `text` | `Body` (max 1600 characters → local `PayloadTooLargeError`) |
+| `text` | `Body` (max 1600 characters: `@botmesh/core` splits longer text into several messages; a direct `provider.send()` over the limit rejects locally with `PayloadTooLargeError`) |
 | `image` / `video` / `document` / `audio` / `voice` / `sticker` | `MediaUrl` (**public URL**; Buffer/path → `UnsupportedContentError`) |
 | `location` | `PersistentAction: geo:lat,lng\|label` |
 | `buttons` / `list` | numbered text menu (Twilio's interactive ones require Content Templates) |

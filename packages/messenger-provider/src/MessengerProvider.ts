@@ -137,12 +137,17 @@ export class MessengerProvider implements IProvider<unknown> {
     }
   }
 
+  /** Set by `stop()`, cleared by `start()`: a stopped provider refuses webhooks with 503 so Meta redelivers them. */
+  private stopped = false
+
   /** No socket to open — the transport is webhook-driven. */
   async start(): Promise<void> {
+    this.stopped = false
     this.fan({ kind: 'connection', update: { state: 'ready' } })
     this.logger.debug('MessengerProvider ready — wire your webhook to ingest()')
   }
   async stop(): Promise<void> {
+    this.stopped = true
     this.presenceReady = false
     this.fan({ kind: 'connection', update: { state: 'closed' } })
   }
@@ -159,9 +164,11 @@ export class MessengerProvider implements IProvider<unknown> {
    * verified against `X-Hub-Signature-256` first (forged bodies → 403).
    * Normalized events are emitted via onEvent. Pass the RAW body so the
    * signature computes over exactly what Meta signed. A body that is not a
-   * JSON object answers 400 instead of throwing.
+   * JSON object answers 400 instead of throwing; a stopped provider answers 503.
    */
   ingest(body: unknown, headers?: Record<string, string | string[] | undefined>): number {
+    // Stopped: nothing may reach the bot. 503 makes Meta redeliver after a restart.
+    if (this.stopped) return 503
     const sig = checkGraphSignature({ body, headers, appSecret: this.config.appSecret, logger: this.logger })
     if (!sig.ok) return sig.status
     const parsed = tryParseGraphBody<PageWebhookBody>(body)

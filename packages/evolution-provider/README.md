@@ -28,7 +28,7 @@ to your Evolution server over HTTP and receives its webhooks.
 pnpm add @botmesh/core @botmesh/evolution
 ```
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older alpha. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/evolution@beta` during the beta (`npm view @botmesh/evolution dist-tags` lists the tags). Once stable, the plain command above works.
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build (or to none). Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/evolution@beta` during the beta (`npm view @botmesh/evolution dist-tags` lists the tags). Once stable, the plain command above works.
 
 You also need a running Evolution API v2 server (tested with `v2.3.4`) and an instance
 paired with a WhatsApp number. Node.js 22 or later, ESM only.
@@ -149,7 +149,7 @@ message (`fromMe: true`).
 - Native buttons and lists are unreliable on WhatsApp Web: they are sent as numbered
 text. For Evolution's own, use
 `ctx.sendNative('evolution', { endpoint: 'sendButtons', body: {...} })`.
-- Poll votes (`pollUpdates`) are not emitted as `poll-vote` yet.
+- Poll votes (`pollUpdates`) are not emitted as `'poll'` events yet (Baileys and Telegram emit them).
 - If a person's first message arrives with the LID only and without a twin, that LID
   stays as their canonical id. Without `identityPersistence` the map lives in
   memory, so after a restart the same person may get the phone-number id instead.

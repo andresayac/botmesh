@@ -240,8 +240,8 @@ pasan a un menú de texto numerado, `ctx.edit` envía un mensaje nuevo,
   (`ctx.sendNative('<id del provider>', payload)`) como vía de escape a la API
   propia del canal, con un payload específico de cada provider. Baileys lo
   rechaza con `UnsupportedContentError`. Discord, Messenger, Instagram,
-  Evolution, WPPConnect, Twilio, Gupshup y HighLevel también rechazan un
-  payload dirigido a otro id de provider en lugar de enviarlo.
+  Evolution, WPPConnect, Twilio, Gupshup, HighLevel, Email y TikTok también
+  rechazan un payload dirigido a otro id de provider en lugar de enviarlo.
 
 ## Contrato común de los canales
 
@@ -294,8 +294,10 @@ Quien escribe un provider las comprueba con los helpers de `@botmesh/core/testin
 - **Un solo esquema de nombres para los helpers de bajo nivel.** El mapeador de errores
   de cada provider es `to<Canal>Error` (`toTelegramError`, `toDiscordError`,
   `toTwilioError`…; los canales de Meta comparten `toGraphError` de
-  `@botmesh/graph-core`); los nombres antiguos `toProviderError` quedan como alias
-  deprecados. `ingest()` devuelve el estado HTTP con el que responder (un `number`);
+  `@botmesh/graph-core`). Telegram, TikTok y la Cloud API conservan su antiguo
+  `toProviderError` (y Email su `toEmailProviderError`) como alias deprecados; los canales
+  que se publican por primera vez con la beta solo tienen los nombres nuevos.
+  `ingest()` devuelve el estado HTTP con el que responder (un `number`);
   WPPConnect lo devuelve como `Promise<number>` (resuelve los LID desconocidos contra el
   gateway antes de emitir, sin esperar a tus handlers) y
   el `ingest()` de email recibe un mensaje crudo, no un webhook, y devuelve un
@@ -415,6 +417,8 @@ const provider = new CloudAPIProvider({
   `ctx.typing()` y `ctx.delete()` no hacen nada (ver el
   [contrato común de los canales](#contrato-comun-de-los-canales)).
 - El core divide en varios mensajes el texto de más de 4096 caracteres.
+- Con el bot parado, `ingest()` responde `503`, así que Meta reenvía el
+  webhook tras el reinicio.
 - `publishForm()` fija en el Flow la etiqueta de envío por defecto de un
   formulario en el `lang` del provider (por defecto `'en'`; ponle el
   `BotConfig.lang` de tu bot), o en `publishForm(def, { lang })` para un Flow.
@@ -535,6 +539,8 @@ const provider = new MessengerProvider({
 - Etiquetas de mensaje: `bot.send(psid, texto, { platformData: { tag: 'HUMAN_AGENT' } })`
   envía fuera de la ventana de 24 horas (también acepta `messaging_type`,
   `notification_type` y `persona_id`).
+- Con el bot parado, `ingest()` responde `503`, así que Meta reenvía el
+  webhook tras el reinicio.
 
 ```bash
 pnpm add @botmesh/core @botmesh/messenger
@@ -947,9 +953,11 @@ y [Migrar a la API estable](/es/guide/migracion-estable).
   `editedMessages: 'ignore'`.
 - **Helpers renombrados** (los nombres antiguos son alias deprecados hasta v3):
   `pollTimeout` de Telegram (segundos) → `pollTimeoutMs`; `toProviderError` →
-  `toTelegramError`, `toDiscordError`, `toMessengerError`, `toInstagramError`,
-  `toTikTokError`; `toEmailProviderError` → `toEmailError`; el `toProviderError` de
-  `@botmesh/meta` → `toGraphError` de `@botmesh/graph-core`.
+  `toTelegramError`, `toTikTokError`; `toEmailProviderError` → `toEmailError`; el
+  `toProviderError` de `@botmesh/meta` → `toGraphError` de `@botmesh/graph-core`.
+  Discord, Messenger e Instagram quitaron su `toProviderError` de las alphas antes de su
+  primera publicación en npm: usa `toDiscordError`, `toMessengerError` y
+  `toInstagramError`.
 
 :::
 

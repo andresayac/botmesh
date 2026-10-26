@@ -258,8 +258,9 @@ Los providers que autentican un token en la URL lo leen de ahí:
 | `EmailProvider` | Por defecto, con un `maxBodyBytes` mayor |
 
 Sin el ingress, monta una ruta en tu framework y pasa tú la URL:
-`provider.ingest(body, headers, req.originalUrl)` (WPPConnect y Gupshup) o
-`provider.ingestRequest({ url, body, headers })` (Gupshup) (ver
+`provider.ingest(body, headers, req.originalUrl)` (WPPConnect, Gupshup, y
+Twilio con `webhookPath`) o `provider.ingestRequest({ url, body, headers })`
+(Gupshup, y Twilio con la URL pública completa) (ver
 [Canales](/es/guide/canales)).
 
 ## Exports de más bajo nivel

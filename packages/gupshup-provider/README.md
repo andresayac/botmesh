@@ -85,7 +85,7 @@ Inbound: text, media (`ctx.media`, expiring URL `urlExpiry`), location, contact,
 | `appName` | required | Gupshup app name (`src.name`). |
 | `source` | required | The app's WhatsApp number, digits with country code. |
 | `webhookToken` | required (unless `allowUnsignedWebhooks`) | Shared secret that authenticates callbacks (constant-time comparison). |
-| `webhookTokenParam` | `'token'` | Query parameter read by `ingestRequest()`. |
+| `webhookTokenParam` | `'token'` | Query parameter read from the request URL (`ingestRequest()`, or `ingest()` with its third argument). |
 | `webhookTokenHeader` | `'x-webhook-token'` | Header read by `ingest()` and `ingestRequest()`. |
 | `allowUnsignedWebhooks` | `false` | Accept callbacks without the token. Isolated local development only. |
 | `listButtonText` | `'Options'` (`DEFAULT_LIST_BUTTON_TEXT`) | Label of the list button when 4–10 buttons go out as a list (max 20 characters; e.g. `'Opciones'`). |
