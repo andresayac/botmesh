@@ -42,14 +42,14 @@
   },
   "dependencies": {
     "@botmesh/core": "workspace:*",
+    "@types/pg": "^8.11.10",
     "pg": "^8.13.0"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
     "typescript": "^7.0.2",
     "vite": "^7.3.6",
-    "vitest": "^4.1.10",
-    "@types/pg": "^8.11.10"
+    "vitest": "^4.1.10"
   },
   "publishConfig": { "access": "public" }
 }
