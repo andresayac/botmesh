@@ -334,7 +334,7 @@ new Bot({ provider, echoFilter: { size: 5000, ttl: '10m' } }) // tune it
 ```
 
 It is off by default. Drops count in `metrics().dropped.echo` (Prometheus:
-`botmesh_dropped_total{reason="echo"}`). The memory is per process, and each
+`botmesh_inbound_dropped_total{reason="echo"}`). The memory is per process, and each
 remembered ref is consumed by the first echo that matches it.
 
 ## Package entries

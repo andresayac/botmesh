@@ -342,7 +342,7 @@ new Bot({ provider, echoFilter: { size: 5000, ttl: '10m' } }) // ajustarlo
 ```
 
 Está desactivado por defecto. Los descartes cuentan en
-`metrics().dropped.echo` (Prometheus: `botmesh_dropped_total{reason="echo"}`).
+`metrics().dropped.echo` (Prometheus: `botmesh_inbound_dropped_total{reason="echo"}`).
 La memoria es por proceso, y cada ref recordada se consume con el primer eco
 que coincide.
 
