@@ -129,3 +129,18 @@ El contrato `LoggerLike` no cambia, y su convención de llamada queda
 documentada: los paquetes llaman `logger.warn('mensaje')` o
 `logger.warn({ err, ...contexto }, 'mensaje')`, como pino. Ver
 [Logger](./conceptos#logger).
+
+## Token de la API del sandbox
+
+`@botmesh/sandbox` es privado, pero los scripts que usan su API web cambian:
+
+- **Ruptura:** `POST /api/<canal>/send|fault|status|reset` necesita ahora el
+  token de la ejecución en la cabecera `x-sandbox-token`. Léelo de
+  `sandbox.token` (o de la salida de la CLI), o fíjalo con
+  `startSandbox({ token })` / `--token`.
+- Las peticiones con un `Host` que no es de loopback, o con un `Origin` de otro
+  sitio, reciben un 403. Pasa `allowedHosts` / `--allow-host` si llegas al hub
+  con otro nombre a propósito.
+- Una entrada incorrecta es ahora un 4xx: se rechazan los campos desconocidos,
+  los tipos erróneos y un cuerpo que no sea un objeto JSON, y `toUserInput()`
+  lanza `SandboxInputError`.

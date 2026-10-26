@@ -31,7 +31,8 @@ function mediaPayload(content: OutboundContent & { caption?: string }, file: Dis
   if (!file) {
     throw new UnsupportedContentError(content.kind, 'Discord media requires resolved bytes (MediaSource → DiscordFile) — pass them via DiscordProvider.send.')
   }
-  const attachment: Record<string, unknown> = { id: 0, filename: file.name }
+  // A snowflake-typed string, as discord-api-spec's MessageAttachmentRequest declares ("0" = files[0]).
+  const attachment: Record<string, unknown> = { id: '0', filename: file.name }
   if (content.caption) attachment.description = content.caption
   return {
     payload: {

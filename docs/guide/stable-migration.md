@@ -124,3 +124,16 @@ The `LoggerLike` contract is unchanged, and its calling convention is now
 documented: the packages call `logger.warn('message')` or
 `logger.warn({ err, ...context }, 'message')`, as pino does. See
 [Logger](./concepts#logger).
+
+## Sandbox API token
+
+`@botmesh/sandbox` is private, but scripts that drive its web API change:
+
+- **Breaking:** `POST /api/<channel>/send|fault|status|reset` now needs the
+  per-run token in the `x-sandbox-token` header. Read it from `sandbox.token`
+  (or the CLI output), or fix it with `startSandbox({ token })` / `--token`.
+- Requests whose `Host` is not loopback, or whose `Origin` is another site, get
+  a 403. Pass `allowedHosts` / `--allow-host` when the hub is reached through
+  another name on purpose.
+- Bad input is now a 4xx: unknown fields, wrong types and a body that is not a
+  JSON object are refused, and `toUserInput()` throws `SandboxInputError`.

@@ -191,6 +191,8 @@ export abstract class PlatformSimulator extends EventEmitter {
   abstract readonly channel: ChannelName
   /** Platform display name (UI). */
   abstract readonly title: string
+  /** Whether {@link UserInput.pollVote} produces the platform's native poll-vote event. */
+  readonly nativePollVotes: boolean = false
 
   readonly media: MediaStore
   readonly outbox: OutboundRecord[] = []

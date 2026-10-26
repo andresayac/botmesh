@@ -160,6 +160,13 @@ export async function listen(
   const server = createServer(handle)
   // Keep-alive sockets would hold close() open until they time out.
   server.keepAliveTimeout = 1_000
+  // Unparseable requests get a JSON error like every other refusal (node's default is an empty 400).
+  server.on('clientError', (err: NodeJS.ErrnoException, socket) => {
+    if (!socket.writable) { socket.destroy(); return }
+    const tooLarge = err.code === 'HPE_HEADER_OVERFLOW'
+    const body = JSON.stringify({ error: tooLarge ? 'request headers too large' : `malformed HTTP request (${err.code ?? 'parse error'})` })
+    socket.end(`HTTP/1.1 ${tooLarge ? '431 Request Header Fields Too Large' : '400 Bad Request'}\r\ncontent-type: application/json; charset=utf-8\r\ncontent-length: ${Buffer.byteLength(body)}\r\nconnection: close\r\n\r\n${body}`)
+  })
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject)
     server.listen(opts.port ?? 0, host, () => {

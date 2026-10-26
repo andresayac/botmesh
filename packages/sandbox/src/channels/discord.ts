@@ -7,7 +7,10 @@
  * Request bodies are checked against the `MessageCreateRequest` rules of
  * discord-api-spec (content ≤ 2000, ≤ 10 embeds, ≤ 5 action rows of ≤ 5
  * components, button label ≤ 80 and custom_id ≤ 100, select ≤ 25 options,
- * poll ≤ 10 answers of ≤ 55 chars).
+ * poll ≤ 10 answers of ≤ 55 chars), and also against the official
+ * `MessageCreateRequest` / `MessageEditRequest` / webhook-execute schemas
+ * vendored from discord-api-spec (`src/specs/discord.ts`, issues tagged
+ * `[openapi]`).
  */
 
 import { randomBytes } from 'node:crypto'
@@ -28,6 +31,10 @@ import {
 import type { SimRequest, SimResponse } from '../sim/http.js'
 import { KIND_MIME } from '../sim/media.js'
 import { validate, type Schema } from '../sim/validate.js'
+import { DISCORD_MESSAGE_CREATE_OPENAPI, DISCORD_MESSAGE_EDIT_OPENAPI, DISCORD_WEBHOOK_EXECUTE_OPENAPI } from '../specs/discord.js'
+
+/** Issues against a vendored official schema, tagged so reports tell them apart from the hand-written rules. */
+const openapi = (schema: Schema, body: unknown): string[] => validate(schema, body).map((i) => `[openapi] ${i}`)
 
 export interface DiscordSimulatorOptions extends BaseSimulatorOptions {
   token?: string
@@ -98,6 +105,7 @@ function messageRules(b: Record<string, unknown>, files: number): string[] {
 
 export class DiscordSimulator extends PlatformSimulator {
   readonly channel = 'discord' as const
+  override readonly nativePollVotes = true
   readonly title = 'Discord'
   readonly token: string
   readonly botUserId: string
@@ -294,10 +302,20 @@ export class DiscordSimulator extends PlatformSimulator {
 
   protected routes(): void {
     const v = '/api/:ver'
-    const checkCreate = async (req: SimRequest): Promise<string[]> => {
-      const { body, files } = await this.readMessageBody(req).catch(() => ({ body: undefined as unknown as Record<string, unknown>, files: [] }))
-      if (!body) return ['body: unreadable']
-      return [...validate(DISCORD_MESSAGE_SCHEMA, body), ...messageRules(body, files.length)]
+    const readChecked = async (req: SimRequest) => {
+      const read = await this.readMessageBody(req).catch(() => undefined)
+      return read && read.body && typeof read.body === 'object' && !Array.isArray(read.body) ? read : undefined
+    }
+    const checkWith = (official: Schema) => async (req: SimRequest): Promise<string[]> => {
+      const read = await readChecked(req)
+      if (!read) return ['body: unreadable (expected a JSON object or multipart with payload_json)']
+      return [...validate(DISCORD_MESSAGE_SCHEMA, read.body), ...messageRules(read.body, read.files.length), ...openapi(official, read.body)]
+    }
+    const checkCreate = checkWith(DISCORD_MESSAGE_CREATE_OPENAPI)
+    const checkEdit = async (req: SimRequest): Promise<string[]> => {
+      const read = await readChecked(req)
+      if (!read) return ['body: unreadable (expected a JSON object or multipart with payload_json)']
+      return openapi(DISCORD_MESSAGE_EDIT_OPENAPI, read.body)
     }
     this.api('GET', '/discord/cdn/attachments/:channel/:id/:name', (req) => {
       const item = this.media.get(req.params['id']!)
@@ -305,12 +323,12 @@ export class DiscordSimulator extends PlatformSimulator {
       return { status: 200, headers: { 'content-type': item.mimetype }, body: item.data }
     })
     this.api('POST', `${v}/channels/:channel/messages`, (req) => this.onCreate(req, req.params['channel']!), { send: true, auth: this.auth, check: checkCreate })
-    this.api('POST', `${v}/webhooks/:app/:token`, (req) => this.onCreate(req, 'followup'), { send: true, check: checkCreate })
+    this.api('POST', `${v}/webhooks/:app/:token`, (req) => this.onCreate(req, 'followup'), { send: true, check: checkWith(DISCORD_WEBHOOK_EXECUTE_OPENAPI) })
     this.api('PATCH', `${v}/channels/:channel/messages/:message`, async (req) => {
       const { body } = await this.readMessageBody(req)
       this.recordOutbound({ id: '', chatId: req.params['channel']!, kind: 'edit', targetId: req.params['message']!, ...(typeof body['content'] === 'string' ? { text: body['content'] } : {}), raw: body })
       return { status: 200, body: this.messageObject(req.params['channel']!, req.params['message']!, body, []) }
-    }, { send: true, auth: this.auth })
+    }, { send: true, auth: this.auth, check: checkEdit })
     this.api('DELETE', `${v}/channels/:channel/messages/:message`, (req) => {
       this.recordOutbound({ id: '', chatId: req.params['channel']!, kind: 'delete', targetId: req.params['message']!, raw: {} })
       return { status: 204 }
@@ -388,6 +406,15 @@ export class DiscordSimulator extends PlatformSimulator {
       }
       return { id, chatId: channelId, record: { id, channel: this.channel, chatId: channelId, user, kind: r.kind, text: r.title ?? r.id, at }, payload: { t: 'INTERACTION_CREATE', d } }
     }
+    if (input.pollVote) {
+      // One MESSAGE_POLL_VOTE_ADD per chosen answer; `pollId` is the poll message id and answer ids are 1-based.
+      const v = input.pollVote
+      const frames = v.optionIds.map((i) => ({
+        t: 'MESSAGE_POLL_VOTE_ADD',
+        d: { user_id: user.id, channel_id: channelId, message_id: v.pollId, answer_id: i + 1, ...(this.guildId ? { guild_id: this.guildId } : {}) },
+      }))
+      return { id, chatId: channelId, record: { id, channel: this.channel, chatId: channelId, user, kind: 'poll_vote', text: v.optionIds.join(','), at }, payload: { frames } }
+    }
     const d: Record<string, unknown> = {
       id, channel_id: channelId, type: input.quotedId ? 19 : 0, author: this.author(user), content: '', timestamp: new Date(at).toISOString(),
       edited_timestamp: null, tts: false, mention_everyone: false, mentions: [], mention_roles: [], attachments: [], embeds: [], pinned: false, flags: 0, components: [],
@@ -409,15 +436,16 @@ export class DiscordSimulator extends PlatformSimulator {
       kind = m.kind
       text = m.caption
     } else {
-      throw new Error('Discord simulator: send text, an attachment or a component interaction (no location messages on Discord)')
+      throw new Error('Discord simulator: send text, an attachment, a component interaction or a poll vote (no location messages on Discord)')
     }
     return { id, chatId: channelId, record: { id, channel: this.channel, chatId: channelId, user, kind, ...(text !== undefined ? { text } : {}), at }, payload: { t: 'MESSAGE_CREATE', d } }
   }
 
   async deliver(prepared: PreparedInbound): Promise<SendOutcome> {
     this.recordInbound(prepared.record)
-    const { t, d } = prepared.payload as { t: string; d: unknown }
-    return { id: prepared.id, chatId: prepared.chatId, deliveries: this.dispatch(t, d) }
+    const payload = prepared.payload as { t: string; d: unknown } | { frames: Array<{ t: string; d: unknown }> }
+    const frames = 'frames' in payload ? payload.frames : [payload]
+    return { id: prepared.id, chatId: prepared.chatId, deliveries: frames.flatMap((f) => this.dispatch(f.t, f.d)) }
   }
 
   /** Discord has no delivery receipts; a `read` becomes a no-op record. */

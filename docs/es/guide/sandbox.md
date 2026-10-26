@@ -68,6 +68,34 @@ pnpm --filter @botmesh/sandbox start -- --bot bakery      # examples/bakery-ai c
 pnpm --filter @botmesh/sandbox start -- --telegram webhook --no-status
 ```
 
+### API solo local
+
+La página habla con el hub mediante una pequeña API JSON. Cualquier web que abras en el mismo
+navegador también podría llegar a `127.0.0.1`, así que la API se protege:
+
+- Escucha en `127.0.0.1` por defecto. `--host` lo cambia, y la CLI avisa si la dirección no
+  es de loopback.
+- Toda petición debe llevar una cabecera `Host` de loopback con el puerto del hub
+  (`127.0.0.1`, `localhost` o `[::1]`, más los nombres de `--allow-host`/`allowedHosts`).
+  Eso frena el DNS rebinding, en el que un dominio hostil pasa a apuntar a 127.0.0.1. Si el
+  navegador envía `Origin` o `Sec-Fetch-Site`, tiene que ser el origen del propio hub.
+- Las llamadas que cambian estado (`POST /api/<canal>/send|fault|status|reset`) necesitan
+  además el token de la ejecución en la cabecera `x-sandbox-token`. La CLI lo imprime al
+  arrancar y el hub lo inserta en la página que sirve. `--token` (o
+  `startSandbox({ token })`) lo fija para scripts, y `sandbox.token` lo devuelve desde código.
+- Los cuerpos están acotados (32 MiB para `send`, 64 KiB en el resto). Un JSON mal formado,
+  campos desconocidos, tipos erróneos o canales que no existen reciben un 4xx con
+  `{ "error": "..." }` que nombra el problema, y un simulador que no puede expresar una
+  entrada (una ubicación en Discord) responde 422.
+- La media subida desde la página se sirve con `nosniff`, una CSP `sandbox` y, salvo
+  imágenes, audio y vídeo normales, como descarga.
+
+Los botones de una encuesta envían un voto nativo en los canales cuyo provider lo convierte en
+un evento `'poll'` (`POLL_VOTE_PARSING` en `@botmesh/sandbox/providers`). En los demás
+envían el texto de la opción. Los simuladores de Telegram y Discord ya entregan votos nativos
+(`poll_answer`, `MESSAGE_POLL_VOTE_ADD`), pero sus providers aún no los interpretan. Un test
+falla en cuanto uno lo haga, así que el conjunto se actualiza junto con el provider.
+
 El **bot demo** (`--bot demo`, por defecto) responde a `hola`, `menu`, `ubicacion` y
 `encuesta`, confirma la media y las ubicaciones que recibe, y pasa todo lo demás a `aiPlugin`
 con un `MockAIProvider` guionizado (sin API key). `--bot bakery` ejecuta el
@@ -119,7 +147,7 @@ await h.stop()
 
 Lo que puede hacer un usuario simulado (`sim.send(input)`): `text`, `media` (`{ kind, data,
 mimetype, filename, caption }`), `location`, `reply` (botón o fila de lista), `edit` (Telegram,
-Messenger), `pollVote` (Telegram) y `quotedId`. Cada mensaje que envía el provider se normaliza
+Messenger), `pollVote` (Telegram, Discord) y `quotedId`. Cada mensaje que envía el provider se normaliza
 en un `OutboundRecord` (`kind`, `text`, `buttons`, `sections`, `media`, `location`, `template`,
 `poll`, `action`) y conserva la petición original.
 
@@ -130,10 +158,20 @@ campos obligatorios, enumerados, longitudes y cantidades. Por ejemplo, el texto 
 4096 caracteres, 3 botones de respuesta con títulos de 20 caracteres, 10 filas de lista, el `To`
 de Twilio más `From` o `MessagingServiceSid` más un cuerpo, el contenido de 2000 caracteres y las
 5 filas de componentes de Discord, y el `callback_data` de 64 bytes de Telegram. Los esquemas
-usan un subconjunto de JSON Schema, así que admiten fragmentos de los documentos OpenAPI oficiales
-(twilio-oai, discord-api-spec, la especificación de WhatsApp Business Platform de Meta). En modo
-estricto, el predeterminado, una petición inválida recibe el error de validación propio de la
-plataforma. Con `strict: false` se acepta y solo aparece en `sim.issues()`.
+usan un subconjunto de JSON Schema.
+
+Twilio y Discord publican documentos OpenAPI oficiales con licencia MIT, así que sus
+simuladores validan además cada petición de crear mensaje (y las ediciones y los followups de
+webhook de Discord) contra fragmentos de [twilio-oai](https://github.com/twilio/twilio-oai) y
+[discord-api-spec](https://github.com/discord/discord-api-spec). Esos problemas llevan la
+etiqueta `[openapi]`. Los fragmentos están copiados en `packages/sandbox/src/specs/` con sus
+licencias y commits, así que los tests nunca usan la red. `scripts/vendor-openapi.mjs` los
+regenera desde copias descargadas. Meta, Gupshup, HighLevel, TikTok y Telegram no publican una
+especificación oficial legible por máquina, así que sus esquemas siguen escritos a mano a partir
+de la documentación.
+
+En modo estricto, el predeterminado, una petición inválida recibe el error de validación propio
+de la plataforma. Con `strict: false` se acepta y solo aparece en `sim.issues()`.
 
 ### Escenarios
 

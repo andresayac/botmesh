@@ -13,7 +13,7 @@ describe('toOutbound', () => {
 
   it('image with resolved file → attachments + files[0], caption as content/description', () => {
     const out = toOutbound({ kind: 'image', media: '' as never, caption: 'mira' }, file)
-    expect(out.payload.attachments).toEqual([{ id: 0, filename: 'p.png', description: 'mira' }])
+    expect(out.payload.attachments).toEqual([{ id: '0', filename: 'p.png', description: 'mira' }])
     expect(out.payload.content).toBe('mira')
     expect(out.files).toEqual([file])
   })

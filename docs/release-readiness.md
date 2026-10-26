@@ -273,12 +273,15 @@ switching `workspace:*` to `workspace:^`, a changeset and a README section.
 - **channels**: webhook replay windows for Twilio, Gupshup and HighLevel (no signed
   timestamp; dedupe by id is the mitigation); Discord `MESSAGE_UPDATE` edits are not
   parsed; TikTok and HighLevel inbound media stay `application/octet-stream`.
-- **sandbox** (new): the hub's JSON API has no Origin/Host check (a local web page can
-  post to it); prototype keys in the channel lookup return 500; `startHarness` does not
-  clean up after a partial failure; the signature-rejection tests post empty payloads;
-  some error-mapping regexes are only checked against wording the sandbox itself
-  produces. Requests are validated against schemas written from the docs, not the
-  official OpenAPI specs.
+- **sandbox**: the hub API now checks Host/Origin, needs a per-run token on POST,
+  bounds bodies and answers bad input with a 4xx (fuzzed in `pnpm test`). Twilio and
+  Discord requests are also validated against vendored official OpenAPI fragments.
+  Still open: some provider error-mapping regexes are only checked against wording the
+  sandbox itself produces. Meta, Gupshup, HighLevel, TikTok and Telegram have no
+  official machine-readable spec, so their schemas stay hand-written. Native poll votes
+  wait for the Telegram/Discord providers to parse them (`POLL_VOTE_PARSING`). The
+  simulator ports themselves accept unauthenticated requests on 127.0.0.1, as the
+  provider APIs they imitate expect.
 - **manager**: still calls the deprecated `bot.triggerFlow`; three overlapping HTTP
   APIs; `putFlow`/`removeFlow` persist first but have no rollback if going live fails.
 - **product**: `attachInbox` without `tenantId` now uses the bot's tenant (no data
