@@ -110,7 +110,7 @@ siga en la ventana de dedupe.
   `eval`/`Function`, sin regex, solo funciones en lista blanca,
   `__proto__`/`prototype`/`constructor` rechazados, solo rutas de propiedades
   propias, como mucho 1000 caracteres / 256 tokens / profundidad 32. Las
-  plantillas (`{{ ruta }}`) solo resuelven rutas.
+  plantillas (<code v-pre>{{ ruta }}</code>) solo resuelven rutas.
 - **Email.** Las `headers` nativas deben ser de una línea y no pueden pisar las
   del provider (`From`, `To`, `Message-ID`, protección anti-bucles...); los
   adjuntos nativos deben estar en memoria (nada de `path`/`href` que nodemailer

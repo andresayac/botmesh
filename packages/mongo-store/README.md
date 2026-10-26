@@ -15,7 +15,7 @@ There is no MongoDB durability backend (`BotConfig.durability`); use `@botmesh/p
 pnpm add @botmesh/mongo-store mongodb
 ```
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older alpha. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/mongo-store@beta mongodb` during the beta (`npm view @botmesh/mongo-store dist-tags` lists the tags). Once stable, the plain command above works.
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/mongo-store@beta mongodb` during the beta (`npm view @botmesh/mongo-store dist-tags` lists the tags). Once stable, the plain command above works.
 
 `mongodb` is a **peer dependency** (`^6.10` or `^7`, both tested), loaded only when the store creates its own client. You need a MongoDB server reachable from the bot (for example `mongodb://localhost:27017`).
 

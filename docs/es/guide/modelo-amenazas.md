@@ -2,7 +2,7 @@
 
 Qué protege este framework, de quién, y qué **no** protege. El safety gate de
 [`ROADMAP.md`](https://github.com/andresayac/botmesh/blob/main/ROADMAP.md) exige que
-este documento y su [checklist de release](https://github.com/andresayac/botmesh/blob/main/CONTRIBUTING.md#checklist-de-release)
+este documento y su [checklist de release](https://github.com/andresayac/botmesh/blob/main/CONTRIBUTING.md#release-checklist)
 estén al día; los hallazgos por superficie, los arreglos y los riesgos residuales viven en
 [Seguridad](seguridad.md).
 
@@ -57,7 +57,7 @@ que hable con `@botmesh/mcp`.
 | T1 | Webhook falsificado (mensaje o llamada falsos) | 13 canales | Firma de la plataforma sobre el body **crudo**, comparación en tiempo constante, el provider no arranca sin credenciales | Replay donde la plataforma no firma timestamp (ver abajo) |
 | T2 | Inundación / body gigante | Ingress de webhooks | `@botmesh/server` acota tamaño, pone timeout por body y por ingest, limita concurrencia, `413`/`408`/`503` | El operador sigue dimensionando el proceso y el proxy |
 | T3 | SSRF desde una URL del usuario (media, TTS, embeddings) | Toda descarga saliente | `secureFetch`: HTTPS, rangos privados rechazados, socket fijado a la IP verificada, redirects revalidados, topes de tamaño y tiempo | La respuesta DNS puede cambiar después solo si un provider se salta `secureFetch` |
-| T4 | Path traversal vía ids (tenant, bot, chat, flow) | REST `/v1`, manager, docs del MCP | Ids restringidos a `[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}`, nombres de archivo derivados, rutas de docs resueltas y rechazadas fuera de la raíz | Ninguno conocido |
+| T4 | Path traversal vía ids (tenant, bot, chat, flow) | REST `/v1`, manager, docs del MCP | Ids de bot y de tenant restringidos a `[A-Za-z0-9][A-Za-z0-9_.-]{0,63}` (los de flujo admiten además `:`), nombres de archivo derivados, rutas de docs resueltas y rechazadas fuera de la raíz | Ninguno conocido |
 | T5 | Ejecución de código desde un flujo almacenado | Documentos JSON de flujo | Esquema de datos: sin código, sin imports, sin `eval`; gramática de expresiones segura (sin regex, sin acceso al prototipo, con topes de longitud/profundidad); el paso `http` pasa por `secureFetch` | Un paso `http` puede llamar a un endpoint público que el operador permitió |
 | T6 | Lectura/escritura entre tenants | Store, manager, paquetes de producto | Namespace por bot, claves por tenant en `tenant-kv`, compare-and-set, scopes del REST y `404` para otros tenants | Un `IStore` propio puede romper su propia aislamiento |
 | T7 | Secretos o datos personales en logs/trazas | Logger, OpenTelemetry | El framework no registra cuerpos, prompts, payloads de QR ni tokens; los spans llevan ids según la política `ids` (`hash` por defecto) y nunca contenido | Código del operador que registre `ctx.body` |
@@ -65,7 +65,7 @@ que hable con `@botmesh/mcp`.
 | T9 | Código no confiable dentro del proceso | Plugins | `Plugin.install` es síncrono, el plugin solo recibe la fachada con scope, sin sandbox | **Los plugins corren en el proceso con permisos de Node: instala solo código que confíes** |
 | T10 | Baneo del número de WhatsApp | Baileys / gateways | Rate limiter opt-in, typing/pacing, sin spam de botones, `exclusiveSession` en transportes de conexión única | Automatizar WhatsApp Web es no oficial y siempre conlleva riesgo de baneo |
 | T11 | Un agente lee o escribe lo que no debe | `@botmesh/mcp` | Solo stdio local (sin listener de red), herramientas de solo lectura, sin `eval`, lectura de docs confinada a la raíz configurada, sin escrituras a disco | El cliente decide qué hace con las respuestas |
-| T12 | Replay de un webhook capturado | Meta, Telegram, Twilio, HighLevel, Gupshup, WPPConnect | Dedupe por id de plataforma en memoria + ventana respaldada por el store | No hay timestamp de plataforma para imponer una ventana; mantén los endpoints en HTTPS |
+| T12 | Replay de un webhook capturado | Meta, Telegram, Twilio, HighLevel, Gupshup, WPPConnect | Dedupe en memoria por chat e id de mensaje (`BotConfig.dedupe`, por proceso); con [durabilidad](./durabilidad), el journal de entrada también descarta reentregas entre reinicios y réplicas | No hay timestamp de plataforma para imponer una ventana; mantén los endpoints en HTTPS |
 
 ## Supuestos
 

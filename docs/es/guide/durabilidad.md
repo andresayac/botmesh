@@ -49,7 +49,7 @@ código que antes, en memoria y en un solo proceso.
 | `store.durability()` de un `SQLiteStore` (`SQLiteDurability`) | `@botmesh/sqlite-store` | Sí | Procesos en un mismo host que comparten el archivo |
 | `RedisDurability({ client \| url \| cluster, prefix })` | `@botmesh/redis-store` | Sí (con la persistencia de Redis activada) | Sí, con enrutado fijo por chat o `coordination` (ver [Varias réplicas](#varias-replicas)) |
 | `PostgresDurability({ pool \| connectionString, tablePrefix, logger })` | `@botmesh/postgres-store` | Sí | Sí, como Redis |
-| `eventsDurability({ journal })` | `@botmesh/events/durability` | Con un `FileEventJournal` abierto con `{ lock: true }` o un `SharedFileEventJournal` | Con un `SharedFileEventJournal` (procesos en un mismo host; ver *Un journal de `@botmesh/events`*) |
+| `eventsDurability({ journal })` | `@botmesh/events/durability` | Con un `FileEventJournal` abierto con `{ lock: true }` o un `SharedFileEventJournal` | Con un `SharedFileEventJournal` (procesos en un mismo host; ver [más abajo](#un-journal-de-botmesh-events)) |
 
 SQLite guarda los journals en la tabla `durable` del archivo del store, creada
 con el resto del esquema. PostgreSQL crea una tabla, `{tablePrefix}durable`, de forma idempotente al
@@ -152,7 +152,7 @@ const bot = new Bot({ provider, durability: { backend: eventsDurability({ journa
   (el journal compartido rechaza un archivo que tiene un `FileEventJournal` vivo con
   `lock`, también si ese journal lo abre después: cada operación compartida se rechaza
   en lugar de perder registros). La
-  regla del mismo chat de *Varias réplicas* sigue valiendo. Para mucho tráfico, usa otro
+  regla del mismo chat de [Varias réplicas](#varias-replicas) sigue valiendo. Para mucho tráfico, usa otro
   `LeasedEventJournal` con un `outbox` compartido (`eventsDurability({ journal, outbox: kv })`,
   con el `DurableKv` de un backend de Postgres o Redis), o esos backends directamente.
 
@@ -323,7 +323,7 @@ d.metrics()  // { inboundJournaled, inboundDuplicates, inboundReplayed, inboundD
   Buffers en base64. Un contenido de más de `outbox.maxPayloadBytes` (1 MiB por
   defecto), o uno que no se puede codificar (un stream), se salta el outbox con un
   aviso. Para archivos grandes, usa media por URL o por ruta.
-- **Media en un reproceso.** Ver *Media en un reproceso* más abajo.
+- **Media en un reproceso.** Ver [Media en un reproceso](#media-en-un-reproceso).
 - **Ediciones, borradores e indicadores de escritura** no se anotan. Las ediciones
   son idempotentes, y los borradores y los indicadores son pasajeros.
 
@@ -409,8 +409,7 @@ memoria de la réplica que las ejecuta. Por eso:
   reprocesa. Una réplica viva conserva sus préstamos gracias al latido, tarde lo que
   tarde su handler.
 - Da a cada réplica su propio `instanceId` explícito.
-- Usa un backend compartido: `RedisDurability` (o `PostgresDurability` del
-  repositorio). `SQLiteDurability` y `SharedFileEventJournal` solo se comparten
+- Usa un backend compartido: `RedisDurability` o `PostgresDurability`. `SQLiteDurability` y `SharedFileEventJournal` solo se comparten
   entre procesos de un mismo host.
 
 **Con `coordination`** (ver [Varias réplicas](./replicas.md)) no hace falta el enrutado

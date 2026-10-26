@@ -156,7 +156,7 @@ A file written by a **newer** release is refused, untouched, with
 - When several processes share one file, stop the ones on the old version
   before a new one opens it.
 
-The [package README](https://www.npmjs.com/package/@botmesh/sqlite-store#schema-versioning)
+The [package README](https://www.npmjs.com/package/@botmesh/sqlite-store#schema-versions-and-upgrades)
 lists what each version changed and how to roll back the latest step without a
 backup.
 

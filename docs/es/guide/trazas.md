@@ -20,7 +20,7 @@ pnpm add @botmesh/otel @opentelemetry/api @opentelemetry/sdk-node \
 ```
 
 Mientras los paquetes estén en prerelease, añade el dist-tag que indica
-[Inicio](/es/guide/inicio).
+[Inicio](./inicio).
 
 ```ts
 // telemetry.ts — cárgalo antes que el bot (p. ej. `node --import ./telemetry.js bot.js`)
@@ -171,7 +171,7 @@ La respuesta del usuario llega como otro mensaje: su propio `bot.inbound` → `b
 | `bot.provider.id`, `bot.id` | inbound, send | Id del provider, bot id del namespace del store. |
 | `bot.event.kind`, `bot.message.type`, `bot.chat.kind` | inbound, dispatch | `message`/`interaction`/`call`; `text`, `image`…; `private`/`group`. |
 | `bot.chat.id`, `bot.sender.id`, `bot.message.id` | inbound, send | Según la [política de ids](#datos-personales). |
-| `bot.inbound.outcome` | inbound | `dispatched`, `blocked`, `duplicate`, `group_filtered`, `stopped`, `from_me`, `handoff` (llamadas). |
+| `bot.inbound.outcome` | inbound | `dispatched`, `blocked`, `duplicate`, `group_filtered`, `stopped`, `from_me`, `echo` (con `echoFilter`), `handoff` (llamadas). |
 | `bot.queue.wait_ms` | dispatch | Espera por el turno del chat (incluye el turno entre réplicas con coordinación). |
 | `bot.dispatch.stage` | dispatch | `aborted_by_hook`, `handoff`, `command`, `command_unknown`, `conversation`, `dormant`, `matcher`, `catch_all`, `unhandled`, `event`. |
 | `bot.handler.stage`, `bot.matcher.kind` | handler | `command`/`matcher`/`catch_all`/`event`; `welcome`/`text`/`function`/`type`. |
@@ -249,7 +249,7 @@ Con `@botmesh/otel`, los spans del bot también son el contexto activo de OpenTe
 | --- | --- | --- |
 | `botmesh.messages.inbound` | counter | |
 | `botmesh.messages.outbound` | counter | `result` = `ok`/`failed` |
-| `botmesh.dropped` | counter | `reason` = `duplicate`/`blocked`/`handoff` |
+| `botmesh.dropped` | counter | `reason` = `duplicate`/`blocked`/`handoff`, más `echo` con `echoFilter` |
 | `botmesh.presence.skipped` | counter | `kind` = `typing`/`mark_read` |
 | `botmesh.conversations.started` / `.ended` | counter | `outcome` (ended) |
 | `botmesh.flow.conversations.started` / `.ended` | counter | `flow`, `outcome` (`perFlow`) |
@@ -276,6 +276,7 @@ Los histogramas traen límites de cubeta acordes a su unidad (como *advice* del 
 
 ```ts
 new Bot({
+  provider,
   telemetry: {
     tracer,                          // BotTracer (obligatorio)
     ids: 'hash',                     // 'hash' | 'raw' | 'omit'
@@ -292,7 +293,7 @@ new Bot({
 | `tracerProvider` | el global (`trace.getTracerProvider()`) | |
 | `tracerName` | `'@botmesh/otel'` | Scope de instrumentación. |
 | `spanMetrics` | `true` | `false`, o `{ meterProvider, prefix }`. |
-| `otelMetricsPlugin({ meterProvider, meterName, prefix, attributes, perFlow, conversationDuration })` | global, `'botmesh'` (`'botwa'` conserva los nombres de la alpha), `{}`, `true`, `true` | |
+| `otelMetricsPlugin({ meterProvider, meterName, prefix, attributes, perFlow, conversationDuration })` | global, `'@botmesh/otel'`, `'botmesh'` (`'botwa'` conserva los nombres de la alpha), `{}`, `true`, `true` | |
 
 ### Muestreo
 

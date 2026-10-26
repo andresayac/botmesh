@@ -104,7 +104,7 @@ is in the dedupe window.
 - **JSON flow expressions.** A recursive-descent parser: no `eval`/`Function`,
   no regexes, whitelisted functions only, `__proto__`/`prototype`/`constructor`
   rejected, own-property paths only, at most 1000 chars / 256 tokens / depth 32.
-  Templates (`{{ path }}`) only resolve paths.
+  Templates (<code v-pre>{{ path }}</code>) only resolve paths.
 - **Email.** Native `headers` must be single-line and cannot override the
   provider's own (`From`, `To`, `Message-ID`, loop protection...); native
   attachments must be in memory (no `path`/`href` that nodemailer would read
