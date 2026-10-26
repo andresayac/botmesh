@@ -15,6 +15,18 @@ import { PRESETS, isPreset } from './presets.js'
  * at that vendor's endpoint — no extra dependency beyond `openai`. API keys
  * fall back to each preset's conventional env var.
  */
+/**
+ * Token-cap field for `provider: 'openai'`: OpenAI itself (and Azure OpenAI) wants
+ * `max_completion_tokens`; any other `baseUrl` is an OpenAI-compatible server, and those
+ * nearly all want `max_tokens`.
+ */
+function openAIMaxTokensField(baseUrl: string | undefined): 'max_tokens' | 'max_completion_tokens' {
+  if (!baseUrl) return 'max_completion_tokens'
+  let host: string
+  try { host = new URL(baseUrl).hostname.toLowerCase() } catch { return 'max_tokens' }
+  return host === 'api.openai.com' || host.endsWith('.openai.azure.com') ? 'max_completion_tokens' : 'max_tokens'
+}
+
 export async function resolveProvider(cfg: AIConfig): Promise<AIProvider> {
   const name = cfg.provider ?? 'anthropic'
 
@@ -29,7 +41,7 @@ export async function resolveProvider(cfg: AIConfig): Promise<AIProvider> {
     const client = new mod.default({ apiKey, baseURL })
     // Default the model to the preset's unless the caller overrode it.
     const presetCfg: AIConfig = cfg.model ? cfg : { ...cfg, model: preset.model }
-    return new OpenAIProvider(client, presetCfg, { name, maxTokensField: preset.maxTokensField })
+    return new OpenAIProvider(client, presetCfg, { name, maxTokensField: cfg.maxTokensField ?? preset.maxTokensField })
   }
 
   switch (name) {
@@ -46,7 +58,9 @@ export async function resolveProvider(cfg: AIConfig): Promise<AIProvider> {
         'openai',
         'pnpm add openai',
       )
-      return new OpenAIProvider(new mod.default({ apiKey: cfg.apiKey, baseURL: cfg.baseUrl }), cfg)
+      return new OpenAIProvider(new mod.default({ apiKey: cfg.apiKey, baseURL: cfg.baseUrl }), cfg, {
+        maxTokensField: cfg.maxTokensField ?? openAIMaxTokensField(cfg.baseUrl),
+      })
     }
     case 'ollama':
       return new OllamaProvider(cfg)

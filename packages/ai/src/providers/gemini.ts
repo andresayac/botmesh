@@ -185,19 +185,45 @@ function toGeminiContent(m: AIChatMessage): GeminiContent {
 /** Gemini accepts an OpenAPI subset of JSON Schema: drop the keywords it rejects. */
 const GEMINI_UNSUPPORTED = new Set(['$schema', '$id', '$ref', '$defs', 'definitions', 'additionalProperties', 'default', 'examples', 'const'])
 
+const isSchema = (v: unknown): v is JSONSchema => !!v && typeof v === 'object' && !Array.isArray(v)
+const isNullSchema = (v: unknown): boolean => isSchema(v) && v.type === 'null'
+
+/**
+ * Convert a JSON Schema to the OpenAPI subset Gemini accepts: unsupported keywords are
+ * dropped at every level (`properties`, `items`, `anyOf`/`oneOf`/`allOf`), `oneOf`
+ * becomes `anyOf`, a one-element `allOf` is merged, and `null` alternatives (zod
+ * `.nullable()`: `anyOf: [T, { type: 'null' }]` or `type: [T, 'null']`) become
+ * `nullable: true`.
+ */
 export function toGeminiSchema(schema: JSONSchema): JSONSchema {
   const out: JSONSchema = {}
+  let nullable = false
   for (const [k, v] of Object.entries(schema)) {
     if (GEMINI_UNSUPPORTED.has(k)) continue
     if (k === 'properties' && v && typeof v === 'object') {
       out.properties = Object.fromEntries(
-        Object.entries(v as Record<string, unknown>).map(([pk, pv]) => [pk, pv && typeof pv === 'object' ? toGeminiSchema(pv as JSONSchema) : pv]),
+        Object.entries(v as Record<string, unknown>).map(([pk, pv]) => [pk, isSchema(pv) ? toGeminiSchema(pv) : pv]),
       )
-    } else if (k === 'items' && v && typeof v === 'object' && !Array.isArray(v)) {
-      out.items = toGeminiSchema(v as JSONSchema)
+    } else if (k === 'items' && isSchema(v)) {
+      out.items = toGeminiSchema(v)
+    } else if ((k === 'anyOf' || k === 'oneOf') && Array.isArray(v)) {
+      const options = v.filter((x) => !isNullSchema(x))
+      if (options.length < v.length) nullable = true
+      const mapped = options.map((x) => (isSchema(x) ? toGeminiSchema(x) : x))
+      if (mapped.length === 1 && isSchema(mapped[0])) Object.assign(out, mapped[0])
+      else if (mapped.length > 0) out.anyOf = mapped
+    } else if (k === 'allOf' && Array.isArray(v)) {
+      const mapped = v.map((x) => (isSchema(x) ? toGeminiSchema(x) : x))
+      if (mapped.length === 1 && isSchema(mapped[0])) Object.assign(out, mapped[0])
+      else out.allOf = mapped
+    } else if (k === 'type' && Array.isArray(v)) {
+      const types = v.filter((t) => t !== 'null')
+      if (types.length < v.length) nullable = true
+      out.type = types.length === 1 ? types[0] : types
     } else {
       out[k] = v
     }
   }
+  if (nullable) out.nullable = true
   return out
 }
