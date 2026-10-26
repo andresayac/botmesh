@@ -52,6 +52,7 @@ export class InstagramProvider implements IProvider<unknown> {
   readonly id = 'instagram'
   readonly capabilities: ProviderCapabilities = {
     contentKinds: ['text', 'image', 'video', 'audio', 'voice', 'document', 'buttons', 'list', 'card', 'native'],
+    maxTextLength: 1000,           // Send API text limit (1000 bytes of UTF-8: non-ASCII text fits less)
     buttons: true,                 // as quick replies
     lists: false,                  // degraded to numbered text
     polls: false,
@@ -75,6 +76,12 @@ export class InstagramProvider implements IProvider<unknown> {
   private listeners = new Set<(e: InboundEvent) => void | Promise<void>>()
 
   constructor(config: InstagramProviderConfig) {
+    if (typeof config.accessToken !== 'string' || config.accessToken.trim() === '') {
+      throw new Error('InstagramProvider requires `accessToken` (the connected Page access token); got an empty value — is the env var set?')
+    }
+    if (typeof config.verifyToken !== 'string' || config.verifyToken === '') {
+      throw new Error('InstagramProvider requires `verifyToken` (the webhook verify token you set in Meta); without it the GET handshake always fails.')
+    }
     this.config = { apiVersion: 'v21.0', graphUrl: 'https://graph.facebook.com', ...config }
     this.logger = config.logger ?? pino({ level: config.debug ? 'debug' : 'error' })
     if (config.mediaRefHosts !== undefined &&

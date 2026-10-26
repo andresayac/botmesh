@@ -86,14 +86,24 @@ export interface IgWebhookBody {
   entry?: IgEntry[]
 }
 
-/** Attachment types with a direct MediaRef mapping (token = hosted url). */
-const ATTACH_MEDIA: Record<string, { type: MessageType; kind: MediaRef['kind'] }> = {
-  image: { type: 'image', kind: 'image' },
-  video: { type: 'video', kind: 'video' },
-  audio: { type: 'audio', kind: 'audio' },
-  file: { type: 'document', kind: 'document' },
-  story_mention: { type: 'image', kind: 'image' },
-}
+/* Defensive readers: the webhook is external input, so a field of the wrong type is ignored, never trusted. */
+const str = (v: unknown): string | undefined => (typeof v === 'string' && v !== '' ? v : undefined)
+const rec = <T extends object>(v: unknown): T | undefined =>
+  (v !== null && typeof v === 'object' && !Array.isArray(v) ? (v as T) : undefined)
+const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
+const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
+
+/** Attachment types with a direct MediaRef mapping (token = hosted url). Null prototype: `constructor` is not a type. */
+const ATTACH_MEDIA: Readonly<Record<string, { type: MessageType; kind: MediaRef['kind'] }>> = Object.freeze(Object.assign(
+  Object.create(null) as Record<string, { type: MessageType; kind: MediaRef['kind'] }>,
+  {
+    image: { type: 'image', kind: 'image' },
+    video: { type: 'video', kind: 'video' },
+    audio: { type: 'audio', kind: 'audio' },
+    file: { type: 'document', kind: 'document' },
+    story_mention: { type: 'image', kind: 'image' },
+  },
+))
 
 /**
  * Id for a payload that arrived without a `mid`. Core dedupes inbound events by
@@ -104,45 +114,48 @@ const ATTACH_MEDIA: Record<string, { type: MessageType; kind: MediaRef['kind'] }
  * drop every later id-less event of the chat as a duplicate.
  */
 function fallbackId(ev: IgMessagingEvent): string {
-  return typeof ev.timestamp === 'number' && Number.isFinite(ev.timestamp) ? `ig_${ev.timestamp}` : ''
+  const ts = num(ev.timestamp)
+  return ts !== undefined ? `ig_${ts}` : ''
 }
 
-function toMessage(ev: IgMessagingEvent): InboundMessage<IgMessagingEvent> {
-  const chatId = ev.sender?.id ?? ''
-  const msg = ev.message!
-  let type: MessageType = msg.text ? 'text' : 'unknown'
-  let body = msg.text ?? ''
+function toMessage(ev: IgMessagingEvent, chatId: string, msg: IgMessage): InboundMessage<IgMessagingEvent> {
+  const text = str(msg.text)
+  let type: MessageType = text ? 'text' : 'unknown'
+  let body = text ?? ''
   let media: MediaRef | undefined
   let location: InboundLocation | undefined
 
-  const att = msg.attachments?.[0]
+  const att = rec<IgAttachment>(arr(msg.attachments)[0])
   if (att) {
-    const url = att.payload?.url
-    if (att.type === 'location') {
+    const payload = rec<IgAttachmentPayload>(att.payload)
+    const url = str(payload?.url)
+    const attType = str(att.type)
+    if (attType === 'location') {
       // A shared location has no downloadable bytes.
       type = 'location'
-      const title = att.payload?.title ?? att.title
-      body = msg.text ?? title ?? ''
-      const c = att.payload?.coordinates
+      const title = str(payload?.title) ?? str(att.title)
+      body = text ?? title ?? ''
+      const c = rec<{ lat?: unknown; long?: unknown }>(payload?.coordinates)
       location = toInboundLocation({ latitude: c?.lat, longitude: c?.long, name: title })
-    } else if (att.type === 'share') {
+    } else if (attType === 'share') {
       // A shared IG post — no media bytes, just a link/title.
       type = 'unknown'
-      body = att.payload?.url ?? att.payload?.title ?? att.title ?? ''
+      body = url ?? str(payload?.title) ?? str(att.title) ?? ''
     } else {
-      const known = ATTACH_MEDIA[att.type ?? '']
+      const known = attType !== undefined ? ATTACH_MEDIA[attType] : undefined
       if (known && url) {
         type = known.type
         media = { kind: known.kind, token: url }
       } else {
         type = 'unknown'
-        body = att.title ?? att.payload?.title ?? ''
+        body = str(att.title) ?? str(payload?.title) ?? ''
       }
     }
   }
+  const replyTo = str(rec<{ mid?: unknown }>(msg.reply_to)?.mid)
 
   return {
-    ref: { id: msg.mid ?? fallbackId(ev), chatId, native: ev },
+    ref: { id: str(msg.mid) ?? fallbackId(ev), chatId, native: ev },
     chat: { id: chatId, kind: 'dm', isGroup: false, isBroadcast: false },
     senderInfo: { id: chatId },
     from: chatId,
@@ -154,17 +167,16 @@ function toMessage(ev: IgMessagingEvent): InboundMessage<IgMessagingEvent> {
     fromMe: false,
     type,
     body,
-    timestamp: ev.timestamp ?? 0,
+    timestamp: num(ev.timestamp) ?? 0,
     mentions: [],
     media,
     ...(location ? { location } : {}),
-    quoted: msg.reply_to?.mid ? { ref: { id: msg.reply_to.mid, chatId } } : undefined,
+    quoted: replyTo ? { ref: { id: replyTo, chatId } } : undefined,
     raw: ev,
   }
 }
 
-function toInteraction(ev: IgMessagingEvent, data: string, mid?: string): InboundInteraction<IgMessagingEvent> {
-  const chatId = ev.sender?.id ?? ''
+function toInteraction(ev: IgMessagingEvent, chatId: string, data: string, mid?: string): InboundInteraction<IgMessagingEvent> {
   const interactionId = mid ?? fallbackId(ev)
   return {
     interactionId,
@@ -178,54 +190,62 @@ function toInteraction(ev: IgMessagingEvent, data: string, mid?: string): Inboun
     isGroup: false,
     kind: 'button',
     data,
-    timestamp: ev.timestamp ?? 0,
+    timestamp: num(ev.timestamp) ?? 0,
     raw: ev,
   }
 }
 
-function toReaction(ev: IgMessagingEvent): InboundReaction {
-  const chatId = ev.sender?.id ?? ''
-  const r = ev.reaction!
+function toReaction(ev: IgMessagingEvent, chatId: string, r: IgReaction): InboundReaction {
   return {
-    ref: { id: r.mid ?? '', chatId, native: ev },
-    emoji: r.emoji ?? r.reaction ?? '',
+    ref: { id: str(r.mid) ?? '', chatId, native: ev },
+    emoji: str(r.emoji) ?? str(r.reaction) ?? '',
     senderId: chatId,
     removed: r.action === 'unreact',
   }
 }
 
-/** Parse a full 'page' webhook body into a flat list of events. */
+/**
+ * Parse a full 'page' webhook body into a flat list of events. The body is
+ * external input: a field of the wrong type is ignored, so a malformed payload
+ * yields fewer events, never a throw or an event with non-string ids.
+ */
 export function parseInbound(body: IgWebhookBody): InboundEvent[] {
   const events: InboundEvent[] = []
-  if (body.object !== 'page' && body.object !== 'instagram') return events
+  const object = rec<IgWebhookBody>(body)?.object
+  if (object !== 'page' && object !== 'instagram') return events
 
-  for (const entry of body.entry ?? []) {
-    for (const ev of entry.messaging ?? []) {
-      if (!ev.sender?.id) continue
+  for (const rawEntry of arr(body.entry)) {
+    for (const rawEv of arr(rec<{ messaging?: unknown }>(rawEntry)?.messaging)) {
+      const ev = rec<IgMessagingEvent>(rawEv)
+      const chatId = str(rec<{ id?: unknown }>(ev?.sender)?.id)
+      if (!ev || !chatId) continue
 
       // Reaction → reaction event.
-      if (ev.reaction) {
-        events.push({ kind: 'reaction', reaction: toReaction(ev) })
+      const reaction = rec<IgReaction>(ev.reaction)
+      if (reaction) {
+        events.push({ kind: 'reaction', reaction: toReaction(ev, chatId, reaction) })
         continue
       }
       // Get-started / menu postback → interaction.
-      if (ev.postback) {
-        events.push({ kind: 'interaction', interaction: toInteraction(ev, ev.postback.payload ?? '', ev.postback.mid) })
+      const postback = rec<IgPostback>(ev.postback)
+      if (postback) {
+        events.push({ kind: 'interaction', interaction: toInteraction(ev, chatId, str(postback.payload) ?? '', str(postback.mid)) })
         continue
       }
 
-      const msg = ev.message
+      const msg = rec<IgMessage>(ev.message)
       if (!msg) continue
       // is_echo = a message the connected IG account sent itself; skip it.
       if (msg.is_echo) continue
       // An unsend notification is not new input: never answer a deleted message.
       if (msg.is_deleted) continue
       // Quick reply tap → interaction (IG has no structured postback buttons).
-      if (msg.quick_reply) {
-        events.push({ kind: 'interaction', interaction: toInteraction(ev, msg.quick_reply.payload ?? '', msg.mid) })
+      const quickReply = rec<{ payload?: unknown }>(msg.quick_reply)
+      if (quickReply) {
+        events.push({ kind: 'interaction', interaction: toInteraction(ev, chatId, str(quickReply.payload) ?? '', str(msg.mid)) })
         continue
       }
-      events.push({ kind: 'message', message: toMessage(ev) })
+      events.push({ kind: 'message', message: toMessage(ev, chatId, msg) })
     }
   }
   return events

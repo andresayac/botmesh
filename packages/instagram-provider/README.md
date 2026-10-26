@@ -79,3 +79,6 @@ app.listen(3000)
 - `ctx.buttons` is sent as quick replies: tappable chips below the message; the tap arrives as an interaction with `data` = the button `id`.
 - Outside the messaging window, Meta may require the user to interact first (IG platform policy); Graph errors are translated to `@botmesh/core` typed errors (`RateLimitedError` on codes 4/613; `OutsideSessionWindowError` outside the window, subcode 2534022; `RecipientUnreachableError` when the user does not exist or is unavailable, code 551 or subcodes 2018001/2534014).
 - A message the user unsends (`is_deleted`) is not emitted as a new message.
+- **Text length:** IG caps `text` at 1000 bytes of UTF-8; `capabilities.maxTextLength` is 1000, which sizes the `ctx.stream()` chunks (non-ASCII text fits less).
+- **Native payloads:** `ctx.sendNative('instagram', message)` posts a Send API `message` object as-is; native content addressed to another provider id is rejected with `UnsupportedContentError`.
+- An empty `accessToken` or `verifyToken` (an unset env var) fails in the constructor, and malformed webhooks never throw: fields of the wrong type are ignored.
