@@ -209,7 +209,10 @@ export function decryptVote(
     for (const voterJid of voters) {
       try {
         const decoded = decryptPollVote(vote, { pollCreatorJid, pollMsgId: poll.id, pollEncKey: poll.secret, voterJid })
-        return { hashes: (decoded.selectedOptions ?? []).map((h) => Buffer.from(h).toString('hex')) }
+        // Only the poll's own options, once each: a crafted vote cannot bloat the tally or the store.
+        const known = new Set(poll.options.map((o) => o.hash))
+        const selected = new Set((decoded.selectedOptions ?? []).map((h) => Buffer.from(h).toString('hex')))
+        return { hashes: [...selected].filter((h) => known.has(h)) }
       } catch {
         // Wrong JID pair: GCM authentication fails. Try the next candidate.
       }

@@ -159,6 +159,20 @@ describe('poll votes: decryption and poll-vote events', () => {
     expect(tallies()).toEqual([['A', 0, []], ['B', 0, []], ['C', 1, [VOTER_PN]]])
   })
 
+  it('keeps only the poll\'s own option hashes from a vote (a crafted vote cannot bloat the tally or the store)', async () => {
+    const h = await connect(BaileysProvider)
+    const poll = await sendPoll(h, GROUP, 'Pick', ['A', 'B'], true)
+    const pollKey = { remoteJid: GROUP, fromMe: true, id: poll.key.id, participant: ME_LID }
+    const junk = Array.from({ length: 500 }, (_, i) => `junk-${i}`)
+    await h.emit(upsert([voteMessage(
+      { remoteJid: GROUP, participant: VOTER_LID, participantAlt: VOTER_PN }, pollKey,
+      encryptVote(poll, ME_LID, VOTER_LID, ['B', ...junk, 'B']), 1000,
+    )]))
+    expect(h.ofKind('poll-vote').at(-1)!.vote.options.map((o) => o.votes)).toEqual([0, 1])
+    const stored = trackerOf(h).get(poll.key.id!)!.votes.get(VOTER_PN)!
+    expect(stored.hashes).toHaveLength(1)
+  })
+
   it('counts one person once when their votes arrive as a bare LID first and with the PN twin later', async () => {
     const h = await connect(BaileysProvider)
     const poll = await sendPoll(h, GROUP, 'Pick', ['A', 'B'])

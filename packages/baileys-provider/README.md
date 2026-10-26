@@ -4,8 +4,8 @@ The **WhatsApp via [Baileys 7](https://github.com/WhiskeySockets/Baileys)** tran
 
 > **Unofficial client.** Baileys implements the WhatsApp Web protocol by reverse engineering; neither WhatsApp nor Meta endorses it. Automating an account may break the [WhatsApp Terms of Service](https://www.whatsapp.com/legal/terms-of-service) and end in **a banned number**. Use a dedicated number, write only to people who asked you to (opt-in), do not send bulk messages and keep the rate limiter on. If you need an official route with no ban risk, use [`@botmesh/meta`](https://github.com/andresayac/botmesh/tree/main/packages/meta-provider) (WhatsApp Cloud API).
 
-- **Ingress:** own socket with reconnect and backoff; Baileys events are translated into neutral `InboundEvent`s: messages, reactions, poll votes (decrypted by the provider), group changes, calls and presence.
-- **Outbound:** text, image, video, audio, voice note (transcoded to Opus), document, sticker (converted with `sharp`), location, contact, **native polls** and reactions. Buttons, lists and cards degrade to numbered text.
+- **Ingress:** own socket with reconnect and backoff; Baileys events are translated into neutral `InboundEvent`s: messages, reactions, poll votes (decrypted by the provider), group changes, calls and presence. Protocol stanzas (reactions, deletes, edits, placeholders for messages that failed to decrypt) never reach the bot as messages.
+- **Outbound:** text, image, video, audio, voice note (transcoded to Opus), document, sticker (converted with `sharp`, with its pack name and author), location, contact, **native polls** and reactions. Buttons, lists and cards degrade to numbered text.
 - **Actions:** read receipts, typing/recording, deleting messages and downloading inbound media.
 - **Stable identity:** the provider resolves WhatsApp's LID/PN duality before emitting every event, so the core always sees the same `senderId` for the same person.
 
@@ -20,10 +20,21 @@ The **WhatsApp via [Baileys 7](https://github.com/WhiskeySockets/Baileys)** tran
 In the monorepo the package is already available as a workspace. From an app:
 
 ```bash
-pnpm add @botmesh/core @botmesh/baileys
+pnpm add @botmesh/core@alpha @botmesh/baileys@alpha
 ```
 
-`ffmpeg` is bundled (`@ffmpeg-installer/ffmpeg`) for voice notes, and `sharp` for stickers.
+The packages are published under the `alpha` dist-tag (there is no `latest` yet), hence the `@alpha`.
+
+- **pnpm ≥ 10** blocks dependency build scripts, and **pnpm 11 fails the install** (`ERR_PNPM_IGNORED_BUILDS`) until you decide. `@whiskeysockets/baileys` (a Node version check) and `protobufjs` (a version notice) need none of theirs, so deny them in `pnpm-workspace.yaml` (npm runs them and installs normally):
+
+  ```yaml
+  allowBuilds:
+    '@whiskeysockets/baileys': false
+    protobufjs: false
+  ```
+
+- `ffmpeg` is bundled (`@ffmpeg-installer/ffmpeg`) for voice notes, and `sharp` for stickers. Both load on the first voice note or sticker: on a platform where one of them cannot load, the package still imports and sends everything else, and that send fails with an `UnsupportedContentError` that names the missing tool.
+- **TypeScript:** the public types reference Baileys' own (`WAMessage`), and Baileys' `.d.ts` files do not compile with `skipLibCheck: false` (missing `@types/ws`, extensionless imports). Keep `"skipLibCheck": true`, the default of most templates.
 
 ## Quickstart
 
@@ -57,6 +68,7 @@ interface BaileysProviderConfig {
   ignoreBroadcasts?: boolean    // true by default (status@broadcast is always ignored)
   ignoreNewsletters?: boolean   // true by default
   pollStore?: PollStore         // poll persistence to read votes after a restart (see Polls and votes)
+  remoteMedia?: RemoteMediaConfig // how outbound media URLs are downloaded (see Outbound media)
   durableMedia?: { viewOnce?: boolean } // with durability: journal view-once media too (off by default)
   debug?: boolean               // 'debug' level on the default logger (otherwise 'error')
   logger?: LoggerLike           // any logger with debug/info/warn/error (pino, console…); Baileys gets an adapter (toBaileysLogger)
@@ -85,7 +97,7 @@ bot.on('qr', (artifact) => {
 await bot.start()
 ```
 
-On the phone: **Linked devices → Link with phone number** and enter the code. The code is requested once per start, together with the first QR. If the request fails, the provider logs it and keeps offering the QR. The QR and the code also arrive in the `connection` event, as `authPayload`.
+On the phone: **Linked devices → Link with phone number** and enter the code. The code is requested once per start, together with the first QR. If the request fails, the provider logs it and keeps offering the QR. The QR and the code also arrive in the `connection` event, as `authPayload`. A `pairingCode` that is not a phone number (6 to 15 digits once spaces, `+` and dashes are dropped) throws a `TypeError` in the constructor.
 
 ### QR rendering
 
@@ -98,13 +110,13 @@ interface QrConfig {
 }
 ```
 
-Without `qr`, it is drawn in the terminal. If you pass a `qr` object, only what you set is enabled. Errors writing the PNG are logged, never thrown.
+Without `qr`, it is drawn in the terminal. If you pass a `qr` object, only what you set is enabled. Errors writing the PNG, and a `handler` that throws or rejects, are logged, never thrown.
 
 > The QR and the pairing code grant access to the account while they are valid. Never log them or send them over unencrypted channels, and delete the PNG when you no longer need it.
 
 ### Browser identity (`browser`)
 
-**Leave it undefined.** The provider then omits the option and Baileys uses its default identity (`Browsers.macOS('Chrome')`), which is the one the rc14 handshake validates. The `'macOS' | 'ubuntu' | 'windows' | 'appropriate'` presets announce **Chrome** on that operating system. A custom tuple `[os, browser, version]` is passed through and leaves a warning in the log: with non-standard identities (e.g. `'Desktop'` or an invented name), WhatsApp may close the connection with `428` before the QR.
+**Leave it undefined.** The provider then omits the option and Baileys uses its default identity (`Browsers.macOS('Chrome')`), which is the one the rc14 handshake validates. The `'macOS' | 'ubuntu' | 'windows' | 'appropriate'` presets announce **Chrome** on that operating system. An unknown preset, or a tuple that is not three non-empty strings, throws a `TypeError` in the constructor. A custom tuple `[os, browser, version]` is passed through and leaves a warning in the log: with non-standard identities (e.g. `'Desktop'` or an invented name), WhatsApp may close the connection with `428` before the QR.
 
 ### Rate limiter (anti-ban)
 
@@ -136,7 +148,15 @@ When the socket closes, the provider emits `connection` with `state: 'closed'` a
 | 515 `restartRequired` | Normal restart after pairing | Reconnects instantly | `transient` |
 | Everything else (428, 408, 503…) | Transient drop | Exponential backoff: 1 s, 2 s, 4 s… up to 30 s, at most 10 attempts | `transient` |
 
-If `start()` fails during a reconnect (for example, no network), it is retried with the same backoff and the same cap. When it is exhausted, a final `closed` is emitted with `detail.message: 'reconnect exhausted'`. With `reconnect: false` it never retries. The counter goes back to zero every time the connection opens.
+If `start()` fails during a reconnect (for example, no network), it is retried with the same backoff and the same cap. When the attempts run out, through transient drops or failed starts, a final `closed` is emitted with `detail.message: 'reconnect exhausted'`. With `reconnect: false` it never retries. The counter goes back to zero every time the connection opens.
+
+### Outbound media
+
+`ctx.photo`, `ctx.video`, `ctx.audio`, `ctx.file`, `ctx.voice` and `ctx.sticker` take a URL, a local path, a `Buffer`, `{ buffer }`, `{ path }`, `{ url }` or `{ stream }`.
+
+- **URLs are downloaded by the provider**, not by Baileys: through `@botmesh/http`, with every redirect hop checked and private, loopback and link-local hosts refused (SSRF), at most 64 MiB and 60 s. Tune it with `remoteMedia: { maxBytes, timeoutMs, maxRedirects, allowHttp }`; `allowPrivateHosts: true` accepts internal hosts (and, for photos, videos, audio and files, hands the URL to Baileys untouched, as before).
+- **Voice notes and stickers** are converted locally (`ffmpeg` to Opus, `sharp` to a 512×512 WebP), so a URL or a stream is read in full first, capped at `remoteMedia.maxBytes`. `ctx.sticker(media, { pack, author })` writes the pack name and author into the sticker's metadata.
+- A local path that does not exist rejects with `UnsupportedContentError` before anything is sent.
 
 ## Identity: LID and PN
 
@@ -152,6 +172,7 @@ The provider resolves it with an `IdentityStore` **before** emitting every event
 - In a reaction, `senderId` is **whoever reacts** and `ref.id` is the reacted message (previously the author of that message was reported, by mistake).
 - Mentions (`mentions`) and the author of the quoted message (`quoted.senderId`) are canonical too: in a group addressed by LID, WhatsApp mentions and quotes with LIDs, and the provider swaps them for the PN when it knows it (querying the mapping store if needed). That way `ctx.quoted?.senderId === provider.selfId` detects a reply to a message sent by the bot. The quote and the mentions are also read from captions of photos, videos and documents, and `quoted.ref` points at the quoted message (usable as `quoted` to reply in the thread).
 - Wrapped messages (disappearing mode, *view once*, document with caption) are unwrapped before being classified, so they arrive with their real `type`, `body` and `media`.
+- Baileys upserts every stanza before processing it. Those that are not something a person wrote (reactions, which arrive as the `reaction` event instead; deletes, edits and chat settings; sender-key distributions; placeholders for messages that failed to decrypt; group notice stubs) are not emitted as messages, so they never reach a catch-all handler or an `ask`. Reactions in statuses, broadcast lists and channels are dropped like their messages (`ignoreBroadcasts`/`ignoreNewsletters`).
 - `provider.selfId` is the bot's normalized PN (`573000000000@s.whatsapp.net`, without the device suffix `:12` that `creds.me.id` stores), the same id its own reactions and votes carry. With `groupMode: 'mentions'`, the core compares mentions against `selfId`, so the bot answers whether it is mentioned by its number or by its LID.
 - In `group`, the provider translates Baileys' `modify` action (number change) into `action: 'update'`, but rc14 never gets to emit it: while processing the number change, Baileys runs `JSON.parse` on the notice's raw JIDs and throws before emitting the event. In practice, with rc14 a number change produces no `group` event at all.
 - When sending to a LID, the provider uses the PN if it knows it and, otherwise, sends directly to the LID.
@@ -169,7 +190,7 @@ With WhatsApp usernames, some contacts **never** expose their number: they alway
 
 ## Polls and votes
 
-`ctx.poll(question, options, multiSelect?)` sends a native poll. Votes reach the bot as a `poll` event, already decrypted and with the full tally:
+`ctx.poll(question, options, multiSelect?)` sends a native poll: a non-empty question and 2 to 12 unique, non-empty options (votes select an option by the hash of its name, so duplicates would be indistinguishable); anything else rejects with `UnsupportedContentError`. Votes reach the bot as a `poll` event, already decrypted and with the full tally:
 
 ```ts
 await ctx.poll('Pizza or sushi?', ['Pizza', 'Sushi'])
@@ -254,7 +275,7 @@ The session folder (`creds.json` and the Signal keys) **is** the account: whoeve
 
 ## Error mapping
 
-`send()` only rejects with `ProviderError` subclasses from `@botmesh/core`. Failures from `sock.sendMessage`, the rate limiter and content preparation are converted like this:
+`send()` and `deleteMessage()` only reject with `ProviderError` subclasses from `@botmesh/core`. Failures from `sock.sendMessage`, the rate limiter and content preparation are converted like this:
 
 | Cause | Becomes |
 | --- | --- |
@@ -262,6 +283,8 @@ The session folder (`creds.json` and the Signal keys) **is** the account: whoeve
 | 413 or *too large* | `PayloadTooLargeError` |
 | 401 / 403, *forbidden*, *not-authorized*, *blocked* | `RecipientUnreachableError` |
 | `kind: 'template'` or `'native'` | `UnsupportedContentError` |
+| an invalid poll, a missing local media file, an unsupported media source, a voice note or sticker that cannot be converted (or whose `ffmpeg`/`sharp` cannot load) | `UnsupportedContentError` |
+| a media URL on a private host, or one that redirects there | `UnsupportedContentError` (over `remoteMedia.maxBytes`: `PayloadTooLargeError`) |
 | wait in the rate limiter queue longer than `maxWait` | `RateLimiterTimeout`, a subclass of `RateLimitedError` |
 | `stop()` with sends still queued | `ProviderError('RateLimiter reset')` |
 | no connected socket | `ProviderError('Provider not connected')` |
