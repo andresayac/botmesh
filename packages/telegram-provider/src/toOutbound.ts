@@ -68,7 +68,8 @@ function mediaParam(field: string, media: ResolvedTelegramMedia | undefined, kin
 }
 
 function buttonRow(b: { id: string; title: string; url?: string }): Record<string, unknown> {
-  const text = b.title.slice(0, BTN_TEXT)
+  // Cut on code points: slicing UTF-16 units could leave half an emoji (invalid UTF-8 for the Bot API).
+  const text = [...b.title].slice(0, BTN_TEXT).join('')
   return b.url
     ? { text, url: b.url }
     : { text, callback_data: truncateUtf8(b.id || b.title, CALLBACK_DATA_BYTES) }

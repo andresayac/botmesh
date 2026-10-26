@@ -52,7 +52,47 @@ import { parseUpdate } from './parseInbound.js'
 import { replyParametersOf, targetOf } from './refs.js'
 import { toOutbound, type ResolvedTelegramMedia } from './toOutbound.js'
 
-const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+/** Sleep `ms`, cut short (resolving early, timer cleared) when `signal` aborts. */
+const sleep = (ms: number, signal?: AbortSignal): Promise<void> =>
+  new Promise((resolve) => {
+    if (signal?.aborted) return resolve()
+    const done = (): void => {
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', done)
+      resolve()
+    }
+    const timer = setTimeout(done, ms)
+    signal?.addEventListener('abort', done, { once: true })
+  })
+
+/** Default per-request timeout (uploads included); long polls get `pollTimeout` + grace. */
+const DEFAULT_REQUEST_TIMEOUT_MS = 120_000
+/** Extra time a long poll may take beyond its server-side `timeout` before it counts as hung. */
+const POLL_GRACE_MAX_MS = 15_000
+
+/** Throw a clear config error unless `value` is undefined or a finite number >= `min`. */
+function assertNumber(name: string, value: unknown, min: number): void {
+  if (value === undefined) return
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < min) {
+    throw new TypeError(`TelegramProvider: ${name} must be a finite number >= ${min} (got ${String(value)})`)
+  }
+}
+
+/** Header lookup that works for plain objects (any case) and Fetch `Headers`. */
+function headerOf(headers: TelegramWebhookHeaders | undefined, name: string): string | undefined {
+  if (!headers) return undefined
+  if (typeof (headers as Headers).get === 'function') return (headers as Headers).get(name) ?? undefined
+  const record = headers as Record<string, string | string[] | undefined>
+  let raw = record[name]
+  if (raw === undefined) {
+    const key = Object.keys(record).find((k) => k.toLowerCase() === name)
+    if (key) raw = record[key]
+  }
+  return Array.isArray(raw) ? raw[0] : raw
+}
+
+/** Headers accepted by `ingest()`: a Node-style record (any case) or a Fetch `Headers`. */
+export type TelegramWebhookHeaders = Record<string, string | string[] | undefined> | Headers
 
 /** Bot API methods that accept `reply_parameters`. */
 const REPLYABLE = new Set([
@@ -106,7 +146,9 @@ export class TelegramProvider implements IProvider<unknown> {
     textFormat: 'plain', // sent without parse_mode: Markdown would show literally
   }
 
-  private readonly config: Required<Pick<TelegramProviderConfig, 'token' | 'baseUrl' | 'polling' | 'pollTimeout' | 'errorBackoffMs' | 'maxBackoffMs' | 'pollIdleMs'>> & Pick<TelegramProviderConfig, 'mediaDownload'>
+  private readonly config: Required<Pick<TelegramProviderConfig, 'token' | 'baseUrl' | 'polling' | 'pollTimeout' | 'errorBackoffMs' | 'maxBackoffMs' | 'pollIdleMs' | 'requestTimeoutMs'>> & Pick<TelegramProviderConfig, 'mediaDownload'>
+  /** Aborted by stop(): cuts the in-flight long poll and every poll-loop sleep. */
+  private lifecycle?: AbortController
   private readonly webhookSecret?: string
   /** Whether `edited_message` updates reach the bot (`editedMessages` config). */
   private readonly deliverEdits: boolean
@@ -115,6 +157,8 @@ export class TelegramProvider implements IProvider<unknown> {
   private readonly logger: LoggerLike
   private listeners = new Set<(e: InboundEvent) => void | Promise<void>>()
   private _selfId: string | null = null
+  /** The bot's @username (no @): config `username` or getMe; recognises /cmd@username in groups. */
+  private username?: string
   private running = false
   private stopped = false
   private readyEmitted = false
@@ -125,9 +169,29 @@ export class TelegramProvider implements IProvider<unknown> {
   private readonly draftStops = new Map<string, { onStop: () => void; at: number }>()
 
   constructor(config: TelegramProviderConfig) {
+    if (typeof config?.token !== 'string' || config.token.trim() === '') {
+      throw new TypeError(
+        'TelegramProvider: `token` is required — the bot token @BotFather gave you (e.g. token: process.env.TELEGRAM_TOKEN). ' +
+          `Got ${config?.token === undefined ? 'undefined (is the environment variable set?)' : 'an empty value'}.`,
+      )
+    }
+    const baseUrl = (config.baseUrl ?? 'https://api.telegram.org').replace(/\/+$/, '')
+    let parsed: URL | undefined
+    try { parsed = new URL(baseUrl) } catch { parsed = undefined }
+    if (!parsed || (parsed.protocol !== 'https:' && parsed.protocol !== 'http:')) {
+      throw new TypeError(
+        `TelegramProvider: baseUrl must be an absolute http(s) URL such as 'https://api.telegram.org' (got ${JSON.stringify(config.baseUrl)})`,
+      )
+    }
+    assertNumber('pollTimeout', config.pollTimeout, 0)
+    assertNumber('errorBackoffMs', config.errorBackoffMs, 0)
+    assertNumber('maxBackoffMs', config.maxBackoffMs, 0)
+    assertNumber('pollIdleMs', config.pollIdleMs, 0)
+    assertNumber('requestTimeoutMs', config.requestTimeoutMs, 1)
     this.config = {
       token: config.token,
-      baseUrl: (config.baseUrl ?? 'https://api.telegram.org').replace(/\/+$/, ''),
+      baseUrl,
+      requestTimeoutMs: config.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
       polling: config.polling ?? true,
       pollTimeout: config.pollTimeout ?? 30,
       errorBackoffMs: config.errorBackoffMs ?? 1000,
@@ -136,6 +200,7 @@ export class TelegramProvider implements IProvider<unknown> {
       mediaDownload: config.mediaDownload,
     }
     if (config.selfId) this._selfId = config.selfId
+    if (typeof config.username === 'string' && config.username.trim()) this.username = config.username.trim().replace(/^@/, '')
     // Webhook mode: every replica can take updates the host forwards; only polling is exclusive.
     this.capabilities.exclusiveSession = this.config.polling
     this.webhookSecret = config.webhookSecret
@@ -159,10 +224,9 @@ export class TelegramProvider implements IProvider<unknown> {
   }
 
   /** Timing-safe compare of the incoming secret-token header against the configured secret. */
-  private secretMatches(headers?: Record<string, string | string[] | undefined>): boolean {
+  private secretMatches(headers?: TelegramWebhookHeaders): boolean {
     if (!this.webhookSecret) return true
-    const raw = headers?.['x-telegram-bot-api-secret-token']
-    const presented = Array.isArray(raw) ? raw[0] : raw
+    const presented = headerOf(headers, 'x-telegram-bot-api-secret-token')
     if (!presented) return false
     const a = Buffer.from(presented)
     const b = Buffer.from(this.webhookSecret)
@@ -199,6 +263,7 @@ export class TelegramProvider implements IProvider<unknown> {
     if (this.running) return
     this.running = true
     this.stopped = false
+    this.lifecycle = new AbortController()
     // A restart (stop() → start()) must announce `ready` again on the first batch.
     this.readyEmitted = false
     this.pollErrors = 0
@@ -207,6 +272,7 @@ export class TelegramProvider implements IProvider<unknown> {
       try {
         const me = await this.callApi<TelegramUser>('getMe')
         this._selfId = String(me.id)
+        if (!this.username && typeof me.username === 'string') this.username = me.username
         this.logger.debug(`getMe ok: @${me.username ?? me.id}`)
       } catch (err) {
         this.running = false
@@ -228,6 +294,7 @@ export class TelegramProvider implements IProvider<unknown> {
   async stop(): Promise<void> {
     this.stopped = true
     this.running = false
+    this.lifecycle?.abort()
     this.pollAbort?.abort()
     if (this.pollPromise) {
       await this.pollPromise.catch(() => undefined)
@@ -246,17 +313,27 @@ export class TelegramProvider implements IProvider<unknown> {
     const allowedUpdates = this.deliverEdits
       ? ['message', 'edited_message', 'callback_query', 'stopped_message_generation']
       : ['message', 'callback_query', 'stopped_message_generation']
+    const stopSignal = this.lifecycle?.signal
     while (!this.stopped) {
       this.pollAbort = new AbortController()
+      // The first round does not long-poll (timeout 0): it proves the token and
+      // the polling slot (no 409) right away, so `ready` is not held back for a
+      // whole idle `pollTimeout`.
+      const timeout = this.readyEmitted ? this.config.pollTimeout : 0
       try {
         const updates = await this.callApi<TelegramUpdate[]>('getUpdates', {
           ...(this.offset != null ? { offset: this.offset } : {}),
-          timeout: this.config.pollTimeout,
+          timeout,
           allowed_updates: allowedUpdates,
-        }, { signal: this.pollAbort.signal })
+        }, {
+          signal: this.pollAbort.signal,
+          // A half-open connection would otherwise hang the loop forever.
+          timeoutMs: timeout * 1000 + Math.min(this.config.requestTimeoutMs, POLL_GRACE_MAX_MS),
+        })
         this.pollErrors = 0 // a successful round resets the backoff ramp
-        for (const u of updates ?? []) {
-          if (typeof u.update_id === 'number') this.offset = u.update_id + 1
+        const batch = Array.isArray(updates) ? updates : []
+        for (const u of batch) {
+          if (u && typeof u.update_id === 'number' && Number.isSafeInteger(u.update_id)) this.offset = u.update_id + 1
           if (this.handleDraftStopped(u)) continue
           this.dispatchUpdate(u)
         }
@@ -266,11 +343,12 @@ export class TelegramProvider implements IProvider<unknown> {
         }
         // Empty batch: the server already waited `timeout` seconds; a small
         // client-side pause also guards against hot loops on mocked/odd servers.
-        if (!updates?.length) await sleep(this.config.pollIdleMs)
+        if (!batch.length) await sleep(this.config.pollIdleMs, stopSignal)
       } catch (err) {
         if (this.stopped) break
         if (err instanceof RateLimitedError) {
-          await sleep(err.retryAfterMs)
+          this.logger.warn(`getUpdates rate limited; retrying in ${err.retryAfterMs}ms`)
+          await sleep(err.retryAfterMs, stopSignal)
           continue
         }
         const detail = err instanceof Error ? err.message : String(err)
@@ -293,7 +371,7 @@ export class TelegramProvider implements IProvider<unknown> {
         const delay = Math.min(this.config.errorBackoffMs * 2 ** this.pollErrors, this.config.maxBackoffMs)
         this.pollErrors++
         this.logger.warn(`getUpdates failed (${detail}); retrying in ${delay}ms (attempt ${this.pollErrors})`)
-        await sleep(delay)
+        await sleep(delay, stopSignal)
       }
     }
   }
@@ -306,42 +384,73 @@ export class TelegramProvider implements IProvider<unknown> {
    * 401 when the secret-token header is missing/wrong, 400 unparseable —
    * Telegram retries non-200s).
    */
-  ingest(rawEvent: unknown, headers?: Record<string, string | string[] | undefined>): number {
+  ingest(rawEvent: unknown, headers?: TelegramWebhookHeaders): number {
     if (!this.secretMatches(headers)) {
       this.logger.warn('ingest: rejected Update with missing/invalid X-Telegram-Bot-Api-Secret-Token')
       return 401
     }
     let update: TelegramUpdate
     try {
-      update = typeof rawEvent === 'string' ? JSON.parse(rawEvent) : (rawEvent as TelegramUpdate)
+      // Raw bytes (a Buffer / Uint8Array, e.g. from @botmesh/server) are UTF-8 JSON too.
+      const text = typeof rawEvent === 'string'
+        ? rawEvent
+        : rawEvent instanceof Uint8Array ? Buffer.from(rawEvent.buffer, rawEvent.byteOffset, rawEvent.byteLength).toString('utf8') : undefined
+      update = text !== undefined ? JSON.parse(text) : (rawEvent as TelegramUpdate)
     } catch {
       this.logger.warn('ingest: body is not valid JSON')
       return 400
     }
     if (!update || typeof update !== 'object' || typeof update.update_id !== 'number') return 400
     if (this.handleDraftStopped(update)) return 200
+    // A payload the normalizer cannot handle would fail the same way on every
+    // retry: it is logged and acknowledged (200) instead of thrown at the host.
     this.dispatchUpdate(update)
     return 200
   }
 
   /** Normalize one Update and emit it; `edited_message` is dropped under `editedMessages: 'ignore'`. */
   private dispatchUpdate(update: TelegramUpdate): void {
+    if (!update || typeof update !== 'object') return
     if (!this.deliverEdits && update.edited_message && !update.message) return
-    const ev = parseUpdate(update, this._selfId ?? undefined)
+    let ev: InboundEvent | undefined
+    try {
+      ev = parseUpdate(update, this._selfId ?? undefined, this.username)
+    } catch (err) {
+      // Never log the payload (it carries message text / personal data).
+      this.logger.error({ err, updateId: update.update_id }, 'TelegramProvider: could not normalize an Update; it was skipped')
+      return
+    }
     if (ev) this.fan(ev)
   }
 
   /* Outbound -------------------------------------------------------------- */
 
-  private async resolveMedia(source: MediaSource, filename?: string): Promise<ResolvedTelegramMedia> {
+  private async resolveMedia(source: MediaSource, kind: OutboundContent['kind'], filename?: string): Promise<ResolvedTelegramMedia> {
+    const readLocal = async (path: string): Promise<Buffer> => {
+      try {
+        return await readFile(path)
+      } catch (err) {
+        const code = (err as { code?: string }).code
+        const shown = path.length > 80 ? `${path.slice(0, 80)}…` : path
+        throw Object.assign(
+          new UnsupportedContentError(
+            kind,
+            `Telegram ${kind}: ${JSON.stringify(shown)} is neither an http(s) URL nor a readable file (${code ?? 'read failed'}). ` +
+              "To reuse a Telegram file_id pass { native: '<file_id>' }; for bytes pass a Buffer or { buffer }.",
+          ),
+          { cause: err },
+        )
+      }
+    }
     if (typeof source === 'string') {
       if (/^https?:\/\//i.test(source)) return { value: source }
-      return { buffer: await readFile(source), filename: filename ?? basename(source) }
+      return { buffer: await readLocal(source), filename: filename ?? basename(source) }
     }
     if (Buffer.isBuffer(source)) return { buffer: source, filename }
+    if (source == null || typeof source !== 'object') throw new UnsupportedContentError(kind, `Telegram ${kind}: unsupported MediaSource`)
     if ('url' in source) return { value: source.url }
     if ('buffer' in source) return { buffer: source.buffer, filename }
-    if ('path' in source) return { buffer: await readFile(source.path), filename: filename ?? basename(source.path) }
+    if ('path' in source) return { buffer: await readLocal(source.path), filename: filename ?? basename(source.path) }
     if ('stream' in source) {
       const chunks: Buffer[] = []
       for await (const c of source.stream as AsyncIterable<Buffer | string>) chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c))
@@ -350,15 +459,15 @@ export class TelegramProvider implements IProvider<unknown> {
     if ('native' in source) {
       // Telegram reuse-by-file_id: { native: 'AgACAgEAAx...' }
       if (typeof source.native === 'string') return { value: source.native }
-      throw new UnsupportedContentError('image', 'Telegram native MediaSource must be a file_id string')
+      throw new UnsupportedContentError(kind, 'Telegram native MediaSource must be a file_id string')
     }
-    throw new UnsupportedContentError('image', 'Unsupported MediaSource for Telegram')
+    throw new UnsupportedContentError(kind, 'Unsupported MediaSource for Telegram')
   }
 
   async send(chatId: ChatId, content: OutboundContent, options?: SendOptions): Promise<SendResult<unknown>> {
     const needsMedia = MEDIA_KINDS.includes(content.kind)
     const media = needsMedia
-      ? await this.resolveMedia((content as { media: MediaSource }).media, content.kind === 'document' ? (content as { filename?: string }).filename : undefined)
+      ? await this.resolveMedia((content as { media: MediaSource }).media, content.kind, content.kind === 'document' ? (content as { filename?: string }).filename : undefined)
       : undefined
     const out = toOutbound(content, media)
     const params: Record<string, unknown> = { chat_id: chatId, ...out.params }
@@ -385,8 +494,33 @@ export class TelegramProvider implements IProvider<unknown> {
     return { id: '', chatId, native: result }
   }
 
+  /** Remove the bot token from a string (request URLs embed it). */
+  private redact(text: string): string {
+    return text.split(this.config.token).join('<token>')
+  }
+
+  /**
+   * A transport failure (DNS, TLS, reset, bad URL) as a ProviderError. Node's
+   * fetch errors can quote the request URL, which embeds the token: message and
+   * cause are rebuilt with the token redacted.
+   */
+  private networkError(method: string, err: unknown): ProviderError {
+    const e = err as { message?: unknown; name?: unknown; code?: unknown; cause?: { message?: unknown; code?: unknown } }
+    const detail = this.redact(String(e?.message ?? err))
+    const inner = e?.cause && typeof e.cause === 'object'
+      ? `: ${this.redact(String(e.cause.message ?? ''))}${typeof e.cause.code === 'string' ? ` (${e.cause.code})` : ''}`
+      : ''
+    const cause = Object.assign(new Error(`${detail}${inner}`), {
+      name: typeof e?.name === 'string' ? e.name : 'Error',
+      ...(typeof e?.code === 'string' ? { code: e.code } : typeof e?.cause?.code === 'string' ? { code: e.cause.code } : {}),
+    })
+    const wrapped = new ProviderError(`Telegram API request failed (${method}): ${detail}${inner}`)
+    ;(wrapped as { cause?: unknown }).cause = cause
+    return wrapped
+  }
+
   /** POST {baseUrl}/bot{token}/{method} — JSON, or multipart when a buffer upload is required. */
-  private async callApi<T>(method: string, params: Record<string, unknown> = {}, opts?: { media?: ResolvedTelegramMedia; mediaField?: string; signal?: AbortSignal }): Promise<T> {
+  private async callApi<T>(method: string, params: Record<string, unknown> = {}, opts?: { media?: ResolvedTelegramMedia; mediaField?: string; signal?: AbortSignal; timeoutMs?: number }): Promise<T> {
     const url = `${this.config.baseUrl}/bot${this.config.token}/${method}`
     let init: RequestInit
     if (opts?.mediaField && opts.media?.buffer) {
@@ -405,9 +539,30 @@ export class TelegramProvider implements IProvider<unknown> {
     } else {
       init = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(params) }
     }
-    if (opts?.signal) init.signal = opts.signal
-    const res = await fetch(url, init)
-    const body = (await res.json().catch(() => ({}))) as TelegramResponse<T>
+    // Every request is bounded: a hung connection must not stall a send (or the
+    // poll loop) forever. The caller's signal (stop()) still aborts it first.
+    const timeoutMs = opts?.timeoutMs ?? this.config.requestTimeoutMs
+    const timer = new AbortController()
+    const timeout = setTimeout(() => timer.abort(), timeoutMs)
+    init.signal = opts?.signal ? AbortSignal.any([opts.signal, timer.signal]) : timer.signal
+    let res: Response
+    let body: TelegramResponse<T>
+    try {
+      res = await fetch(url, init)
+      body = (await res.json().catch((err: unknown) => {
+        if (timer.signal.aborted || opts?.signal?.aborted) throw err
+        return {}
+      })) as TelegramResponse<T>
+    } catch (err) {
+      if (opts?.signal?.aborted) throw err // stop(): the caller handles its own abort
+      if (timer.signal.aborted) {
+        throw new ProviderError(`Telegram API request timed out after ${timeoutMs}ms (${method}); raise requestTimeoutMs for slow uploads`)
+      }
+      throw this.networkError(method, err)
+    } finally {
+      clearTimeout(timeout)
+    }
+    if (!body || typeof body !== 'object') body = { ok: false }
     if (!body.ok) {
       const chatId = typeof params.chat_id === 'string' ? params.chat_id : String(params.chat_id ?? '')
       throw toProviderError(chatId, body.error_code ?? res.status, body.description, body.parameters?.retry_after)
