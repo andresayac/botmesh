@@ -252,15 +252,44 @@ export function evaluateCondition(node: ExpressionNode, scope: Readonly<Record<s
   return truthy(evaluateExpression(node, scope))
 }
 
-/** Resolve a dotted path over plain own properties only. */
+/**
+ * Resolve a dotted path over plain own properties only. A state key may itself contain dots
+ * (`ask` with `stateKey: 'user.name'` writes `c.state['user.name']`), so when the nested
+ * lookup finds nothing, the longest own ROOT key made of the leading segments is tried
+ * (`user.name` → `c.state['user.name']`). Nested objects win over a dotted key. Only the
+ * root is retried (state keys live there), which keeps the lookup linear.
+ */
 export function resolvePath(scope: Readonly<Record<string, unknown>>, path: readonly string[]): unknown {
-  let cur: unknown = scope
+  if (path.some((seg) => FORBIDDEN_SEGMENTS.has(seg))) return undefined
+  const nested = walk(scope, path)
+  if (nested !== undefined || path.length < 2) return nested
+  // A state key is at most 64 characters, so at most 32 segments.
+  for (let n = Math.min(path.length, 32); n > 1; n--) {
+    const key = path.slice(0, n).join('.')
+    if (Object.hasOwn(scope, key)) return walk((scope as Record<string, unknown>)[key], path.slice(n))
+  }
+  return undefined
+}
+
+function walk(start: unknown, path: readonly string[]): unknown {
+  let cur = start
   for (const seg of path) {
-    if (FORBIDDEN_SEGMENTS.has(seg)) return undefined
     if (cur === null || typeof cur !== 'object' || !Object.hasOwn(cur, seg)) return undefined
     cur = (cur as Record<string, unknown>)[seg]
   }
   return cur
+}
+
+/** Every variable path an expression reads (`a.b` → `['a', 'b']`), in source order. */
+export function expressionPaths(node: ExpressionNode): string[][] {
+  switch (node.t) {
+    case 'lit': return []
+    case 'path': return [[...node.p]]
+    case 'not':
+    case 'neg': return expressionPaths(node.a)
+    case 'bin': return [...expressionPaths(node.a), ...expressionPaths(node.b)]
+    case 'call': return node.args.flatMap(expressionPaths)
+  }
 }
 
 function truthy(v: unknown): boolean {
@@ -330,4 +359,11 @@ export function hasTemplate(text: string): boolean {
   return found
 }
 
+/** The path of `text` when it is exactly one `{{ path }}` placeholder (surrounding spaces allowed). */
+export function soleTemplatePath(text: string): string[] | undefined {
+  const m = SOLE_TEMPLATE_RE.exec(text)
+  return m ? m[1]!.split('.') : undefined
+}
+
+const SOLE_TEMPLATE_RE = /^\s*\{\{\s*([A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*)\s*\}\}\s*$/
 const TEMPLATE_RE = /\{\{\s*([A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*)\s*\}\}/g

@@ -10,7 +10,7 @@
 
 import type { CompiledFlow, CompiledStep, FormDefinition, FormField, Trigger } from '@botmesh/core'
 import { flowDocumentSource, flowStepSource } from './compile.js'
-import { FLOW_DOCUMENT_VERSION } from './schema.js'
+import { FLOW_DOCUMENT_VERSION, validateFlowDocument } from './schema.js'
 import type { FlowDocument, FlowDocumentIssue, FlowFormDocument, FlowFormFieldDocument, FlowMediaDocumentSource, FlowStepDocument } from './schema.js'
 
 /** Thrown when a compiled flow cannot be represented as a JSON document. */
@@ -22,8 +22,10 @@ export class FlowExportError extends Error {
 }
 
 /**
- * Export a compiled flow as a v1 JSON document. Throws {@link FlowExportError} listing
- * every step that cannot be represented.
+ * Export a compiled flow as a JSON document at the current format version. Throws
+ * {@link FlowExportError} listing every step that cannot be represented, or the validation
+ * issues of a result that would not load again. The result is a fresh copy: changing it
+ * never alters the compiled flow or a later export.
  */
 export function exportFlowDocument(flow: CompiledFlow): FlowDocument {
   const issues: FlowDocumentIssue[] = []
@@ -43,7 +45,7 @@ export function exportFlowDocument(flow: CompiledFlow): FlowDocument {
   // not come back as `300000`); the steps are the ones above, so a mutated step is still
   // exported as it is.
   const source = flowDocumentSource(flow)
-  return {
+  const document = structuredClone({
     version: FLOW_DOCUMENT_VERSION,
     id: flow.id,
     trigger: source?.trigger ?? exportTrigger(flow.trigger),
@@ -54,7 +56,12 @@ export function exportFlowDocument(flow: CompiledFlow): FlowDocument {
       : flow.opts?.timeoutMs !== undefined ? { timeout: flow.opts.timeoutMs } : {}),
     ...(source?.persistent === true || flow.opts?.persistent === true ? { persistent: true } : {}),
     steps,
-  }
+  }) as FlowDocument
+  // A DSL flow can hold what a document cannot (a 10-minute delay, an id with spaces...):
+  // refuse it here instead of handing back a document that would not load again.
+  const invalid = validateFlowDocument(document)
+  if (invalid.length) throw new FlowExportError(invalid)
+  return document
 }
 
 function exportTrigger(trigger: Trigger): FlowDocument['trigger'] {
