@@ -22,9 +22,7 @@ e.g. `@botmesh/meta` or `@botmesh/telegram`); the last package is the SDK of
 your AI provider (see [Providers](#providers)).
 Requires **Node >= 22**.
 
-> **Prerelease.** Until the stable release there is no `latest` dist-tag: add
-> the current one, for example `pnpm add @botmesh/ai@alpha` (`@beta` during
-> the beta). Once stable, the plain command above works.
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older alpha. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/ai@beta` during the beta (`npm view @botmesh/ai dist-tags` lists the tags). Once stable, the plain command above works.
 
 ## Quickstart
 

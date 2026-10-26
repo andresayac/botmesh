@@ -14,7 +14,7 @@ A **transport-agnostic** bot engine: declarative flows to get going in 30 second
 npm install @botmesh/core @botmesh/baileys
 ```
 
-> **Prerelease:** until the stable release, the packages are published only under a prerelease dist-tag, so add it to every `@botmesh/*` package: `npm install @botmesh/core@alpha @botmesh/baileys@alpha`.
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older alpha. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/baileys@beta` during the beta (`npm view @botmesh/core dist-tags` lists the tags). Once stable, the plain command above works.
 
 Requires **Node >= 22** and ESM (`"type": "module"`). The core has no transport dependency: the transport package you pick brings its own.
 

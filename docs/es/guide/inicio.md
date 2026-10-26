@@ -167,6 +167,13 @@ La sesión se guarda en `./sessions/my-bot/`, así que el siguiente arranque
 reconecta sin QR. Mantén esa carpeta privada y fuera de git: quien la tenga
 controla la cuenta.
 
+::: warning Protocolo no oficial
+Baileys usa el protocolo de WhatsApp Web, que Meta no admite para bots: el
+número vinculado puede quedar restringido o bloqueado. Usa un número de
+repuesto mientras pruebas, y la [Cloud API](#otros-canales) oficial en
+producción.
+:::
+
 ::: tip ¿Sin cámara a mano?
 Vincula con un código: pasa el número del bot al provider e imprime el código
 que recibe.
@@ -301,6 +308,8 @@ comandos ejecutar.
 
 - [Tu primer bot](./primer-bot): comandos, media, un flujo con validación y un catch-all
 - [Conceptos básicos](./conceptos): cómo se enruta un mensaje, `ctx`, triggers e ids
+- [Referencia de configuración](./configuracion): todas las opciones de `new Bot({...})`
 - [Canales](./canales): todos los transportes y lo que admite cada uno
 - [Testing](./testing): prueba tus flujos con `createTestBot`, sin red
 - [Ejemplos](/es/ejemplos/mensajes): recetas listas para copiar
+- [Pasar a producción](./produccion) y [Solución de problemas](./solucion-problemas)

@@ -164,6 +164,12 @@ The login is saved in `./sessions/my-bot/`, so the next start reconnects
 without a QR. Keep that folder private and out of git: whoever has it controls
 the account.
 
+::: warning Unofficial protocol
+Baileys speaks the WhatsApp Web protocol, which Meta does not support for
+bots: the linked number can be restricted or banned. Use a spare number while
+you try things, and the official [Cloud API](#other-channels) for production.
+:::
+
 ::: tip No camera at hand?
 Link with a code instead: pass the bot's number to the provider and print the
 code it receives.
@@ -299,6 +305,8 @@ commands to run.
 
 - [Your first bot](./first-bot): commands, media, a validated flow and a catch-all
 - [Core concepts](./concepts): how a message is routed, `ctx`, triggers and ids
+- [Configuration reference](./configuration): every `new Bot({...})` option
 - [Channels](./channels): every transport and what it supports
 - [Testing](./testing): test your flows with `createTestBot`, no network
 - [Examples](/examples/messages): copy-ready recipes
+- [Going to production](./production) and [Troubleshooting](./troubleshooting)

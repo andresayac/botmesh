@@ -22,9 +22,7 @@ The **WhatsApp via [Baileys 7](https://github.com/WhiskeySockets/Baileys)** tran
 pnpm add @botmesh/core @botmesh/baileys
 ```
 
-> **Prerelease.** Until the stable release, botmesh is published only under a prerelease dist-tag, so a plain install does not resolve yet. Add the tag to both packages (today `alpha`: `pnpm add @botmesh/core@alpha @botmesh/baileys@alpha`); `npm view @botmesh/baileys dist-tags` lists the current ones.
-
-Inside the monorepo the package is already available as a workspace.
+> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older alpha. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/baileys@beta` during the beta (`npm view @botmesh/core dist-tags` lists the tags). Once stable, the plain command above works.
 
 - **pnpm ≥ 10** blocks dependency build scripts, and **pnpm 11 fails the install** (`ERR_PNPM_IGNORED_BUILDS`) until you decide. `@whiskeysockets/baileys` (a Node version check) and `protobufjs` (a version notice) need none of theirs, so deny them in `pnpm-workspace.yaml` (npm runs them and installs normally):
 
