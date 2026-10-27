@@ -12,9 +12,10 @@ import { Bot } from '@botmesh/core'
 const bot = new Bot({ provider }) // cualquiera de los providers de abajo
 ```
 
-Esta página recoge todos los providers del repositorio, cómo recibe eventos
-cada uno y qué puede y qué no puede hacer. Instala el core y el canal que
-necesites:
+Esta página compara todos los providers del repositorio: cómo recibe eventos
+cada uno y qué puede y qué no puede hacer. Cada canal tiene su propia página
+con la configuración, las opciones y los límites (ver [Providers](#providers)).
+Instala el core y el canal que necesites:
 
 ```bash
 pnpm add @botmesh/core @botmesh/baileys   # o @botmesh/meta, @botmesh/telegram, @botmesh/discord, @botmesh/twilio...
@@ -46,11 +47,9 @@ teléfono ni una URL pública.
 | `@botmesh/email` | `email-provider` | En npm (desde la beta) | Email (IMAP IDLE + SMTP) |
 | `@botmesh/tiktok` | `tiktok-provider` | Privado (no está en npm) | TikTok API for Business (comentarios + Business Messaging) |
 
-Los canales **En npm** se instalan con `pnpm add` y siguen semver (los marcados "desde la beta" se publicaron por primera vez con ella). `@botmesh/tiktok` lleva `"private": true` en su
-`package.json`: está implementado y con tests, pero **no se publica en npm** y
-su API puede cambiar. Úsalo desde un clon del monorepo (`"workspace:*"`). Lo mismo vale para el
-[sandbox](/es/guide/sandbox). El ingress de webhooks,
-[`@botmesh/server`](/es/guide/servidor), sí está en npm.
+`@botmesh/tiktok` está implementado y con tests, pero es privado: no está en
+npm y su API puede cambiar. El estado de publicación, los dist-tags y cómo
+instalar cada paquete están en [Paquetes y versiones](/es/guide/paquetes).
 
 ## Elegir un canal
 
@@ -311,595 +310,59 @@ Quien escribe un provider las comprueba con los helpers de `@botmesh/core/testin
 
 ## Providers
 
+Cada canal tiene su propia página con la configuración, las opciones y los límites.
+
 ### `@botmesh/baileys`
 
-WhatsApp Web a través de [Baileys](https://github.com/WhiskeySockets/Baileys).
-Se vincula con un código QR (o un código de emparejamiento, `pairingPhoneNumber`) y guarda la sesión en
-`sessionsDir` (`./sessions/<session>`): los arranques siguientes reconectan sin
-QR. Depende de la versión exacta `7.0.0-rc14` de `@whiskeysockets/baileys`
-(todavía no hay Baileys 7 estable); el README explica esa fijación y la
-política de actualización.
-
-```ts
-import { BaileysProvider } from '@botmesh/baileys'
-
-const provider = new BaileysProvider({ session: 'my-bot' })
-```
-
-- Socket propio del provider, con reconexión y backoff
-  (`reconnect: { maxAttempts, baseMs, capMs }` lo ajusta, `false` lo
-  desactiva).
-- Las formas LID y número de teléfono de un usuario se unen en un único
-  `senderId` estable.
-- Sin botones ni listas nativos (WhatsApp Web los retiró): usa menús
-  `choose()` o `ctx.poll()`.
-- El rate limiting anti-baneo de envíos está activado por defecto
-  (`rateLimit`).
-- Las reacciones y los borrados llegan como eventos, nunca como mensajes,
-  así que un handler comodín o un `ask` abierto no los toman como texto.
-  Una **edición de texto** llega como mensaje con el texto nuevo y el
-  `ref.id` original, como en Telegram: `isEditedMessage(ctx)` (de
-  `@botmesh/baileys`) la distingue y `editedMessages: 'ignore'` descarta las
-  ediciones. Solo el autor de un mensaje que el proceso ha visto puede
-  editarlo: la edición de un mensaje ajeno, de uno del bot o de un original
-  que ya no está en caché se descarta.
-- `ctx.voice()` y `ctx.sticker()` aceptan URLs y streams (descargados con los
-  mismos controles anti-SSRF que el resto de la media); `ctx.poll()` necesita
-  de 2 a 12 opciones distintas.
-
-[README](https://github.com/andresayac/botmesh/tree/main/packages/baileys-provider)
+WhatsApp Web a través de Baileys: vinculación por QR o código, socket propio, grupos y encuestas. Ver [Baileys (WhatsApp Web)](/es/guide/baileys).
 
 ### `@botmesh/meta` (WhatsApp Cloud API)
 
-La API oficial. Funciona por webhook: handshake GET con `verifyChallenge()`
-y eventos POST con `ingest()` (ver el ejemplo de servidor
-[más arriba](#socket-polling-o-webhook)).
-
-Configuración en Meta: crea una app con el producto **WhatsApp** en
-developers.facebook.com, genera un **token de usuario del sistema** permanente
-con `whatsapp_business_messaging`, copia el **phone number id** del número
-emisor y, en WhatsApp → Configuración, pon la URL del webhook y un verify token
-que elijas, y suscríbelo al campo **`messages`** (trae tanto los mensajes como
-los estados de entrega).
-
-```ts
-import { CloudAPIProvider } from '@botmesh/meta'
-
-const provider = new CloudAPIProvider({
-  accessToken: process.env.META_TOKEN!,        // system-user token
-  phoneNumberId: process.env.META_PHONE_ID!,
-  verifyToken: process.env.META_VERIFY_TOKEN!, // the one you set in Meta
-  appSecret: process.env.META_APP_SECRET!,     // verifies X-Hub-Signature-256
-})
-```
-
-- Botones de respuesta nativos (máximo 3: con más rechaza con
-  `UnsupportedContentError`, envía una lista), listas, plantillas y
-  formularios con WhatsApp Flows. Un botón con `url` sale como botón de
-  enlace `cta_url` (uno por mensaje: varios enlaces, o un enlace mezclado
-  con botones de respuesta, rechazan). Una `card` conserva su imagen (como
-  media o como cabecera del mensaje interactivo) y sus botones. Los límites
-  de Graph se comprueban antes de enviar: sin botones, ids o títulos de
-  botón repetidos (comparados tras el corte a 20 caracteres), una lista sin
-  filas, con más de 10 filas en total o con ids de fila repetidos rechazan
-  con `UnsupportedContentError`. Las etiquetas se cortan por grafemas, así
-  que un emoji se conserva entero o se quita, nunca se parte.
-- Si falta `accessToken`, `phoneNumberId` o `verifyToken`, el constructor
-  falla con un error que nombra el campo (`phoneNumberId` también puede ser
-  un entero seguro). Cada petición a Graph tiene un límite de tiempo
-  (`requestTimeoutMs`, 60 s por defecto); las subidas de media tienen el
-  suyo (`uploadTimeoutMs`, 5 min por defecto).
-- Una respuesta interactiva que no es la pulsación de un botón o una lista
-  (por ejemplo `call_permission_reply`) llega como mensaje `unknown`, con el
-  payload crudo en `ctx.ref.native`.
-- **Versión de la Graph API:** `apiVersion` toma por defecto
-  `DEFAULT_GRAPH_API_VERSION` de `@botmesh/graph-core` (`v26.0`, publicada el
-  29-07-2026; Messenger e Instagram usan el mismo valor). Meta retira cada
-  versión unos dos años después de publicarla, así que el valor por defecto
-  sigue a la actual y cambia en una versión menor, tras revisar los payloads
-  contra el changelog de Meta. Fija `apiVersion` (por ejemplo `'v24.0'`) para
-  quedarte en una versión hasta migrar. Un estado `played` (se escuchó una
-  nota de voz) llega como `read` con `platformData.played: true`.
-- Los usuarios con username de WhatsApp pueden llegar con un BSUID en lugar
-  del teléfono; el provider mantiene un id estable por persona
-  (`identityMap`).
-- Fuera de la ventana de 24 h los envíos libres rechazan con
-  `OutsideSessionWindowError`. El gestor opcional `sessionWindow` reabre el
-  chat con una plantilla y reintenta: ver
-  [Ventana de 24 h y costos](/es/guide/ventana-24h).
-- La API no tiene grupos, indicador de escritura ni encuestas, ni borrado para
-  todos: el provider no tiene `typing()` ni `deleteMessage()`, así que
-  `ctx.typing()` y `ctx.delete()` no hacen nada (ver el
-  [contrato común de los canales](#contrato-comun-de-los-canales)).
-- El core divide en varios mensajes el texto de más de 4096 caracteres.
-- Con el bot parado, `ingest()` responde `503`, así que Meta reenvía el
-  webhook tras el reinicio.
-- `publishForm()` fija en el Flow la etiqueta de envío por defecto de un
-  formulario en el `lang` del provider (por defecto `'en'`; ponle el
-  `BotConfig.lang` de tu bot), o en `publishForm(def, { lang })` para un Flow.
-  El `submitLabel` del propio formulario siempre gana.
-
-[README](https://github.com/andresayac/botmesh/tree/main/packages/meta-provider)
+La WhatsApp Cloud API oficial: botones, listas, plantillas y formularios de WhatsApp Flows nativos sobre webhooks. Ver [WhatsApp Cloud API](/es/guide/whatsapp-cloud-api).
 
 ### `@botmesh/telegram`
 
-Telegram Bot API. Long polling por defecto; `polling: false` cambia a modo
-webhook, donde `webhookSecret` es obligatorio.
-
-- **Polling** no necesita URL pública: úsalo en desarrollo y para un bot que
-  corre en un solo proceso. Solo puede haber un poller por token (un segundo
-  recibe `409` y el provider se detiene).
-- **Webhook** encaja con serverless y despliegues con varias réplicas detrás de
-  HTTPS. Registra la URL una vez con `setWebhook` de la Bot API, pasando el
-  mismo secreto como `secret_token`.
-
-```ts
-import { TelegramProvider } from '@botmesh/telegram'
-
-const provider = new TelegramProvider({ token: process.env.TELEGRAM_TOKEN! })
-
-// Webhook mode: the same secret goes to setWebhook (secret_token)
-const hooked = new TelegramProvider({
-  token: process.env.TELEGRAM_TOKEN!,
-  polling: false,
-  webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET!,
-})
-```
-
-- Teclados inline, encuestas nativas, reacciones y edición de mensajes.
-- `ctx.stream()` usa borradores nativos en chats privados y ediciones en el
-  resto.
-- En modo webhook `ingest(body, headers)` acepta los bytes crudos, el string
-  JSON o el objeto ya parseado, y comprueba la cabecera
-  `X-Telegram-Bot-Api-Secret-Token` (en cualquier capitalización, objeto plano
-  o `Headers` de Fetch). Con `@botmesh/server` no hace falta ninguna opción.
-  Tras `stop()` responde `503` y no emite nada, así que Telegram reenvía esos
-  Updates cuando el bot vuelve.
-- Los **comandos de grupo** dirigidos al bot (`/menu@MiBot`) llegan a
-  `bot.command('menu')`, también en el pie de una foto o un archivo: el
-  provider quita el sufijo cuando nombra a este bot (usuario de `getMe`, o la
-  opción `username` si pasas `selfId`).
-- **Menciones al bot**: un `@MiBot` en el texto y un comando dirigido como
-  `/menu@MiBot` añaden el `selfId` del bot a `ctx.mentions`, así que
-  `groupMode: 'mentions'` los deja pasar. Las demás menciones `@usuario` no
-  llevan id de usuario y no se listan; un `text_mention` (un usuario sin nombre
-  de usuario) sí.
-- Cada petición a la Bot API tiene timeout de cliente (`requestTimeoutMs`,
-  120 s por defecto; el long poll usa `pollTimeoutMs` (30 s por defecto) + 15 s; las subidas de
-  archivos, `uploadTimeoutMs`, 5 min por defecto), los errores nunca llevan el
-  token del bot, un `retry_after` de 429 se respeta hasta 24 h y `bot.stop()`
-  corta al momento las esperas de reintento del bucle de polling.
-- **Mensajes editados**: llegan al bot como mensajes con el texto nuevo y el
-  `ref.id` original (respuestas, reacciones y ediciones apuntan al mensaje
-  editado). `isEditedMessage(ctx)` los distingue; el dedupe del core deja pasar
-  la edición porque su contenido cambió. `editedMessages: 'ignore'` los desactiva.
-- **Votos de encuesta**: las encuestas se envían no anónimas
-  (`is_anonymous: false`), así que cada voto llega como update `poll_answer` y se
-  convierte en un evento `'poll'` con el recuento, como en WhatsApp. Los miembros
-  del chat ven quién votó; `anonymousPolls: true` envía encuestas anónimas, cuyos
-  votos nunca llegan al bot. Se cuentan los votos de las encuestas que envió este
-  proceso (en memoria, las últimas 500): un voto en una encuesta enviada antes de
-  un reinicio se descarta. Los canales no admiten encuestas con votantes públicos:
-  una encuesta a un canal se reintenta una vez como anónima (sin votos) y ese canal
-  recibe encuestas anónimas desde entonces.
-- **Servidor Bot API propio (self-hosted)**: apunta `baseUrl` a él. Si va por
-  HTTP plano o en una red privada, las descargas de media necesitan además
-  `mediaDownload: { allowHttp: true, allowPrivateHosts: true }` (y un `maxBytes`
-  mayor). Arráncalo sin `--local`: en ese modo las rutas de archivo no se sirven
-  por HTTP.
-
-```ts
-import { TelegramProvider, isEditedMessage } from '@botmesh/telegram'
-
-const selfHosted = new TelegramProvider({
-  token: process.env.TELEGRAM_TOKEN!,
-  baseUrl: 'http://telegram-bot-api:8081',
-  mediaDownload: { allowHttp: true, allowPrivateHosts: true, maxBytes: 200 * 1024 * 1024 },
-})
-bot.before('message', async (ctx, next) => { if (!isEditedMessage(ctx)) await next() }) // ignora ediciones
-```
-
-[README](https://github.com/andresayac/botmesh/tree/main/packages/telegram-provider)
+Telegram Bot API, por long polling o webhook. Ver [Telegram](/es/guide/telegram).
 
 ### `@botmesh/messenger`
 
-Facebook Messenger a través del Send API de Graph, con la misma verificación
-de webhook que la Cloud API.
-
-```ts
-import { MessengerProvider } from '@botmesh/messenger'
-
-const provider = new MessengerProvider({
-  accessToken: process.env.FB_PAGE_TOKEN!, // Page access token (pages_messaging)
-  verifyToken: process.env.META_VERIFY_TOKEN!,
-  appSecret: process.env.META_APP_SECRET!,
-})
-```
-
-- Botones y listas nativos; las reacciones llegan pero no se pueden enviar
-  (suscribe el webhook a `message_reactions`; `emoji` es el carácter y
-  `removed` se marca con `unreact`).
-- El texto se limita a 2000 caracteres (`maxTextLength`): el texto más largo
-  se divide en varios mensajes, y los trozos de `ctx.stream()` caben en la
-  Send API.
-- Más de 3 botones (plantilla de botones) o de 10 filas de lista (plantilla
-  genérica) rechazan con `UnsupportedContentError` en vez de descartar opciones.
-- Cada llamada a la Send API vence tras `requestTimeoutMs` (60 s por defecto).
-- No se corta texto: una lista envía su texto antes de la plantilla genérica
-  (que no tiene encabezado), y el texto de botones que pasa de los 640
-  caracteres de la plantilla sale antes como texto plano.
-- Varios adjuntos en un mensaje llegan como un mensaje cada uno (`<mid>`,
-  `<mid>#2`…). Un mensaje editado (suscribe `message_edits`) llega de nuevo
-  con su id original; `isEditedMessage(ctx)` lo distingue.
-- Etiquetas de mensaje: `bot.send(psid, texto, { platformData: { tag: 'HUMAN_AGENT' } })`
-  envía fuera de la ventana de 24 horas (también acepta `messaging_type`,
-  `notification_type` y `persona_id`).
-- Con el bot parado, `ingest()` responde `503`, así que Meta reenvía el
-  webhook tras el reinicio.
-
-```bash
-pnpm add @botmesh/core @botmesh/messenger
-```
-
-[README](https://github.com/andresayac/botmesh/tree/main/packages/messenger-provider)
+Facebook Messenger a través de la Send API de Graph y los webhooks de Meta. Ver [Messenger](/es/guide/messenger).
 
 ### `@botmesh/instagram`
 
-DMs de una cuenta profesional de Instagram conectada a una Página de
-Facebook (Messenger API for Instagram).
-
-```ts
-import { InstagramProvider } from '@botmesh/instagram'
-
-const provider = new InstagramProvider({
-  accessToken: process.env.META_PAGE_TOKEN!, // token of the connected Page
-  verifyToken: process.env.META_VERIFY_TOKEN!,
-  appSecret: process.env.META_APP_SECRET!,
-})
-```
-
-- Los botones salen como quick replies (como mucho 13, títulos cortados a 20
-  caracteres, ids y títulos únicos, sobre un texto no vacío; lo demás rechaza
-  con `UnsupportedContentError` en vez de descartar opciones); las listas se
-  degradan a texto numerado. Cada petición a la Send API caduca tras
-  `requestTimeoutMs` (60 s).
-- Solo DMs (sin grupos); las reacciones llegan pero no se pueden enviar.
-- El texto se limita a 1000 bytes UTF-8 (`maxTextBytes`, además de
-  `maxTextLength` 1000), así que el texto no ASCII cabe menos: el texto más
-  largo se divide en varios mensajes por bytes, y los trozos de `ctx.stream()`
-  también caben.
-- Los adjuntos no llevan pie de foto: el caption de un medio sale como un
-  mensaje de texto justo después del adjunto, y la imagen de una tarjeta después
-  de su texto (una tarjeta solo con imagen envía la imagen; una sin texto ni
-  imagen se rechaza).
-- Un DM con varias fotos llega como un mensaje por foto (ids `<mid>`,
-  `<mid>#2`, `<mid>#3`…).
-- Con el bot parado, `ingest()` responde `503`, así que Meta reenvía el
-  webhook tras el reinicio.
-
-```bash
-pnpm add @botmesh/core @botmesh/instagram
-```
-
-[README](https://github.com/andresayac/botmesh/tree/main/packages/instagram-provider)
+DMs de Instagram de una cuenta profesional (Messenger API for Instagram). Ver [Instagram](/es/guide/instagram).
 
 ### `@botmesh/discord`
 
-Gateway de Discord (WebSocket) para los eventos y REST para enviar.
-
-```ts
-import { DiscordProvider, GatewayIntents } from '@botmesh/discord'
-
-const provider = new DiscordProvider({ token: process.env.DISCORD_TOKEN! })
-// Default intents: Guilds | GuildMessages | MessageContent.
-// Add GatewayIntents.DirectMessages to the `intents` bitmask to receive DMs.
-```
-
-- Botones, menús de selección, encuestas, reacciones y ediciones nativos;
-  `ctx.stream()` edita un mensaje a medida que crece el texto.
-- El bot mantiene una reacción por mensaje, como en WhatsApp/Telegram: un
-  nuevo `ctx.react(emoji)` reemplaza la anterior y `ctx.react('')` la quita.
-  Discord borra reacciones por emoji, así que el provider recuerda el que puso
-  (en memoria, `reactionMemory`, 1000 mensajes por defecto); si no lo conoce
-  (se puso antes de reiniciar o salió del LRU) rechaza con
-  `UnsupportedContentError`.
-- Las interacciones tienen un plazo estricto de confirmación
-  (`interactionsRequireAck`), así que el core confirma cada una exactamente una
-  vez por ti: una confirmación diferida antes del primer envío del handler,
-  poco antes del plazo de ~3 s o al terminar el handler, lo que ocurra antes.
-  Llama a `ctx.acknowledge('texto')` antes de responder para contestar con un
-  texto inmediato; una vez enviada la confirmación automática,
-  `ctx.acknowledge('texto')` envía `texto` como respuesta normal y
-  `ctx.acknowledge()` no hace nada.
-- `ctx.interaction.id` es el id de la interacción a secas: su token no sale
-  del provider. Como red de seguridad, el provider también difiere cualquier
-  interacción que siga sin respuesta tras `autoAcknowledgeMs` (2000 ms por
-  defecto; `false` lo desactiva). Un `ctx.acknowledge('texto')`
-  tardío, ya confirmada, sale como followup, con `appId` o, si falta, con el id
-  de aplicación que Discord manda en READY y en cada interacción; si no se
-  conoce ninguno, la llamada rechaza con `ProviderError` en vez de descartar el
-  texto.
-- Más de 25 botones (5 filas de 5), 25 opciones de menú o 10 respuestas de
-  encuesta rechazan con `UnsupportedContentError` en vez de descartar opciones;
-  el texto de más de 2000 caracteres se divide en varios mensajes.
-- Cada llamada REST vence tras `requestTimeoutMs` (60 s por defecto); las
-  subidas de archivos, tras `uploadTimeoutMs` (5 min).
-- Los mensajes de sistema (entradas al servidor, fijados, boosts...) y los de
-  bots no se enrutan. Un mensaje sin texto ni archivo llega como `sticker` (con
-  la imagen del sticker como media) o `unknown` (solo embeds, o el intent Message
-  Content desactivado), nunca como texto vacío.
-- Todo mensaje que envía el provider lleva `allowed_mentions` (por defecto
-  `{ parse: ['users'] }`, opción `allowedMentions`), así que un texto que el bot
-  repite no puede mencionar a `@everyone`, `@here` ni a un rol;
-  `SendOptions.mentions`, `platformData.allowed_mentions` y los payloads `native`
-  lo sustituyen. Una respuesta citada sigue notificando al autor del mensaje
-  citado (`replied_user: true`; `allowedMentions.replied_user: false` responde
-  sin notificar).
-- Los ids van en las URLs REST codificados, y un id vacío, `.` o `..` rechaza
-  con `ProviderError`: un id manipulado nunca llega a otra ruta. Los votos de las
-  encuestas nativas no llegan como eventos.
-- Un mensaje reenviado trae el texto y la media reenviados (de su snapshot),
-  no una respuesta citada; si no tiene nada legible llega como `unknown`. Una
-  encuesta nativa llega como `type: 'poll'` con la pregunta como cuerpo.
-- **Mensajes editados** (`MESSAGE_UPDATE` con `edited_timestamp`) llegan como
-  mensajes con el texto nuevo y el `ref.id` original; `isEditedMessage(ctx)` de
-  `@botmesh/discord` los distingue y `editedMessages: 'ignore'` los descarta. Las
-  demás actualizaciones (previsualizaciones de enlaces, fijados, flags) no se
-  enrutan: el provider entrega una edición una sola vez por `edited_timestamp`
-  (recuerda el último de los 1000 mensajes editados más recientes), así que fijar
-  un mensaje editado no lo vuelve a entregar.
-
-[README](https://github.com/andresayac/botmesh/tree/main/packages/discord-provider)
+Gateway de Discord (WebSocket) para los eventos y REST para enviar. Ver [Discord](/es/guide/discord).
 
 ### `@botmesh/evolution`
 
-[Evolution API](https://github.com/EvolutionAPI/evolution-api) v2, un
-gateway REST de WhatsApp self-hosted construido sobre Baileys. Salida: REST
-con la cabecera `apikey`. Entrada: el webhook de la instancia, autenticado con
-un secreto compartido en cabecera o con el `jwt_key` de Evolution (JWT HS256).
-
-```bash
-pnpm add @botmesh/core @botmesh/evolution
-```
-
-```ts
-import { EvolutionProvider } from '@botmesh/evolution'
-
-const provider = new EvolutionProvider({
-  baseUrl: 'http://localhost:8080',
-  apiKey: process.env.EVOLUTION_API_KEY!,
-  instance: 'my-instance',
-  webhookSecret: process.env.EVOLUTION_WEBHOOK_SECRET!, // or webhookJwtKey
-})
-// POST /webhook/evolution → res.sendStatus(provider.ingest(body, headers))
-```
-
-- `start()` comprueba la instancia; si no está vinculada, el QR o el código
-  de emparejamiento llega en la actualización `connection` (`authPayload`).
-- Los gemelos LID/PN que envía Evolution se enlazan antes de emitir; pasa
-  `identityPersistence` para mantener los ids estables entre reinicios.
-- Encuestas, reacciones, edición (texto), escribiendo y confirmaciones de
-  lectura; botones, listas y cards se degradan a texto numerado; `template`
-  se rechaza, igual que una encuesta que WhatsApp no puede llevar (menos de 2
-  o más de 12 opciones, vacías o repetidas).
-- Si Evolution deja de ofrecer códigos QR antes de vincular el número
-  (`QRCODE_LIMIT`), la actualización `connection` llega como `closed` con
-  motivo `sessionInvalid`: llama otra vez a `start()` para obtener un QR nuevo.
-- Deja desactivado `webhookByEvents` en el webhook de la instancia: con él,
-  Evolution añade el nombre del evento a la URL y una ruta de path exacto
-  responde 404.
-
-[README](https://github.com/andresayac/botmesh/tree/main/packages/evolution-provider)
+Evolution API v2, un gateway de WhatsApp self-hosted: REST de salida, webhook de la instancia de entrada. Ver [Evolution API](/es/guide/evolution).
 
 ### `@botmesh/wppconnect`
 
-[WPPConnect Server](https://github.com/wppconnect-team/wppconnect-server), un
-gateway self-hosted sobre WhatsApp Web (WA-JS). REST con token Bearer;
-webhooks autenticados con un token en la URL del webhook.
-
-```bash
-pnpm add @botmesh/core @botmesh/wppconnect
-```
-
-```ts
-import { WPPConnectProvider } from '@botmesh/wppconnect'
-
-const provider = new WPPConnectProvider({
-  baseUrl: 'http://localhost:21465',
-  session: 'my-bot',
-  secretKey: process.env.WPP_SECRET_KEY!,       // or token: '<generated bearer>'
-  webhookToken: process.env.WPP_WEBHOOK_TOKEN!, // webhook URL: …/webhooks/wpp?token=<it>
-})
-// POST /webhooks/wpp → res.sendStatus(await provider.ingest(body, headers, req.originalUrl))
-```
-
-- `ingest()` es **asíncrono** y recibe la URL de la petición como tercer
-  argumento, porque wppconnect-server no puede añadir cabeceras: el token
-  viaja en la query string.
-- Los LID desconocidos se resuelven a número de teléfono (`contact/pn-lid`)
-  antes de emitir.
-- `markRead` marca el chat entero como leído; botones y listas se degradan a
-  texto numerado.
-- La conexión sigue los webhooks `status-find` del servidor: `isLogged` /
-  `qrReadSuccess` → `ready`, `notLogged` y `qrcode` → `authenticating`, y
-  desvincular el dispositivo desde el teléfono (`disconnectedMobile`) →
-  `closed` con `sessionInvalid`. `bot.stop()` no cierra la sesión en el
-  servidor.
-
-[README](https://github.com/andresayac/botmesh/tree/main/packages/wppconnect-provider)
+WPPConnect Server, un gateway de WhatsApp Web self-hosted: REST con token Bearer, webhooks con token en la URL. Ver [WPPConnect](/es/guide/wppconnect).
 
 ### `@botmesh/twilio`
 
-Twilio Programmable Messaging: **WhatsApp y SMS/MMS** con una sola clase.
-Webhooks verificados con `X-Twilio-Signature`, que cubre la URL pública
-exacta.
-
-```ts
-import { TwilioProvider } from '@botmesh/twilio'
-
-const provider = new TwilioProvider({
-  accountSid: process.env.TWILIO_SID!,
-  authToken: process.env.TWILIO_TOKEN!,           // signs webhooks + REST auth
-  whatsappFrom: 'whatsapp:+14155238886',
-  smsFrom: '+15017122661',
-  webhookUrl: 'https://bot.example.com/twilio/webhook', // EXACT URL set in Twilio
-})
-```
-
-- `chatId` es el `From` de Twilio tal cual (`whatsapp:+57…` o `+57…`): la
-  misma persona por WhatsApp y por SMS son dos chats.
-- Texto de hasta 1600 caracteres; media solo desde URLs públicas; botones y
-  listas pasan a texto numerado; `template` se traduce a `ContentSid` +
-  `ContentVariables`.
-- `ingestRequest({ url, body, headers })` para URLs que cambian por petición
-  (multi-tenant). Con `webhookPath` (la URL se reconstruye con las cabeceras
-  `Host` / `X-Forwarded-*`), pasa la ruta y la query de la petición como
-  tercer argumento de `ingest()` (`@botmesh/server` ya lo hace): así la query
-  con la que llamó Twilio entra en la URL firmada.
-- El error 63016 se traduce a `OutsideSessionWindowError`.
-- Un mensaje con varios adjuntos (`NumMedia` > 1, hasta 10) llega como **un
-  mensaje por adjunto**, en orden: el primero conserva el `MessageSid` y el
-  texto (`Body`); el adjunto `i` lleva el id `MessageSid:i` y cuerpo vacío
-  (ids únicos y estables ante reintentos del webhook).
-
-[README](https://github.com/andresayac/botmesh/tree/main/packages/twilio-provider)
+Twilio Programmable Messaging: WhatsApp y SMS/MMS con una sola clase. Ver [Twilio](/es/guide/twilio).
 
 ### `@botmesh/gohighlevel`
 
-HighLevel (GoHighLevel / LeadConnector) Conversations API. Entrada por el
-webhook `InboundMessage` (Ed25519, `X-GHL-Signature`), salida con
-`POST /conversations/messages` por el último canal que usó el contacto.
-
-```ts
-import { GoHighLevelProvider } from '@botmesh/gohighlevel'
-
-const provider = new GoHighLevelProvider({
-  accessToken: process.env.GHL_TOKEN!,         // Private Integration Token
-  locationId: process.env.GHL_LOCATION_ID!,
-  // defaultChannel: 'SMS',                    // until the contact writes
-})
-```
-
-- `chatId` = `contactId` de HighLevel: un chat por contacto en todos los
-  canales; el canal de cada mensaje está en `ctx.chat.platformData.channel`.
-- La clave pública de HighLevel viene incluida (`GHL_WEBHOOK_PUBLIC_KEY`),
-  así que no hace falta secreto de webhook. `ingest()` necesita el body
-  **crudo**.
-- Media solo desde URLs públicas; `template` se traduce a `templateId`.
-- El cuerpo HTML de un Email llega como texto plano en `ctx.body`;
-  `ctx.raw.body` conserva el HTML y `ctx.chat.platformData.subject` el asunto.
-
-[README](https://github.com/andresayac/botmesh/tree/main/packages/gohighlevel-provider)
+HighLevel (LeadConnector) Conversations API: responde a los contactos del CRM por el canal que usaron. Ver [HighLevel (GoHighLevel)](/es/guide/gohighlevel).
 
 ### `@botmesh/gupshup`
 
-Gupshup WhatsApp API: endpoints de envío v1 y callbacks v2. Gupshup no firma
-los callbacks, así que se autentican con un token compartido en la URL del
-callback (o en una cabecera).
-
-```ts
-import { GupshupProvider } from '@botmesh/gupshup'
-
-const provider = new GupshupProvider({
-  apiKey: process.env.GUPSHUP_API_KEY!,
-  appName: 'MyBotApp',
-  source: '917834811114',                          // the app's number
-  webhookToken: process.env.GUPSHUP_WEBHOOK_TOKEN!, // callback: …/gupshup?token=<it>
-})
-// POST /gupshup → res.sendStatus(provider.ingestRequest({ url: req.originalUrl, body, headers }))
-```
-
-- Los botones salen como quick replies (hasta 3), después como lista (hasta
-  10) y después como texto numerado; las listas son nativas hasta 10 filas. El
-  botón de la lista de los botones degradados usa `listButtonText` (por defecto
-  `'Options'`, máximo 20 caracteres; `'Opciones'` para un bot en español).
-  Las etiquetas más largas se recortan a los límites de WhatsApp (títulos de
-  20/24 caracteres) en vez de ser rechazadas.
-- Con `@botmesh/server`, monta el provider como una ruta: el ingress pasa la
-  URL de la petición a `ingest()`, así que el callback con `?token=` funciona
-  tal cual.
-- Usa un `webhookToken` seguro para URL (`openssl rand -hex 32`). Un secreto
-  base64 pegado tal cual en `?token=` también coincide (un `+` literal no se
-  lee como espacio), igual que su forma codificada con `%`.
-- `chatId` = los dígitos del teléfono del remitente (sin `+`), justo lo que
-  espera la API de envío.
-- Media solo desde URLs públicas. Gupshup también documenta restringir por
-  IP: haz ambas cosas en producción.
-
-[README](https://github.com/andresayac/botmesh/tree/main/packages/gupshup-provider)
+Gupshup WhatsApp API, con callbacks autenticados por un token compartido. Ver [Gupshup](/es/guide/gupshup).
 
 ### `@botmesh/email`
 
-Email: **IMAP IDLE** para recibir y **SMTP** para responder. Cada hilo de
-correo es un chat, así que los flujos con `ask()` continúan cuando el cliente
-responde al email. `imapflow` y `nodemailer` son peer dependencies opcionales
-que se cargan de forma lazy.
-
-```ts
-import { EmailProvider } from '@botmesh/email'
-
-const provider = new EmailProvider({
-  address: 'support@acme.com',
-  imap: { host: 'imap.example.com', user: 'support@acme.com', pass: process.env.IMAP_PASS! },
-  smtp: { host: 'smtp.example.com', user: 'support@acme.com', pass: process.env.SMTP_PASS! },
-})
-```
-
-- `threading: 'thread'` (por defecto, un chat por hilo) o `'sender'` (un chat
-  por dirección); persiste los hilos con `threadStore: cursorThreadStore(store)`.
-  Ese store guarda también el cursor de UID del buzón, así que tras un
-  reinicio el bot sigue después del último mensaje que procesó y no vuelve a
-  entregar correo (ni siquiera con `markSeen: false`).
-- Protección contra bucles de respuestas automáticas y listas de correo,
-  gestión de rebotes (eventos `status: 'failed'`, supresión de direcciones con
-  rebote permanente).
-- El email no autentica `From` por sí mismo: usa
-  `requireAuthentication: { authservId }` para aceptar solo correo que tu MTA
-  haya autenticado. Las cabeceras hostiles quedan contenidas: se descartan las
-  direcciones con caracteres de control, se ignoran los Message-ID enormes y
-  se acota la cadena de `References`.
-- `secure` es TLS implícito (por defecto salvo en el puerto IMAP 143, y solo
-  en el puerto SMTP 465); contra un puerto en texto plano o con STARTTLS,
-  `start()`/`send()` rechazan con un mensaje `TLS handshake failed` que dice
-  qué opción cambiar.
-- Sin IMAP, `ingest(rawMime)` acepta el MIME crudo de un webhook de correo
-  entrante y resuelve `{ status, accepted, reason? }`.
-- El transporte creado desde `smtp` se cierra en `stop()` y se reconstruye
-  en el siguiente envío (también con pool); un `smtpTransport` inyectado es
-  tuyo y `stop()` nunca lo cierra.
-
-[README](https://github.com/andresayac/botmesh/tree/main/packages/email-provider)
+Email por IMAP IDLE y SMTP: cada hilo de correo es un chat. Ver [Email](/es/guide/email).
 
 ### `@botmesh/tiktok` (no está en npm)
 
-TikTok API for Business (v1.3): **comentarios** en los videos propios de la
-cuenta y **mensajes directos** (Business Messaging API, requiere aprobación).
-Webhooks verificados con `TikTok-Signature`.
-
-```ts
-import { TikTokProvider } from '@botmesh/tiktok'
-
-const provider = new TikTokProvider({
-  accessToken: process.env.TIKTOK_TOKEN!,             // or an async refresh function
-  businessId: process.env.TIKTOK_BUSINESS_ID!,        // open_id of the account
-  appSecret: process.env.TIKTOK_APP_SECRET!,          // verifies TikTok-Signature
-  selfUniqueIdentifier: process.env.TIKTOK_SELF_UID!, // required to receive comments
-})
-```
-
-- Chats: `dm:<conversation_id>` (DM), `comment:<video_id>:<comment_id>`
-  (hilo de un comentario, un chat de grupo) y `hic:<comment_id>` (comentario
-  de alta intención). `ctx.chat.platformData.surface` los distingue.
-- DMs: texto (hasta 6000 caracteres), imágenes, tarjetas Q&A para los
-  botones (de 1 a 3); comentarios: respuestas de texto de hasta 150
-  caracteres. Los botones o listas que no caben en una tarjeta Q&A (más de 3
-  opciones, botones con URL, títulos de más de 40 caracteres) y los menús
-  enviados a un hilo de comentarios se degradan a un menú de texto numerado,
-  como en Baileys.
-- El bot no puede iniciar una conversación y TikTok limita los mensajes por
-  ventana de 48 h (`OutsideSessionWindowError`).
-
-[README](https://github.com/andresayac/botmesh/tree/main/packages/tiktok-provider)
+TikTok API for Business: comentarios en tus propios vídeos y mensajes directos. Ver [TikTok](/es/guide/tiktok).
 
 ## Actualizar desde una alpha de 2.0
 

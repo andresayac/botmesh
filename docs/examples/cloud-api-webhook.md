@@ -8,7 +8,7 @@ back to an approved template outside the 24-hour window.
 **Level:** Advanced · **Tags:** WhatsApp, Cloud API, Webhooks, Security, Templates
 
 **Features shown:**
-[WhatsApp Cloud API provider](/guide/channels) (`@botmesh/meta`: `ingest`, `verifyChallenge`, `appSecret`) ·
+[WhatsApp Cloud API provider](/guide/whatsapp-cloud-api) (`@botmesh/meta`: `ingest`, `verifyChallenge`, `appSecret`) ·
 [24-hour window and templates](/guide/session-window) (`OutsideSessionWindowError`, `kind: 'template'`) ·
 [Sending outside a handler](/guide/messages) (`bot.send`) ·
 [Flows](/guide/flows) (`.ask` with `validate`) ·

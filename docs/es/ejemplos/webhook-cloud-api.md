@@ -8,7 +8,7 @@ recurren a una plantilla aprobada fuera de la ventana de 24 horas.
 **Nivel:** Avanzado · **Etiquetas:** WhatsApp, Cloud API, Webhooks, Seguridad, Plantillas
 
 **Funcionalidades:**
-[Provider de la Cloud API de WhatsApp](/es/guide/canales) (`@botmesh/meta`: `ingest`, `verifyChallenge`, `appSecret`) ·
+[Provider de la Cloud API de WhatsApp](/es/guide/whatsapp-cloud-api) (`@botmesh/meta`: `ingest`, `verifyChallenge`, `appSecret`) ·
 [Ventana de 24 h y plantillas](/es/guide/ventana-24h) (`OutsideSessionWindowError`, `kind: 'template'`) ·
 [Enviar fuera de un handler](/es/guide/mensajes) (`bot.send`) ·
 [Flujos](/es/guide/flujos) (`.ask` con `validate`) ·
