@@ -140,5 +140,5 @@ The unit tests run against in-memory fake pools, with no network. Opt-in suites 
 
 ## Links
 
-- [Persistent stores guide](https://andresayac.github.io/botmesh/guide/store) · [Scheduler](https://andresayac.github.io/botmesh/guide/scheduler) · [Durable processing](https://andresayac.github.io/botmesh/guide/durability) · [Running N replicas](https://andresayac.github.io/botmesh/guide/replicas) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Persistent stores guide](https://botmesh.afaya.com.co/guide/store) · [Scheduler](https://botmesh.afaya.com.co/guide/scheduler) · [Durable processing](https://botmesh.afaya.com.co/guide/durability) · [Running N replicas](https://botmesh.afaya.com.co/guide/replicas) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/postgres-store/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/postgres-store) · [Issues](https://github.com/andresayac/botmesh/issues)

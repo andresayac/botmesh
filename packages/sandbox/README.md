@@ -89,4 +89,4 @@ opt-in suites in `tests/docker/*.integration.test.ts` (variables `BOTWA_TEST_EVO
 `BOTWA_TEST_WPPCONNECT_*`, `BOTWA_TEST_CHATWOOT_*`, `BOTWA_TEST_MAILPIT_*`). Pairing a WhatsApp
 number by QR code stays manual.
 
-See the [platform sandbox guide](https://andresayac.github.io/botmesh/guide/sandbox).
+See the [platform sandbox guide](https://botmesh.afaya.com.co/guide/sandbox).

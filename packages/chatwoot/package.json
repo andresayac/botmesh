@@ -32,7 +32,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/chatwoot"
   },
-  "homepage": "https://andresayac.github.io/botmesh/guide/integrations#chatwoot",
+  "homepage": "https://botmesh.afaya.com.co/guide/integrations#chatwoot",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },

@@ -235,5 +235,5 @@ an error thrown by a dispatch handler is logged, never raised into the socket.
 
 ## Links
 
-- [Channels guide](https://andresayac.github.io/botmesh/guide/channels#botmesh-discord) · [Streaming replies](https://andresayac.github.io/botmesh/guide/streaming) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Channels guide](https://botmesh.afaya.com.co/guide/channels#@botmesh/discord) · [Streaming replies](https://botmesh.afaya.com.co/guide/streaming) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/discord-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/discord-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

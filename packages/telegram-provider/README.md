@@ -127,7 +127,7 @@ Update the provider cannot normalize is logged (without its content) and
 acknowledged with 200, since a retry would fail the same way.
 
 The recommended host is
-[`@botmesh/server`](https://andresayac.github.io/botmesh/guide/server)
+[`@botmesh/server`](https://botmesh.afaya.com.co/guide/server)
 (`pnpm add @botmesh/server`): mount the provider as a route and it adds body
 limits, timeouts, a concurrency cap and health endpoints; no extra wiring is
 needed:
@@ -317,5 +317,5 @@ left as is. The username comes from `getMe`; if you pass `selfId` (which skips
 
 ## Links
 
-- [Channels guide](https://andresayac.github.io/botmesh/guide/channels) · [Streaming replies](https://andresayac.github.io/botmesh/guide/streaming) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Channels guide](https://botmesh.afaya.com.co/guide/channels) · [Streaming replies](https://botmesh.afaya.com.co/guide/streaming) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/telegram-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/telegram-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

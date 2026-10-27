@@ -42,7 +42,7 @@ describe('package.json', () => {
   it('is public, with the docs page as homepage', () => {
     expect(pkg.private).toBeUndefined()
     expect(pkg.publishConfig?.access).toBe('public')
-    expect(pkg.homepage).toBe('https://andresayac.github.io/botmesh/guide/store')
+    expect(pkg.homepage).toBe('https://botmesh.afaya.com.co/guide/store')
   })
 
   it('declares pg as a peer dependency (and @types/pg nowhere at runtime)', () => {

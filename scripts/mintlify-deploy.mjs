@@ -20,10 +20,11 @@ import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, sta
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { SITE_URL } from '../mintlify/scripts/site-map.mjs'
 
 export const DEFAULT_REPO = 'https://github.com/andresayac/botmesh-docs.git'
 export const DEFAULT_BRANCH = 'main'
-export const DEFAULT_SITE_URL = 'https://botmesh.mintlify.app/'
+export const DEFAULT_SITE_URL = SITE_URL
 /** Files the generated site must contain before it is published. */
 export const REQUIRED_FILES = ['docs.json', 'index.mdx', 'es/index.mdx', 'llms.txt', 'api/core/index.mdx']
 

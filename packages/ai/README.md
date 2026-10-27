@@ -8,8 +8,8 @@ history and `ctx.tools.ai`, a client for your own handlers, flows and
 conversations. Tool calling with human confirmation, long-term memory, RAG and
 streaming are built in.
 
-Full guide: <https://andresayac.github.io/botmesh/guide/ai>
-(español: <https://andresayac.github.io/botmesh/es/guide/ai>).
+Full guide: <https://botmesh.afaya.com.co/guide/ai>
+(español: <https://botmesh.afaya.com.co/es/guide/ai>).
 
 ## Installation
 
@@ -95,7 +95,7 @@ aiPlugin({ provider: 'deepseek' })                            // DEEPSEEK_API_KE
 - **Ollama cloud models**: sign in your local Ollama (`ollama signin`) and use
   a `-cloud` model name; or call `https://ollama.com` directly with
   `baseUrl: 'https://ollama.com'` and `apiKey` (sent as `Authorization: Bearer`; see the
-  [guide](https://andresayac.github.io/botmesh/guide/ai#ollama-local-or-cloud)).
+  [guide](https://botmesh.afaya.com.co/guide/ai#ollama-local-or-cloud)).
 - **Vertex AI**: `aiPlugin({ instance: new GeminiProvider(fromGoogleGenAI(new GoogleGenAI({ vertexai: true, project, location })), { model }) })`.
 - The SDKs are optional peers, loaded only when used: `@anthropic-ai/sdk`
   `^0.68.0 || ^1.0.0`, `openai` `^6.48.0 || ^7.0.0`, `@google/genai` `^2.0.0`
@@ -166,7 +166,7 @@ bot.plug(aiPlugin({
 
 Best practices for side-effecting tools (money computed in code, `enum` for
 catalog keys, update/cancel/list tools next to create):
-<https://andresayac.github.io/botmesh/guide/ai-tools>.
+<https://botmesh.afaya.com.co/guide/ai-tools>.
 
 ## Memory, RAG and streaming
 
@@ -189,7 +189,7 @@ bot.plug(aiPlugin({
 - **Streaming** sends the autoreply while it is generated; turns with tools
   are not streamed.
 
-Guide: <https://andresayac.github.io/botmesh/guide/ai-memory-rag>.
+Guide: <https://botmesh.afaya.com.co/guide/ai-memory-rag>.
 
 ## Errors
 
@@ -199,7 +199,7 @@ gets the `errorMessage` reply. A configuration that can never work (a `NaN`
 timeout, a non-integer `maxTokens`, a tool without `handler`) throws from
 `aiPlugin()`. `bot.stop()` aborts every model call in flight, and a call over
 `timeoutMs` (60 s by default) rejects with `AITimeoutError`. Troubleshooting
-table: <https://andresayac.github.io/botmesh/guide/ai#errors-and-troubleshooting>.
+table: <https://botmesh.afaya.com.co/guide/ai#errors-and-troubleshooting>.
 
 ## Testing
 
@@ -237,10 +237,10 @@ and `mock.calls` records every request.
 
 ## More documentation
 
-- AI plugin guide: <https://andresayac.github.io/botmesh/guide/ai>
-- Tool calling: <https://andresayac.github.io/botmesh/guide/ai-tools>
-- Memory and RAG: <https://andresayac.github.io/botmesh/guide/ai-memory-rag>
-- Streaming: <https://andresayac.github.io/botmesh/guide/streaming>
+- AI plugin guide: <https://botmesh.afaya.com.co/guide/ai>
+- Tool calling: <https://botmesh.afaya.com.co/guide/ai-tools>
+- Memory and RAG: <https://botmesh.afaya.com.co/guide/ai-memory-rag>
+- Streaming: <https://botmesh.afaya.com.co/guide/streaming>
 - Source and issues: <https://github.com/andresayac/botmesh>
 
 ## License

@@ -1,6 +1,6 @@
 # @botmesh/mcp
 
-**Model Context Protocol** server (stdio) for [botmesh](https://andresayac.github.io/botmesh/). It gives an AI coding agent or an editor the project's deterministic pieces, so a [code-free flow document](https://www.npmjs.com/package/@botmesh/flow-schema) can be written, validated, compiled, drawn, linted, migrated and diffed **without starting a bot**: no phone, no credentials, no network.
+**Model Context Protocol** server (stdio) for [botmesh](https://botmesh.afaya.com.co/). It gives an AI coding agent or an editor the project's deterministic pieces, so a [code-free flow document](https://www.npmjs.com/package/@botmesh/flow-schema) can be written, validated, compiled, drawn, linted, migrated and diffed **without starting a bot**: no phone, no credentials, no network.
 
 Every tool is a function of its arguments. The server never evaluates code, never writes to disk and has no third-party dependencies: the JSON-RPC transport is implemented in the package.
 
@@ -96,7 +96,7 @@ await serveStream(process.stdin, { server, write: (line) => { process.stdout.wri
 
 ## Links
 
-- [MCP server guide](https://andresayac.github.io/botmesh/guide/mcp) · [JSON flow schema](https://andresayac.github.io/botmesh/guide/flow-schema)
+- [MCP server guide](https://botmesh.afaya.com.co/guide/mcp) · [JSON flow schema](https://botmesh.afaya.com.co/guide/flow-schema)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/mcp/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/mcp) · [Issues](https://github.com/andresayac/botmesh/issues)
 
 Public package, covered by semver (except `@botmesh/mcp/internal`).

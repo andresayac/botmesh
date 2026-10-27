@@ -43,7 +43,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/ai"
   },
-  "homepage": "https://andresayac.github.io/botmesh/guide/ai",
+  "homepage": "https://botmesh.afaya.com.co/guide/ai",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },

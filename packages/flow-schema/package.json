@@ -53,7 +53,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/flow-schema"
   },
-  "homepage": "https://andresayac.github.io/botmesh/guide/flow-schema",
+  "homepage": "https://botmesh.afaya.com.co/guide/flow-schema",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },

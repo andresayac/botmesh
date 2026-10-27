@@ -1,6 +1,6 @@
 # eslint-plugin-botmesh
 
-ESLint rules for [botmesh](https://andresayac.github.io/botmesh/) bots. They catch in source code the mistakes no generic linter knows about: v1 API calls that no longer exist, a blocking `runtime.enter()`, an async plugin `install()`, empty triggers, waits without a timeout and per-user state in module variables.
+ESLint rules for [botmesh](https://botmesh.afaya.com.co/) bots. They catch in source code the mistakes no generic linter knows about: v1 API calls that no longer exist, a blocking `runtime.enter()`, an async plugin `install()`, empty triggers, waits without a timeout and per-user state in module variables.
 
 They complement the runtime `bot.lint()` / `lintFlows()` of [`@botmesh/core`](https://www.npmjs.com/package/@botmesh/core), which inspect the registered flows (broken gotos, unreachable steps, duplicate triggers).
 
@@ -61,7 +61,7 @@ The rules are syntactic and need no type information, so they work on JavaScript
 | `botmesh/require-timeout-on-ask` | An answer wait without an explicit timeout (it falls back to `conversation.timeout` or the built-in 5 minutes) or with a timeout of `0` (never expires): `.ask()` without `{ timeout }` or a `.timeout()` in the chain, `c.ask()` and, when configured, `c.waitText` / `c.waitMedia` / `c.waitLocation` / `c.choose` / `c.waitAny` (which takes `{ timeoutMs }`) and flow `.choose()` / `.form()`. | `{ methods, allowFlowTimeout }` (default `['ask']`, `true`) |
 | `botmesh/prefer-ctx-user-over-global-state` | `globalState` (v1) and module-level `Map`s, `Set`s or objects written under `ctx.from`, `ctx.sender` or `ctx.senderId` (read-only lookups in constant allow/deny lists are fine): lost on restart and not shared between replicas. Use `ctx.user`. | `{ contextNames }` (default `['ctx']`) |
 
-Every rule links to its section of the [guide](https://andresayac.github.io/botmesh/guide/eslint) (`meta.docs.url`), so editors show the documentation link next to the finding.
+Every rule links to its section of the [guide](https://botmesh.afaya.com.co/guide/eslint) (`meta.docs.url`), so editors show the documentation link next to the finding.
 
 ## API
 
@@ -79,12 +79,12 @@ Types: `BotMeshPlugin` and `BotMeshConfigs` (`BotWaPlugin` / `BotWaConfigs` are 
 
 - **The preset seems ignored:** the presets are flat-config objects. Put them as items of the exported array (`export default [botmesh.configs.recommended]`); a legacy `.eslintrc` cannot load them.
 - **`require-timeout-on-ask` does not warn:** when the options argument is not an object literal (a variable or a spread), the rule cannot see it and stays silent on purpose.
-- **TypeScript files are not linted:** ESLint only picks up `.js`/`.mjs`/`.cjs` by default. Add `files: ['src/**/*.{js,ts}']` to the preset and `typescript-eslint`'s parser for the `.ts` files (see the [guide](https://andresayac.github.io/botmesh/guide/eslint#usage)).
+- **TypeScript files are not linted:** ESLint only picks up `.js`/`.mjs`/`.cjs` by default. Add `files: ['src/**/*.{js,ts}']` to the preset and `typescript-eslint`'s parser for the `.ts` files (see the [guide](https://botmesh.afaya.com.co/guide/eslint#usage)).
 - **A rule fires outside your bot code:** the rules key on botmesh names (`flow`, `addKeyword`, `bot.when`, `runtime.enter`). Scope the config with `files`, for example `{ ...botmesh.configs.recommended, files: ['src/bot/**'] }`.
 
 ## Links
 
-- [ESLint plugin guide](https://andresayac.github.io/botmesh/guide/eslint) · [Inspect & lint flows](https://andresayac.github.io/botmesh/guide/flow-tools)
+- [ESLint plugin guide](https://botmesh.afaya.com.co/guide/eslint) · [Inspect & lint flows](https://botmesh.afaya.com.co/guide/flow-tools)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/eslint-plugin/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/eslint-plugin) · [Issues](https://github.com/andresayac/botmesh/issues)
 
 Public package, covered by semver.

@@ -60,7 +60,7 @@ export const requireTimeoutOnAsk: Rule.RuleModule = {
     docs: {
       description: 'Require an explicit, non-zero timeout on ask()/choose()/wait*()/form() waits',
       recommended: true,
-      url: 'https://andresayac.github.io/botmesh/guide/eslint#botmesh-require-timeout-on-ask',
+      url: 'https://botmesh.afaya.com.co/guide/eslint#botmesh/require-timeout-on-ask',
     },
     schema: [
       {

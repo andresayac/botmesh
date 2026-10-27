@@ -54,7 +54,7 @@ app.listen(3000)
 
 The same two routes work in any framework: answer the `GET` with `verifyChallenge(query)` and hand the raw `POST` body and headers to `ingest()`, which does not wait for your handlers.
 
-The recommended way to serve them is [`@botmesh/server`](https://andresayac.github.io/botmesh/guide/server) (`pnpm add @botmesh/server`): it keeps the raw bytes, answers the handshake, enforces body-size, time and concurrency limits and adds `/healthz` and `/readyz`, for `node:http`, Express, Fastify and Hono:
+The recommended way to serve them is [`@botmesh/server`](https://botmesh.afaya.com.co/guide/server) (`pnpm add @botmesh/server`): it keeps the raw bytes, answers the handshake, enforces body-size, time and concurrency limits and adds `/healthz` and `/readyz`, for `node:http`, Express, Fastify and Hono:
 
 ```ts
 import { createIngress } from '@botmesh/server'
@@ -68,7 +68,7 @@ app.use(expressIngress(createIngress({ routes: [{ path: '/webhook', provider }],
 > **Webhook signature.** `appSecret` is required: `ingest` checks `X-Hub-Signature-256` (constant-time
 > HMAC-SHA256 over the raw bytes) and rejects forged bodies with `403`. If every webhook gets `403`, the body was
 > parsed before reaching `ingest` or the app secret is wrong (see
-> [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting#webhook-signature-mismatch-403)).
+> [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting#webhook-signature-mismatch-403)).
 > Only for local development can you opt out explicitly with `allowUnsignedWebhooks: true`.
 
 ## Configuration checks and timeouts
@@ -135,7 +135,7 @@ const { flowId } = await provider.publishForm(signup, { categories: ['SIGN_UP'] 
 writeFileSync('signup.flow.json', JSON.stringify(toFlowJson(signup), null, 2))
 ```
 
-`signup` is the same `FormDefinition` you pass to `flow().form(signup)`; see the [Forms guide](https://andresayac.github.io/botmesh/guide/forms).
+`signup` is the same `FormDefinition` you pass to `flow().form(signup)`; see the [Forms guide](https://botmesh.afaya.com.co/guide/forms).
 
 If a form has no associated Flow (neither `config.flows` nor `.form(def, { nativeId })`), the step asks field by field like on any other channel. `flowJsonWarnings(def)` warns about labels WhatsApp will truncate. The button (`cta`) and the message body follow the user's `ctx.lang` (`core.form.*` catalogue); the submit label stays fixed in the published Flow, so pick its language with `toFlowJson(def, { lang: 'es' })`, the provider's `lang` option for every `publishForm()` (`new CloudAPIProvider({ ..., lang: 'es' })`, the same value as your `BotConfig.lang`) or `publishForm(def, { lang: 'es' })` for one Flow (default `'en'`, the core default locale), or define `submitLabel`. Flows with an endpoint (`data_exchange`, encrypted dynamic screens) are not supported yet.
 
@@ -156,7 +156,7 @@ A quick-reply button of a template comes back as an interaction whose `data` is 
 
 ## 24-hour window
 
-Outside the 24 hours since the user's last message, Meta only allows **templates**. A free-form send rejects with `OutsideSessionWindowError` (code 131047): send a template instead. The [24-hour window guide](https://andresayac.github.io/botmesh/guide/session-window) covers the manager below in detail.
+Outside the 24 hours since the user's last message, Meta only allows **templates**. A free-form send rejects with `OutsideSessionWindowError` (code 131047): send a template instead. The [24-hour window guide](https://botmesh.afaya.com.co/guide/session-window) covers the manager below in detail.
 
 With `sessionWindow` the provider handles it on its own: it stores the time of the last inbound message of each chat, and when a free-form send fails with 131047 (or the window is already known to be closed) it sends an approved template to reopen the conversation, queues the original message and retries it when the user replies.
 
@@ -304,5 +304,5 @@ Sends reject with the typed errors of `@botmesh/core` (mapping in [`@botmesh/gra
 
 ## Links
 
-- [Channels guide](https://andresayac.github.io/botmesh/guide/channels) · [24-hour window](https://andresayac.github.io/botmesh/guide/session-window) · [Forms](https://andresayac.github.io/botmesh/guide/forms) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Channels guide](https://botmesh.afaya.com.co/guide/channels) · [24-hour window](https://botmesh.afaya.com.co/guide/session-window) · [Forms](https://botmesh.afaya.com.co/guide/forms) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/meta-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/meta-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

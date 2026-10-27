@@ -22,7 +22,7 @@ export const noAwaitRuntimeEnter: Rule.RuleModule = {
     docs: {
       description: 'Disallow awaiting ConversationRuntime.enter() (it blocks the chat queue until the conversation ends)',
       recommended: true,
-      url: 'https://andresayac.github.io/botmesh/guide/eslint#botmesh-no-await-runtime-enter',
+      url: 'https://botmesh.afaya.com.co/guide/eslint#botmesh/no-await-runtime-enter',
     },
     schema: [
       {

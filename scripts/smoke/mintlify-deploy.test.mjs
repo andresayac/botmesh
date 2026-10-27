@@ -22,9 +22,9 @@ test('parseArgs reads --dry-run and --force-branch and rejects anything else', (
   assert.throws(() => parseArgs(['--push']), /unknown option --push/)
 })
 
-test('the default target is the main branch of the botmesh-docs repo and the Mintlify subdomain', () => {
+test('the default target is the main branch of the botmesh-docs repo and the custom domain', () => {
   assert.equal(DEFAULT_REPO, 'https://github.com/andresayac/botmesh-docs.git')
-  assert.equal(DEFAULT_SITE_URL, 'https://botmesh.mintlify.app/')
+  assert.equal(DEFAULT_SITE_URL, 'https://botmesh.afaya.com.co/')
   assert.deepEqual(resolveTarget({}), { repo: DEFAULT_REPO, branch: 'main' })
 })
 

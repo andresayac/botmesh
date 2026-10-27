@@ -13,7 +13,7 @@
   "keywords": ["botmesh", "cli", "scaffolder", "create"],
   "author": "Andres Aya", "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/andresayac/botmesh.git", "directory": "packages/create-botmesh" },
-  "homepage": "https://andresayac.github.io/botmesh/guide/getting-started",
+  "homepage": "https://botmesh.afaya.com.co/guide/getting-started",
   "bugs": { "url": "https://github.com/andresayac/botmesh/issues" },
   "files": ["./lib/**/*"],
   "scripts": { "build": "node scripts/gen-versions.mjs && tsc", "gen:versions": "node scripts/gen-versions.mjs", "test": "vitest run", "prepublishOnly": "pnpm build", "typecheck": "tsc -p tsconfig.test.json" },

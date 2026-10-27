@@ -91,7 +91,7 @@ Expressions (`condition.if`, `guard.if`, `ask.validate.expr`) are a small safe l
 
 ## Links
 
-- [JSON flow schema guide](https://andresayac.github.io/botmesh/guide/flow-schema) · [Forms](https://andresayac.github.io/botmesh/guide/forms) · [MCP server for flow documents](https://www.npmjs.com/package/@botmesh/mcp)
+- [JSON flow schema guide](https://botmesh.afaya.com.co/guide/flow-schema) · [Forms](https://botmesh.afaya.com.co/guide/forms) · [MCP server for flow documents](https://www.npmjs.com/package/@botmesh/mcp)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/flow-schema/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/flow-schema) · [Issues](https://github.com/andresayac/botmesh/issues)
 
 Public package, covered by semver (except `@botmesh/flow-schema/internal`).

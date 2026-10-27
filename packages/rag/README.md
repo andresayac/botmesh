@@ -129,5 +129,5 @@ The index is brute force: it is meant for thousands of chunks (a FAQ, a catalogu
 
 ## Links
 
-- [AI memory and RAG guide](https://andresayac.github.io/botmesh/guide/ai-memory-rag) · [AI plugin](https://andresayac.github.io/botmesh/guide/ai) · [Security](https://andresayac.github.io/botmesh/guide/security)
+- [AI memory and RAG guide](https://botmesh.afaya.com.co/guide/ai-memory-rag) · [AI plugin](https://botmesh.afaya.com.co/guide/ai) · [Security](https://botmesh.afaya.com.co/guide/security)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/rag/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/rag) · [Issues](https://github.com/andresayac/botmesh/issues)

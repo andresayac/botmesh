@@ -32,7 +32,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/tickets"
   },
-  "homepage": "https://andresayac.github.io/botmesh/guide/integrations#tickets",
+  "homepage": "https://botmesh.afaya.com.co/guide/integrations#tickets",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },

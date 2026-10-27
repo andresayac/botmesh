@@ -32,7 +32,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/dialogflow"
   },
-  "homepage": "https://andresayac.github.io/botmesh/guide/integrations#dialogflow",
+  "homepage": "https://botmesh.afaya.com.co/guide/integrations#dialogflow",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },

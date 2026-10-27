@@ -24,7 +24,7 @@ export const noV1Api: Rule.RuleModule = {
     docs: {
       description: 'Disallow v1 / builderbot API calls that do not exist in the @botmesh v2 API',
       recommended: true,
-      url: 'https://andresayac.github.io/botmesh/guide/eslint#botmesh-no-v1-api',
+      url: 'https://botmesh.afaya.com.co/guide/eslint#botmesh/no-v1-api',
     },
     schema: [],
     messages: {

@@ -33,7 +33,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/baileys-provider"
   },
-  "homepage": "https://andresayac.github.io/botmesh/guide/channels#botmesh-baileys",
+  "homepage": "https://botmesh.afaya.com.co/guide/channels#@botmesh/baileys",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },

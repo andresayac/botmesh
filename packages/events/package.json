@@ -61,7 +61,7 @@
     "vite": "^7.3.7",
     "vitest": "^4.1.12"
   },
-  "homepage": "https://andresayac.github.io/botmesh/guide/operations#event-processing",
+  "homepage": "https://botmesh.afaya.com.co/guide/operations#event-processing",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },

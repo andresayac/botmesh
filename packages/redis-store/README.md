@@ -86,7 +86,7 @@ const bot = new Bot({
 - **Watchdog.** Leases are renewed every `leaseMs / 3`. A lease found gone is aborted; with no successful renewal for 90% of `leaseMs`, every lease is given up locally before Redis can hand it to another replica.
 - **Limits.** A Sentinel or Cluster failover that loses the last writes can grant a lease twice. Keep the replicas' clocks in sync (NTP).
 
-`new RedisCoordinator({ url, prefix })` builds one without a store. Guide: [Running N replicas](https://andresayac.github.io/botmesh/guide/replicas).
+`new RedisCoordinator({ url, prefix })` builds one without a store. Guide: [Running N replicas](https://botmesh.afaya.com.co/guide/replicas).
 
 ## Durable scheduled tasks and message processing
 
@@ -150,7 +150,7 @@ const store = new RedisStore({ client: cluster, prefix: 'mybot' }) // store.layo
 - A cluster-layout store on a single node refuses to start over legacy data unless `allowLegacyData: true`; switch every replica at once.
 - Key-builder internals are in `@botmesh/redis-store/internal`, with **no semver guarantee** (for tooling that inspects a keyspace).
 
-Guide, with the full key table and migration steps: [Redis Cluster](https://andresayac.github.io/botmesh/guide/redis-cluster).
+Guide, with the full key table and migration steps: [Redis Cluster](https://botmesh.afaya.com.co/guide/redis-cluster).
 
 ## Key scheme (legacy layout)
 
@@ -187,5 +187,5 @@ The unit tests run against an in-memory fake client, with no network. Opt-in sui
 
 ## Links
 
-- [Persistent stores guide](https://andresayac.github.io/botmesh/guide/store) · [Running N replicas](https://andresayac.github.io/botmesh/guide/replicas) · [Durable processing](https://andresayac.github.io/botmesh/guide/durability) · [Redis Cluster](https://andresayac.github.io/botmesh/guide/redis-cluster) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Persistent stores guide](https://botmesh.afaya.com.co/guide/store) · [Running N replicas](https://botmesh.afaya.com.co/guide/replicas) · [Durable processing](https://botmesh.afaya.com.co/guide/durability) · [Redis Cluster](https://botmesh.afaya.com.co/guide/redis-cluster) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/redis-store/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/redis-store) · [Issues](https://github.com/andresayac/botmesh/issues)

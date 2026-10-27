@@ -50,7 +50,7 @@ app.post('/webhook', express.raw({ type: 'application/json', limit: '1mb' }), (r
 app.listen(3000)
 ```
 
-The same two routes work in any framework (or with the [webhook server](https://andresayac.github.io/botmesh/guide/server)): answer the `GET` with `verifyChallenge(query)` and hand the raw `POST` body and headers to `ingest()`, which does not wait for your handlers.
+The same two routes work in any framework (or with the [webhook server](https://botmesh.afaya.com.co/guide/server)): answer the `GET` with `verifyChallenge(query)` and hand the raw `POST` body and headers to `ingest()`, which does not wait for your handlers.
 
 `ingest(body, headers)` returns the HTTP status to answer with and never throws: `200` accepted, `400` for a body that is not a JSON object (or one already parsed while `appSecret` is set), `403` for a bad signature, `503` while the provider is stopped (after `bot.stop()`, until the next `bot.start()`), so Meta delivers the webhook again later instead of it being lost. Fields of the wrong type inside a valid body are ignored, never trusted.
 
@@ -116,7 +116,7 @@ Sends reject with the typed errors of `@botmesh/core` (mapping in [`@botmesh/gra
 | Symptom | Cause and fix |
 | --- | --- |
 | Meta says the callback URL could not be verified | The `GET` route answered `403`: the `verify_token` set in Meta differs from `verifyToken`, or the route does not return `verifyChallenge(query)` as plain text. |
-| Every webhook `POST` gets `403` | The signature check failed: `appSecret` is not the app's secret, or the body reached `ingest()` re-serialized (parse nothing before it; pass the raw bytes). See [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting#webhook-signature-mismatch-403). |
+| Every webhook `POST` gets `403` | The signature check failed: `appSecret` is not the app's secret, or the body reached `ingest()` re-serialized (parse nothing before it; pass the raw bytes). See [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting#webhook-signature-mismatch-403). |
 | Webhook `POST`s get `400` | The body is not a JSON object, or a parsed object was passed while `appSecret` is set. |
 | Webhook `POST`s get `503` | The bot is stopped (`bot.stop()` without a new `bot.start()`). Meta retries the delivery. |
 | The webhook verifies but no DM arrives | The Instagram account is not a professional account connected to the Page, "Allow access to messages" is off in the Instagram app's settings, or the app lacks `instagram_manage_messages`. |
@@ -128,5 +128,5 @@ Sends reject with the typed errors of `@botmesh/core` (mapping in [`@botmesh/gra
 
 ## Links
 
-- [Channels guide](https://andresayac.github.io/botmesh/guide/channels#botmesh-instagram) · [Webhook server](https://andresayac.github.io/botmesh/guide/server) · [Local sandbox](https://andresayac.github.io/botmesh/guide/sandbox) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Channels guide](https://botmesh.afaya.com.co/guide/channels#@botmesh/instagram) · [Webhook server](https://botmesh.afaya.com.co/guide/server) · [Local sandbox](https://botmesh.afaya.com.co/guide/sandbox) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/instagram-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/instagram-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

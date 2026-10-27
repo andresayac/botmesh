@@ -162,5 +162,5 @@ your users actually type; avoid intents that share most of their vocabulary.
 
 ## Links
 
-- [Integrations guide (local intent matching)](https://andresayac.github.io/botmesh/guide/integrations#local-intent-matching-nlu) · [Triggers](https://andresayac.github.io/botmesh/guide/triggers) · [Plugins](https://andresayac.github.io/botmesh/guide/plugins) · [AI plugin](https://andresayac.github.io/botmesh/guide/ai)
+- [Integrations guide (local intent matching)](https://botmesh.afaya.com.co/guide/integrations#local-intent-matching-nlu) · [Triggers](https://botmesh.afaya.com.co/guide/triggers) · [Plugins](https://botmesh.afaya.com.co/guide/plugins) · [AI plugin](https://botmesh.afaya.com.co/guide/ai)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/nlu/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/nlu) · [Issues](https://github.com/andresayac/botmesh/issues)
