@@ -1,0 +1,401 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>FlowBuilder | @botmesh/core - v2.0.0-beta.4</title><meta name="description" content="Documentation for @botmesh/core"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/icons.js" id="tsd-icons-script"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script><script async src="../assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="../index.html" class="title">@botmesh/core - v2.0.0-beta.4</a>
+<div id="tsd-toolbar-links"><a href="/botmesh/guide/getting-started">Guide</a></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
+<ul role="listbox" id="tsd-search-results"></ul>
+<div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+<div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-menu"></use></svg></a></div></header>
+<div class="container container-main">
+<div class="col-content">
+<div class="tsd-page-title">
+<ul class="tsd-breadcrumb" aria-label="Breadcrumb">
+<li><a href="../modules/_botmesh_core.html">@botmesh/core</a></li>
+<li><a href="" aria-current="page">FlowBuilder</a></li></ul>
+<h1>Class FlowBuilder&lt;S&gt;</h1></div>
+<section class="tsd-panel tsd-comment">
+<div class="tsd-comment tsd-typography"><p>Builder returned by <a href="../functions/_botmesh_core.flow.html" class="tsd-kind-function">flow</a>. Chain steps (<code>say</code>, <code>ask</code>, <code>choose</code>, <code>do</code>,
+<code>media</code>, <code>form</code>, <code>use</code>, <code>goto</code>…) and register the flow with <code>bot.use()</code>. Every method returns
+the builder, and the type of <code>c.state</code> grows with each <code>ask</code>, <code>choose</code> and <code>use</code>.</p>
+</div></section>
+<section class="tsd-panel">
+<h4>Type Parameters</h4>
+<ul class="tsd-type-parameter-list">
+<li><span id="s"><span class="tsd-kind-type-parameter">S</span> <span class="tsd-signature-keyword">extends</span> <span class="tsd-signature-type">object</span> = <a href="../types/_botmesh_core.EmptyFlowState.html" class="tsd-signature-type tsd-kind-type-alias">EmptyFlowState</a></span></li></ul></section><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L290">flows/FlowBuilder.ts:290</a></li></ul></aside>
+<section class="tsd-panel-group tsd-index-group">
+<section class="tsd-panel tsd-index-panel">
+<details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h5 class="tsd-index-heading uppercase">Index</h5></summary>
+<div class="tsd-accordion-details">
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="constructors">Constructors<a href="#constructors" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#constructor" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Constructor"><use href="../assets/icons.svg#icon-512"></use></svg><span>constructor</span></a>
+</div></section>
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="methods">Methods<a href="#methods" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#say" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>say</span></a>
+<a href="#ask" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>ask</span></a>
+<a href="#do" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>do</span></a>
+<a href="#media" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>media</span></a>
+<a href="#choose" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>choose</span></a>
+<a href="#use" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>use</span></a>
+<a href="#guard" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>guard</span></a>
+<a href="#form" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>form</span></a>
+<a href="#delay" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>delay</span></a>
+<a href="#goto" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>goto</span></a>
+<a href="#timeout" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>timeout</span></a>
+<a href="#persistent" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>persistent</span></a>
+<a href="#scope" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>scope</span></a>
+<a href="#id" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>id</span></a>
+<a href="#compile" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>compile</span></a>
+</div></section></div></details></section></section>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Constructors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="constructors-1">Constructors<a href="#constructors-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="constructor"><span>constructor</span><a href="#constructor" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="constructorflowbuilder"><span class="tsd-signature-keyword">new</span> <span class="tsd-kind-constructor-signature">FlowBuilder</span><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#constructorflowbuilders">S</a> <span class="tsd-signature-keyword">extends</span> <span class="tsd-signature-type">object</span> <span class="tsd-signature-symbol">=</span> <a href="../types/_botmesh_core.EmptyFlowState.html" class="tsd-signature-type tsd-kind-type-alias">EmptyFlowState</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">trigger</span><span class="tsd-signature-symbol">:</span> <a href="../types/_botmesh_core.Trigger.html" class="tsd-signature-type tsd-kind-type-alias">Trigger</a><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><a href="#constructorflowbuilder" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<section class="tsd-panel">
+<h4>Type Parameters</h4>
+<ul class="tsd-type-parameter-list">
+<li><span id="constructorflowbuilders"><span class="tsd-kind-type-parameter">S</span> <span class="tsd-signature-keyword">extends</span> <span class="tsd-signature-type">object</span> = <a href="../types/_botmesh_core.EmptyFlowState.html" class="tsd-signature-type tsd-kind-type-alias">EmptyFlowState</a></span></li></ul></section>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">trigger</span>: <a href="../types/_botmesh_core.Trigger.html" class="tsd-signature-type tsd-kind-type-alias">Trigger</a></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L297">flows/FlowBuilder.ts:297</a></li></ul></aside></div></li></ul></section></section></details>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="methods-1">Methods<a href="#methods-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="say"><span>say</span><a href="#say" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="say-1"><span class="tsd-kind-call-signature">say</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">text</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <a href="../types/_botmesh_core.DynamicText.html" class="tsd-signature-type tsd-kind-type-alias">DynamicText</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">opts</span><span class="tsd-signature-symbol">?:</span> <a href="../interfaces/_botmesh_core.SayStepOptions.html" class="tsd-signature-type tsd-kind-interface">SayStepOptions</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><a href="#say-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Send a message. <code>{ delay }</code> pauses before sending.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">text</span>: <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <a href="../types/_botmesh_core.DynamicText.html" class="tsd-signature-type tsd-kind-type-alias">DynamicText</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></span></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">opts</span>: <a href="../interfaces/_botmesh_core.SayStepOptions.html" class="tsd-signature-type tsd-kind-interface">SayStepOptions</a></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L304">flows/FlowBuilder.ts:304</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="ask"><span>ask</span><a href="#ask" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="ask-1"><span class="tsd-kind-call-signature">ask</span><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#askk">K</a> <span class="tsd-signature-keyword">extends</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">,</span> <a class="tsd-signature-type tsd-kind-type-parameter" href="#askt">T</a> <span class="tsd-signature-symbol">=</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">text</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <a href="../types/_botmesh_core.DynamicText.html" class="tsd-signature-type tsd-kind-type-alias">DynamicText</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">stateKey</span><span class="tsd-signature-symbol">:</span> <a class="tsd-signature-type tsd-kind-type-parameter" href="#askk">K</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">opts</span><span class="tsd-signature-symbol">?:</span> <a href="../interfaces/_botmesh_core.AskStepOptions.html" class="tsd-signature-type tsd-kind-interface">AskStepOptions</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#askt">T</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a href="../types/_botmesh_core.FlowStateWith.html" class="tsd-signature-type tsd-kind-type-alias">FlowStateWith</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">,</span> <a class="tsd-signature-type tsd-kind-type-parameter" href="#askk">K</a><span class="tsd-signature-symbol">,</span> <a class="tsd-signature-type tsd-kind-type-parameter" href="#askt">T</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span><a href="#ask-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Ask a question and store the answer in <code>c.state[stateKey]</code>. With <code>{ schema }</code> the parsed
+value is stored and typed: <code>.ask('¿Edad?', 'edad', { schema: z.coerce.number() })</code> →
+<code>c.state.edad: number</code>.</p>
+</div>
+<section class="tsd-panel">
+<h4>Type Parameters</h4>
+<ul class="tsd-type-parameter-list">
+<li><span id="askk"><span class="tsd-kind-type-parameter">K</span> <span class="tsd-signature-keyword">extends</span> <span class="tsd-signature-type">string</span></span></li>
+<li><span id="askt"><span class="tsd-kind-type-parameter">T</span> = <span class="tsd-signature-type">string</span></span></li></ul></section>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">text</span>: <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <a href="../types/_botmesh_core.DynamicText.html" class="tsd-signature-type tsd-kind-type-alias">DynamicText</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></span></li>
+<li><span><span class="tsd-kind-parameter">stateKey</span>: <a class="tsd-signature-type tsd-kind-type-parameter" href="#askk">K</a></span></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">opts</span>: <a href="../interfaces/_botmesh_core.AskStepOptions.html" class="tsd-signature-type tsd-kind-interface">AskStepOptions</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#askt">T</a><span class="tsd-signature-symbol">&gt;</span></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a href="../types/_botmesh_core.FlowStateWith.html" class="tsd-signature-type tsd-kind-type-alias">FlowStateWith</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">,</span> <a class="tsd-signature-type tsd-kind-type-parameter" href="#askk">K</a><span class="tsd-signature-symbol">,</span> <a class="tsd-signature-type tsd-kind-type-parameter" href="#askt">T</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L315">flows/FlowBuilder.ts:315</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="do"><span>do</span><a href="#do" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="do-1"><span class="tsd-kind-call-signature">do</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">fn</span><span class="tsd-signature-symbol">:</span> <a href="../types/_botmesh_core.FlowAction.html" class="tsd-signature-type tsd-kind-type-alias">FlowAction</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><a href="#do-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">fn</span>: <a href="../types/_botmesh_core.FlowAction.html" class="tsd-signature-type tsd-kind-type-alias">FlowAction</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L328">flows/FlowBuilder.ts:328</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="media"><span>media</span><a href="#media" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="media-1"><span class="tsd-kind-call-signature">media</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">kind</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;location&quot;</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">source</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_botmesh_core.FlowLocation.html" class="tsd-signature-type tsd-kind-interface">FlowLocation</a> <span class="tsd-signature-symbol">|</span> <a href="../types/_botmesh_core.DynamicMediaSource.html" class="tsd-signature-type tsd-kind-type-alias">DynamicMediaSource</a><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_botmesh_core.FlowLocation.html" class="tsd-signature-type tsd-kind-interface">FlowLocation</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">caption</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">opts</span><span class="tsd-signature-symbol">?:</span> <a href="../interfaces/_botmesh_core.FlowMediaOptions.html" class="tsd-signature-type tsd-kind-interface">FlowMediaOptions</a><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><a href="#media-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Send media. <code>kind</code> is one of <code>image | video | audio | voice | document | sticker | location</code>:</p>
+<pre><code class="ts"><span class="hl-1">.</span><span class="hl-0">media</span><span class="hl-1">(</span><span class="hl-2">&#39;image&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;https://…/menu.png&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;Nuestro menú&#39;</span><span class="hl-1">)</span><br/><span class="hl-1">.</span><span class="hl-0">media</span><span class="hl-1">(</span><span class="hl-2">&#39;document&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;./factura.pdf&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;Tu factura&#39;</span><span class="hl-1">, { </span><span class="hl-4">filename:</span><span class="hl-1"> </span><span class="hl-2">&#39;factura.pdf&#39;</span><span class="hl-1"> })</span><br/><span class="hl-1">.</span><span class="hl-0">media</span><span class="hl-1">(</span><span class="hl-2">&#39;location&#39;</span><span class="hl-1">, { </span><span class="hl-4">lat:</span><span class="hl-1"> </span><span class="hl-9">4.71</span><span class="hl-1">, </span><span class="hl-4">lng:</span><span class="hl-1"> -</span><span class="hl-9">74.07</span><span class="hl-1"> }, </span><span class="hl-2">&#39;Bogotá&#39;</span><span class="hl-1">)</span>
+</code><button type="button">Copy</button></pre>
+
+<p>The legacy two-argument form <code>.media(source, caption?)</code> sends an image.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">kind</span>: <span class="tsd-signature-type">&quot;location&quot;</span></span></li>
+<li><span><span class="tsd-kind-parameter">source</span>: <a href="../interfaces/_botmesh_core.FlowLocation.html" class="tsd-signature-type tsd-kind-interface">FlowLocation</a> <span class="tsd-signature-symbol">|</span> <a href="../types/_botmesh_core.DynamicMediaSource.html" class="tsd-signature-type tsd-kind-type-alias">DynamicMediaSource</a><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_botmesh_core.FlowLocation.html" class="tsd-signature-type tsd-kind-interface">FlowLocation</a><span class="tsd-signature-symbol">&gt;</span></span></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">caption</span>: <span class="tsd-signature-type">string</span></span></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">opts</span>: <a href="../interfaces/_botmesh_core.FlowMediaOptions.html" class="tsd-signature-type tsd-kind-interface">FlowMediaOptions</a></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L341">flows/FlowBuilder.ts:341</a></li></ul></aside></div></li>
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="media-2"><span class="tsd-kind-call-signature">media</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">kind</span><span class="tsd-signature-symbol">:</span> <a href="../types/_botmesh_core.FlowFileMediaKind.html" class="tsd-signature-type tsd-kind-type-alias">FlowFileMediaKind</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">source</span><span class="tsd-signature-symbol">:</span> <a href="../types/_botmesh_core.MediaSource.html" class="tsd-signature-type tsd-kind-type-alias">MediaSource</a> <span class="tsd-signature-symbol">|</span> <a href="../types/_botmesh_core.DynamicMediaSource.html" class="tsd-signature-type tsd-kind-type-alias">DynamicMediaSource</a><span class="tsd-signature-symbol">&lt;</span><a href="../types/_botmesh_core.MediaSource.html" class="tsd-signature-type tsd-kind-type-alias">MediaSource</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">caption</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">opts</span><span class="tsd-signature-symbol">?:</span> <a href="../interfaces/_botmesh_core.FlowMediaOptions.html" class="tsd-signature-type tsd-kind-interface">FlowMediaOptions</a><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><a href="#media-2" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Send media. <code>kind</code> is one of <code>image | video | audio | voice | document | sticker | location</code>:</p>
+<pre><code class="ts"><span class="hl-1">.</span><span class="hl-0">media</span><span class="hl-1">(</span><span class="hl-2">&#39;image&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;https://…/menu.png&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;Nuestro menú&#39;</span><span class="hl-1">)</span><br/><span class="hl-1">.</span><span class="hl-0">media</span><span class="hl-1">(</span><span class="hl-2">&#39;document&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;./factura.pdf&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;Tu factura&#39;</span><span class="hl-1">, { </span><span class="hl-4">filename:</span><span class="hl-1"> </span><span class="hl-2">&#39;factura.pdf&#39;</span><span class="hl-1"> })</span><br/><span class="hl-1">.</span><span class="hl-0">media</span><span class="hl-1">(</span><span class="hl-2">&#39;location&#39;</span><span class="hl-1">, { </span><span class="hl-4">lat:</span><span class="hl-1"> </span><span class="hl-9">4.71</span><span class="hl-1">, </span><span class="hl-4">lng:</span><span class="hl-1"> -</span><span class="hl-9">74.07</span><span class="hl-1"> }, </span><span class="hl-2">&#39;Bogotá&#39;</span><span class="hl-1">)</span>
+</code><button type="button">Copy</button></pre>
+
+<p>The legacy two-argument form <code>.media(source, caption?)</code> sends an image.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">kind</span>: <a href="../types/_botmesh_core.FlowFileMediaKind.html" class="tsd-signature-type tsd-kind-type-alias">FlowFileMediaKind</a></span></li>
+<li><span><span class="tsd-kind-parameter">source</span>: <a href="../types/_botmesh_core.MediaSource.html" class="tsd-signature-type tsd-kind-type-alias">MediaSource</a> <span class="tsd-signature-symbol">|</span> <a href="../types/_botmesh_core.DynamicMediaSource.html" class="tsd-signature-type tsd-kind-type-alias">DynamicMediaSource</a><span class="tsd-signature-symbol">&lt;</span><a href="../types/_botmesh_core.MediaSource.html" class="tsd-signature-type tsd-kind-type-alias">MediaSource</a><span class="tsd-signature-symbol">&gt;</span></span></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">caption</span>: <span class="tsd-signature-type">string</span></span></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">opts</span>: <a href="../interfaces/_botmesh_core.FlowMediaOptions.html" class="tsd-signature-type tsd-kind-interface">FlowMediaOptions</a></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L342">flows/FlowBuilder.ts:342</a></li></ul></aside></div></li>
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="media-3"><span class="tsd-kind-call-signature">media</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">source</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">caption</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><a href="#media-3" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Send media. <code>kind</code> is one of <code>image | video | audio | voice | document | sticker | location</code>:</p>
+<pre><code class="ts"><span class="hl-1">.</span><span class="hl-0">media</span><span class="hl-1">(</span><span class="hl-2">&#39;image&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;https://…/menu.png&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;Nuestro menú&#39;</span><span class="hl-1">)</span><br/><span class="hl-1">.</span><span class="hl-0">media</span><span class="hl-1">(</span><span class="hl-2">&#39;document&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;./factura.pdf&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;Tu factura&#39;</span><span class="hl-1">, { </span><span class="hl-4">filename:</span><span class="hl-1"> </span><span class="hl-2">&#39;factura.pdf&#39;</span><span class="hl-1"> })</span><br/><span class="hl-1">.</span><span class="hl-0">media</span><span class="hl-1">(</span><span class="hl-2">&#39;location&#39;</span><span class="hl-1">, { </span><span class="hl-4">lat:</span><span class="hl-1"> </span><span class="hl-9">4.71</span><span class="hl-1">, </span><span class="hl-4">lng:</span><span class="hl-1"> -</span><span class="hl-9">74.07</span><span class="hl-1"> }, </span><span class="hl-2">&#39;Bogotá&#39;</span><span class="hl-1">)</span>
+</code><button type="button">Copy</button></pre>
+
+<p>The legacy two-argument form <code>.media(source, caption?)</code> sends an image.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">source</span>: <span class="tsd-signature-type">string</span></span></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">caption</span>: <span class="tsd-signature-type">string</span></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L343">flows/FlowBuilder.ts:343</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="choose"><span>choose</span><a href="#choose" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="choose-1"><span class="tsd-kind-call-signature">choose</span><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#chooseo">O</a> <span class="tsd-signature-keyword">extends</span> <span class="tsd-signature-type">Record</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">,</span> <a href="../types/_botmesh_core.ChooseOption.html" class="tsd-signature-type tsd-kind-type-alias">ChooseOption</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">,</span> <a class="tsd-signature-type tsd-kind-type-parameter" href="#choosek">K</a> <span class="tsd-signature-keyword">extends</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">=</span> <span class="tsd-signature-type">&quot;choice&quot;</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">prompt</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">options</span><span class="tsd-signature-symbol">:</span> <a class="tsd-signature-type tsd-kind-type-parameter" href="#chooseo">O</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">stateKey</span><span class="tsd-signature-symbol">?:</span> <a class="tsd-signature-type tsd-kind-type-parameter" href="#choosek">K</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">opts</span><span class="tsd-signature-symbol">?:</span> <a href="../interfaces/_botmesh_core.ChooseStepOptions.html" class="tsd-signature-type tsd-kind-interface">ChooseStepOptions</a><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a href="../types/_botmesh_core.FlowStateWith.html" class="tsd-signature-type tsd-kind-type-alias">FlowStateWith</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">,</span> <a class="tsd-signature-type tsd-kind-type-parameter" href="#choosek">K</a><span class="tsd-signature-symbol">,</span> <span class="tsd-signature-type">Extract</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-keyword">keyof</span> <a class="tsd-signature-type tsd-kind-type-parameter" href="#chooseo">O</a><span class="tsd-signature-symbol">,</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span><a href="#choose-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Present a numbered menu and capture the selection. The picked option KEY is stored in
+<code>c.state[stateKey]</code> (defaults to <code>c.state.choice</code>), so a later <code>.say</code>/<code>.do</code> can read it.
+An option's <code>then</code> sub-flow runs inline and returns here (sharing <code>c.state</code>); its <code>goto</code>
+leaves the flow for another conversation.</p>
+</div>
+<section class="tsd-panel">
+<h4>Type Parameters</h4>
+<ul class="tsd-type-parameter-list">
+<li><span id="chooseo"><span class="tsd-kind-type-parameter">O</span> <span class="tsd-signature-keyword">extends</span> <span class="tsd-signature-type">Record</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">,</span> <a href="../types/_botmesh_core.ChooseOption.html" class="tsd-signature-type tsd-kind-type-alias">ChooseOption</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></span></li>
+<li><span id="choosek"><span class="tsd-kind-type-parameter">K</span> <span class="tsd-signature-keyword">extends</span> <span class="tsd-signature-type">string</span> = <span class="tsd-signature-type">&quot;choice&quot;</span></span></li></ul></section>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">prompt</span>: <span class="tsd-signature-type">string</span></span></li>
+<li><span><span class="tsd-kind-parameter">options</span>: <a class="tsd-signature-type tsd-kind-type-parameter" href="#chooseo">O</a></span></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">stateKey</span>: <a class="tsd-signature-type tsd-kind-type-parameter" href="#choosek">K</a></span></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">opts</span>: <a href="../interfaces/_botmesh_core.ChooseStepOptions.html" class="tsd-signature-type tsd-kind-interface">ChooseStepOptions</a></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a href="../types/_botmesh_core.FlowStateWith.html" class="tsd-signature-type tsd-kind-type-alias">FlowStateWith</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">,</span> <a class="tsd-signature-type tsd-kind-type-parameter" href="#choosek">K</a><span class="tsd-signature-symbol">,</span> <span class="tsd-signature-type">Extract</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-keyword">keyof</span> <a class="tsd-signature-type tsd-kind-type-parameter" href="#chooseo">O</a><span class="tsd-signature-symbol">,</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L367">flows/FlowBuilder.ts:367</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="use"><span>use</span><a href="#use" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="use-1"><span class="tsd-kind-call-signature">use</span><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#uset">T</a> <span class="tsd-signature-keyword">extends</span> <span class="tsd-signature-type">object</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">sub</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#uset">T</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a href="../types/_botmesh_core.FlowStateMerge.html" class="tsd-signature-type tsd-kind-type-alias">FlowStateMerge</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">,</span> <a class="tsd-signature-type tsd-kind-type-parameter" href="#uset">T</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span><a href="#use-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Run another flow inline, then come back and continue with the next step. The sub-flow
+shares <code>c.state</code>, so whatever it captures is visible here (and typed: the builder's
+state merges the sub-flow's). The sub-flow is snapshotted at this call.</p>
+</div>
+<section class="tsd-panel">
+<h4>Type Parameters</h4>
+<ul class="tsd-type-parameter-list">
+<li><span id="uset"><span class="tsd-kind-type-parameter">T</span> <span class="tsd-signature-keyword">extends</span> <span class="tsd-signature-type">object</span></span></li></ul></section>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">sub</span>: <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#uset">T</a><span class="tsd-signature-symbol">&gt;</span></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a href="../types/_botmesh_core.FlowStateMerge.html" class="tsd-signature-type tsd-kind-type-alias">FlowStateMerge</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">,</span> <a class="tsd-signature-type tsd-kind-type-parameter" href="#uset">T</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L400">flows/FlowBuilder.ts:400</a></li></ul></aside></div></li>
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="use-2"><span class="tsd-kind-call-signature">use</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">sub</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_botmesh_core.CompiledFlow.html" class="tsd-signature-type tsd-kind-interface">CompiledFlow</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><a href="#use-2" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Run another flow inline, then come back and continue with the next step. The sub-flow
+shares <code>c.state</code>, so whatever it captures is visible here (and typed: the builder's
+state merges the sub-flow's). The sub-flow is snapshotted at this call.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">sub</span>: <a href="../interfaces/_botmesh_core.CompiledFlow.html" class="tsd-signature-type tsd-kind-interface">CompiledFlow</a></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L401">flows/FlowBuilder.ts:401</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="guard"><span>guard</span><a href="#guard" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="guard-1"><span class="tsd-kind-call-signature">guard</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">check</span><span class="tsd-signature-symbol">:</span> <a href="../types/_botmesh_core.FlowGuard.html" class="tsd-signature-type tsd-kind-type-alias">FlowGuard</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">onFail</span><span class="tsd-signature-symbol">?:</span> <a href="../types/_botmesh_core.GuardFailure.html" class="tsd-signature-type tsd-kind-type-alias">GuardFailure</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><a href="#guard-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Stop the flow unless <code>check</code> passes. On failure it sends <code>onFail</code> and ends the conversation,
+or — with <code>{ redirect }</code> — jumps to another conversation:</p>
+<pre><code class="ts"><span class="hl-1">.</span><span class="hl-0">guard</span><span class="hl-1">(() </span><span class="hl-5">=&gt;</span><span class="hl-1"> </span><span class="hl-0">esHorarioLaboral</span><span class="hl-1">(), </span><span class="hl-2">&#39;Fuera de horario, vuelve mañana&#39;</span><span class="hl-1">)</span><br/><span class="hl-1">.</span><span class="hl-0">guard</span><span class="hl-1">(</span><span class="hl-5">async</span><span class="hl-1"> (</span><span class="hl-4">ctx</span><span class="hl-1">) </span><span class="hl-5">=&gt;</span><span class="hl-1"> </span><span class="hl-0">isAdmin</span><span class="hl-1">(</span><span class="hl-4">ctx</span><span class="hl-1">.</span><span class="hl-4">sender</span><span class="hl-1">), { </span><span class="hl-4">redirect:</span><span class="hl-1"> </span><span class="hl-2">&#39;no-permiso&#39;</span><span class="hl-1"> })</span>
+</code><button type="button">Copy</button></pre>
+
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">check</span>: <a href="../types/_botmesh_core.FlowGuard.html" class="tsd-signature-type tsd-kind-type-alias">FlowGuard</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></span></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">onFail</span>: <a href="../types/_botmesh_core.GuardFailure.html" class="tsd-signature-type tsd-kind-type-alias">GuardFailure</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L418">flows/FlowBuilder.ts:418</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="form"><span>form</span><a href="#form" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="form-1"><span class="tsd-kind-call-signature">form</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">definition</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_botmesh_core.FormDefinition.html" class="tsd-signature-type tsd-kind-interface">FormDefinition</a><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">opts</span><span class="tsd-signature-symbol">?:</span> <a href="../interfaces/_botmesh_core.FormStepOptions.html" class="tsd-signature-type tsd-kind-interface">FormStepOptions</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><a href="#form-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Collect a typed form. On providers with <code>capabilities.forms === 'native'</code>
+(WhatsApp Cloud API → WhatsApp Flows) it sends one native form and waits for
+its submission; elsewhere it asks field by field. Either way the validated
+answers are stored in <code>c.state[opts.stateKey ?? definition.id]</code>.
+The definition is checked here: a malformed one throws a <code>TypeError</code>.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">definition</span>: <a href="../interfaces/_botmesh_core.FormDefinition.html" class="tsd-signature-type tsd-kind-interface">FormDefinition</a></span></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">opts</span>: <a href="../interfaces/_botmesh_core.FormStepOptions.html" class="tsd-signature-type tsd-kind-interface">FormStepOptions</a></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></h4>
+<div class="tsd-comment tsd-typography">
+<div class="tsd-tag-example">
+<h4 class="tsd-anchor-link" id="example">Example<a href="#example" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><pre><code class="ts"><span class="hl-0">flow</span><span class="hl-1">(</span><span class="hl-2">&#39;registro&#39;</span><span class="hl-1">)</span><br/><span class="hl-1">  .</span><span class="hl-0">form</span><span class="hl-1">({ </span><span class="hl-4">id:</span><span class="hl-1"> </span><span class="hl-2">&#39;signup&#39;</span><span class="hl-1">, </span><span class="hl-4">title:</span><span class="hl-1"> </span><span class="hl-2">&#39;Registro&#39;</span><span class="hl-1">, </span><span class="hl-4">fields:</span><span class="hl-1"> [</span><br/><span class="hl-1">    { </span><span class="hl-4">type:</span><span class="hl-1"> </span><span class="hl-2">&#39;text&#39;</span><span class="hl-1">, </span><span class="hl-4">name:</span><span class="hl-1"> </span><span class="hl-2">&#39;name&#39;</span><span class="hl-1">, </span><span class="hl-4">label:</span><span class="hl-1"> </span><span class="hl-2">&#39;Nombre&#39;</span><span class="hl-1"> },</span><br/><span class="hl-1">    { </span><span class="hl-4">type:</span><span class="hl-1"> </span><span class="hl-2">&#39;email&#39;</span><span class="hl-1">, </span><span class="hl-4">name:</span><span class="hl-1"> </span><span class="hl-2">&#39;email&#39;</span><span class="hl-1">, </span><span class="hl-4">label:</span><span class="hl-1"> </span><span class="hl-2">&#39;Correo&#39;</span><span class="hl-1"> },</span><br/><span class="hl-1">    { </span><span class="hl-4">type:</span><span class="hl-1"> </span><span class="hl-2">&#39;select&#39;</span><span class="hl-1">, </span><span class="hl-4">name:</span><span class="hl-1"> </span><span class="hl-2">&#39;plan&#39;</span><span class="hl-1">, </span><span class="hl-4">label:</span><span class="hl-1"> </span><span class="hl-2">&#39;Plan&#39;</span><span class="hl-1">, </span><span class="hl-4">options:</span><span class="hl-1"> { </span><span class="hl-4">basic:</span><span class="hl-1"> </span><span class="hl-2">&#39;Básico&#39;</span><span class="hl-1">, </span><span class="hl-4">pro:</span><span class="hl-1"> </span><span class="hl-2">&#39;Pro&#39;</span><span class="hl-1"> } },</span><br/><span class="hl-1">  ] })</span><br/><span class="hl-1">  .</span><span class="hl-0">say</span><span class="hl-1">((</span><span class="hl-4">_ctx</span><span class="hl-1">, </span><span class="hl-4">c</span><span class="hl-1">) </span><span class="hl-5">=&gt;</span><span class="hl-1"> </span><span class="hl-2">`Gracias </span><span class="hl-5">${</span><span class="hl-8">(</span><span class="hl-4">c</span><span class="hl-8">.</span><span class="hl-4">state</span><span class="hl-8">.</span><span class="hl-4">signup</span><span class="hl-8"> </span><span class="hl-3">as</span><span class="hl-8"> { </span><span class="hl-4">name</span><span class="hl-1">:</span><span class="hl-8"> </span><span class="hl-10">string</span><span class="hl-8"> }).</span><span class="hl-4">name</span><span class="hl-5">}</span><span class="hl-2">`</span><span class="hl-1">)</span>
+</code><button type="button">Copy</button></pre>
+
+</div></div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L447">flows/FlowBuilder.ts:447</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="delay"><span>delay</span><a href="#delay" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="delay-1"><span class="tsd-kind-call-signature">delay</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">d</span><span class="tsd-signature-symbol">:</span> <a href="../types/_botmesh_core.FlowDelay.html" class="tsd-signature-type tsd-kind-type-alias">FlowDelay</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><a href="#delay-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Pause the flow (<code>'2s'</code>, <code>1500</code>) before the next step.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">d</span>: <a href="../types/_botmesh_core.FlowDelay.html" class="tsd-signature-type tsd-kind-type-alias">FlowDelay</a></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L455">flows/FlowBuilder.ts:455</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="goto"><span>goto</span><a href="#goto" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="goto-1"><span class="tsd-kind-call-signature">goto</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">target</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">object</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><a href="#goto-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">target</span>: <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">object</span><span class="tsd-signature-symbol">&gt;</span></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L460">flows/FlowBuilder.ts:460</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="timeout"><span>timeout</span><a href="#timeout" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="timeout-1"><span class="tsd-kind-call-signature">timeout</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">d</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><a href="#timeout-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">d</span>: <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">number</span></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L465">flows/FlowBuilder.ts:465</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="persistent"><span>persistent</span><a href="#persistent" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="persistent-1"><span class="tsd-kind-call-signature">persistent</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><a href="#persistent-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L466">flows/FlowBuilder.ts:466</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="scope"><span>scope</span><a href="#scope" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="scope-1"><span class="tsd-kind-call-signature">scope</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">s</span><span class="tsd-signature-symbol">:</span> <a href="../types/_botmesh_core.TriggerScope.html" class="tsd-signature-type tsd-kind-type-alias">TriggerScope</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><a href="#scope-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">s</span>: <a href="../types/_botmesh_core.TriggerScope.html" class="tsd-signature-type tsd-kind-type-alias">TriggerScope</a></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L467">flows/FlowBuilder.ts:467</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="id"><span>id</span><a href="#id" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="id-1"><span class="tsd-kind-call-signature">id</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">explicit</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span><a href="#id-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">explicit</span>: <span class="tsd-signature-type">string</span></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">FlowBuilder</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#s">S</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L468">flows/FlowBuilder.ts:468</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="compile"><span>compile</span><a href="#compile" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="compile-1"><span class="tsd-kind-call-signature">compile</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_botmesh_core.CompiledFlow.html" class="tsd-signature-type tsd-kind-interface">CompiledFlow</a><a href="#compile-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_botmesh_core.CompiledFlow.html" class="tsd-signature-type tsd-kind-interface">CompiledFlow</a></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/flows/FlowBuilder.ts#L470">flows/FlowBuilder.ts:470</a></li></ul></aside></div></li></ul></section></section></details></div>
+<div class="col-sidebar">
+<div class="page-menu">
+<div class="tsd-navigation settings">
+<details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li></ul></div>
+<div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div>
+<details open class="tsd-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>On This Page</h3></summary>
+<div class="tsd-accordion-details">
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Constructors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Constructors</summary>
+<div><a href="#constructor"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Constructor"><use href="../assets/icons.svg#icon-512"></use></svg><span>constructor</span></a></div></details>
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Methods</summary>
+<div><a href="#say"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>say</span></a><a href="#ask"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>ask</span></a><a href="#do"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>do</span></a><a href="#media"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>media</span></a><a href="#choose"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>choose</span></a><a href="#use"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>use</span></a><a href="#guard"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>guard</span></a><a href="#form"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>form</span></a><a href="#delay"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>delay</span></a><a href="#goto"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>goto</span></a><a href="#timeout"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>timeout</span></a><a href="#persistent"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>persistent</span></a><a href="#scope"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>scope</span></a><a href="#id"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>id</span></a><a href="#compile"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>compile</span></a></div></details></div></details></div>
+<div class="site-menu">
+<nav id="tsd-sidebar-links" class="tsd-navigation"><a href="/botmesh/guide/getting-started" class="tsd-nav-link">Guide</a></nav>
+<nav class="tsd-navigation"><a href="../modules.html">@botmesh/core - v2.0.0-beta.4</a>
+<ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+<li>Loading...</li></ul></nav></div></div></div><footer>
+<p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
+<div class="overlay"></div></body></html>

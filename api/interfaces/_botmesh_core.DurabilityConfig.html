@@ -1,0 +1,190 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>DurabilityConfig | @botmesh/core - v2.0.0-beta.4</title><meta name="description" content="Documentation for @botmesh/core"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/icons.js" id="tsd-icons-script"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script><script async src="../assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="../index.html" class="title">@botmesh/core - v2.0.0-beta.4</a>
+<div id="tsd-toolbar-links"><a href="/botmesh/guide/getting-started">Guide</a></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
+<ul role="listbox" id="tsd-search-results"></ul>
+<div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+<div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-menu"></use></svg></a></div></header>
+<div class="container container-main">
+<div class="col-content">
+<div class="tsd-page-title">
+<ul class="tsd-breadcrumb" aria-label="Breadcrumb">
+<li><a href="../modules/_botmesh_core.html">@botmesh/core</a></li>
+<li><a href="" aria-current="page">DurabilityConfig</a></li></ul>
+<h1>Interface DurabilityConfig</h1></div>
+<section class="tsd-panel tsd-comment">
+<div class="tsd-comment tsd-typography"><p><code>BotConfig.durability</code>. Every field is optional; <code>{}</code> enables durability with the in-memory backend.</p>
+</div></section>
+<div class="tsd-signature"><span class="tsd-signature-keyword">interface</span> <span class="tsd-kind-interface">DurabilityConfig</span> <span class="tsd-signature-symbol">{</span><br/>    <a class="tsd-kind-property" href="#backend">backend</a><span class="tsd-signature-symbol">?:</span> <a href="_botmesh_core.DurabilityBackend.html" class="tsd-signature-type tsd-kind-interface">DurabilityBackend</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#journal">journal</a><span class="tsd-signature-symbol">?:</span> <a href="_botmesh_core.DurabilityBackend.html" class="tsd-signature-type tsd-kind-interface">DurabilityBackend</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#instanceid">instanceId</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#failopen">failOpen</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#inbox">inbox</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">{</span><br/>        <span class="tsd-kind-property">leaseMs</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>        <span class="tsd-kind-property">maxAttempts</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>        <span class="tsd-kind-property">backoff</span><span class="tsd-signature-symbol">?:</span> <a href="../types/_botmesh_core.RetryBackoff.html" class="tsd-signature-type tsd-kind-type-alias">RetryBackoff</a><span class="tsd-signature-symbol">;</span><br/>        <span class="tsd-kind-property">mediaRefs</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#outbox">outbox</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">{</span><br/>        <span class="tsd-kind-property">retries</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>        <span class="tsd-kind-property">backoff</span><span class="tsd-signature-symbol">?:</span> <a href="../types/_botmesh_core.RetryBackoff.html" class="tsd-signature-type tsd-kind-type-alias">RetryBackoff</a><span class="tsd-signature-symbol">;</span><br/>        <span class="tsd-kind-property">inlineMaxMs</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span><br/>        <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>        <span class="tsd-kind-property">onAmbiguous</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">&quot;skip&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;resend&quot;</span><span class="tsd-signature-symbol">;</span><br/>        <span class="tsd-kind-property">maxPayloadBytes</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>        <span class="tsd-kind-property">leaseMs</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>        <span class="tsd-kind-property">onDiverged</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">&quot;send&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;skip&quot;</span><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#pollms">pollMs</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span><br/>    <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#retention">retention</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/><span class="tsd-signature-symbol">}</span></div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/durability/types.ts#L364">durability/types.ts:364</a></li></ul></aside>
+<section class="tsd-panel-group tsd-index-group">
+<section class="tsd-panel tsd-index-panel">
+<details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h5 class="tsd-index-heading uppercase">Index</h5></summary>
+<div class="tsd-accordion-details">
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="properties">Properties<a href="#properties" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#backend" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>backend?</span></a>
+<a href="#journal" class="tsd-index-link deprecated"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>journal?</span></a>
+<a href="#instanceid" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>instance<wbr/>Id?</span></a>
+<a href="#failopen" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>fail<wbr/>Open?</span></a>
+<a href="#inbox" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>inbox?</span></a>
+<a href="#outbox" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>outbox?</span></a>
+<a href="#pollms" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>poll<wbr/>Ms?</span></a>
+<a href="#retention" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>retention?</span></a>
+</div></section></div></details></section></section>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Properties"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="properties-1">Properties<a href="#properties-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="backend"><code class="tsd-tag">Optional</code><span>backend</span><a href="#backend" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">backend</span><span class="tsd-signature-symbol">?:</span> <a href="_botmesh_core.DurabilityBackend.html" class="tsd-signature-type tsd-kind-interface">DurabilityBackend</a></div>
+<div class="tsd-comment tsd-typography"><p>Where the inbox and outbox records live: <code>MemoryDurability</code>, <code>FileDurability</code>, or a store's
+backend (<code>new PostgresDurability({ pool })</code> from <code>@botmesh/postgres-store</code>,
+<code>new RedisDurability({ client })</code> from <code>@botmesh/redis-store</code>, <code>SQLiteStore#durability()</code>,
+or a <code>KvDurability</code> over any <code>DurableKv</code>). Default: a new
+<code>MemoryDurability</code> (survives nothing but redeliveries within the process).</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/durability/types.ts#L372">durability/types.ts:372</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="journal"><code class="tsd-tag">Optional</code><span class="deprecated">journal</span><a href="#journal" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">journal</span><span class="tsd-signature-symbol">?:</span> <a href="_botmesh_core.DurabilityBackend.html" class="tsd-signature-type tsd-kind-interface">DurabilityBackend</a></div>
+<div class="tsd-comment tsd-typography">
+<div class="tsd-tag-deprecated">
+<h4 class="tsd-anchor-link" id="deprecated">Deprecated<a href="#deprecated" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><p>Use <a href="#backend" class="tsd-kind-property">DurabilityConfig.backend</a> (same value; the old name of the option).
+Setting both to different backends throws a <code>ConfigValidationError</code>.</p>
+</div></div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/durability/types.ts#L377">durability/types.ts:377</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="instanceid"><code class="tsd-tag">Optional</code><span>instance<wbr/>Id</span><a href="#instanceid" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">instanceId</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span></div>
+<div class="tsd-comment tsd-typography"><p>Lease owner of this process. Keep it STABLE across restarts of the same deployment
+(a restarted process then reclaims its own in-flight records at once, without waiting
+for their leases to expire) and UNIQUE per concurrently running replica (two live
+processes with one id would take each other's leases).</p>
+<p>Default: <code>&lt;hostname&gt;/&lt;botId&gt;/&lt;connectionId&gt;</code> on a single-process backend (memory, file);
+on a shared backend (Postgres, Redis) that id plus a per-boot suffix, so two processes
+on one host never share it — a restart then waits for the old leases to expire.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/durability/types.ts#L388">durability/types.ts:388</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="failopen"><code class="tsd-tag">Optional</code><span>fail<wbr/>Open</span><a href="#failopen" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">failOpen</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span></div>
+<div class="tsd-comment tsd-typography"><p><code>false</code> (default): when the journal cannot record an inbound event, the event is NOT
+dispatched (fail-closed) — an <code>'error'</code> is emitted and the dedupe key is released so
+a transport redelivery is processed. <code>true</code>: dispatch it without the journal.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/durability/types.ts#L394">durability/types.ts:394</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="inbox"><code class="tsd-tag">Optional</code><span>inbox</span><a href="#inbox" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">inbox</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">{</span><br/>    <span class="tsd-kind-property">leaseMs</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-kind-property">maxAttempts</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-kind-property">backoff</span><span class="tsd-signature-symbol">?:</span> <a href="../types/_botmesh_core.RetryBackoff.html" class="tsd-signature-type tsd-kind-type-alias">RetryBackoff</a><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-kind-property">mediaRefs</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">;</span><br/><span class="tsd-signature-symbol">}</span></div>
+<div class="tsd-type-declaration">
+<h4>Type Declaration</h4>
+<ul class="tsd-parameters">
+<li class="tsd-parameter">
+<h5><code class="tsd-tag">Optional</code><span class="tsd-kind-property">leaseMs</span><span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">number</span></h5>
+<div class="tsd-comment tsd-typography"><p>Processing lease (heartbeat-extended while the event is running). Default <code>60_000</code> ms.</p>
+</div></li>
+<li class="tsd-parameter">
+<h5><code class="tsd-tag">Optional</code><span class="tsd-kind-property">maxAttempts</span><span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">number</span></h5>
+<div class="tsd-comment tsd-typography"><p>Attempts before an event whose processing keeps failing is dead-lettered. Default <code>5</code>.</p>
+</div></li>
+<li class="tsd-parameter">
+<h5><code class="tsd-tag">Optional</code><span class="tsd-kind-property">backoff</span><span class="tsd-signature-symbol">?: </span><a href="../types/_botmesh_core.RetryBackoff.html" class="tsd-signature-type tsd-kind-type-alias">RetryBackoff</a></h5>
+<div class="tsd-comment tsd-typography"><p>Backoff between failed attempts. Default <code>{ baseMs: 1000, capMs: 60000, jitter: 0.2 }</code>.</p>
+</div></li>
+<li class="tsd-parameter">
+<h5><code class="tsd-tag">Optional</code><span class="tsd-kind-property">mediaRefs</span><span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">boolean</span></h5>
+<div class="tsd-comment tsd-typography"><p>Journal a serializable reference to each message's media (<code>IProvider.serializeMediaRef</code>)
+so a replayed message (crash recovery, background retry) can still download it
+(<code>IProvider.rehydrateMediaRef</code>). Only applies to providers with those hooks. The
+reference grants access to the media, like the message body stored next to it.
+<code>false</code>: journal media tokens as they are, as before (a replayed message may then be
+unable to download its media). Default <code>true</code>.</p>
+</div></li></ul></div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/durability/types.ts#L395">durability/types.ts:395</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="outbox"><code class="tsd-tag">Optional</code><span>outbox</span><a href="#outbox" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">outbox</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">{</span><br/>    <span class="tsd-kind-property">retries</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-kind-property">backoff</span><span class="tsd-signature-symbol">?:</span> <a href="../types/_botmesh_core.RetryBackoff.html" class="tsd-signature-type tsd-kind-type-alias">RetryBackoff</a><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-kind-property">inlineMaxMs</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-kind-property">onAmbiguous</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">&quot;skip&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;resend&quot;</span><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-kind-property">maxPayloadBytes</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-kind-property">leaseMs</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-kind-property">onDiverged</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">&quot;send&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;skip&quot;</span><span class="tsd-signature-symbol">;</span><br/><span class="tsd-signature-symbol">}</span></div>
+<div class="tsd-type-declaration">
+<h4>Type Declaration</h4>
+<ul class="tsd-parameters">
+<li class="tsd-parameter">
+<h5><code class="tsd-tag">Optional</code><span class="tsd-kind-property">retries</span><span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">number</span></h5>
+<div class="tsd-comment tsd-typography"><p>Retries after the first attempt before a send is dead-lettered. Default <code>5</code>.</p>
+</div></li>
+<li class="tsd-parameter">
+<h5><code class="tsd-tag">Optional</code><span class="tsd-kind-property">backoff</span><span class="tsd-signature-symbol">?: </span><a href="../types/_botmesh_core.RetryBackoff.html" class="tsd-signature-type tsd-kind-type-alias">RetryBackoff</a></h5>
+<div class="tsd-comment tsd-typography"><p>Backoff between attempts (a <code>RateLimitedError</code> waits at least its <code>retryAfterMs</code>). Default as <code>inbox.backoff</code>.</p>
+</div></li>
+<li class="tsd-parameter">
+<h5><code class="tsd-tag">Optional</code><span class="tsd-kind-property">inlineMaxMs</span><span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">number</span></h5>
+<div class="tsd-comment tsd-typography"><p>How long a <code>ctx.reply</code> / <code>bot.send</code> keeps retrying inline before it rejects with
+<code>SendDeferredError</code> and leaves the send to the background sweeper. Default <code>'15s'</code>.</p>
+</div></li>
+<li class="tsd-parameter">
+<h5><code class="tsd-tag">Optional</code><span class="tsd-kind-property">onAmbiguous</span><span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">&quot;skip&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;resend&quot;</span></h5>
+<div class="tsd-comment tsd-typography"><p>A send whose outcome is unknown after a crash (the provider was called, the result
+was never recorded): <code>'skip'</code> (default) marks it <code>unknown</code> — possible loss, never a
+duplicate; <code>'resend'</code> sends it again — never a loss, possible duplicate.</p>
+</div></li>
+<li class="tsd-parameter">
+<h5><code class="tsd-tag">Optional</code><span class="tsd-kind-property">maxPayloadBytes</span><span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">number</span></h5>
+<div class="tsd-comment tsd-typography"><p>Encoded payloads above this size bypass the outbox (sent directly, with a warning). Default 1 MiB.</p>
+</div></li>
+<li class="tsd-parameter">
+<h5><code class="tsd-tag">Optional</code><span class="tsd-kind-property">leaseMs</span><span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">number</span></h5>
+<div class="tsd-comment tsd-typography"><p>Lease of a send in flight (heartbeat-extended while the provider call runs). Default <code>60_000</code> ms.</p>
+</div></li>
+<li class="tsd-parameter">
+<h5><code class="tsd-tag">Optional</code><span class="tsd-kind-property">onDiverged</span><span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">&quot;send&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;skip&quot;</span></h5>
+<div class="tsd-comment tsd-typography"><p>A replayed handler whose n-th send differs from the one recorded under the same derived
+key (<code>&lt;inboundId&gt;:&lt;n&gt;</code>) took another path (e.g. a non-persistent flow lost on a crash):
+<code>'send'</code> (default) sends the new content under a new key — never a lost reply;
+<code>'skip'</code> answers it with the recorded ref, as if it were the same send. Explicit
+<code>idempotencyKey</code>s are never compared: the caller names the send.</p>
+</div></li></ul></div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/durability/types.ts#L412">durability/types.ts:412</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="pollms"><code class="tsd-tag">Optional</code><span>poll<wbr/>Ms</span><a href="#pollms" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">pollMs</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">number</span></div>
+<div class="tsd-comment tsd-typography"><p>Background sweeper period (retries, expired leases). Default <code>1000</code> ms.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/durability/types.ts#L442">durability/types.ts:442</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="retention"><code class="tsd-tag">Optional</code><span>retention</span><a href="#retention" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">retention</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">number</span></div>
+<div class="tsd-comment tsd-typography"><p>Keep <code>done</code>/<code>sent</code> records this long before the sweeper purges them. It bounds how long
+a late transport redelivery is still recognised as a duplicate. Default <code>'7d'</code>; <code>0</code> disables purging.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/durability/types.ts#L447">durability/types.ts:447</a></li></ul></aside></section></section></details></div>
+<div class="col-sidebar">
+<div class="page-menu">
+<div class="tsd-navigation settings">
+<details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li></ul></div>
+<div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div>
+<details open class="tsd-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>On This Page</h3></summary>
+<div class="tsd-accordion-details">
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Properties"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Properties</summary>
+<div><a href="#backend"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>backend</span></a><a href="#journal"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>journal</span></a><a href="#instanceid"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>instance<wbr/>Id</span></a><a href="#failopen"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>fail<wbr/>Open</span></a><a href="#inbox"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>inbox</span></a><a href="#outbox"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>outbox</span></a><a href="#pollms"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>poll<wbr/>Ms</span></a><a href="#retention"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>retention</span></a></div></details></div></details></div>
+<div class="site-menu">
+<nav id="tsd-sidebar-links" class="tsd-navigation"><a href="/botmesh/guide/getting-started" class="tsd-nav-link">Guide</a></nav>
+<nav class="tsd-navigation"><a href="../modules.html">@botmesh/core - v2.0.0-beta.4</a>
+<ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+<li>Loading...</li></ul></nav></div></div></div><footer>
+<p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
+<div class="overlay"></div></body></html>

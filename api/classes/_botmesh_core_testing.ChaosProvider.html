@@ -1,0 +1,506 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>ChaosProvider | @botmesh/core - v2.0.0-beta.4</title><meta name="description" content="Documentation for @botmesh/core"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/icons.js" id="tsd-icons-script"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script><script async src="../assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="../index.html" class="title">@botmesh/core - v2.0.0-beta.4</a>
+<div id="tsd-toolbar-links"><a href="/botmesh/guide/getting-started">Guide</a></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
+<ul role="listbox" id="tsd-search-results"></ul>
+<div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+<div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-menu"></use></svg></a></div></header>
+<div class="container container-main">
+<div class="col-content">
+<div class="tsd-page-title">
+<ul class="tsd-breadcrumb" aria-label="Breadcrumb">
+<li><a href="../modules/_botmesh_core_testing.html">@botmesh/core/testing</a></li>
+<li><a href="" aria-current="page">ChaosProvider</a></li></ul>
+<h1>Class ChaosProvider&lt;P&gt;</h1></div>
+<section class="tsd-panel tsd-comment">
+<div class="tsd-comment tsd-typography"><p>An <code>IProvider</code> that wraps another one and delivers its traffic adversarially
+(see the module docs and <a href="../interfaces/_botmesh_core_testing.ChaosOptions.html" class="tsd-kind-interface">ChaosOptions</a>). Pass it to <code>new Bot({ provider })</code>
+and keep driving the wrapped provider (<code>chaos.inner.incoming(...)</code>).</p>
+<p>Optional provider capabilities (<code>typing</code>, <code>markRead</code>, <code>downloadMedia</code>, …)
+are exposed only when the wrapped provider has them, so feature detection
+in the Bot keeps working.</p>
+</div></section>
+<section class="tsd-panel">
+<h4>Type Parameters</h4>
+<ul class="tsd-type-parameter-list">
+<li><span id="p"><span class="tsd-kind-type-parameter">P</span> <span class="tsd-signature-keyword">extends</span> <a href="../interfaces/_botmesh_core.IProvider.html" class="tsd-signature-type tsd-kind-interface">IProvider</a> = <a href="../interfaces/_botmesh_core.IProvider.html" class="tsd-signature-type tsd-kind-interface">IProvider</a></span></li></ul></section>
+<section class="tsd-panel">
+<h4>Implements</h4>
+<ul class="tsd-hierarchy">
+<li><a href="../interfaces/_botmesh_core.IProvider.html" class="tsd-signature-type tsd-kind-interface">IProvider</a></li></ul></section><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L445">testing/chaos.ts:445</a></li></ul></aside>
+<section class="tsd-panel-group tsd-index-group">
+<section class="tsd-panel tsd-index-panel">
+<details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h5 class="tsd-index-heading uppercase">Index</h5></summary>
+<div class="tsd-accordion-details">
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="constructors">Constructors<a href="#constructors" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#constructor" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Constructor"><use href="../assets/icons.svg#icon-512"></use></svg><span>constructor</span></a>
+</div></section>
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="properties">Properties<a href="#properties" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#inner" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>inner</span></a>
+<a href="#id" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>id</span></a>
+<a href="#capabilities" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>capabilities</span></a>
+<a href="#seed" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>seed</span></a>
+<a href="#log" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>log</span></a>
+<a href="#delivered" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>delivered</span></a>
+<a href="#ingest" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>ingest?</span></a>
+<a href="#downloadmedia" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>download<wbr/>Media?</span></a>
+<a href="#serializemediaref" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>serialize<wbr/>Media<wbr/>Ref?</span></a>
+<a href="#rehydratemediaref" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>rehydrate<wbr/>Media<wbr/>Ref?</span></a>
+<a href="#getmessage" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>get<wbr/>Message?</span></a>
+<a href="#markread" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>mark<wbr/>Read?</span></a>
+<a href="#typing" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>typing?</span></a>
+<a href="#deletemessage" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>delete<wbr/>Message?</span></a>
+<a href="#editmessage" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>edit<wbr/>Message?</span></a>
+<a href="#senddraft" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>send<wbr/>Draft?</span></a>
+<a href="#acknowledgeinteraction" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>acknowledge<wbr/>Interaction?</span></a>
+<a href="#canrenderform" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>can<wbr/>Render<wbr/>Form?</span></a>
+<a href="#textformatfor" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>text<wbr/>Format<wbr/>For?</span></a>
+</div></section>
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="methods">Methods<a href="#methods" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#start" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>start</span></a>
+<a href="#stop" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>stop</span></a>
+<a href="#onevent" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>on<wbr/>Event</span></a>
+<a href="#send" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>send</span></a>
+<a href="#disconnect" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>disconnect</span></a>
+<a href="#reconnect" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>reconnect</span></a>
+<a href="#replay" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>replay</span></a>
+<a href="#flush" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>flush</span></a>
+<a href="#settle" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>settle</span></a>
+</div></section>
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="accessors">Accessors<a href="#accessors" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#selfid" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>self<wbr/>Id</span></a>
+<a href="#connection" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>connection</span></a>
+<a href="#connected" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>connected</span></a>
+<a href="#sendattempts" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>send<wbr/>Attempts</span></a>
+<a href="#pending" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>pending</span></a>
+</div></section></div></details></section></section>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Constructors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="constructors-1">Constructors<a href="#constructors-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="constructor"><span>constructor</span><a href="#constructor" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="constructorchaosprovider"><span class="tsd-signature-keyword">new</span> <span class="tsd-kind-constructor-signature">ChaosProvider</span><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#constructorchaosproviderp">P</a> <span class="tsd-signature-keyword">extends</span> <a href="../interfaces/_botmesh_core.IProvider.html" class="tsd-signature-type tsd-kind-interface">IProvider</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">unknown</span><span class="tsd-signature-symbol">&gt;</span> <span class="tsd-signature-symbol">=</span> <a href="../interfaces/_botmesh_core.IProvider.html" class="tsd-signature-type tsd-kind-interface">IProvider</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">unknown</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">inner</span><span class="tsd-signature-symbol">:</span> <a class="tsd-signature-type tsd-kind-type-parameter" href="#p">P</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">options</span><span class="tsd-signature-symbol">?:</span> <a href="../interfaces/_botmesh_core_testing.ChaosOptions.html" class="tsd-signature-type tsd-kind-interface">ChaosOptions</a><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">ChaosProvider</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#p">P</a><span class="tsd-signature-symbol">&gt;</span><a href="#constructorchaosprovider" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<section class="tsd-panel">
+<h4>Type Parameters</h4>
+<ul class="tsd-type-parameter-list">
+<li><span id="constructorchaosproviderp"><span class="tsd-kind-type-parameter">P</span> <span class="tsd-signature-keyword">extends</span> <a href="../interfaces/_botmesh_core.IProvider.html" class="tsd-signature-type tsd-kind-interface">IProvider</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">unknown</span><span class="tsd-signature-symbol">&gt;</span> = <a href="../interfaces/_botmesh_core.IProvider.html" class="tsd-signature-type tsd-kind-interface">IProvider</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">unknown</span><span class="tsd-signature-symbol">&gt;</span></span></li></ul></section>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">inner</span>: <a class="tsd-signature-type tsd-kind-type-parameter" href="#p">P</a></span></li>
+<li><span><span class="tsd-kind-parameter">options</span>: <a href="../interfaces/_botmesh_core_testing.ChaosOptions.html" class="tsd-signature-type tsd-kind-interface">ChaosOptions</a><span class="tsd-signature-symbol"> = {}</span></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">ChaosProvider</a><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#p">P</a><span class="tsd-signature-symbol">&gt;</span></h4>
+<div class="tsd-comment tsd-typography">
+<div class="tsd-tag-throws">
+<h4 class="tsd-anchor-link" id="throws">Throws<a href="#throws" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><p>when an option is out of range.</p>
+</div></div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L493">testing/chaos.ts:493</a></li></ul></aside></div></li></ul></section></section></details>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Properties"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="properties-1">Properties<a href="#properties-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="inner"><code class="tsd-tag">Readonly</code><span>inner</span><a href="#inner" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">inner</span><span class="tsd-signature-symbol">:</span> <a class="tsd-signature-type tsd-kind-type-parameter" href="#p">P</a></div>
+<div class="tsd-comment tsd-typography"><p>The wrapped provider (drive it to simulate inbound traffic).</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L447">testing/chaos.ts:447</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="id"><code class="tsd-tag">Readonly</code><span>id</span><a href="#id" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
+<div class="tsd-comment tsd-typography"><p>Same id as the wrapped provider (store namespaces stay unchanged).</p>
+</div><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#id">id</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L449">testing/chaos.ts:449</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="capabilities"><code class="tsd-tag">Readonly</code><span>capabilities</span><a href="#capabilities" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">capabilities</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_botmesh_core.ProviderCapabilities.html" class="tsd-signature-type tsd-kind-interface">ProviderCapabilities</a></div>
+<div class="tsd-comment tsd-typography"><p>Same capabilities object as the wrapped provider.</p>
+</div><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#capabilities">capabilities</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L451">testing/chaos.ts:451</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="seed"><code class="tsd-tag">Readonly</code><span>seed</span><a href="#seed" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">seed</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
+<div class="tsd-comment tsd-typography"><p>Seed in use.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L453">testing/chaos.ts:453</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="log"><code class="tsd-tag">Readonly</code><span>log</span><a href="#log" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">log</span><span class="tsd-signature-symbol">:</span> <a href="../types/_botmesh_core_testing.ChaosLogEntry.html" class="tsd-signature-type tsd-kind-type-alias">ChaosLogEntry</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol"> = []</span></div>
+<div class="tsd-comment tsd-typography"><p>Everything the kit injected, in order.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L455">testing/chaos.ts:455</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="delivered"><code class="tsd-tag">Readonly</code><span>delivered</span><a href="#delivered" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">delivered</span><span class="tsd-signature-symbol">:</span> <a href="../types/_botmesh_core.InboundEvent.html" class="tsd-signature-type tsd-kind-type-alias">InboundEvent</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol"> = []</span></div>
+<div class="tsd-comment tsd-typography"><p>Every inbound event actually delivered to listeners (copies and replays included), in delivery order.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L457">testing/chaos.ts:457</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="ingest"><code class="tsd-tag">Optional</code><span>ingest</span><a href="#ingest" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">ingest</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">rawEvent</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">unknown</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">headers</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">Record</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">,</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">[]</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">unknown</span></div>
+<div class="tsd-comment tsd-typography"><p>Push ingress for webhook transports (Cloud API POST, Telegram/Discord
+webhook, Discord interaction endpoint). The host HTTP server calls this with
+the raw body (and, optionally, the request headers for signature checks); the
+provider normalizes and emits via onEvent. May return a value the host can
+use as the HTTP status (e.g. 200 accepted / 403 bad signature). Socket-first
+providers (Baileys, Discord gateway) omit it.</p>
+</div><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#ingest">ingest</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L459">testing/chaos.ts:459</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="downloadmedia"><code class="tsd-tag">Optional</code><span>download<wbr/>Media</span><a href="#downloadmedia" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">downloadMedia</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">ref</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_botmesh_core.MediaRef.html" class="tsd-signature-type tsd-kind-interface">MediaRef</a><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Buffer</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">ArrayBufferLike</span><span class="tsd-signature-symbol">&gt;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">ReadableStream</span><span class="tsd-signature-symbol">&gt;</span></div>
+<div class="tsd-comment tsd-typography"><p>Lazy media retrieval behind one signature for every download model.</p>
+</div><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#downloadmedia">downloadMedia</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L460">testing/chaos.ts:460</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="serializemediaref"><code class="tsd-tag">Optional</code><span>serialize<wbr/>Media<wbr/>Ref</span><a href="#serializemediaref" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">serializeMediaRef</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">ref</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_botmesh_core.MediaRef.html" class="tsd-signature-type tsd-kind-interface">MediaRef</a><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <a href="../interfaces/_botmesh_core.SerializedMediaRef.html" class="tsd-signature-type tsd-kind-interface">SerializedMediaRef</a> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">undefined</span></div>
+<div class="tsd-comment tsd-typography"><p>Durable journaling (<code>BotConfig.durability</code>): turn a live <code>MediaRef</code> into a JSON-safe,
+versioned reference that <a href="../interfaces/_botmesh_core.IProvider.html#rehydratemediaref" class="tsd-kind-method">rehydrateMediaRef</a> can rebuild in another process, so a
+replayed message (crash recovery, background retry) can still download its media.
+Synchronous, cheap and side-effect free; a throw counts as &quot;not durable&quot;. Return
+<code>undefined</code> for a ref that must not be journaled (e.g. view-once media). Never include
+credentials: the result is stored at rest with the inbound record.</p>
+</div><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#serializemediaref">serializeMediaRef</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L461">testing/chaos.ts:461</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="rehydratemediaref"><code class="tsd-tag">Optional</code><span>rehydrate<wbr/>Media<wbr/>Ref</span><a href="#rehydratemediaref" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">rehydrateMediaRef</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">stored</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_botmesh_core.SerializedMediaRef.html" class="tsd-signature-type tsd-kind-interface">SerializedMediaRef</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">ref</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Omit</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_botmesh_core.MediaRef.html" class="tsd-signature-type tsd-kind-interface">MediaRef</a><span class="tsd-signature-symbol">,</span> <span class="tsd-signature-type">&quot;token&quot;</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <a href="../interfaces/_botmesh_core.MediaRef.html" class="tsd-signature-type tsd-kind-interface">MediaRef</a> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_botmesh_core.MediaRef.html" class="tsd-signature-type tsd-kind-interface">MediaRef</a><span class="tsd-signature-symbol">&gt;</span></div>
+<div class="tsd-comment tsd-typography"><p>Rebuild the <code>MediaRef</code> of a replayed message from what <a href="../interfaces/_botmesh_core.IProvider.html#serializemediaref" class="tsd-kind-method">serializeMediaRef</a> wrote.
+<code>ref</code> is the journaled ref without its token. Pure decoding: it must not need the
+transport to be connected. <code>stored</code> comes from storage and is UNTRUSTED: reject an
+invalid, unknown-version or tampered value with a <code>ProviderError</code>.</p>
+</div><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#rehydratemediaref">rehydrateMediaRef</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L462">testing/chaos.ts:462</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="getmessage"><code class="tsd-tag">Optional</code><span>get<wbr/>Message</span><a href="#getmessage" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">getMessage</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">ref</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_botmesh_core.MessageRef.html" class="tsd-signature-type tsd-kind-interface">MessageRef</a><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_botmesh_core.InboundMessage.html" class="tsd-signature-type tsd-kind-interface">InboundMessage</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">unknown</span><span class="tsd-signature-symbol">&gt;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol">&gt;</span></div>
+<div class="tsd-comment tsd-typography"><p>Read-back seam for poll aggregation, quote-body resolution, retry decrypt.
+Providers that don't need it no-op / omit it. Replaces the constructor-
+injected <code>getMessage</code> callback baked into BaileysProvider today.</p>
+</div><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#getmessage">getMessage</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L463">testing/chaos.ts:463</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="markread"><code class="tsd-tag">Optional</code><span>mark<wbr/>Read</span><a href="#markread" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">markRead</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">refs</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_botmesh_core.MessageRef.html" class="tsd-signature-type tsd-kind-interface">MessageRef</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></div><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#markread">markRead</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L464">testing/chaos.ts:464</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="typing"><code class="tsd-tag">Optional</code><span>typing</span><a href="#typing" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">typing</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">chatId</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">state</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">&quot;typing&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;paused&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;recording&quot;</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></div><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#typing">typing</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L465">testing/chaos.ts:465</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="deletemessage"><code class="tsd-tag">Optional</code><span>delete<wbr/>Message</span><a href="#deletemessage" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">deleteMessage</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">ref</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_botmesh_core.MessageRef.html" class="tsd-signature-type tsd-kind-interface">MessageRef</a><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></div><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#deletemessage">deleteMessage</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L466">testing/chaos.ts:466</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="editmessage"><code class="tsd-tag">Optional</code><span>edit<wbr/>Message</span><a href="#editmessage" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">editMessage</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">ref</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_botmesh_core.MessageRef.html" class="tsd-signature-type tsd-kind-interface">MessageRef</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">content</span><span class="tsd-signature-symbol">:</span> <a href="../types/_botmesh_core.OutboundContent.html" class="tsd-signature-type tsd-kind-type-alias">OutboundContent</a><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_botmesh_core.SendResult.html" class="tsd-signature-type tsd-kind-interface">SendResult</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">unknown</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></div><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#editmessage">editMessage</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L467">testing/chaos.ts:467</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="senddraft"><code class="tsd-tag">Optional</code><span>send<wbr/>Draft</span><a href="#senddraft" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">sendDraft</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">chatId</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">draftId</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">text</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">opts</span><span class="tsd-signature-symbol">?:</span> <a href="../interfaces/_botmesh_core.DraftOptions.html" class="tsd-signature-type tsd-kind-interface">DraftOptions</a><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></div>
+<div class="tsd-comment tsd-typography"><p>Show (or update) an ephemeral, not-yet-sent preview of a message being
+generated. Same <code>draftId</code> → the same draft is updated in place. A draft is
+NOT a message: the caller must still <code>send()</code> the final text. Only for
+providers with <code>capabilities.streaming === 'draft'</code>; rejects (typed error)
+where the transport refuses drafts (e.g. Telegram groups), and the caller
+then falls back to edits or chunks.</p>
+</div><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#senddraft">sendDraft</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L468">testing/chaos.ts:468</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="acknowledgeinteraction"><code class="tsd-tag">Optional</code><span>acknowledge<wbr/>Interaction</span><a href="#acknowledgeinteraction" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">acknowledgeInteraction</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">interactionId</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">opts</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">{</span> <span class="tsd-kind-property">text</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span> <span class="tsd-kind-property">defer</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span> <span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></div><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#acknowledgeinteraction">acknowledgeInteraction</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L469">testing/chaos.ts:469</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="canrenderform"><code class="tsd-tag">Optional</code><span>can<wbr/>Render<wbr/>Form</span><a href="#canrenderform" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">canRenderForm</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">form</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_botmesh_core.FormDefinition.html" class="tsd-signature-type tsd-kind-interface">FormDefinition</a><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">opts</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">{</span> <span class="tsd-kind-property">nativeId</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">boolean</span></div>
+<div class="tsd-comment tsd-typography"><p>Whether a <code>form</code> OutboundContent for <code>form</code> (and <code>opts.nativeId</code>) can be
+rendered natively right now, e.g. whether a WhatsApp Flow is mapped to it.
+Only consulted when <code>capabilities.forms === 'native'</code>; when it returns
+<code>false</code>, an auto-mode <code>flow().form()</code> asks field by field without sending
+(and failing) a form message first. Absent = every form is renderable.</p>
+</div><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#canrenderform">canRenderForm</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L470">testing/chaos.ts:470</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="textformatfor"><code class="tsd-tag">Optional</code><span>text<wbr/>Format<wbr/>For</span><a href="#textformatfor" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">textFormatFor</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">chatId</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <a href="../types/_botmesh_core.TextFormat.html" class="tsd-signature-type tsd-kind-type-alias">TextFormat</a> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">undefined</span></div>
+<div class="tsd-comment tsd-typography"><p>Rich-text dialect of one chat, for providers that serve several channels
+with different markup through one instance (e.g. Twilio: <code>whatsapp:</code> chats
+render WhatsApp markup, SMS chats render none). Return <code>undefined</code> when the
+chat's format is unknown; the core then falls back to
+<code>capabilities.textFormat</code>. Exposed as <code>ctx.textFormat</code>. Must be synchronous
+and cheap (it runs once per inbound message). Absent = every chat uses
+<code>capabilities.textFormat</code>.</p>
+</div><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#textformatfor">textFormatFor</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L471">testing/chaos.ts:471</a></li></ul></aside></section></section></details>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="methods-1">Methods<a href="#methods-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="start"><span>start</span><a href="#start" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="start-1"><span class="tsd-kind-call-signature">start</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span><a href="#start-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#start">start</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L534">testing/chaos.ts:534</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="stop"><span>stop</span><a href="#stop" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="stop-1"><span class="tsd-kind-call-signature">stop</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span><a href="#stop-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Cancels every pending delivery, buffered or held event, then stops the wrapped provider.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#stop">stop</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L537">testing/chaos.ts:537</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="onevent"><span>on<wbr/>Event</span><a href="#onevent" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="onevent-1"><span class="tsd-kind-call-signature">onEvent</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">listener</span><span class="tsd-signature-symbol">:</span> <a href="../types/_botmesh_core.InboundListener.html" class="tsd-signature-type tsd-kind-type-alias">InboundListener</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">()</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">void</span><a href="#onevent-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Subscribe to the normalized event stream. Returns an unsubscriber.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">listener</span>: <a href="../types/_botmesh_core.InboundListener.html" class="tsd-signature-type tsd-kind-type-alias">InboundListener</a></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-symbol">()</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#onevent">onEvent</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L547">testing/chaos.ts:547</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="send"><span>send</span><a href="#send" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="send-1"><span class="tsd-kind-call-signature">send</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">chatId</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">content</span><span class="tsd-signature-symbol">:</span> <a href="../types/_botmesh_core.OutboundContent.html" class="tsd-signature-type tsd-kind-type-alias">OutboundContent</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">options</span><span class="tsd-signature-symbol">?:</span> <a href="../interfaces/_botmesh_core.SendOptions.html" class="tsd-signature-type tsd-kind-interface">SendOptions</a><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_botmesh_core.SendResult.html" class="tsd-signature-type tsd-kind-interface">SendResult</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">unknown</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span><a href="#send-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Send through the wrapped provider unless chaos decides this attempt fails
+(scripted <code>attempts</code>, <code>probability</code>, or the connection is down), in which
+case it rejects with a typed <code>ProviderError</code> and nothing reaches the
+wrapped provider's outbox.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">chatId</span>: <span class="tsd-signature-type">string</span></span></li>
+<li><span><span class="tsd-kind-parameter">content</span>: <a href="../types/_botmesh_core.OutboundContent.html" class="tsd-signature-type tsd-kind-type-alias">OutboundContent</a></span></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">options</span>: <a href="../interfaces/_botmesh_core.SendOptions.html" class="tsd-signature-type tsd-kind-interface">SendOptions</a></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_botmesh_core.SendResult.html" class="tsd-signature-type tsd-kind-interface">SendResult</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">unknown</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#send">send</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L558">testing/chaos.ts:558</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="disconnect"><span>disconnect</span><a href="#disconnect" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="disconnect-1"><span class="tsd-kind-call-signature">disconnect</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">options</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">{</span><br/>        <span class="tsd-kind-property">reason</span><span class="tsd-signature-symbol">?:</span> <a href="../types/_botmesh_core.DisconnectReason.html" class="tsd-signature-type tsd-kind-type-alias">DisconnectReason</a><span class="tsd-signature-symbol">;</span><br/>        <span class="tsd-kind-property">downtimeMs</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>        <span class="tsd-kind-property">retryAfterMs</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#disconnect-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Simulate a connection drop: emits <code>{ state: 'closed', reason }</code>, then holds
+inbound and fails sends (per options) until <a href="#reconnect" class="tsd-kind-method">reconnect</a>. A finite
+<code>downtimeMs</code> schedules the reconnect automatically; the default for a
+manual drop is to stay down until <code>reconnect()</code> is called.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">options</span>: <span class="tsd-signature-symbol">{</span> <span class="tsd-kind-property">reason</span><span class="tsd-signature-symbol">?:</span> <a href="../types/_botmesh_core.DisconnectReason.html" class="tsd-signature-type tsd-kind-type-alias">DisconnectReason</a><span class="tsd-signature-symbol">;</span> <span class="tsd-kind-property">downtimeMs</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span> <span class="tsd-kind-property">retryAfterMs</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span> <span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol"> = {}</span></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L577">testing/chaos.ts:577</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="reconnect"><span>reconnect</span><a href="#reconnect" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="reconnect-1"><span class="tsd-kind-call-signature">reconnect</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#reconnect-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>End a simulated drop: emits <code>connecting</code> then <code>ready</code>, redelivers the last
+<code>replayOnReconnect</code> events (offline-sync duplicates), then delivers what
+was held while down, in arrival order.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L602">testing/chaos.ts:602</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="replay"><span>replay</span><a href="#replay" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="replay-1"><span class="tsd-kind-call-signature">replay</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">count</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#replay-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Redeliver (fresh copies of) the last <code>count</code> delivered inbound events — an explicit webhook retry.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">count</span>: <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> = 1</span></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L621">testing/chaos.ts:621</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="flush"><span>flush</span><a href="#flush" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="flush-1"><span class="tsd-kind-call-signature">flush</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#flush-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Deliver whatever sits in the reorder window right now (permuted as configured).</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L630">testing/chaos.ts:630</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="settle"><span>settle</span><a href="#settle" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="settle-1"><span class="tsd-kind-call-signature">settle</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">timeoutMs</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span><a href="#settle-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Wait (real timers) until no chaos delivery, reorder flush, scheduled
+reconnect or delayed send is pending, plus one macrotask so listeners can
+dispatch. Events held by an indefinite drop do not count as pending.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">timeoutMs</span>: <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> = 5000</span></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4>
+<div class="tsd-comment tsd-typography">
+<div class="tsd-tag-throws">
+<h4 class="tsd-anchor-link" id="throws-1">Throws<a href="#throws-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><p>if still busy after <code>timeoutMs</code> (default 5000).</p>
+</div></div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L648">testing/chaos.ts:648</a></li></ul></aside></div></li></ul></section></section></details>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Accessors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="accessors-1">Accessors<a href="#accessors-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="selfid"><span>self<wbr/>Id</span><a href="#selfid" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="selfidselfid"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">selfId</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">null</span></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>The wrapped provider's self id (<code>null</code> when it has none: never <code>undefined</code>, see <code>IProvider.selfId</code>).</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">null</span></h4><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#selfid">selfId</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L524">testing/chaos.ts:524</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="connection"><span>connection</span><a href="#connection" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="connectionconnection"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">connection</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">unknown</span></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>The wrapped provider's debug connection handle.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">unknown</span></h4><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_botmesh_core.IProvider.html">IProvider</a>.<a href="../interfaces/_botmesh_core.IProvider.html#connection">connection</a></p>
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L526">testing/chaos.ts:526</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="connected"><span>connected</span><a href="#connected" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="connectedconnected"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">connected</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p><code>false</code> while a simulated drop is in effect.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L528">testing/chaos.ts:528</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="sendattempts"><span>send<wbr/>Attempts</span><a href="#sendattempts" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="sendattemptssendattempts"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">sendAttempts</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Number of <code>send()</code> calls so far (failed ones included).</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L530">testing/chaos.ts:530</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="pending"><span>pending</span><a href="#pending" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="pendingpending"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">pending</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Scheduled deliveries, reorder/reconnect timers and delayed sends still outstanding.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/testing/chaos.ts#L532">testing/chaos.ts:532</a></li></ul></aside></div></li></ul></section></section></details></div>
+<div class="col-sidebar">
+<div class="page-menu">
+<div class="tsd-navigation settings">
+<details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li></ul></div>
+<div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div>
+<details open class="tsd-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>On This Page</h3></summary>
+<div class="tsd-accordion-details">
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Constructors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Constructors</summary>
+<div><a href="#constructor"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Constructor"><use href="../assets/icons.svg#icon-512"></use></svg><span>constructor</span></a></div></details>
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Properties"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Properties</summary>
+<div><a href="#inner"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>inner</span></a><a href="#id"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>id</span></a><a href="#capabilities"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>capabilities</span></a><a href="#seed"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>seed</span></a><a href="#log"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>log</span></a><a href="#delivered"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>delivered</span></a><a href="#ingest"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>ingest</span></a><a href="#downloadmedia"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>download<wbr/>Media</span></a><a href="#serializemediaref"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>serialize<wbr/>Media<wbr/>Ref</span></a><a href="#rehydratemediaref"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>rehydrate<wbr/>Media<wbr/>Ref</span></a><a href="#getmessage"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>get<wbr/>Message</span></a><a href="#markread"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>mark<wbr/>Read</span></a><a href="#typing"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>typing</span></a><a href="#deletemessage"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>delete<wbr/>Message</span></a><a href="#editmessage"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>edit<wbr/>Message</span></a><a href="#senddraft"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>send<wbr/>Draft</span></a><a href="#acknowledgeinteraction"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>acknowledge<wbr/>Interaction</span></a><a href="#canrenderform"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>can<wbr/>Render<wbr/>Form</span></a><a href="#textformatfor"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>text<wbr/>Format<wbr/>For</span></a></div></details>
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Methods</summary>
+<div><a href="#start"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>start</span></a><a href="#stop"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>stop</span></a><a href="#onevent"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>on<wbr/>Event</span></a><a href="#send"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>send</span></a><a href="#disconnect"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>disconnect</span></a><a href="#reconnect"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>reconnect</span></a><a href="#replay"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>replay</span></a><a href="#flush"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>flush</span></a><a href="#settle"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>settle</span></a></div></details>
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Accessors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Accessors</summary>
+<div><a href="#selfid"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>self<wbr/>Id</span></a><a href="#connection"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>connection</span></a><a href="#connected"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>connected</span></a><a href="#sendattempts"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>send<wbr/>Attempts</span></a><a href="#pending"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>pending</span></a></div></details></div></details></div>
+<div class="site-menu">
+<nav id="tsd-sidebar-links" class="tsd-navigation"><a href="/botmesh/guide/getting-started" class="tsd-nav-link">Guide</a></nav>
+<nav class="tsd-navigation"><a href="../modules.html">@botmesh/core - v2.0.0-beta.4</a>
+<ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+<li>Loading...</li></ul></nav></div></div></div><footer>
+<p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
+<div class="overlay"></div></body></html>

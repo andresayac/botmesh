@@ -1,0 +1,258 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>BotEvents | @botmesh/core - v2.0.0-beta.4</title><meta name="description" content="Documentation for @botmesh/core"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/icons.js" id="tsd-icons-script"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script><script async src="../assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="../index.html" class="title">@botmesh/core - v2.0.0-beta.4</a>
+<div id="tsd-toolbar-links"><a href="/botmesh/guide/getting-started">Guide</a></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
+<ul role="listbox" id="tsd-search-results"></ul>
+<div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+<div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-menu"></use></svg></a></div></header>
+<div class="container container-main">
+<div class="col-content">
+<div class="tsd-page-title">
+<ul class="tsd-breadcrumb" aria-label="Breadcrumb">
+<li><a href="../modules/_botmesh_core.html">@botmesh/core</a></li>
+<li><a href="" aria-current="page">BotEvents</a></li></ul>
+<h1>Interface BotEvents</h1></div>
+<section class="tsd-panel tsd-comment">
+<div class="tsd-comment tsd-typography"><p>Events the bot emits, by name, with their payload type. Listen with
+<code>bot.on(name, listener)</code>, e.g. <code>bot.on('ready', () =&gt; …)</code> or <code>bot.on('error', (err) =&gt; …)</code>.</p>
+</div></section>
+<div class="tsd-signature"><span class="tsd-signature-keyword">interface</span> <span class="tsd-kind-interface">BotEvents</span> <span class="tsd-signature-symbol">{</span><br/>    <a class="tsd-kind-property" href="#ready">ready</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#qr">qr</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#connection">connection</a><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.ConnectionUpdate.html" class="tsd-signature-type tsd-kind-interface">ConnectionUpdate</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#message">message</a><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.MessageContext.html" class="tsd-signature-type tsd-kind-interface">MessageContext</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#error">error</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{</span> <span class="tsd-kind-property">error</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">unknown</span><span class="tsd-signature-symbol">;</span> <span class="tsd-kind-property">ctx</span><span class="tsd-signature-symbol">?:</span> <a href="_botmesh_core.MessageContext.html" class="tsd-signature-type tsd-kind-interface">MessageContext</a><span class="tsd-signature-symbol">&lt;</span><a href="_botmesh_core.DefaultTools.html" class="tsd-signature-type tsd-kind-interface">DefaultTools</a><span class="tsd-signature-symbol">,</span> <span class="tsd-signature-type">unknown</span><span class="tsd-signature-symbol">&gt;</span> <span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#started">started</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#stopping">stopping</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#stopped">stopped</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#commandunknown">&quot;command:unknown&quot;</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{</span> <span class="tsd-kind-property">ctx</span><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.MessageContext.html" class="tsd-signature-type tsd-kind-interface">MessageContext</a><span class="tsd-signature-symbol">;</span> <span class="tsd-kind-property">command</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#reaction">reaction</a><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.InboundReaction.html" class="tsd-signature-type tsd-kind-interface">InboundReaction</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#poll">poll</a><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.PollVote.html" class="tsd-signature-type tsd-kind-interface">PollVote</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#call">call</a><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.CallEvent.html" class="tsd-signature-type tsd-kind-interface">CallEvent</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#group">group</a><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.GroupEvent.html" class="tsd-signature-type tsd-kind-interface">GroupEvent</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#presence">presence</a><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.PresenceEvent.html" class="tsd-signature-type tsd-kind-interface">PresenceEvent</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#status">status</a><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.DeliveryStatus.html" class="tsd-signature-type tsd-kind-interface">DeliveryStatus</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#handoff">handoff</a><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.HandoffState.html" class="tsd-signature-type tsd-kind-interface">HandoffState</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#resume">resume</a><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.ResumeEvent.html" class="tsd-signature-type tsd-kind-interface">ResumeEvent</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#conversationstarted">&quot;conversation:started&quot;</a><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.ConversationStartedEvent.html" class="tsd-signature-type tsd-kind-interface">ConversationStartedEvent</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#conversationended">&quot;conversation:ended&quot;</a><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.ConversationEndedEvent.html" class="tsd-signature-type tsd-kind-interface">ConversationEndedEvent</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#coordinationleader">&quot;coordination:leader&quot;</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{</span> <span class="tsd-kind-property">name</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span> <span class="tsd-kind-property">fence</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span> <span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#coordinationfollower">&quot;coordination:follower&quot;</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{</span> <span class="tsd-kind-property">name</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span> <span class="tsd-kind-property">reason</span><span class="tsd-signature-symbol">?:</span> <a href="../types/_botmesh_core.LeaseLossReason.html" class="tsd-signature-type tsd-kind-type-alias">LeaseLossReason</a> <span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#coordinationlease-lost">&quot;coordination:lease-lost&quot;</a><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core_spi.LeaseInfo.html" class="tsd-signature-type tsd-kind-interface">LeaseInfo</a> <span class="tsd-signature-symbol">&amp;</span> <span class="tsd-signature-symbol">{</span> <span class="tsd-kind-property">reason</span><span class="tsd-signature-symbol">:</span> <a href="../types/_botmesh_core.LeaseLossReason.html" class="tsd-signature-type tsd-kind-type-alias">LeaseLossReason</a> <span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#coordinationhandover">&quot;coordination:handover&quot;</a><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.ConversationHandoverEvent.html" class="tsd-signature-type tsd-kind-interface">ConversationHandoverEvent</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#durabilitydead">&quot;durability:dead&quot;</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{</span><br/>        <span class="tsd-kind-property">kind</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;inbound&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;outbound&quot;</span><span class="tsd-signature-symbol">;</span><br/>        <span class="tsd-kind-property">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/>        <span class="tsd-kind-property">chatId</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/>        <span class="tsd-kind-property">error</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">unknown</span><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#durabilityambiguous">&quot;durability:ambiguous&quot;</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{</span> <span class="tsd-kind-property">key</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span> <span class="tsd-kind-property">chatId</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol">;</span><br/><span class="tsd-signature-symbol">}</span></div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L118">core/Bot.ts:118</a></li></ul></aside>
+<section class="tsd-panel-group tsd-index-group">
+<section class="tsd-panel tsd-index-panel">
+<details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h5 class="tsd-index-heading uppercase">Index</h5></summary>
+<div class="tsd-accordion-details">
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="properties">Properties<a href="#properties" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#ready" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>ready</span></a>
+<a href="#qr" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>qr</span></a>
+<a href="#connection" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>connection</span></a>
+<a href="#message" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>message</span></a>
+<a href="#error" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>error</span></a>
+<a href="#started" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>started</span></a>
+<a href="#stopping" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>stopping</span></a>
+<a href="#stopped" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>stopped</span></a>
+<a href="#commandunknown" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>command:unknown</span></a>
+<a href="#reaction" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>reaction</span></a>
+<a href="#poll" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>poll</span></a>
+<a href="#call" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>call</span></a>
+<a href="#group" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>group</span></a>
+<a href="#presence" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>presence</span></a>
+<a href="#status" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>status</span></a>
+<a href="#handoff" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>handoff</span></a>
+<a href="#resume" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>resume</span></a>
+<a href="#conversationstarted" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>conversation:started</span></a>
+<a href="#conversationended" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>conversation:ended</span></a>
+<a href="#coordinationleader" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>coordination:leader</span></a>
+<a href="#coordinationfollower" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>coordination:follower</span></a>
+<a href="#coordinationlease-lost" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>coordination:lease-<wbr/>lost</span></a>
+<a href="#coordinationhandover" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>coordination:handover</span></a>
+<a href="#durabilitydead" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>durability:dead</span></a>
+<a href="#durabilityambiguous" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>durability:ambiguous</span></a>
+</div></section></div></details></section></section>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Properties"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="properties-1">Properties<a href="#properties-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="ready"><span>ready</span><a href="#ready" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">ready</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span></div>
+<div class="tsd-comment tsd-typography"><p>Emitted once the provider's connection state reaches <code>'ready'</code>.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L120">core/Bot.ts:120</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="qr"><span>qr</span><a href="#qr" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">qr</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
+<div class="tsd-comment tsd-typography"><p>Emitted with the provider's auth artifact (QR string / pairing code / OAuth URL).</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L122">core/Bot.ts:122</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="connection"><span>connection</span><a href="#connection" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">connection</span><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.ConnectionUpdate.html" class="tsd-signature-type tsd-kind-interface">ConnectionUpdate</a></div>
+<div class="tsd-comment tsd-typography"><p>Emitted on every provider connection-state transition.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L124">core/Bot.ts:124</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="message"><span>message</span><a href="#message" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">message</span><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.MessageContext.html" class="tsd-signature-type tsd-kind-interface">MessageContext</a></div>
+<div class="tsd-comment tsd-typography"><p>Emitted after every dispatched inbound message finishes its pipeline.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L126">core/Bot.ts:126</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="error"><span>error</span><a href="#error" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">error</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{</span> <span class="tsd-kind-property">error</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">unknown</span><span class="tsd-signature-symbol">;</span> <span class="tsd-kind-property">ctx</span><span class="tsd-signature-symbol">?:</span> <a href="_botmesh_core.MessageContext.html" class="tsd-signature-type tsd-kind-interface">MessageContext</a><span class="tsd-signature-symbol">&lt;</span><a href="_botmesh_core.DefaultTools.html" class="tsd-signature-type tsd-kind-interface">DefaultTools</a><span class="tsd-signature-symbol">,</span> <span class="tsd-signature-type">unknown</span><span class="tsd-signature-symbol">&gt;</span> <span class="tsd-signature-symbol">}</span></div>
+<div class="tsd-comment tsd-typography"><p>Emitted for any internal/handler error.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L128">core/Bot.ts:128</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="started"><span>started</span><a href="#started" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">started</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span></div>
+<div class="tsd-comment tsd-typography"><p>Emitted once <code>start()</code> finishes.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L130">core/Bot.ts:130</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="stopping"><span>stopping</span><a href="#stopping" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">stopping</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span></div>
+<div class="tsd-comment tsd-typography"><p>Emitted once per <code>stop()</code> of a running bot, right after inbound is closed and BEFORE the
+drain and the transport stop: cancel long work here (model calls, downloads) while the
+transport can still deliver what is in flight. A throwing listener is reported on <code>'error'</code>.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L136">core/Bot.ts:136</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="stopped"><span>stopped</span><a href="#stopped" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">stopped</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span></div>
+<div class="tsd-comment tsd-typography"><p>Emitted once <code>stop()</code> finishes.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L138">core/Bot.ts:138</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="commandunknown"><span>command:unknown</span><a href="#commandunknown" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">&quot;command:unknown&quot;</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{</span> <span class="tsd-kind-property">ctx</span><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.MessageContext.html" class="tsd-signature-type tsd-kind-interface">MessageContext</a><span class="tsd-signature-symbol">;</span> <span class="tsd-kind-property">command</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">}</span></div>
+<div class="tsd-comment tsd-typography"><p>Emitted by the Dispatcher for an unrecognized <code>/xyz</code> command.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L140">core/Bot.ts:140</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="reaction"><span>reaction</span><a href="#reaction" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">reaction</span><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.InboundReaction.html" class="tsd-signature-type tsd-kind-interface">InboundReaction</a></div>
+<div class="tsd-comment tsd-typography"><p>Forwarded provider event: someone reacted to a message.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L142">core/Bot.ts:142</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="poll"><span>poll</span><a href="#poll" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">poll</span><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.PollVote.html" class="tsd-signature-type tsd-kind-interface">PollVote</a></div>
+<div class="tsd-comment tsd-typography"><p>Forwarded provider event: a poll's aggregated votes changed.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L144">core/Bot.ts:144</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="call"><span>call</span><a href="#call" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">call</span><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.CallEvent.html" class="tsd-signature-type tsd-kind-interface">CallEvent</a></div>
+<div class="tsd-comment tsd-typography"><p>Forwarded provider event: a call notification.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L146">core/Bot.ts:146</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="group"><span>group</span><a href="#group" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">group</span><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.GroupEvent.html" class="tsd-signature-type tsd-kind-interface">GroupEvent</a></div>
+<div class="tsd-comment tsd-typography"><p>Forwarded provider event: group participants changed.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L148">core/Bot.ts:148</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="presence"><span>presence</span><a href="#presence" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">presence</span><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.PresenceEvent.html" class="tsd-signature-type tsd-kind-interface">PresenceEvent</a></div>
+<div class="tsd-comment tsd-typography"><p>Forwarded provider event: a contact's presence changed.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L150">core/Bot.ts:150</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="status"><span>status</span><a href="#status" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">status</span><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.DeliveryStatus.html" class="tsd-signature-type tsd-kind-interface">DeliveryStatus</a></div>
+<div class="tsd-comment tsd-typography"><p>Forwarded provider event: outbound delivery/read receipt.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L152">core/Bot.ts:152</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="handoff"><span>handoff</span><a href="#handoff" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">handoff</span><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.HandoffState.html" class="tsd-signature-type tsd-kind-interface">HandoffState</a></div>
+<div class="tsd-comment tsd-typography"><p>A chat was handed off to a human (<code>bot.handoff()</code> / <code>ctx.handoff()</code>).</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L154">core/Bot.ts:154</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="resume"><span>resume</span><a href="#resume" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">resume</span><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.ResumeEvent.html" class="tsd-signature-type tsd-kind-interface">ResumeEvent</a></div>
+<div class="tsd-comment tsd-typography"><p>A handed-off chat was given back to the bot (<code>bot.resume()</code>).</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L156">core/Bot.ts:156</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="conversationstarted"><span>conversation:started</span><a href="#conversationstarted" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">&quot;conversation:started&quot;</span><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.ConversationStartedEvent.html" class="tsd-signature-type tsd-kind-interface">ConversationStartedEvent</a></div>
+<div class="tsd-comment tsd-typography"><p>A conversation/flow was entered (trigger match, <code>bot.trigger()</code>, dormant resume, <code>c.goto()</code>).</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L158">core/Bot.ts:158</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="conversationended"><span>conversation:ended</span><a href="#conversationended" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">&quot;conversation:ended&quot;</span><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.ConversationEndedEvent.html" class="tsd-signature-type tsd-kind-interface">ConversationEndedEvent</a></div>
+<div class="tsd-comment tsd-typography"><p>A conversation/flow ended — completed, cancelled, timed out, out of retries or errored.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L160">core/Bot.ts:160</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="coordinationleader"><span>coordination:leader</span><a href="#coordinationleader" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">&quot;coordination:leader&quot;</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{</span> <span class="tsd-kind-property">name</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span> <span class="tsd-kind-property">fence</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span> <span class="tsd-signature-symbol">}</span></div>
+<div class="tsd-comment tsd-typography"><p>Multi-replica (<code>coordination</code>): this replica was elected for a singleton (<code>provider:&lt;id&gt;</code>) and starts it.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L162">core/Bot.ts:162</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="coordinationfollower"><span>coordination:follower</span><a href="#coordinationfollower" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">&quot;coordination:follower&quot;</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{</span> <span class="tsd-kind-property">name</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span> <span class="tsd-kind-property">reason</span><span class="tsd-signature-symbol">?:</span> <a href="../types/_botmesh_core.LeaseLossReason.html" class="tsd-signature-type tsd-kind-type-alias">LeaseLossReason</a> <span class="tsd-signature-symbol">}</span></div>
+<div class="tsd-comment tsd-typography"><p>Multi-replica: this replica lost (or gave up) a singleton leadership and stands by.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L164">core/Bot.ts:164</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="coordinationlease-lost"><span>coordination:lease-<wbr/>lost</span><a href="#coordinationlease-lost" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">&quot;coordination:lease-lost&quot;</span><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core_spi.LeaseInfo.html" class="tsd-signature-type tsd-kind-interface">LeaseInfo</a> <span class="tsd-signature-symbol">&amp;</span> <span class="tsd-signature-symbol">{</span> <span class="tsd-kind-property">reason</span><span class="tsd-signature-symbol">:</span> <a href="../types/_botmesh_core.LeaseLossReason.html" class="tsd-signature-type tsd-kind-type-alias">LeaseLossReason</a> <span class="tsd-signature-symbol">}</span></div>
+<div class="tsd-comment tsd-typography"><p>Multi-replica: a chat turn or leadership was lost before its release (pause, partition, backend down).</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L166">core/Bot.ts:166</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="coordinationhandover"><span>coordination:handover</span><a href="#coordinationhandover" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">&quot;coordination:handover&quot;</span><span class="tsd-signature-symbol">:</span> <a href="_botmesh_core.ConversationHandoverEvent.html" class="tsd-signature-type tsd-kind-interface">ConversationHandoverEvent</a></div>
+<div class="tsd-comment tsd-typography"><p>Multi-replica (<code>coordination.handover</code>): a conversation another replica ran was taken
+over on this one — resumed, or handled by the hand-over fallback (see <code>outcome</code>).</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L171">core/Bot.ts:171</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="durabilitydead"><span>durability:dead</span><a href="#durabilitydead" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">&quot;durability:dead&quot;</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{</span><br/>    <span class="tsd-kind-property">kind</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;inbound&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;outbound&quot;</span><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-kind-property">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-kind-property">chatId</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-kind-property">error</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">unknown</span><span class="tsd-signature-symbol">;</span><br/><span class="tsd-signature-symbol">}</span></div>
+<div class="tsd-comment tsd-typography"><p>Durability (<code>BotConfig.durability</code>): an inbound event or a send was dead-lettered after its
+retries (<code>id</code> is the inbox record id or the outbox key). Replay/retry it through <code>bot.durability</code>.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L176">core/Bot.ts:176</a></li></ul></aside></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="durabilityambiguous"><span>durability:ambiguous</span><a href="#durabilityambiguous" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">&quot;durability:ambiguous&quot;</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{</span> <span class="tsd-kind-property">key</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span> <span class="tsd-kind-property">chatId</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span> <span class="tsd-signature-symbol">}</span></div>
+<div class="tsd-comment tsd-typography"><p>Durability: a send's outcome is unknown after a crash (the provider was called, the result
+was never recorded). Handled per <code>durability.outbox.onAmbiguous</code>.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/Bot.ts#L181">core/Bot.ts:181</a></li></ul></aside></section></section></details></div>
+<div class="col-sidebar">
+<div class="page-menu">
+<div class="tsd-navigation settings">
+<details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li></ul></div>
+<div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div>
+<details open class="tsd-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>On This Page</h3></summary>
+<div class="tsd-accordion-details">
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Properties"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Properties</summary>
+<div><a href="#ready"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>ready</span></a><a href="#qr"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>qr</span></a><a href="#connection"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>connection</span></a><a href="#message"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>message</span></a><a href="#error"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>error</span></a><a href="#started"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>started</span></a><a href="#stopping"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>stopping</span></a><a href="#stopped"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>stopped</span></a><a href="#commandunknown"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>command:unknown</span></a><a href="#reaction"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>reaction</span></a><a href="#poll"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>poll</span></a><a href="#call"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>call</span></a><a href="#group"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>group</span></a><a href="#presence"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>presence</span></a><a href="#status"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>status</span></a><a href="#handoff"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>handoff</span></a><a href="#resume"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>resume</span></a><a href="#conversationstarted"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>conversation:started</span></a><a href="#conversationended"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>conversation:ended</span></a><a href="#coordinationleader"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>coordination:leader</span></a><a href="#coordinationfollower"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>coordination:follower</span></a><a href="#coordinationlease-lost"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>coordination:lease-<wbr/>lost</span></a><a href="#coordinationhandover"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>coordination:handover</span></a><a href="#durabilitydead"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>durability:dead</span></a><a href="#durabilityambiguous"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>durability:ambiguous</span></a></div></details></div></details></div>
+<div class="site-menu">
+<nav id="tsd-sidebar-links" class="tsd-navigation"><a href="/botmesh/guide/getting-started" class="tsd-nav-link">Guide</a></nav>
+<nav class="tsd-navigation"><a href="../modules.html">@botmesh/core - v2.0.0-beta.4</a>
+<ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+<li>Loading...</li></ul></nav></div></div></div><footer>
+<p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
+<div class="overlay"></div></body></html>

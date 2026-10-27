@@ -1,0 +1,68 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>CALL | @botmesh/core - v2.0.0-beta.4</title><meta name="description" content="Documentation for @botmesh/core"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/icons.js" id="tsd-icons-script"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script><script async src="../assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="../index.html" class="title">@botmesh/core - v2.0.0-beta.4</a>
+<div id="tsd-toolbar-links"><a href="/botmesh/guide/getting-started">Guide</a></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
+<ul role="listbox" id="tsd-search-results"></ul>
+<div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+<div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-menu"></use></svg></a></div></header>
+<div class="container container-main">
+<div class="col-content">
+<div class="tsd-page-title">
+<ul class="tsd-breadcrumb" aria-label="Breadcrumb">
+<li><a href="../modules/_botmesh_core.html">@botmesh/core</a></li>
+<li><a href="" aria-current="page">CALL</a></li></ul>
+<h1>Variable CALL<code class="tsd-tag">Const</code></h1></div>
+<div class="tsd-signature"><span class="tsd-kind-variable">CALL</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_botmesh_core.TypeTrigger.html" class="tsd-signature-type tsd-kind-interface">TypeTrigger</a><span class="tsd-signature-symbol"> = ...</span></div>
+<div class="tsd-comment tsd-typography"><p>An inbound call notification (the provider's <code>{ kind: 'call' }</code> event).</p>
+<p>The handler receives a context with <code>type === 'call'</code>, an empty <code>body</code>,
+<code>sender</code> set to the caller (<code>CallEvent.from</code>, the same canonical id their
+messages carry) and <code>ctx.call</code> holding the <code>CallEvent</code>. For a 1:1 call <code>from</code>
+is the DM with the caller; for a group call (<code>CallEvent.isGroup</code>) <code>from</code> is the
+group and <code>isGroup</code> is <code>true</code>, so <code>scope: 'dm' | 'group'</code> tells them apart.
+<code>ctx.reply()</code> answers in that chat and a <code>flow(CALL)</code> keeps talking there (per
+participant in a group, like any conversation).</p>
+<ul>
+<li>Fires <strong>once per call id</strong> (the first event seen for it). Transports emit
+several updates per call (WhatsApp: offer → ringing/reject/timeout/terminate);
+listen to <code>bot.on('call')</code> to observe every update. <code>ctx.call.offline</code> flags a
+notification delivered late (e.g. replayed after a reconnect).</li>
+<li>Runs after the <code>before('call')</code>/<code>after('call')</code> hooks and the <code>'call'</code> event;
+a <code>before('call')</code> hook that calls <code>abort()</code> suppresses it (and the after-hooks
+and the <code>'call'</code> event).</li>
+<li>Calls never reach text/function triggers, commands, active conversations,
+the catch-all or the <code>'message'</code> event, and are not persisted as messages.
+Message-bound helpers (<code>react</code>, <code>quote</code>, <code>markRead</code>, <code>delete</code>) are meaningless here.</li>
+<li>A call <strong>never replaces a conversation in progress</strong>: while the caller has an
+active conversation or a dormant (persisted) one, a <code>flow(CALL)</code> /
+<code>bot.conversation(…, { trigger: CALL })</code> is skipped as if it did not match
+(the next <code>CALL</code> handler, if any, runs instead); plain <code>bot.when(CALL, fn)</code>
+handlers still run.</li>
+<li>Group calls follow <code>groupMode</code>: with <code>'mentions'</code> or <code>'commands'</code> they never
+reach <code>CALL</code> triggers (a call can neither mention the bot nor be a command).</li>
+<li>Ignored while the bot is not started.</li>
+</ul>
+</div>
+<div class="tsd-comment tsd-typography">
+<div class="tsd-tag-example">
+<h4 class="tsd-anchor-link" id="example">Example<a href="#example" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><pre><code class="ts"><span class="hl-4">bot</span><span class="hl-1">.</span><span class="hl-0">when</span><span class="hl-1">(</span><span class="hl-6">CALL</span><span class="hl-1">, (</span><span class="hl-4">ctx</span><span class="hl-1">) </span><span class="hl-5">=&gt;</span><span class="hl-1"> </span><span class="hl-4">ctx</span><span class="hl-1">.</span><span class="hl-0">reply</span><span class="hl-1">(</span><span class="hl-2">&#39;📵 No atiendo llamadas, escríbeme por aquí.&#39;</span><span class="hl-1">))</span>
+</code><button type="button">Copy</button></pre>
+
+</div></div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/andresayac/botmesh/blob/3b3321501f40e35529fc60cc01c476cfa5c3476e/packages/core/src/core/triggers.ts#L259">core/triggers.ts:259</a></li></ul></aside></div>
+<div class="col-sidebar">
+<div class="page-menu">
+<div class="tsd-navigation settings">
+<details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li></ul></div>
+<div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div></div>
+<div class="site-menu">
+<nav id="tsd-sidebar-links" class="tsd-navigation"><a href="/botmesh/guide/getting-started" class="tsd-nav-link">Guide</a></nav>
+<nav class="tsd-navigation"><a href="../modules.html">@botmesh/core - v2.0.0-beta.4</a>
+<ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+<li>Loading...</li></ul></nav></div></div></div><footer>
+<p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
+<div class="overlay"></div></body></html>
