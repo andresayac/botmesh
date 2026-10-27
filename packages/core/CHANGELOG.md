@@ -1,5 +1,21 @@
 # @botmesh/core
 
+## 2.0.0-beta.4
+
+### Minor Changes
+
+- 8d86135: Close three gaps found while writing the docs examples:
+  
+  - `c.ask()` and `c.waitText()` accept a native button or list tap that carries text (`type: 'buttons' | 'list'` with a non-empty body: the button id or selected title, the same value `c.choose()` reads) as the answer, instead of re-prompting as if the user had sent media. Taps without text and media still re-prompt.
+  - `createTestBot()` from `@botmesh/core/testing` also takes a `defineBot` factory: `await createTestBot(createBot, options?)` calls it with the `MockProvider` (or its chaos wrapper) and starts the bot it returns. It throws a `TypeError` when the factory does not return a bot built on that provider.
+  - New `bot.unprovide(name)`, the inverse of `bot.provide()` (which still returns the bot for chaining): it removes the injected tool and returns whether one existed. Plugins call it from `ctx.onDispose()`.
+- 7e9c369: `@botmesh/core/spi` exports the two flow-interpreter hooks the core interpreter uses, now under semver: `pauseControls(controls, ms)` (a pause that ends early when the conversation is aborted, replaced or the bot stops, then throws if the conversation is gone) and `runFormStep(form, ctx, c, opts?, flowTimeoutMs?)` (runs a native or degraded form and stores its answers). Code that runs declarative steps inside a `do`, such as `@botmesh/flow-schema`, imports them from the SPI instead of `@botmesh/core/internal`. They stay available from `/internal` as well.
+
+### Patch Changes
+
+- 618502b: `bot.plug(plugin, config)` types `config` with the plugin's own config type (`definePlugin<MyConfig>()`). A config declared with an interface (such as `NluPluginConfig`) is accepted as is, where it failed before with "Index signature for type 'string' is missing", and an unknown or mistyped option is now a compile error instead of passing silently.
+- c361ba3: `ChaosProvider` and `RecordingProvider` (`@botmesh/core/testing`) implement `IProvider` again under `exactOptionalPropertyTypes` with `skipLibCheck: false`: their optional delegated members (`ingest`, `downloadMedia`, `typing`…) were typed `X | undefined`, which broke the consumer's build with TS2420 inside the published `.d.ts`.
+
 ## 2.0.0-beta.3
 
 ### Major Changes

@@ -1,5 +1,16 @@
 # @botmesh/graph-core
 
+## 1.0.0-beta.2
+
+### Patch Changes
+
+- 591b510: README fixes: the `@botmesh/server` examples mount `TelegramProvider` without the `body: 'text'` it no longer needs; `@botmesh/graph-core` names Messenger and Instagram as its other dependents; Twilio explains that the core splits text over 1600 characters; Gupshup's `webhookTokenParam` is also read by `ingest()` with a URL; Evolution says poll votes are not emitted as `'poll'` events yet (it named a `poll-vote` event that does not exist); and the prerelease notes of the packages first published in the beta no longer mention an older alpha.
+- Updated dependencies [8d86135]
+- Updated dependencies [618502b]
+- Updated dependencies [7e9c369]
+- Updated dependencies [c361ba3]
+  - @botmesh/core@2.0.0-beta.4
+
 ## 1.0.0-beta.1
 
 ### Major Changes

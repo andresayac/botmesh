@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/flow-schema",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "Versioned, code-free JSON flow documents for botmesh: validation, safe expressions, migrations, compilation to CompiledFlow, reverse export and deploy helpers.",
   "main": "lib/index.js",

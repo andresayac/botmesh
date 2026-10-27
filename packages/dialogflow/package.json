@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/dialogflow",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "Dialogflow ES/CX context for @botmesh/core — detectIntent over REST with a service-account JWT (no Google SDK) and intent-to-flow routing.",
   "main": "lib/index.js",

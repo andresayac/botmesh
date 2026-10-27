@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/server",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "Webhook ingress for @botmesh providers: raw-body capture, size limits, timeouts, a concurrency cap and health endpoints for node:http, Express, Fastify and Hono (no framework dependencies).",
   "main": "lib/index.js",

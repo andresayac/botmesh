@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/instagram",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "Instagram DM transport for @botmesh/core — Messenger API for Instagram (Meta Graph): signed webhooks, quick replies, typing and read receipts.",
   "main": "lib/index.js", "types": "lib/index.d.ts",

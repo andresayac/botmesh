@@ -1,6 +1,6 @@
 {
   "name": "create-botmesh",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "type": "module",
   "description": "Scaffold a new @botmesh bot project (npm create botmesh).",
   "main": "lib/index.js", "types": "lib/index.d.ts",

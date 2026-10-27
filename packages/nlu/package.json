@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/nlu",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "Lightweight local intent/NLU for @botmesh/core — define intents with utterances, match incoming text, no external services.",
   "main": "lib/index.js",

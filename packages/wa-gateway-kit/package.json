@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/wa-gateway-kit",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "Building blocks shared by the botmesh WhatsApp REST gateway transports (@botmesh/evolution, @botmesh/wppconnect): JSON-over-secureFetch REST client, outbound media resolution and LID/PN identity reconciliation.",
   "main": "lib/index.js",

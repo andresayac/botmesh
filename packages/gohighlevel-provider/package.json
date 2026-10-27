@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/gohighlevel",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "GoHighLevel (LeadConnector) transport for @botmesh/core — Conversations API + signed InboundMessage webhooks.",
   "main": "lib/index.js",

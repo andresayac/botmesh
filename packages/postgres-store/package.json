@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/postgres-store",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "PostgreSQL store for @botmesh/core: shared bot state, durable scheduler and durable inbox/outbox on node-postgres.",
   "main": "lib/index.js",

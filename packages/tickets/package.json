@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/tickets",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "Support tickets and queues for @botmesh/core — ctx.tools.tickets with queue positions, working hours and store persistence.",
   "main": "lib/index.js",

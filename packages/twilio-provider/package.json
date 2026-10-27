@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/twilio",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "Twilio transport for @botmesh/core — WhatsApp + SMS over the Programmable Messaging REST API, X-Twilio-Signature webhooks.",
   "main": "lib/index.js",

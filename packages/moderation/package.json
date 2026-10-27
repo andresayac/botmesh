@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/moderation",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "Group moderation plugin for @botmesh/core — anti-spam windows, word/regex filters, invite-link filtering and warn/mute/kick/delete actions.",
   "main": "lib/index.js",

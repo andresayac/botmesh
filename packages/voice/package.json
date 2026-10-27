@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/voice",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "Voice plugin for @botmesh/core — speech-to-text for inbound voice notes and text-to-speech replies (OpenAI, Deepgram, ElevenLabs) over plain HTTPS.",
   "main": "lib/index.js",

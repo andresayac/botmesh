@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/mcp",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "MCP server (stdio) for botmesh: validates, analyzes, migrates and diffs code-free JSON flow documents and searches the documentation. No network.",
   "main": "lib/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/messenger",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "Facebook Messenger transport for @botmesh/core — Meta Graph Send API + signed webhooks, postback buttons, generic templates, typing and read receipts.",
   "main": "lib/index.js", "types": "lib/index.d.ts",

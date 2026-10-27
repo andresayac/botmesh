@@ -1,5 +1,18 @@
 # @botmesh/meta
 
+## 1.0.0-beta.2
+
+### Patch Changes
+
+- 591b510: `CloudAPIProvider.ingest()` and `MessengerProvider.ingest()` answer `503` while the provider is stopped (after `bot.stop()`, until the next `bot.start()`), like `@botmesh/instagram` and `@botmesh/telegram`. Before, a webhook that arrived while the bot was stopped was acknowledged with `200` and the message was lost; now Meta delivers it again after the restart.
+- Updated dependencies [591b510]
+- Updated dependencies [8d86135]
+- Updated dependencies [618502b]
+- Updated dependencies [7e9c369]
+- Updated dependencies [c361ba3]
+  - @botmesh/graph-core@1.0.0-beta.2
+  - @botmesh/core@2.0.0-beta.4
+
 ## 1.0.0-beta.1
 
 ### Major Changes

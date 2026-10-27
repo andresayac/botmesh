@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/rag",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "Retrieval Augmented Generation for @botmesh/ai — document loaders, chunking, pluggable embeddings (OpenAI-compatible, Ollama, local hashing) and an in-memory cosine vector index with optional JSON persistence.",
   "main": "lib/index.js",

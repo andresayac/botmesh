@@ -1,5 +1,11 @@
 # create-botmesh
 
+## 1.0.0-beta.2
+
+### Patch Changes
+
+- 7956e61: `create-botmesh --help` names the dist-tag of the running version (`npm create botmesh@beta` during the beta) instead of the stale `@alpha`; a stable version prints the plain `npm create botmesh`.
+
 ## 1.0.0-beta.1
 
 ### Major Changes

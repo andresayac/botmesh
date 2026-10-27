@@ -1,6 +1,6 @@
 {
   "name": "eslint-plugin-botmesh",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "ESLint rules for @botmesh bots: v1 API leftovers, blocking runtime.enter, async plugin install, empty triggers, asks without timeout and global per-user state.",
   "main": "lib/index.js",

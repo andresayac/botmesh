@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/gupshup",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "Gupshup WhatsApp transport for @botmesh/core — Gupshup WhatsApp API v1 + v2 callbacks.",
   "main": "lib/index.js",

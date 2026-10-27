@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/chatwoot",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "Chatwoot integration for @botmesh/core — bidirectional message sync and human handoff driven by Chatwoot agents.",
   "main": "lib/index.js",

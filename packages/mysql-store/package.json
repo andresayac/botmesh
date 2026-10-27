@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/mysql-store",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "MySQL and MariaDB store for @botmesh/core: shared bot state and durable scheduler on mysql2.",
   "main": "lib/index.js",

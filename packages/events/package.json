@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/events",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "Versioned event envelopes, leased journals with fencing tokens, an at-least-once worker with retries and a dead-letter state, and a durability backend for @botmesh/core.",
   "main": "lib/index.js",

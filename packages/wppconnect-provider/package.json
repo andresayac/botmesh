@@ -1,6 +1,6 @@
 {
   "name": "@botmesh/wppconnect",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "type": "module",
   "description": "WPPConnect Server (wppconnect-server REST API) transport for @botmesh/core — REST outbound + token-checked webhook ingest.",
   "main": "lib/index.js",
