@@ -5,13 +5,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import {
-  BRANCH,
+  DEFAULT_REPO,
   DEFAULT_SITE_URL,
   REQUIRED_FILES,
   brokenLinksCommand,
   missingSiteFiles,
   normalizeSiteUrl,
   parseArgs,
+  resolveTarget,
   sizeOf,
 } from '../mintlify-deploy.mjs'
 
@@ -21,9 +22,23 @@ test('parseArgs reads --dry-run and --force-branch and rejects anything else', (
   assert.throws(() => parseArgs(['--push']), /unknown option --push/)
 })
 
-test('the deploy branch is mintlify and the default URL is the Mintlify subdomain', () => {
-  assert.equal(BRANCH, 'mintlify')
+test('the default target is the main branch of the botmesh-docs repo and the Mintlify subdomain', () => {
+  assert.equal(DEFAULT_REPO, 'https://github.com/andresayac/botmesh-docs.git')
   assert.equal(DEFAULT_SITE_URL, 'https://botmesh.mintlify.app/')
+  assert.deepEqual(resolveTarget({}), { repo: DEFAULT_REPO, branch: 'main' })
+})
+
+test('resolveTarget reads MINTLIFY_REPO and MINTLIFY_BRANCH and refuses unsafe values', () => {
+  assert.deepEqual(
+    resolveTarget({ MINTLIFY_REPO: 'git@github.com:me/docs.git', MINTLIFY_BRANCH: 'mintlify' }),
+    { repo: 'git@github.com:me/docs.git', branch: 'mintlify' },
+  )
+  assert.deepEqual(resolveTarget({ MINTLIFY_REPO: '', MINTLIFY_BRANCH: '' }), { repo: DEFAULT_REPO, branch: 'main' })
+  assert.throws(() => resolveTarget({ MINTLIFY_REPO: 'http://github.com/me/docs.git' }), /MINTLIFY_REPO/)
+  assert.throws(() => resolveTarget({ MINTLIFY_REPO: 'https://user:token@github.com/me/docs.git' }), /credentials/)
+  assert.throws(() => resolveTarget({ MINTLIFY_REPO: '--upload-pack=x' }), /MINTLIFY_REPO/)
+  assert.throws(() => resolveTarget({ MINTLIFY_BRANCH: '-x' }), /MINTLIFY_BRANCH/)
+  assert.throws(() => resolveTarget({ MINTLIFY_BRANCH: 'a b' }), /MINTLIFY_BRANCH/)
 })
 
 test('normalizeSiteUrl defaults, adds the trailing slash and refuses unsafe values', () => {

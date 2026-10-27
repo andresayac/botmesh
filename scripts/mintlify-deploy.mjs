@@ -1,7 +1,9 @@
 #!/usr/bin/env node
-// Publishes the Mintlify site by hand (no GitHub Actions). Mintlify's GitHub App
-// watches the `mintlify` branch of origin and redeploys on every push to it.
-//   pnpm docs:mintlify              generate, check and force-push the site to origin's mintlify branch
+// Publishes the Mintlify site by hand (no GitHub Actions). The generated site goes to
+// the default branch of a separate docs repo (MINTLIFY_REPO, default
+// andresayac/botmesh-docs), because Mintlify's onboarding only accepts a repo whose
+// default branch has docs.json at its root; its GitHub App redeploys on every push.
+//   pnpm docs:mintlify              generate, check and force-push the site to MINTLIFY_REPO
 //   pnpm docs:mintlify --dry-run    everything except the push; keeps the temp repo for inspection
 //   --force-branch                  allow deploying from a branch other than main
 //
@@ -12,14 +14,15 @@
 // `mint broken-links --check-anchors --check-redirects` (in Docker on Windows,
 // where mint 4.2 misreports nested links), then copy mintlify/site into a fresh
 // git repo in the OS temp dir (docs.json at its root) with a single commit and
-// `git push --force origin HEAD:mintlify`.
+// `git push --force <MINTLIFY_REPO> HEAD:<MINTLIFY_BRANCH>` (default branch: main).
 import { spawnSync } from 'node:child_process'
 import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-export const BRANCH = 'mintlify'
+export const DEFAULT_REPO = 'https://github.com/andresayac/botmesh-docs.git'
+export const DEFAULT_BRANCH = 'main'
 export const DEFAULT_SITE_URL = 'https://botmesh.mintlify.app/'
 /** Files the generated site must contain before it is published. */
 export const REQUIRED_FILES = ['docs.json', 'index.mdx', 'es/index.mdx', 'llms.txt', 'api/core/index.mdx']
@@ -45,6 +48,22 @@ export function normalizeSiteUrl(value) {
   if (url.protocol !== 'https:') throw new Error(`MINTLIFY_SITE_URL must use https, got ${JSON.stringify(raw)}`)
   if (url.search || url.hash) throw new Error(`MINTLIFY_SITE_URL must not carry a query or fragment, got ${JSON.stringify(raw)}`)
   return url.href.endsWith('/') ? url.href : `${url.href}/`
+}
+
+/**
+ * Where the site is pushed: MINTLIFY_REPO (an https or ssh git URL without
+ * credentials) and MINTLIFY_BRANCH, defaulting to the docs repo's main branch.
+ */
+export function resolveTarget(env) {
+  const repo = env.MINTLIFY_REPO ? env.MINTLIFY_REPO : DEFAULT_REPO
+  const branch = env.MINTLIFY_BRANCH ? env.MINTLIFY_BRANCH : DEFAULT_BRANCH
+  if (/^https:\/\//.test(repo)) {
+    if (new URL(repo).username) throw new Error('MINTLIFY_REPO must not carry credentials; use your git credential helper')
+  } else if (!/^git@[\w.-]+:[\w./-]+$/.test(repo)) {
+    throw new Error(`MINTLIFY_REPO must be an https:// or git@ URL, got ${JSON.stringify(repo)}`)
+  }
+  if (!/^[\w][\w./-]*$/.test(branch)) throw new Error(`MINTLIFY_BRANCH is not a valid branch name: ${JSON.stringify(branch)}`)
+  return { repo, branch }
 }
 
 /** Required files missing from a generated site directory. */
@@ -118,24 +137,26 @@ function main() {
 
   let options
   let siteUrl
+  let target
   try {
     options = parseArgs(process.argv.slice(2))
     siteUrl = normalizeSiteUrl(process.env.MINTLIFY_SITE_URL)
+    target = resolveTarget(process.env)
   } catch (err) {
     fail(err.message)
   }
   const { dryRun, forceBranch } = options
 
-  // 1. Preconditions: clean tree, main branch, an origin remote.
-  step(dryRun ? 'dry run: nothing will be pushed' : `deploying to ${BRANCH} of origin`)
+  const { repo, branch } = target
+
+  // 1. Preconditions: clean tree, main branch.
+  step(dryRun ? 'dry run: nothing will be pushed' : `deploying to ${branch} of ${repo}`)
   const current = git(['rev-parse', '--abbrev-ref', 'HEAD'])
   if (current !== 'main' && !forceBranch) fail(`on branch "${current}": deploy from main, or pass --force-branch`)
   const dirty = git(['status', '--porcelain'])
   if (dirty) fail(`the working tree is not clean; commit or stash first:\n${dirty}`)
-  const origin = git(['remote', 'get-url', 'origin'], root, { allowFail: true })
-  if (!origin) fail('no "origin" remote configured')
   const sha = git(['rev-parse', '--short', 'HEAD'])
-  console.log(`  branch ${current} @ ${sha}, origin ${origin}, site ${siteUrl}`)
+  console.log(`  branch ${current} @ ${sha}, target ${repo} ${branch}, site ${siteUrl}`)
 
   // 2. The tooling is its own pnpm root (mintlify/pnpm-workspace.yaml): installing from
   // that folder never touches the monorepo, and its allowBuilds list applies.
@@ -161,15 +182,15 @@ function main() {
 
   // 5. A fresh repo with one commit holding the site, docs.json at its root.
   const tmp = mkdtempSync(join(tmpdir(), 'botmesh-mintlify-'))
-  step(`preparing the ${BRANCH} commit in ${tmp}`)
+  step(`preparing the ${branch} commit in ${tmp}`)
   cpSync(siteDir, tmp, { recursive: true })
-  git(['init', '--quiet', '--initial-branch', BRANCH], tmp)
+  git(['init', '--quiet', '--initial-branch', branch], tmp)
   git(['config', 'core.autocrlf', 'false'], tmp)
   for (const key of ['user.name', 'user.email']) {
     const value = git(['config', key], root, { allowFail: true })
     if (value) git(['config', key, value], tmp)
   }
-  git(['remote', 'add', 'origin', origin], tmp)
+  git(['remote', 'add', 'origin', repo], tmp)
   git(['add', '--all'], tmp)
   git(['commit', '--quiet', '-m', `docs: deploy ${sha} to Mintlify`], tmp)
   const commit = git(['log', '--oneline', '-1'], tmp)
@@ -182,15 +203,15 @@ function main() {
   // 6. Push (or stop here).
   if (dryRun) {
     step('dry run done. Would run:')
-    console.log(`  git -C ${tmp} push --force origin HEAD:${BRANCH}`)
-    console.log(`  (origin = ${origin})`)
+    console.log(`  git -C ${tmp} push --force origin HEAD:${branch}`)
+    console.log(`  (origin = ${repo})`)
     console.log('  The temp repo is kept for inspection; delete it when done.')
     process.exit(0)
   }
-  step(`pushing to ${origin} ${BRANCH} (force)`)
-  run('git', ['push', '--force', 'origin', `HEAD:${BRANCH}`], { cwd: tmp })
+  step(`pushing to ${repo} ${branch} (force)`)
+  run('git', ['push', '--force', 'origin', `HEAD:${branch}`], { cwd: tmp })
   rmSync(tmp, { recursive: true, force: true })
-  step(`done. Mintlify redeploys from the ${BRANCH} branch in a minute or two: ${siteUrl}`)
+  step(`done. Mintlify redeploys from ${repo} (${branch}) in a minute or two: ${siteUrl}`)
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) main()

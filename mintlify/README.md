@@ -3,8 +3,10 @@
 Tooling that publishes the botmesh docs on [Mintlify](https://www.mintlify.com), hosted by Mintlify.
 The VitePress site in [`docs/`](../docs) stays the source of truth (and stays on GitHub Pages until
 the Mintlify site is live): everything Mintlify serves is **generated** from it by
-[`scripts/convert.mjs`](scripts/convert.mjs) and pushed to the `mintlify` branch by
-`pnpm docs:mintlify`. Never edit generated pages by hand; change `docs/` and redeploy.
+[`scripts/convert.mjs`](scripts/convert.mjs) and pushed to the `main` branch of a separate repository,
+[`andresayac/botmesh-docs`](https://github.com/andresayac/botmesh-docs), by `pnpm docs:mintlify`.
+A separate repo, because Mintlify's onboarding only accepts a repository whose **default branch**
+has `docs.json` at its root, and the generated site must never land on this repo's `main`. Never edit generated pages by hand; change `docs/` and redeploy.
 
 ```
 mintlify/
@@ -29,15 +31,17 @@ with a plain `pnpm install` (its own `pnpm-workspace.yaml` makes it a separate r
 From a clean `main` at the repo root (the maintainer runs it; it force-pushes):
 
 ```bash
-pnpm docs:mintlify                  # generate, check, force-push the site to origin's `mintlify` branch
+pnpm docs:mintlify                  # generate, check, force-push the site to botmesh-docs (main)
 pnpm docs:mintlify --dry-run        # same, but stops before the push and keeps the temp repo
 pnpm docs:mintlify --dry-run --force-branch   # from a branch other than main
 MINTLIFY_SITE_URL=https://docs.example.com/ pnpm docs:mintlify   # final URL (default https://botmesh.mintlify.app/)
+MINTLIFY_REPO=git@github.com:me/docs.git MINTLIFY_BRANCH=main pnpm docs:mintlify   # other target (default https://github.com/andresayac/botmesh-docs.git, main)
 ```
 
 [`scripts/mintlify-deploy.mjs`](../scripts/mintlify-deploy.mjs) mirrors `pnpm docs:deploy`:
 
-1. Refuses a dirty working tree, a branch other than `main` (unless `--force-branch`) or a missing `origin`.
+1. Refuses a dirty working tree or a branch other than `main` (unless `--force-branch`), and checks
+   `MINTLIFY_REPO` (https or `git@` URL, no credentials in it) and `MINTLIFY_BRANCH`.
 2. Installs the tooling (`pnpm install --frozen-lockfile` in `mintlify/`) if `mint` is missing.
 3. Runs the converter with `--llms-base $MINTLIFY_SITE_URL`, so the curated `llms.txt` points at the
    Mintlify site.
@@ -46,10 +50,11 @@ MINTLIFY_SITE_URL=https://docs.example.com/ pnpm docs:mintlify   # final URL (de
    version), because `mint broken-links` 4.2 reports every nested link as broken there; Docker must
    be running.
 5. Copies `mintlify/site` into a fresh git repo in the OS temp dir, with `docs.json` at its **root**,
-   makes one commit (`docs: deploy <sha> to Mintlify`) and runs `git push --force origin HEAD:mintlify`.
+   makes one commit (`docs: deploy <sha> to Mintlify`) and runs
+   `git push --force <MINTLIFY_REPO> HEAD:<MINTLIFY_BRANCH>`.
 
-The `mintlify` branch therefore only ever holds one generated commit; Mintlify's GitHub App
-redeploys on every push to it. Generated output never lands on `main`.
+The docs repo therefore only ever holds one generated commit; Mintlify's GitHub App redeploys on
+every push to it. Generated output never lands on `main`.
 
 ## Regenerate and preview locally
 
@@ -112,15 +117,16 @@ finds 0 broken links.
 
 Nothing below has been done yet; no account was created and no app was installed.
 
-1. Deploy once so the branch exists: `pnpm docs:mintlify` from a clean `main`
+1. Create an **empty** public repository `andresayac/botmesh-docs` on GitHub (no README, license or
+   .gitignore), then deploy once so it has content: `pnpm docs:mintlify` from a clean `main`
    (try `pnpm docs:mintlify --dry-run` first).
 2. Sign up at [dashboard.mintlify.com](https://dashboard.mintlify.com) (Starter plan, free) and
    create a project / deployment; skip the template repository it offers.
-3. In **Settings → Git Settings** (or the onboarding "connect your repository" step), install the
-   **Mintlify GitHub App** on `andresayac/botmesh`, granting it **only that repository**.
-4. Select repository `andresayac/botmesh`, branch **`mintlify`**, and leave the docs path at the
-   **repository root** (do not enable "docs.json is in a subdirectory": `docs.json` sits at the root
-   of the `mintlify` branch).
+3. In the onboarding, choose **Local development → Set up your repository → Use existing** and pick
+   `andresayac/botmesh-docs` (its default branch has `docs.json` at the root, which is what the
+   onboarding checks). Leave the docs path at the repository root.
+4. Install the **Mintlify GitHub App** on `andresayac/botmesh-docs`, granting it **only that
+   repository**. It never needs access to `andresayac/botmesh`.
 5. Pick the subdomain. If it is not `botmesh` (site at `https://botmesh.mintlify.app`), redeploy with
    `MINTLIFY_SITE_URL=https://<subdomain>.mintlify.app/ pnpm docs:mintlify` so `llms.txt` points at it.
 6. Optional: custom domain (dashboard → Custom domain, then the same `MINTLIFY_SITE_URL` redeploy).

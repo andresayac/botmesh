@@ -5,7 +5,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 ## [Unreleased]
 
 ### Docs: publicación en Mintlify (2026-10-27)
-- Nuevo `pnpm docs:mintlify` (`scripts/mintlify-deploy.mjs`): genera el sitio Mintlify desde `docs/` con el conversor de `mintlify/` (raíz pnpm propia; la salida `mintlify/site/` no se versiona), lo valida con `mint validate` y `mint broken-links` y lo publica forzado en la rama `mintlify`, que despliega la GitHub App de Mintlify; VitePress sigue en GitHub Pages hasta que Mintlify esté activo.
+- Nuevo `pnpm docs:mintlify` (`scripts/mintlify-deploy.mjs`): genera el sitio Mintlify desde `docs/` con el conversor de `mintlify/` (raíz pnpm propia; la salida `mintlify/site/` no se versiona), lo valida con `mint validate` y `mint broken-links` y lo publica forzado en la rama `main` del repo aparte `andresayac/botmesh-docs` (configurable con `MINTLIFY_REPO`/`MINTLIFY_BRANCH`; el onboarding de Mintlify exige `docs.json` en la rama por defecto), que despliega la GitHub App de Mintlify; VitePress sigue en GitHub Pages hasta que Mintlify esté activo.
 
 ### Docs: la beta ya está publicada (2026-10-27)
 - README, AGENTS, CONTRIBUTING, SECURITY, `llms.txt`, guías y ejemplos (EN/ES) y los README de paquete dejan de decir que `latest` apunta a una alpha antigua, que hay que instalar con `@alpha`/`@beta` o que 26 paquetes no están en npm: los 36 paquetes públicos están en npm con el dist-tag `beta`, una instalación sin tag instala la beta y `@beta` resuelve siempre a la más reciente (`latest` se mueve a mano tras cada publicación, paso añadido al flujo de publicación). `docs/release-readiness.md` lleva el estado de publicado.
