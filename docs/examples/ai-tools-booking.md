@@ -22,9 +22,6 @@ A barbershop assistant that books, lists and cancels appointments by calling you
 npm install @botmesh/core @botmesh/ai @anthropic-ai/sdk @botmesh/baileys
 ```
 
-While the packages are in prerelease, add the dist-tag shown in
-[Getting started](/guide/getting-started#requirements).
-
 ## The bot
 
 ```js

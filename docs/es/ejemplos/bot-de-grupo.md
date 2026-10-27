@@ -18,8 +18,6 @@ cambiar y un saludo cuando alguien menciona al bot.
 
 - Node.js 22.12 o superior y una carpeta vacía con `"type": "module"` en su
   `package.json` ([Inicio rápido](/es/guide/inicio#_1-instalar)).
-- Mientras botmesh esté en prerelease, añade a cada paquete `@botmesh/*` el
-  dist-tag de la [nota de prerelease](/es/guide/inicio#requisitos).
 
 ```bash
 npm install @botmesh/core @botmesh/baileys

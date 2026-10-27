@@ -14,7 +14,7 @@ pnpm add @opentelemetry/sdk-node @opentelemetry/exporter-trace-otlp-http
 
 Node.js 22 or later, ESM only. `@opentelemetry/api` (`^1.9`) is an optional peer dependency loaded lazily: without it the package still imports, and `createOtelTracer()` rejects with a message that says what to install. Its type declarations name `@opentelemetry/api` types (`TracerProvider`, `MeterProvider`), so a TypeScript project needs it installed.
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/otel@beta` during the beta (`npm view @botmesh/otel dist-tags` lists the tags). Once stable, the plain command above works.
+> **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish).
 
 ## Quick start
 

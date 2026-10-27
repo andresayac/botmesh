@@ -201,7 +201,7 @@ fragmento.
 pnpm add @botmesh/rag
 ```
 
-Durante la beta, añade el dist-tag `@beta` (`pnpm add @botmesh/rag@beta`). No depende de
+No depende de
 `@botmesh/ai`: `aiPlugin` acepta cualquier retriever y `createRag()` devuelve uno.
 
 `createRag(options)` construye un retriever sin base de datos vectorial: un

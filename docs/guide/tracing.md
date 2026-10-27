@@ -19,9 +19,6 @@ pnpm add @botmesh/otel @opentelemetry/api @opentelemetry/sdk-node \
   @opentelemetry/exporter-trace-otlp-http @opentelemetry/exporter-metrics-otlp-http @opentelemetry/sdk-metrics
 ```
 
-While the packages are in prerelease, add the dist-tag shown in
-[Getting started](./getting-started).
-
 ```ts
 // telemetry.ts — load it before the bot (e.g. `node --import ./telemetry.js bot.js`)
 import { NodeSDK } from '@opentelemetry/sdk-node'

@@ -15,22 +15,8 @@ Telegram without changing the bot code.
   Telegram bot token from [@BotFather](https://t.me/BotFather). The terminal
   simulator needs neither.
 
-::: warning Prerelease: these pages describe the upcoming release
-botmesh is in prerelease, and this site documents the next release (the beta,
-then `@botmesh/core` 2.0.0 stable). Check what npm has with
-`npm view @botmesh/core dist-tags`:
-
-- **A `beta` tag is listed:** add `@beta` to every install
-  (`npm create botmesh@beta my-bot`,
-  `npm install @botmesh/core@beta @botmesh/baileys@beta`). Without a tag, npm
-  installs `latest`, which can still point to an older alpha.
-- **Only `alpha` and `latest`, at `2.0.0-alpha.2`:** npm has older builds
-  (the other packages at `0.2.0-alpha.0`) that differ from these pages:
-  built-in texts default to Spanish, `pairingPhoneNumber` is called
-  `pairingCode`, `BotNotRunningError` does not exist, and a scaffolded project
-  needs a `.env` file before `npm start` (copy `.env.example`, even for
-  `baileys`).
-- **`latest` is `2.0.0` or newer:** the commands work exactly as written.
+::: info Beta
+botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish). This site documents the beta, then `@botmesh/core` 2.0.0 stable.
 :::
 
 ## Option A: scaffold a project (recommended) {#scaffold-a-project-with-create-botmesh}

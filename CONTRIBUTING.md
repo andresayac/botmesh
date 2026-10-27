@@ -155,7 +155,7 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs `build`, `typec
 
 Versions are managed with [Changesets](https://changesets.dev) (CLI v3) and published **by hand** from the maintainer's machine. There is no release workflow.
 
-**Public packages** (published to npm): `@botmesh/core`; the channels `@botmesh/baileys`, `@botmesh/meta`, `@botmesh/telegram`, `@botmesh/messenger`, `@botmesh/instagram`, `@botmesh/discord`, `@botmesh/evolution`, `@botmesh/wppconnect`, `@botmesh/twilio`, `@botmesh/gohighlevel`, `@botmesh/gupshup` and `@botmesh/email`; the stores `@botmesh/sqlite-store`, `@botmesh/redis-store`, `@botmesh/postgres-store`, `@botmesh/mysql-store` and `@botmesh/mongo-store`; the infrastructure `@botmesh/http`, `@botmesh/graph-core`, `@botmesh/wa-gateway-kit`, `@botmesh/server`, `@botmesh/events` and `@botmesh/otel`; the plugins `@botmesh/ai`, `@botmesh/rag`, `@botmesh/voice`, `@botmesh/nlu`, `@botmesh/dialogflow`, `@botmesh/chatwoot`, `@botmesh/tickets` and `@botmesh/moderation`; and the tooling `@botmesh/flow-schema`, `@botmesh/mcp`, `create-botmesh` and `eslint-plugin-botmesh` (36 in total; the 26 promoted during the beta reach npm with the next publish).
+**Public packages** (published to npm): `@botmesh/core`; the channels `@botmesh/baileys`, `@botmesh/meta`, `@botmesh/telegram`, `@botmesh/messenger`, `@botmesh/instagram`, `@botmesh/discord`, `@botmesh/evolution`, `@botmesh/wppconnect`, `@botmesh/twilio`, `@botmesh/gohighlevel`, `@botmesh/gupshup` and `@botmesh/email`; the stores `@botmesh/sqlite-store`, `@botmesh/redis-store`, `@botmesh/postgres-store`, `@botmesh/mysql-store` and `@botmesh/mongo-store`; the infrastructure `@botmesh/http`, `@botmesh/graph-core`, `@botmesh/wa-gateway-kit`, `@botmesh/server`, `@botmesh/events` and `@botmesh/otel`; the plugins `@botmesh/ai`, `@botmesh/rag`, `@botmesh/voice`, `@botmesh/nlu`, `@botmesh/dialogflow`, `@botmesh/chatwoot`, `@botmesh/tickets` and `@botmesh/moderation`; and the tooling `@botmesh/flow-schema`, `@botmesh/mcp`, `create-botmesh` and `eslint-plugin-botmesh` (36 in total, all on npm under the `beta` dist-tag since 2026-10-27, with `latest` moved by hand to the same versions).
 
 **Private packages** (`"private": true`, never published): everything else — the experimental `tiktok` channel, `manager`, the product packages (`inbox`, `crm`, `hub`, `campaigns`, `deployments`, `tenant-kv`) and the `@botmesh/sandbox` tooling. The [README](README.md#packages) table is the canonical list.
 
@@ -190,6 +190,7 @@ pnpm changeset publish-plan   # review what is about to be published
 pnpm pack:smoke               # packs and installs the tarballs in a clean project (publishes nothing)
 pnpm test:scripts             # tests of the scripts/ helpers (smoke-test semver)
 pnpm release                  # pnpm clean && pnpm build && changeset publish: publishes and tags <package>@<version>
+npm dist-tag add <package>@<version> latest   # for every package just published (see Prerelease mode below)
 git push --follow-tags
 ```
 
@@ -206,7 +207,7 @@ Run the whole thing before `changeset publish` (it is the checklist the [`ROADMA
 - [ ] `pnpm run docs:site && pnpm docs:check` with no errors or warnings, and `docs/public/llms.txt` up to date.
 - [ ] No secret, session credential or `.env` in the tree or in the tarballs (`git status`, `scripts/pack-smoke.mjs`).
 - [ ] Threat model and this checklist reviewed when the release changes surfaces (new channel, new capability, new public package).
-- [ ] After publishing: `npm dist-tag ls` for every package, a clean install from the registry with the right tag, and a smoke `npm create botmesh@beta` in an empty directory.
+- [ ] After publishing: move `latest` to the new versions (`npm dist-tag add <package>@<version> latest`), `npm dist-tag ls` for every package, a clean install from the registry with the right tag, and a smoke `npm create botmesh@beta` in an empty directory.
 
 ### Packaging smoke test
 
@@ -217,7 +218,7 @@ Run the whole thing before `changeset publish` (it is the checklist the [`ROADMA
 The repo is in Changesets' **`beta` prerelease mode** (`.changeset/pre.json`; the alphas were published in `alpha` mode before it). While it stays that way:
 
 - `pnpm version-packages` produces prerelease versions: `@botmesh/core` comes out as `2.0.0-beta.N` and the rest as `x.y.z-beta.N` (e.g. `1.0.0-beta.0`). `pnpm changeset status --verbose` shows the versions that would be generated.
-- `pnpm release` publishes under the `beta` dist-tag. A package that **has never been published** also gets `latest`, because npm assigns it to the first version of a name; for an existing package it is not moved, so `npm i @botmesh/core` without a tag keeps resolving to the first alpha: install with `@beta`.
+- `pnpm release` publishes under the `beta` dist-tag only; `latest` does not move by itself. After each publish the maintainer moves it by hand for every package just published (`npm dist-tag add <package>@<version> latest`), so a plain `npm i @botmesh/core` installs the newest beta. `@beta` always resolves to the newest beta, even before `latest` is moved.
 - `.changeset/pre.json` records the pre-mode state; do not delete or hand-edit it.
 
 To leave prerelease mode once the API settles (a maintainer decision):

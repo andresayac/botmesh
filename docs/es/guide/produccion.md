@@ -17,8 +17,7 @@ cuando las necesitas.
   `await bot.stop({ drain: true, timeout: '15s' })` para que las respuestas en
   vuelo se envíen y se registren antes de que el proceso termine
   ([Apagado ordenado](./deploy#apagado-ordenado)).
-- **Fija las versiones** (commitea el lockfile). Mientras los paquetes estén
-  en prerelease, lee las [páginas de migración](./migracion-estable) antes de
+- **Fija las versiones** (commitea el lockfile). Mientras los paquetes estén en beta, lee las [páginas de migración](./migracion-estable) antes de
   cada actualización.
 
 ### Estado
@@ -101,10 +100,9 @@ Los paquetes de npm (36) son `@botmesh/core`; los canales `@botmesh/baileys`,
 y `@botmesh/otel`; los plugins `@botmesh/ai`, `@botmesh/rag`, `@botmesh/voice`,
 `@botmesh/nlu`, `@botmesh/dialogflow`, `@botmesh/chatwoot`, `@botmesh/tickets` y
 `@botmesh/moderation`; y el tooling `@botmesh/flow-schema`, `@botmesh/mcp`,
-`eslint-plugin-botmesh` y `create-botmesh`. Solo diez se publicaron durante la alpha
+`eslint-plugin-botmesh` y `create-botmesh`. Los 36 están en npm. Diez se publicaron por primera vez durante la alpha
 (`core`, `baileys`, `meta`, `telegram`, `sqlite-store`, `redis-store`, `ai`,
-`http`, `graph-core` y `create-botmesh`); los otros 26 se publican por primera vez con
-la beta.
+`http`, `graph-core` y `create-botmesh`); los otros 26 se publicaron por primera vez con la beta.
 Algunas páginas describen además paquetes que de momento solo están en el
 [repositorio](https://github.com/andresayac/botmesh/tree/main/packages) (el
 canal de TikTok, `@botmesh/manager`, el sandbox…), y cada una lo indica. Planifica un

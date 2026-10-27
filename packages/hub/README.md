@@ -1,6 +1,6 @@
 # @botmesh/hub
 
-> **Private package** (`"private": true`, not published to npm). Real, persistent implementation; the API may change without notice while the alpha is out.
+> **Private package** (`"private": true`, not published to npm). Real, persistent implementation; the API may change without notice during the beta.
 
 Per-tenant plugin registry. It validates manifests, runtime compatibility and explicit permissions before enabling a plugin.
 

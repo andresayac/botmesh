@@ -204,7 +204,7 @@ Reglas prácticas:
 - **Todo lo que sea sesión/auth/QR/conexión se movió al provider.** `BotConfig` solo acepta opciones agnósticas (`conversation`, `conversationScope`, `groupMode`, `commandPrefix`, `store`, `debug`, ...).
 - **`ctx.key` → `ctx.ref`** (`MessageRef` con `{ id, chatId, native? }`) y **`ctx.rawMessage` → `ctx.raw`** en handlers, hooks y flujos.
 - **El contenido de `bot.send` es un tagged union neutral**: `{ kind: 'image', media, caption }` en lugar del objeto estilo Baileys `{ image: { url }, caption }`.
-- **Instalación típica**: `pnpm add @botmesh/core@beta @botmesh/baileys@beta` (+ `@botmesh/sqlite-store@beta better-sqlite3` si quieres persistencia, + `@botmesh/ai@beta` y el SDK del proveedor de IA que uses). Hasta la versión estable pon el tag `@beta`: el tag `latest` de npm sigue en una alpha antigua.
+- **Instalación típica**: `pnpm add @botmesh/core @botmesh/baileys` (+ `@botmesh/sqlite-store better-sqlite3` si quieres persistencia, + `@botmesh/ai` y el SDK del proveedor de IA que uses). botmesh está en beta: una instalación sin tag instala la beta, y `@beta` resuelve siempre a la más reciente (`latest` se mueve a mano tras cada publicación).
 
 ## Desviaciones respecto a la API v1 / BuilderBot
 

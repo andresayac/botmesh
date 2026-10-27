@@ -191,7 +191,7 @@ Nuevos en npm en la beta (antes eran privados). Si los usabas desde el monorepo:
 
 `@botmesh/rag`, `@botmesh/voice`, `@botmesh/nlu`, `@botmesh/dialogflow`,
 `@botmesh/chatwoot`, `@botmesh/tickets` y `@botmesh/moderation` se publican en npm desde
-la beta (`1.0.0-beta`; instálalos con `@beta` hasta la versión estable). El código que
+la beta (`1.0.0-beta`). El código que
 los usaba desde el monorepo (`workspace:*`) necesita estos cambios:
 
 - **Helpers movidos a una entrada `/internal`** (sin semver; una aplicación rara vez los

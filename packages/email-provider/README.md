@@ -9,7 +9,7 @@ pnpm add @botmesh/core @botmesh/email
 pnpm add imapflow nodemailer   # optional peers: IMAP (inbound) and SMTP (outbound)
 ```
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build (or to none). Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/email@beta` during the beta (`npm view @botmesh/email dist-tags` lists the tags). Once stable, the plain command above works.
+> **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish).
 
 `imapflow` and `nodemailer` are **optional** `peerDependencies` loaded lazily: if you only send, you do not need `imapflow`; if you only receive through `ingest()`, you need neither to receive. A missing peer surfaces as a `ProviderError` naming the package to install: from `start()` for `imapflow`, from the first send for `nodemailer`.
 

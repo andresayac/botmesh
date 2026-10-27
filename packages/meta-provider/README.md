@@ -8,7 +8,7 @@ The **official WhatsApp Cloud API (Meta)** transport for [`@botmesh/core`](https
 pnpm add @botmesh/core @botmesh/meta
 ```
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older alpha. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/meta@beta` during the beta (`npm view @botmesh/core dist-tags` lists the tags). Once stable, the plain command above works.
+> **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish).
 
 Nothing else to install: Graph calls use Node.js 22's native `fetch` and `crypto`, and inbound media is downloaded through the SSRF-safe [`@botmesh/http`](https://www.npmjs.com/package/@botmesh/http) (a dependency).
 

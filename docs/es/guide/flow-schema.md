@@ -6,8 +6,7 @@
 pnpm add @botmesh/core @botmesh/flow-schema
 ```
 
-Mientras los paquetes estén en prerelease, añade el dist-tag que indica
-[Inicio](/es/guide/inicio). La entrada principal sigue semver; el motor de expresiones y los helpers de metadatos del compilador viven en `@botmesh/flow-schema/internal`, sin garantía semver.
+La entrada principal sigue semver; el motor de expresiones y los helpers de metadatos del compilador viven en `@botmesh/flow-schema/internal`, sin garantía semver.
 
 Un documento es **solo datos**. Nunca lleva funciones, `eval`, imports ni expresiones arbitrarias: el único cálculo es un lenguaje de expresiones seguro y plantillas <code v-pre>{{ path }}</code>.
 

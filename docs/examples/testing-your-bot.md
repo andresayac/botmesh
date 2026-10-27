@@ -16,8 +16,7 @@ later change cannot break silently.
 ## Prerequisites
 
 Node.js 22.12 or newer and an ESM project (`"type": "module"`), as in
-[Getting started](/guide/getting-started#requirements). While botmesh is in
-prerelease, read the note there about which npm tag to install.
+[Getting started](/guide/getting-started#requirements).
 
 ```bash
 npm install @botmesh/core @botmesh/baileys

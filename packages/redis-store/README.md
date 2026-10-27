@@ -15,7 +15,7 @@ It also carries the pieces you need to run **several replicas of one bot**:
 pnpm add @botmesh/redis-store redis
 ```
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older alpha. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/redis-store@beta` during the beta (`npm view @botmesh/redis-store dist-tags` lists the tags). Once stable, the plain command above works.
+> **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish).
 
 You need a Redis server reachable from the bot (for example `redis://localhost:6379`). [`redis`](https://github.com/redis/node-redis) (node-redis) is a **peer dependency**: `^4.7`, `^5` or `^6`. Every component works with each of them, on a single node or a Redis Cluster, with RESP2 or RESP3.
 

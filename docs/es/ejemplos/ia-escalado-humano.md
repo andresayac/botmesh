@@ -24,9 +24,6 @@ Un asistente de un proveedor de internet que resuelve lo que puede y, cuando no 
 npm install @botmesh/core @botmesh/ai @anthropic-ai/sdk @botmesh/baileys
 ```
 
-Mientras los paquetes estén en prerelease, añade el dist-tag que indica
-[Inicio rápido](/es/guide/inicio#requisitos).
-
 ## El bot
 
 ```js

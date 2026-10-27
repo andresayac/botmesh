@@ -27,9 +27,6 @@ Install the plugin and the SDK of your provider (here Anthropic, the default):
 pnpm add @botmesh/ai @anthropic-ai/sdk
 ```
 
-While the packages are in prerelease, add the dist-tag shown in
-[Getting started](/guide/getting-started).
-
 ```ts
 import { Bot } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'

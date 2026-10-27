@@ -16,13 +16,11 @@
 > wins. Constructing a Bot REQUIRES a provider:
 > new Bot({ provider: new BaileysProvider({ session }) }).
 > ESM-only, Node >= 22 (scaffolded projects require Node >= 22.12). Start a project
-> with `npm create botmesh@beta` or `pnpm add @botmesh/core@beta @botmesh/baileys@beta`.
+> with `npm create botmesh` or `pnpm add @botmesh/core @botmesh/baileys`.
 > Release line: @botmesh/core 2.x, the other public packages 1.x (currently the beta:
-> core 2.0.0-beta, the rest 1.0.0-beta). While the project is in prerelease npm's
-> `latest` tag lags behind (for the packages first published as alphas it stays on an
-> old alpha, core 2.0.0-alpha.2 / others 0.2.0-alpha.0, that predates these docs); the
-> newest build is under the `beta` dist-tag, so append `@beta` to install commands
-> until the stable release.
+> core 2.0.0-beta, the rest 1.0.0-beta). botmesh is in beta: a plain install gets the
+> beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after
+> each publish).
 > A bot module default-exports defineBot((provider) => new Bot({ provider })) so
 > `npx botmesh dev bot.js` (terminal simulator) and `node bot.js` (real provider inside
 > if (isMainModule(import.meta))) share it.
@@ -93,7 +91,7 @@
 - Advanced examples (each runs in the test suite): [Cloud API webhook server](https://andresayac.github.io/botmesh/examples/cloud-api-webhook), [production-ready bot](https://andresayac.github.io/botmesh/examples/production-bot), [scheduled daily digest](https://andresayac.github.io/botmesh/examples/daily-digest), [testing your bot](https://andresayac.github.io/botmesh/examples/testing-your-bot), [build a plugin](https://andresayac.github.io/botmesh/examples/faq-plugin); index: https://andresayac.github.io/botmesh/examples/
 
 ## Package status (45 packages)
-Public = published on npm and covered by semver (prerelease dist-tag until the stable
+Public = published on npm and covered by semver (beta versions until the stable
 release, see above). Experimental = real, tested
 implementation but private/unpublished, API may change. Prototype = private, minimal,
 in-memory sketch; not for production.
@@ -203,7 +201,7 @@ Product packages (private, persistent over any DurableKv of @botmesh/core: Memor
 - v1 sub-APIs (bot.groups/profile/privacy/chats/presence) were REMOVED — reach the Baileys socket via socketOf(provider) from @botmesh/baileys/internal (provider.socket is typed unknown) for WhatsApp-specific ops
 
 ## @botmesh/ai (separate package)
-- Install: pnpm add @botmesh/ai (+ the prerelease dist-tag until stable) + the chosen provider's SDK (@anthropic-ai/sdk ^0.68 || ^1, openai ^6.48 || ^7, or @google/genai ^2 — the deprecated @google/generative-ai is still used as a fallback with a DeprecationWarning; ollama needs none, it talks plain HTTP via fetch; the 9 presets need only openai). Vertex AI / custom Gemini client: aiPlugin({ instance: new GeminiProvider(fromGoogleGenAI(new GoogleGenAI({...})), { model }) })
+- Install: pnpm add @botmesh/ai + the chosen provider's SDK (@anthropic-ai/sdk ^0.68 || ^1, openai ^6.48 || ^7, or @google/genai ^2 — the deprecated @google/generative-ai is still used as a fallback with a DeprecationWarning; ollama needs none, it talks plain HTTP via fetch; the 9 presets need only openai). Vertex AI / custom Gemini client: aiPlugin({ instance: new GeminiProvider(fromGoogleGenAI(new GoogleGenAI({...})), { model }) })
 - bot.plug(aiPlugin({ provider, model, apiKey, baseUrl, persona, maxTokens, effort, thinking, timeoutMs, context: { maxMessages }, autoReply, resetCommand, errorMessage, refusalMessage, humanizeTyping, instance })) — catch-all text autoresponder with per-chat history + a /reset command (install after slashCommandsPlugin so its /reset wins); errorMessage/refusalMessage default to the localized ai.error/ai.refusal texts (es/en); aiPlugin() throws a RangeError/TypeError naming the option for impossible numbers (NaN or > 2^31-1 ms timeouts, maxTokens < 1, bad toolConfirm.timeout, tool without handler); bot.stop() aborts every model call in flight on 'stopping', before the transport stops (autoreplies, background memory extraction and ctx.tools.ai.ask/generate/stream/replyInChat/streamReplyInChat/runTools from user handlers, which reject with an AbortError)
 - Providers: 'anthropic' (default; default model claude-opus-5-5), 'openai' and 'ollama' (both require `model` explicitly), 'gemini' (default gemini-3.8-flash), and OpenAI-compatible presets 'deepseek'|'qwen'|'glm'|'kimi'|'groq'|'openrouter'|'mistral'|'grok'|'together' (each with its conventional env var, e.g. DEEPSEEK_API_KEY, and a default model; grok-4.7, glm-5.3). Default models are outside semver (they follow the vendors' current models); set `model` when it matters
 - timeoutMs (default 60000) aborts a hung non-streaming call so it cannot block the chat queue (total deadline); for streaming it is an idle timeout between chunks. A caller's abort signal releases ctx.tools.ai calls even when the provider ignores it

@@ -221,7 +221,7 @@ Besides `slashCommandsPlugin`, these packages ship ready-made plugins:
 - [Tracing](/guide/tracing) — `@botmesh/otel`
   (`otelMetricsPlugin`): `bot.metrics()` and the bot's spans in OpenTelemetry.
 
-All of them are on npm (during the beta, install them with the `@beta` dist-tag).
+All of them are on npm.
 `@botmesh/rag` (retrieval for `aiPlugin`) is
 described with [memory and RAG](/guide/ai-memory-rag).
 

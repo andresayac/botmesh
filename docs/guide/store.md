@@ -76,9 +76,6 @@ is a peer dependency, so install it next to the store:
 pnpm add @botmesh/sqlite-store better-sqlite3
 ```
 
-While botmesh is in prerelease, add the dist-tag shown in
-[Installation](./getting-started) to the `@botmesh/*` packages.
-
 ```ts
 import { Bot } from '@botmesh/core'
 import { BaileysProvider } from '@botmesh/baileys'

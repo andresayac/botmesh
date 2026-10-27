@@ -1,6 +1,6 @@
 # @botmesh/inbox
 
-> **Private package** (`"private": true`, not published to npm). Real, persistent implementation; the API may change without notice while the alpha is out.
+> **Private package** (`"private": true`, not published to npm). Real, persistent implementation; the API may change without notice during the beta.
 
 Tenant-isolated inbox for omnichannel conversations: compare-and-set (CAS) assignment, bot/human handoff, unread counters, SLA, internal notes and projection of the core ledger messages.
 

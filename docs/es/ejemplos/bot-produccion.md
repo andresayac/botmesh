@@ -18,9 +18,7 @@ JSON sin datos personales, apagado ordenado y una imagen de Docker.
 
 ## Requisitos previos
 
-Node.js 22.12 o superior, como en [Inicio rápido](/es/guide/inicio#requisitos).
-Mientras botmesh esté en prerelease, lee allí la nota sobre qué etiqueta de
-npm instalar. Docker es opcional.
+Node.js 22.12 o superior, como en [Inicio rápido](/es/guide/inicio#requisitos). Docker es opcional.
 
 ```bash
 npm install @botmesh/core @botmesh/baileys @botmesh/sqlite-store better-sqlite3 pino

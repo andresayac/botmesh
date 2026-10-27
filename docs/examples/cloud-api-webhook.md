@@ -19,8 +19,7 @@ back to an approved template outside the 24-hour window.
 ## Prerequisites
 
 - Node.js 22.12 or newer and an ESM project (`"type": "module"`), as in
-  [Getting started](/guide/getting-started#requirements). While botmesh is in
-  prerelease, read the note there about which npm tag to install.
+  [Getting started](/guide/getting-started#requirements).
 - A Meta app with the WhatsApp product: an access token, the phone number
   id, the app secret, and a verify token you choose. An approved template
   named `order_shipped` with one body parameter.

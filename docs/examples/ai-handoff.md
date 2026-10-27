@@ -24,9 +24,6 @@ An internet-provider assistant that solves what it can and, when it should not g
 npm install @botmesh/core @botmesh/ai @anthropic-ai/sdk @botmesh/baileys
 ```
 
-While the packages are in prerelease, add the dist-tag shown in
-[Getting started](/guide/getting-started#requirements).
-
 ## The bot
 
 ```js

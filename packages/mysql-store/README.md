@@ -15,7 +15,7 @@ There is no MySQL durability backend (`BotConfig.durability`); use `@botmesh/pos
 pnpm add @botmesh/mysql-store mysql2
 ```
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/mysql-store@beta mysql2` during the beta (`npm view @botmesh/mysql-store dist-tags` lists the tags). Once stable, the plain command above works.
+> **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish).
 
 [`mysql2`](https://www.npmjs.com/package/mysql2) `^3.11` is a **peer dependency**, loaded only when the store creates its own pool. You need a MySQL 8.x or MariaDB server reachable from the bot (for example `mysql://localhost:3306/botwa`); the database must exist, the store creates its tables.
 

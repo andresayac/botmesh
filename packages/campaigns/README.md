@@ -1,6 +1,6 @@
 # @botmesh/campaigns
 
-> **Private package** (`"private": true`, not published to npm). Real, persistent implementation; the API may change without notice while the alpha is out.
+> **Private package** (`"private": true`, not published to npm). Real, persistent implementation; the API may change without notice during the beta.
 
 Campaign planner with consent, tag-based segmentation and durable reservations per tenant/campaign/recipient.
 

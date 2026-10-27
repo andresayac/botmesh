@@ -1,5 +1,11 @@
 # Release readiness: the beta with 36 public packages
 
+> **Published (2026-10-27).** All 36 public packages are on npm under the `beta` dist-tag, at the
+> versions in the [release plan](#release-plan) (`@botmesh/core` `2.0.0-beta.4`; the rest
+> `1.0.0-beta.0` to `1.0.0-beta.2`). `latest` was moved by hand to the same versions for every
+> package, and the release tags were pushed. The rest of this report is the pre-publish
+> go/no-go and is kept as written.
+
 Go/no-go report for the next publish of `@botmesh/*`: the first beta that ships all **36 public
 packages** (the 10 already on npm under `alpha` plus the 26 promoted during the beta, which have
 never been published), and the outlook for the later stable release (`pre exit`).
@@ -73,7 +79,8 @@ versioning, so the published scaffolder stamps the right ranges.
 
 ## Maintainer release steps
 
-Run in `main`, on a clean tree. Publishing to npm cannot be undone.
+Done on 2026-10-27 (kept for reference). Run in `main`, on a clean tree. Publishing to npm
+cannot be undone.
 
 ```bash
 git push                                   # the merged main (docs review, per-package fixes, this report)
@@ -410,8 +417,9 @@ postgres-store 11, mysql-store 9, mongo-store 12.
   on node-redis 4, 5 and 6; mongo-store on drivers 6 and 7.
 - [x] `pnpm api-check`, `pack:smoke`, `test:scripts`, `bench:soak`, `pnpm run docs`,
   `docs:check` (both bases) and the deploy dry run pass.
-- [ ] Maintainer: `pnpm version-packages` and commit, then `pnpm release` and the `dist-tag`
-  commands ([Maintainer release steps](#maintainer-release-steps)).
+- [x] Maintainer: `pnpm version-packages` and commit, then `pnpm release` and the `dist-tag`
+  commands ([Maintainer release steps](#maintainer-release-steps)). Done on 2026-10-27: all 36
+  published under `beta`, `latest` moved, tags pushed.
 
 ### During beta
 

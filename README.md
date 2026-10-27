@@ -47,7 +47,7 @@ npm install @botmesh/core @botmesh/meta        # WhatsApp Cloud API
 npm install @botmesh/ai @anthropic-ai/sdk      # + AI (optional; the SDK of the provider you use)
 ```
 
-> **Prerelease.** botmesh is not stable yet, and these docs describe the upcoming release. During the beta, add the tag to these commands (`npm create botmesh@beta`, `npm install @botmesh/core@beta …`): without it npm installs `latest`, which can still point to an older alpha. Until the beta is published, npm only has older alphas that differ from the docs in places (built-in texts default to Spanish, `pairingCode` instead of `pairingPhoneNumber`, and a scaffolded project needs a `.env` before `npm start`). Once `@botmesh/core` 2.0.0 ships, the commands work as written.
+> **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish). The docs describe this beta; once `@botmesh/core` 2.0.0 ships, the commands stay the same.
 
 The [getting started guide](https://andresayac.github.io/botmesh/guide/getting-started) walks through the simulator, linking WhatsApp and connecting Telegram step by step.
 
@@ -57,7 +57,7 @@ The [getting started guide](https://andresayac.github.io/botmesh/guide/getting-s
 
 This is a pnpm monorepo with **45 packages**: 36 **Public**, 3 **Experimental** and 6 **Product** and internal ones. They are not all equally mature, and the **Status** column says so plainly:
 
-- **Public**: published on npm (the 26 promoted in the beta for the first time with it) and covered by semver from the stable release on (prerelease builds until then).
+- **Public**: published on npm (all 36, as beta versions until the stable release) and covered by semver from the stable release on.
 - **Experimental**: real, tested implementation, but the package is `private`. Not published yet and its API may change.
 - **Product / internal**: real, persistent implementation (`private`) over any core `DurableKv`. Per-tenant isolation and compare-and-set in the backend; the API may still change.
 

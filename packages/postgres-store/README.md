@@ -16,7 +16,7 @@ Documents are stored as `JSONB`; the tables are created on `start()`. The packag
 pnpm add @botmesh/postgres-store pg
 ```
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/postgres-store@beta pg` during the beta (`npm view @botmesh/postgres-store dist-tags` lists the tags). Once stable, the plain command above works.
+> **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish).
 
 [`pg`](https://www.npmjs.com/package/pg) `^8.13` is a **peer dependency**, loaded only when the store creates its own pool. You need a PostgreSQL server reachable from the bot (for example `postgres://localhost:5432/botwa`); the database must exist, the store creates its tables. The package's types never name `pg`, so TypeScript projects need no `@types/pg`.
 

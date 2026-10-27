@@ -17,8 +17,6 @@ offers the last one again next time, even after a restart.
 
 - Node.js 22.12 or newer and an empty folder with `"type": "module"` in its
   `package.json` ([Getting started](/guide/getting-started#_1-install)).
-- While botmesh is in prerelease, add the dist-tag from the
-  [prerelease note](/guide/getting-started#requirements) to every `@botmesh/*` package.
 
 ```bash
 npm install @botmesh/core @botmesh/baileys

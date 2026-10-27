@@ -1,6 +1,6 @@
 # @botmesh/manager
 
-> **Experimental — not yet published on npm.** It is a real, tested implementation, but the package is `private`: it is not part of the first alpha and its API may change. Use it from this monorepo (`workspace:*`).
+> **Experimental — not yet published on npm.** It is a real, tested implementation, but the package is `private`: it is not part of the beta and its API may change. Use it from this monorepo (`workspace:*`).
 
 Multi-bot orchestrator for [`@botmesh/core`](../core): it manages many
 `Bot` instances from a single registry. Add and remove bots by id, track

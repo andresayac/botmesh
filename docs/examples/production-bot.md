@@ -18,9 +18,7 @@ personal data, graceful shutdown and a Docker image.
 
 ## Prerequisites
 
-Node.js 22.12 or newer, as in [Getting started](/guide/getting-started#requirements).
-While botmesh is in prerelease, read the note there about which npm tag to
-install. Docker is optional.
+Node.js 22.12 or newer, as in [Getting started](/guide/getting-started#requirements). Docker is optional.
 
 ```bash
 npm install @botmesh/core @botmesh/baileys @botmesh/sqlite-store better-sqlite3 pino
