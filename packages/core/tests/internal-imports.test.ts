@@ -61,7 +61,8 @@ const DEPRECATED = [...new Set([
  * `CHANGELOG.md` (release notes quote historical import lines), the historical design
  * notes (`docs/superpowers/`), and what is not the project's own source: dependencies
  * and generated output (`node_modules`, `lib`, `dist`, `coverage` at any depth; the
- * TypeDoc output `docs/api/` and the VitePress cache/temp), git and CI internals,
+ * TypeDoc output `docs/api/`, the VitePress cache/temp and the temporary
+ * `.docs-example-*` programs of the docs-example tests), git and CI internals,
  * changesets, third-party reference repos (`terceros/`), local tool folders and the
  * WhatsApp session folders. Everything else in the repo is: every package's sources,
  * tests, test utilities, examples, scripts and README, the root `test-utils/` and
@@ -79,7 +80,8 @@ const EXTENSIONS = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|vue|md|txt)$/
 /** True when the repo-relative path `rel` (`/`-separated) is left out of the scan. */
 export function isSkipped(rel: string): boolean {
   const name = rel.split('/').pop()!
-  return SKIP_NAMES.has(name) || name.endsWith('_sessions') || SKIP_PATHS.has(rel)
+  // `.docs-example-*`: temporary programs the @botmesh/ai docs-example tests create and delete meanwhile.
+  return SKIP_NAMES.has(name) || name.endsWith('_sessions') || name.startsWith('.docs-example-') || SKIP_PATHS.has(rel)
 }
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -256,7 +258,7 @@ describe('internal, SPI and deprecated names are not imported from the main entr
       'node_modules', 'packages/ai/node_modules', 'packages/ai/lib', 'docs/dist', '.git', '.github', '.changeset',
       'terceros', 'sessions', 'packages/core/sessions', 'bot_sessions', '.claude', '.playwright-mcp',
       'docs/superpowers', 'docs/api', 'docs/.vitepress/cache', 'docs/.vitepress/.temp', 'packages/ai/coverage',
-      'packages/core/tests', 'CHANGELOG.md', 'packages/ai/CHANGELOG.md',
+      'packages/core/tests', 'CHANGELOG.md', 'packages/ai/CHANGELOG.md', 'packages/ai/.docs-example-a1B2c3',
     ]) expect(isSkipped(rel), rel).toBe(true)
     for (const rel of [
       'packages/manager/src/api', 'packages/ai/src/cache', 'packages/x/superpowers', 'docs/guide', 'docs/es/guide',

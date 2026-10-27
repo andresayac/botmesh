@@ -98,30 +98,74 @@ describe('@botmesh/ai exported data is frozen', () => {
   })
 })
 
+const SKIP_NAMES = new Set(['node_modules', 'lib', 'dist', 'coverage', 'sessions', '.vitepress', 'CHANGELOG.md'])
+
+/** The file-system calls {@link scanTree} makes (injectable to test a vanishing entry). */
+interface ScanFs {
+  readdir(dir: string): string[]
+  lstat(path: string): { isDirectory(): boolean; isFile(): boolean }
+}
+
+function isMissing(err: unknown): boolean {
+  return (err as NodeJS.ErrnoException | null)?.code === 'ENOENT'
+}
+
+/**
+ * Source files under `dir`. Skips generated output, session folders and the temporary
+ * `.docs-example-*` programs the docs-example tests write into `packages/ai` while this
+ * suite runs; an entry deleted mid-scan (ENOENT) is skipped, any other error is thrown.
+ */
+function scanTree(fs: ScanFs, dir: string, skip: (path: string, name: string) => boolean, out: string[] = []): string[] {
+  let names: string[]
+  try { names = fs.readdir(dir) } catch (err) { if (isMissing(err)) return out; throw err }
+  for (const name of names) {
+    const p = `${dir}/${name}`
+    if (SKIP_NAMES.has(name) || name.endsWith('_sessions') || name.startsWith('.docs-example-') || skip(p, name)) continue
+    let st: ReturnType<ScanFs['lstat']>
+    try { st = fs.lstat(p) } catch (err) { if (isMissing(err)) continue; throw err }
+    if (st.isDirectory()) scanTree(fs, p, skip, out)
+    else if (st.isFile() && /\.(ts|mts|js|mjs|md|txt)$/.test(name)) out.push(p)
+  }
+  return out
+}
+
+describe('the repo scan below', () => {
+  const enoent = () => Object.assign(new Error('gone'), { code: 'ENOENT' })
+  const tree: Record<string, string[]> = { '/r': ['a.ts', '.docs-example-x1', 'gone.ts', 'gone-dir', 'sub'], '/r/sub': ['b.md'], '/r/.docs-example-x1': ['bot.js'] }
+  const fakeFs = (lstatError: () => Error): ScanFs => ({
+    readdir: (dir) => { const names = tree[dir]; if (!names) throw enoent(); return names },
+    lstat: (p) => {
+      if (p === '/r/gone.ts') throw lstatError()
+      const dir = p in tree || p === '/r/gone-dir'
+      return { isDirectory: () => dir, isFile: () => !dir }
+    },
+  })
+
+  it('skips the temporary .docs-example-* folders and entries that vanish mid-scan', () => {
+    expect(scanTree(fakeFs(enoent), '/r', () => false)).toEqual(['/r/a.ts', '/r/sub/b.md'])
+  })
+
+  it('still throws on errors other than ENOENT', () => {
+    expect(() => scanTree(fakeFs(() => Object.assign(new Error('denied'), { code: 'EACCES' })), '/r', () => false)).toThrow('denied')
+  })
+})
+
 describe('the repo imports moved names from their new entry', () => {
   it('no guide, README, example or package imports a moved helper or a test double from the main entry', { timeout: 30_000 }, async () => {
     const { lstatSync, readFileSync, readdirSync } = await import('node:fs')
-    const { join, resolve } = await import('node:path')
-    const root = resolve(import.meta.dirname, '../../..')
-    const ownDirs = new Set([resolve(root, 'packages/ai/src'), resolve(root, 'packages/ai/tests')])
+    const { resolve } = await import('node:path')
+    const root = resolve(import.meta.dirname, '../../..').replaceAll('\\', '/')
+    const ownDirs = new Set([`${root}/packages/ai/src`, `${root}/packages/ai/tests`])
     const roots = ['docs/guide', 'docs/es/guide', 'docs/examples', 'docs/es/ejemplos', 'docs/public', 'examples', 'packages', 'scripts']
-    const skipNames = new Set(['node_modules', 'lib', 'dist', 'coverage', 'sessions', '.vitepress', 'CHANGELOG.md'])
+    const nodeFs: ScanFs = { readdir: (dir) => readdirSync(dir), lstat: (p) => lstatSync(p) }
     const files: string[] = []
-    const walk = (dir: string): void => {
-      for (const name of readdirSync(dir)) {
-        const p = join(dir, name)
-        if (skipNames.has(name) || name.endsWith('_sessions') || ownDirs.has(p)) continue
-        const st = lstatSync(p)
-        if (st.isDirectory()) walk(p)
-        else if (st.isFile() && /\.(ts|mts|js|mjs|md|txt)$/.test(name)) files.push(p)
-      }
-    }
-    for (const r of roots) walk(join(root, r))
+    for (const r of roots) scanTree(nodeFs, `${root}/${r}`, (p) => ownDirs.has(p), files)
     const banned = new Set<string>([...MOVED_TO_INTERNAL, ...MAIN_DEPRECATED_VALUES, 'validateArgs', 'MockOptions', 'MockTurn'])
     const offenders: string[] = []
     const importRe = /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"]@botmesh\/ai['"]|import\(['"]@botmesh\/ai['"]\)/g
     for (const f of files) {
-      const text = readFileSync(f, 'utf8')
+      let text: string
+      try { text = readFileSync(f, 'utf8') } catch (err) { if (isMissing(err)) continue; throw err }
       for (const m of text.matchAll(importRe)) {
         if (!m[1]) { if (/MockAIProvider/.test(text.slice(m.index! - 80, m.index!))) offenders.push(`${f}: dynamic import`); continue }
         for (const raw of m[1].split(',')) {
