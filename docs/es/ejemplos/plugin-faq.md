@@ -8,7 +8,7 @@ y limpia lo suyo cuando lo desconectas.
 
 **Funcionalidades:**
 [Plugins](/es/guide/plugins) (`definePlugin`, `install`/`uninstall`, `ctx.onDispose`, unplug) ·
-[Inyección de dependencias](/es/guide/di) (`provide`, `ctx.tools`) ·
+[Inyección de dependencias](/es/guide/plugins#compartir-herramientas-inyeccion-de-dependencias) (`provide`, `ctx.tools`) ·
 [Comandos slash](/es/guide/plugins#incluido-slashcommands) ·
 [Comandos y triggers](/es/guide/conceptos) ·
 [Simulador en la terminal](/es/guide/simulador)
@@ -119,7 +119,7 @@ distintas.
 `ctx.bot.provide('faq', valor)` guarda `valor` en el registro de herramientas
 del bot. Cualquier handler, hook o plugin lo lee como `ctx.tools.faq`: el
 comando `/faqstats` del propio bot (paso 7) usa los contadores del plugin sin
-importar nada de él. Mira [Inyección de dependencias](/es/guide/di).
+importar nada de él. Mira [Inyección de dependencias](/es/guide/plugins#compartir-herramientas-inyeccion-de-dependencias).
 
 ### 3. Lo que el unplug deshace por ti
 
@@ -182,7 +182,7 @@ completo, normalizado (mayúsculas, tildes y espacios de más).
 `node bot.js` se conecta a WhatsApp: escanea el QR con el teléfono que hará de
 bot. Para Telegram, instala `@botmesh/telegram` y pasa
 `new TelegramProvider({ token: process.env.TELEGRAM_TOKEN })` en su lugar; el
-plugin no cambia. Mira [Canales](/es/guide/canales).
+plugin no cambia. Mira [Telegram](/es/guide/telegram).
 
 ## Siguientes pasos
 

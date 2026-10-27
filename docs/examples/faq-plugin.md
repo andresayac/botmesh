@@ -8,7 +8,7 @@ unplug it.
 
 **Features shown:**
 [Plugins](/guide/plugins) (`definePlugin`, `install`/`uninstall`, `ctx.onDispose`, unplug) ·
-[Dependency injection](/guide/di) (`provide`, `ctx.tools`) ·
+[Dependency injection](/guide/plugins#share-tools-dependency-injection) (`provide`, `ctx.tools`) ·
 [Slash commands](/guide/plugins#built-in-slashcommands) ·
 [Commands and triggers](/guide/concepts) ·
 [Terminal simulator](/guide/dev-simulator)
@@ -118,7 +118,7 @@ of `bot.plug()`, so one plugin serves several bots with different answers.
 `ctx.bot.provide('faq', value)` puts `value` in the bot's tool registry. Every
 handler, hook and plugin reads it as `ctx.tools.faq`: the bot's own
 `/faqstats` command (step 7) uses the plugin's counters without importing
-anything from it. See [Dependency injection](/guide/di).
+anything from it. See [Dependency injection](/guide/plugins#share-tools-dependency-injection).
 
 ### 3. What unplug undoes for you
 
@@ -178,7 +178,7 @@ normalized (case, accents and extra spaces).
 `node bot.js` connects to WhatsApp: scan the QR with the phone that will be
 the bot. For Telegram, install `@botmesh/telegram` and pass
 `new TelegramProvider({ token: process.env.TELEGRAM_TOKEN })` instead; the
-plugin does not change. See [Channels](/guide/channels).
+plugin does not change. See [Telegram](/guide/telegram).
 
 ## Next steps
 
