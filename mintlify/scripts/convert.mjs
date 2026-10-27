@@ -69,12 +69,30 @@ function readSidebar(source, name) {
 const configTs = readFileSync(join(docs, '.vitepress', 'config.ts'), 'utf8')
 const sidebars = { en: readSidebar(configTs, 'enSidebar'), es: readSidebar(configTs, 'esSidebar') }
 
+/**
+ * The page items of a sidebar group, nested groups (`{ text, items }`, such as
+ * "Experimental") included. `/api/` links point at the TypeDoc reference, which
+ * has its own tab, so they are skipped.
+ */
+const pageItems = (items) =>
+  items.flatMap((item) => (item.items ? pageItems(item.items) : item.link.startsWith('/api/') ? [] : [item]))
+
 /** link ('/guide/flows') -> sidebar label, for `sidebarTitle`. */
 const sidebarLabel = new Map()
 for (const lang of Object.values(sidebars)) {
   for (const groups of Object.values(lang)) {
-    for (const group of groups) for (const item of group.items) sidebarLabel.set(item.link.slice(1), item.text)
+    for (const group of groups) for (const item of pageItems(group.items)) sidebarLabel.set(item.link.slice(1), item.text)
   }
+}
+
+/**
+ * Pages removed or split in a docs reorganization: old source page -> page
+ * that now holds its content. Each gets a redirect in docs.json (the Spanish
+ * source path is mapped to its published path like any other page).
+ */
+const MOVED_PAGES = {
+  'guide/di': 'guide/plugins',
+  'es/guide/di': 'es/guide/plugins',
 }
 
 // ---------------------------------------------------------------- pages
@@ -101,7 +119,7 @@ const pageSet = new Set(pages)
  */
 const esTarget = new Map()
 {
-  const flat = (sb) => Object.values(sb).flatMap((groups) => groups.flatMap((g) => g.items.map((i) => i.link.slice(1))))
+  const flat = (sb) => Object.values(sb).flatMap((groups) => groups.flatMap((g) => pageItems(g.items).map((i) => i.link.slice(1))))
   const en = flat(sidebars.en)
   const es = flat(sidebars.es)
   if (en.length !== es.length) throw new Error(`sidebars out of sync: ${en.length} English vs ${es.length} Spanish pages`)
@@ -639,11 +657,31 @@ function apiGroupsFromSite() {
 
 // ---------------------------------------------------------------- docs.json
 
+function navPages(items) {
+  return items.flatMap((item) => {
+    if (item.items) return [{ group: item.text, pages: navPages(item.items) }]
+    return item.link.startsWith('/api/') ? [] : [outPage(item.link.slice(1))]
+  })
+}
+
 function navGroups(sidebar, prefixHome) {
   return sidebar.map((group, i) => ({
     group: group.text,
-    pages: [...(i === 0 && prefixHome ? [prefixHome] : []), ...group.items.map((item) => outPage(item.link.slice(1)))],
+    pages: [...(i === 0 && prefixHome ? [prefixHome] : []), ...navPages(group.items)],
   }))
+}
+
+/**
+ * Redirects of MOVED_PAGES. List a removed Spanish page by the path it was
+ * published at (its English counterpart's path under es/, which is also its
+ * old slug when both match).
+ */
+function movedRedirects() {
+  return Object.entries(MOVED_PAGES).map(([from, to]) => {
+    if (pageSet.has(from)) throw new Error(`${from} is listed in MOVED_PAGES but still exists in docs/`)
+    if (!pageSet.has(to)) throw new Error(`MOVED_PAGES: ${from} points at a missing page ${to}`)
+    return { source: `/${from}`, destination: urlOf(to) }
+  })
 }
 
 function docsJson(apiGroups) {
@@ -684,7 +722,11 @@ function docsJson(apiGroups) {
     search: { prompt: 'Search the botmesh docs…' },
     seo: { indexing: 'navigable' },
     // Old Spanish slugs (VitePress URLs) -> mirrored paths.
-    redirects: [...esTarget].filter(([from, to]) => from !== to).map(([from, to]) => ({ source: `/${from}`, destination: `/${to}` })),
+    // and pages moved in a reorganization (MOVED_PAGES) -> their new page.
+    redirects: [
+      ...[...esTarget].filter(([from, to]) => from !== to).map(([from, to]) => ({ source: `/${from}`, destination: `/${to}` })),
+      ...movedRedirects(),
+    ],
     navigation: {
       languages: [
         {

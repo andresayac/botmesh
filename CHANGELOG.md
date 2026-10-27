@@ -4,6 +4,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### Docs: reorganización de las guías (2026-10-27)
+- La barra lateral de las guías (EN/ES, mismas posiciones) pasa a nueve secciones: Primeros pasos, Crear bots, Canales, IA, Datos y estado, Producción, Tests y herramientas, Referencia y Actualizar. Las páginas de paquetes privados (TikTok, control plane, sandbox) van en un subgrupo "Experimental" al final de su sección, con un aviso al principio.
+- La guía de canales se divide en una página por canal (Baileys, WhatsApp Cloud API, Evolution, WPPConnect, Twilio, Gupshup, HighLevel, Messenger, Instagram, Telegram, Discord, Email y TikTok); la página de canales queda como resumen (elegir canal, matriz de capacidades, contrato común) y conserva un encabezado por canal con el mismo ancla, así que los enlaces antiguos como `channels#botmesh-telegram` siguen funcionando.
+- La inyección de dependencias se integra en la guía de plugins (sección "Share tools" / "Compartir herramientas"); `guide/di` desaparece.
+- Páginas nuevas: "Paquetes y versiones" (única fuente del estado de cada paquete: los 36 públicos por capa, dist-tags `beta`/`latest`, instalación, Node >= 22, solo ESM y los 9 privados), "Mensajes proactivos" (`bot.send`, `bot.broadcast`, `bot.trigger`, scheduler, `bot.onIdle`, `bot.enqueue`) y "Si vienes de la v1". Los avisos de beta repetidos en otras guías se sustituyen por un enlace a "Paquetes y versiones".
+- Mintlify: el conversor admite grupos anidados en la barra lateral, omite el enlace a la referencia de la API (tiene su propia pestaña) y genera redirecciones para las páginas eliminadas (`MOVED_PAGES`: `guide/di` → `guide/plugins`).
+
 ### Docs: publicación en Mintlify (2026-10-27)
 - Nuevo `pnpm docs:mintlify` (`scripts/mintlify-deploy.mjs`): genera el sitio Mintlify desde `docs/` con el conversor de `mintlify/` (raíz pnpm propia; la salida `mintlify/site/` no se versiona), lo valida con `mint validate` y `mint broken-links` y lo publica forzado en la rama `main` del repo aparte `andresayac/botmesh-docs` (configurable con `MINTLIFY_REPO`/`MINTLIFY_BRANCH`; el onboarding de Mintlify exige `docs.json` en la rama por defecto), que despliega la GitHub App de Mintlify; VitePress sigue en GitHub Pages hasta que Mintlify esté activo.
 
