@@ -11,7 +11,7 @@
   "author": "Andres Aya",
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/andresayac/botmesh.git", "directory": "packages/telegram-provider" },
-  "homepage": "https://andresayac.github.io/botmesh/guide/channels#botmesh-telegram",
+  "homepage": "https://botmesh.afaya.com.co/guide/channels#@botmesh/telegram",
   "bugs": { "url": "https://github.com/andresayac/botmesh/issues" },
   "files": ["./lib/**/*"],
   "scripts": { "build": "tsc", "test": "vitest run", "prepublishOnly": "pnpm build", "typecheck": "tsc -p tsconfig.test.json" },

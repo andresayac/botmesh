@@ -12,6 +12,10 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, posix } from 'node:path'
 
 export const GITHUB = 'https://github.com/andresayac/botmesh'
+/** The published docs site (Mintlify, custom domain). */
+export const SITE_URL = 'https://botmesh.afaya.com.co/'
+/** The old GitHub Pages site, which only redirects to SITE_URL now. */
+export const LEGACY_SITE_URL = 'https://andresayac.github.io/botmesh/'
 
 /** Evaluates `const <name> = { ... } satisfies ...` from the VitePress config. */
 export function readSidebar(source, name) {

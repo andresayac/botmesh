@@ -1,8 +1,9 @@
 # Mintlify docs
 
-Tooling that publishes the botmesh docs on [Mintlify](https://www.mintlify.com), hosted by Mintlify.
-The VitePress site in [`docs/`](../docs) stays the source of truth (and stays on GitHub Pages until
-the Mintlify site is live): everything Mintlify serves is **generated** from it by
+Tooling that publishes the botmesh docs on [Mintlify](https://www.mintlify.com), hosted by Mintlify at
+**<https://botmesh.afaya.com.co/>**, the official docs site since 2026-10-27. The old GitHub Pages site
+(<https://andresayac.github.io/botmesh/>) only redirects there (see [GitHub Pages redirects](#github-pages-redirects)).
+The VitePress pages in [`docs/`](../docs) stay the source of truth: everything Mintlify serves is **generated** from them by
 [`scripts/convert.mjs`](scripts/convert.mjs) and pushed to the `main` branch of a separate repository,
 [`andresayac/botmesh-docs`](https://github.com/andresayac/botmesh-docs), by `pnpm docs:mintlify`.
 A separate repo, because Mintlify's onboarding only accepts a repository whose **default branch**
@@ -15,9 +16,11 @@ mintlify/
   pnpm-workspace.yaml  makes this folder its own pnpm root; the monorepo never sees it
   typedoc.json         extends packages/core/typedoc.json, Markdown output
   scripts/convert.mjs  docs/ (+ TypeDoc) -> site/
+  scripts/site-map.mjs where each page and each old GitHub Pages URL lands (no dependencies; shared
+                       with the redirects of pnpm docs:deploy --redirects)
   assets/              logo and favicon copied into site/
   site/                GENERATED Mintlify project (docs.json + .mdx); git-ignored, never on main
-  .cache/              TypeDoc scratch output (git-ignored)
+  .cache/              TypeDoc scratch output and anchors.json, the old -> new anchor table (git-ignored)
 ```
 
 The folder is not a workspace member (`pnpm-workspace.yaml` at the root only lists `packages/*` and
@@ -34,7 +37,7 @@ From a clean `main` at the repo root (the maintainer runs it; it force-pushes):
 pnpm docs:mintlify                  # generate, check, force-push the site to botmesh-docs (main)
 pnpm docs:mintlify --dry-run        # same, but stops before the push and keeps the temp repo
 pnpm docs:mintlify --dry-run --force-branch   # from a branch other than main
-MINTLIFY_SITE_URL=https://docs.example.com/ pnpm docs:mintlify   # final URL (default https://botmesh.mintlify.app/)
+MINTLIFY_SITE_URL=https://docs.example.com/ pnpm docs:mintlify   # final URL (default https://botmesh.afaya.com.co/)
 MINTLIFY_REPO=git@github.com:me/docs.git MINTLIFY_BRANCH=main pnpm docs:mintlify   # other target (default https://github.com/andresayac/botmesh-docs.git, main)
 ```
 
@@ -63,7 +66,7 @@ cd mintlify
 pnpm install                 # first time only (own lockfile, own node_modules)
 node scripts/convert.mjs     # docs/ + TypeDoc -> site/   (about 10 s)
 node scripts/convert.mjs --skip-api                         # pages only, keep site/api
-node scripts/convert.mjs --llms-base https://botmesh.mintlify.app/   # also publish the curated llms.txt
+node scripts/convert.mjs --llms-base https://botmesh.afaya.com.co/   # also publish the curated llms.txt
 
 cd site
 ../node_modules/.bin/mint dev --port 3333 --no-open     # http://localhost:3333
@@ -90,7 +93,7 @@ What it converts:
 | `/api/interfaces/_botmesh_core.IStore.html` | `/api/core/interfaces/IStore` |
 | `{`, `}`, `<`, `<!-- -->`, `<https://…>` in prose | escaped / `{/* */}` / `[url](url)` so every page compiles as MDX |
 | sidebars in `docs/.vitepress/config.ts` | `docs.json` `navigation.languages[en, es]` → tabs Guide / Examples / API reference, same groups and order |
-| `docs/public/llms.txt` (with `--llms-base`) | `llms.txt` with every GitHub Pages link mapped to its Mintlify page (unpublished files → GitHub) |
+| `docs/public/llms.txt` (with `--llms-base`) | `llms.txt` with every link on the published site moved to `--llms-base`, and any old GitHub Pages link mapped to its Mintlify page (unpublished files → GitHub) |
 
 Spanish pages are published at their **English counterpart's path** under `/es/`
 (`docs/es/guide/flujos.md` → `/es/guide/flows`), paired by position in the two sidebars, the same
@@ -113,36 +116,53 @@ State on 2026-10-27: 705 pages (162 guide/example pages in two languages, 2 home
 541 API pages), `mint validate` passes and `mint broken-links --check-anchors --check-redirects`
 finds 0 broken links.
 
-## Going live (maintainer steps)
+## Going live (done on 2026-10-27)
 
-Nothing below has been done yet; no account was created and no app was installed.
-
-1. Create an **empty** public repository `andresayac/botmesh-docs` on GitHub (no README, license or
-   .gitignore), then deploy once so it has content: `pnpm docs:mintlify` from a clean `main`
-   (try `pnpm docs:mintlify --dry-run` first).
-2. Sign up at [dashboard.mintlify.com](https://dashboard.mintlify.com) (Starter plan, free) and
-   create a project / deployment; skip the template repository it offers.
-3. In the onboarding, choose **Local development → Set up your repository → Use existing** and pick
-   `andresayac/botmesh-docs` (its default branch has `docs.json` at the root, which is what the
-   onboarding checks). Leave the docs path at the repository root.
-4. Install the **Mintlify GitHub App** on `andresayac/botmesh-docs`, granting it **only that
-   repository**. It never needs access to `andresayac/botmesh`.
-5. Pick the subdomain. If it is not `botmesh` (site at `https://botmesh.mintlify.app`), redeploy with
-   `MINTLIFY_SITE_URL=https://<subdomain>.mintlify.app/ pnpm docs:mintlify` so `llms.txt` points at it.
-6. Optional: custom domain (dashboard → Custom domain, then the same `MINTLIFY_SITE_URL` redeploy).
-7. Optional: apply to the [Mintlify OSS program](https://mintlify.typeform.com/oss-program) for a free
+1. The public repository `andresayac/botmesh-docs` holds the generated site (`pnpm docs:mintlify`).
+2. The Mintlify project (Starter plan) deploys it through the **Mintlify GitHub App**, installed on
+   that repository only (it never needs access to `andresayac/botmesh`).
+3. Custom domain `botmesh.afaya.com.co` (dashboard → Custom domain); `MINTLIFY_SITE_URL` defaults to it,
+   so `llms.txt` points at it.
+4. Optional: apply to the [Mintlify OSS program](https://mintlify.typeform.com/oss-program) for a free
    Pro plan (AI assistant, preview deployments, analytics). It requires a recognised open-source
    license and a non-commercial project.
 
-From then on each `pnpm docs:mintlify` redeploys. No GitHub Actions are involved.
+Each `pnpm docs:mintlify` redeploys. No GitHub Actions are involved.
 
-### What happens to GitHub Pages
+## GitHub Pages redirects
 
-Until Mintlify is live, `pnpm docs:deploy` keeps publishing the VitePress build to
-`https://andresayac.github.io/botmesh/`; the two sites coexist. Once Mintlify is the official site,
-publish to `gh-pages` a small static site whose pages are `<meta http-equiv="refresh">` +
-`rel="canonical"` redirects to the Mintlify URL (one stub per old URL, so deep links keep working),
-and update the links in `README.md`, the package READMEs, `docs/public/llms.txt` and `SECURITY.md`.
+GitHub Pages (`gh-pages` branch of this repo) no longer serves the VitePress site: it serves one tiny
+redirect page per URL the VitePress build used to publish, so old deep links keep working:
+
+```bash
+pnpm docs:deploy --redirects --dry-run   # build everything, keep the temp repo, push nothing
+pnpm docs:deploy --redirects             # force-push the stubs to gh-pages (maintainer, clean main)
+```
+
+[`scripts/docs-deploy.mjs`](../scripts/docs-deploy.mjs) builds the VitePress site with
+`DOCS_BASE=/botmesh/` (only to list its HTML pages), runs the converter with
+`--llms-base $MINTLIFY_SITE_URL`, and writes at the path of every HTML page a stub
+([`scripts/docs-redirects.mjs`](../scripts/docs-redirects.mjs)) with:
+
+- a JS `location.replace` that keeps the hash, translated through the converter's anchor table
+  (`.cache/anchors.json`: VitePress slug → Mintlify slug, `''` for the page title) or lowercased on
+  API pages (member ids are pinned in lowercase);
+- `<meta http-equiv="refresh">` (no JS), `<link rel="canonical">`, `noindex` and a visible link.
+
+Mapping rules (`legacyTarget()` in [`scripts/site-map.mjs`](scripts/site-map.mjs), the same rules the
+converter places pages with):
+
+| Old GitHub Pages path | Mintlify URL |
+| --- | --- |
+| `/`, `/guide/<x>`, `/examples/<x>`, `/examples/` | same path (`/examples` for the index) |
+| `/es/`, `/es/guide/<slug-es>`, `/es/ejemplos/<slug-es>` | `/es`, `/es/guide/<slug-en>`, `/es/examples/<slug-en>` (paired by sidebar position) |
+| `/api/<kind>/_botmesh_core[_spi|_testing].<Name>.html` | `/api/core[/spi|/testing]/<kind-dir>/<Name>` (`types` → `type-aliases`, `enums` → `enumerations`), or the module page if not generated |
+| `/api/`, `/api/modules.html`, `/api/hierarchy.html`, `/api/modules/<module>.html` | `/api/core` or the module page |
+| `/MIGRATION-v1-to-v2` (published by VitePress, not converted) | its source on GitHub |
+| `404.html` and anything else | `/` (`/es` under `/es/`) |
+
+The tree also carries the Mintlify `llms.txt` (the old `/botmesh/llms.txt` keeps answering) and
+`.nojekyll`. The publish fails if a target does not exist in `site/`.
 
 ## VitePress vs Mintlify for botmesh
 
@@ -152,9 +172,9 @@ seats), **Pro $450/month billed annually or $540/month monthly** (adds the AI as
 automations, preview deployments, analytics, 10,000 AI credits/month; an assistant answer costs 25
 credits), Enterprise on request (offline export, self-hosting, white labelling, PDF export).
 
-| | VitePress (today) | Mintlify |
+| | VitePress (until 2026-10-27) | Mintlify |
 | --- | --- | --- |
-| Hosting | GitHub Pages, `pnpm docs:deploy` by hand | Mintlify cloud, GitHub App redeploys on each `pnpm docs:mintlify` push |
+| Hosting | GitHub Pages, `pnpm docs:deploy` by hand (now redirects only) | Mintlify cloud, GitHub App redeploys on each `pnpm docs:mintlify` push |
 | Cost | $0 | $0 on Starter; AI features need Pro ($450–540/month) unless accepted in the OSS program |
 | Search | Local MiniSearch index in the browser, offline, localised UI | Hosted full-text search (Starter); search UI not localised in our config |
 | AI chat | None | Assistant on Pro only (credit-billed); "Copy page / open in ChatGPT / Claude" menu on Starter |

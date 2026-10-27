@@ -116,7 +116,7 @@ app.post('/inbound-email', express.raw({ type: '*/*', limit: '40mb' }), async (r
 })
 ```
 
-With [`@botmesh/server`](https://andresayac.github.io/botmesh/guide/server), mount it as a route with a larger `maxBodyBytes` instead.
+With [`@botmesh/server`](https://botmesh.afaya.com.co/guide/server), mount it as a route with a larger `maxBodyBytes` instead.
 
 ## Typed errors
 
@@ -197,5 +197,5 @@ What it covers: inbound over IMAP IDLE with stable `chatId`/`senderId`; threads 
 
 ## Links
 
-- [Channels guide](https://andresayac.github.io/botmesh/guide/channels#botmesh-email) · [Store](https://andresayac.github.io/botmesh/guide/store) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Channels guide](https://botmesh.afaya.com.co/guide/channels#@botmesh/email) · [Store](https://botmesh.afaya.com.co/guide/store) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/email-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/email-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

@@ -116,5 +116,5 @@ The default storage has no compare-and-set, so it is for **one process** per sto
 
 ## Links
 
-- [Integrations guide (tickets)](https://andresayac.github.io/botmesh/guide/integrations#tickets) · [Human handoff](https://andresayac.github.io/botmesh/guide/handoff) · [Persistent stores](https://andresayac.github.io/botmesh/guide/store) · [Replicas](https://andresayac.github.io/botmesh/guide/replicas)
+- [Integrations guide (tickets)](https://botmesh.afaya.com.co/guide/integrations#tickets) · [Human handoff](https://botmesh.afaya.com.co/guide/handoff) · [Persistent stores](https://botmesh.afaya.com.co/guide/store) · [Replicas](https://botmesh.afaya.com.co/guide/replicas)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/tickets/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/tickets) · [Issues](https://github.com/andresayac/botmesh/issues)

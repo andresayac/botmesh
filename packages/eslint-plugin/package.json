@@ -28,7 +28,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/eslint-plugin"
   },
-  "homepage": "https://andresayac.github.io/botmesh/guide/eslint",
+  "homepage": "https://botmesh.afaya.com.co/guide/eslint",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },

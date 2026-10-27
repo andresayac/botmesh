@@ -34,7 +34,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/gohighlevel-provider"
   },
-  "homepage": "https://andresayac.github.io/botmesh/guide/channels#botmesh-gohighlevel",
+  "homepage": "https://botmesh.afaya.com.co/guide/channels#@botmesh/gohighlevel",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },

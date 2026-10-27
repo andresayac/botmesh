@@ -12,7 +12,7 @@
   "keywords": ["botmesh", "messenger", "facebook", "meta", "provider", "transport", "webhook", "chatbot"],
   "author": "Andres Aya", "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/andresayac/botmesh.git", "directory": "packages/messenger-provider" },
-  "homepage": "https://andresayac.github.io/botmesh/guide/channels#botmesh-messenger",
+  "homepage": "https://botmesh.afaya.com.co/guide/channels#@botmesh/messenger",
   "bugs": { "url": "https://github.com/andresayac/botmesh/issues" },
   "files": ["./lib/**/*"],
   "scripts": { "build": "tsc", "test": "vitest run", "prepublishOnly": "pnpm build", "typecheck": "tsc -p tsconfig.test.json" },

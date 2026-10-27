@@ -37,7 +37,7 @@ export const noEmptyTrigger: Rule.RuleModule = {
     docs: {
       description: 'Disallow empty triggers in flow(), addKeyword(), bot.when() and conversation triggers',
       recommended: true,
-      url: 'https://andresayac.github.io/botmesh/guide/eslint#botmesh-no-empty-trigger',
+      url: 'https://botmesh.afaya.com.co/guide/eslint#botmesh/no-empty-trigger',
     },
     schema: [],
     messages: {

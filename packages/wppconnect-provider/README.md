@@ -161,11 +161,11 @@ delivered through an authenticated webhook, typed errors for an unpaired session
 wrong secret key). Pairing a real number and the message round trip with WhatsApp are not
 covered by the automated suites: try them on a test number before going to production.
 WPPConnect and WhatsApp Web are unofficial; read the
-[security guide](https://andresayac.github.io/botmesh/guide/security) and WhatsApp's terms before using a personal number.
+[security guide](https://botmesh.afaya.com.co/guide/security) and WhatsApp's terms before using a personal number.
 
 ## Links
 
-- [Channels guide](https://andresayac.github.io/botmesh/guide/channels#botmesh-wppconnect) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Channels guide](https://botmesh.afaya.com.co/guide/channels#@botmesh/wppconnect) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/wppconnect-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/wppconnect-provider) · [Issues](https://github.com/andresayac/botmesh/issues)
 
 Public package, covered by semver: a breaking change is a major version. The WA-JS wire

@@ -85,7 +85,7 @@ export const preferCtxUser: Rule.RuleModule = {
     docs: {
       description: 'Prefer ctx.user over globalState or module-level maps keyed by sender/chat id',
       recommended: true,
-      url: 'https://andresayac.github.io/botmesh/guide/eslint#botmesh-prefer-ctx-user-over-global-state',
+      url: 'https://botmesh.afaya.com.co/guide/eslint#botmesh/prefer-ctx-user-over-global-state',
     },
     schema: [
       {

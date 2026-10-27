@@ -136,5 +136,5 @@ Invalid credentials (`code: 'INVALID_CREDENTIALS'`) and invalid options (`code: 
 
 ## Links
 
-- [Integrations guide (Dialogflow)](https://andresayac.github.io/botmesh/guide/integrations#dialogflow) · [Flows](https://andresayac.github.io/botmesh/guide/flows) · [Triggers](https://andresayac.github.io/botmesh/guide/triggers) · [Security](https://andresayac.github.io/botmesh/guide/security)
+- [Integrations guide (Dialogflow)](https://botmesh.afaya.com.co/guide/integrations#dialogflow) · [Flows](https://botmesh.afaya.com.co/guide/flows) · [Triggers](https://botmesh.afaya.com.co/guide/triggers) · [Security](https://botmesh.afaya.com.co/guide/security)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/dialogflow/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/dialogflow) · [Issues](https://github.com/andresayac/botmesh/issues)

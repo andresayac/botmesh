@@ -49,7 +49,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/server"
   },
-  "homepage": "https://andresayac.github.io/botmesh/guide/server",
+  "homepage": "https://botmesh.afaya.com.co/guide/server",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },

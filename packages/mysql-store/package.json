@@ -29,7 +29,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/mysql-store"
   },
-  "homepage": "https://andresayac.github.io/botmesh/guide/store",
+  "homepage": "https://botmesh.afaya.com.co/guide/store",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },

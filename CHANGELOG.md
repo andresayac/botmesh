@@ -4,6 +4,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### Docs: Mintlify pasa a ser el sitio oficial; GitHub Pages solo redirige (2026-10-27)
+- El sitio de documentación es ahora <https://botmesh.afaya.com.co/> (Mintlify con dominio propio). `pnpm docs:mintlify` usa ese dominio por defecto (`MINTLIFY_SITE_URL` lo sigue sobrescribiendo).
+- Nuevo `pnpm docs:deploy --redirects` (`scripts/docs-redirects.mjs`): en lugar del sitio VitePress publica en `gh-pages` una página mínima por cada página del build (guías EN/ES, ejemplos, referencia TypeDoc `/api/` y `404.html`) con `location.replace` que conserva y traduce el ancla, `meta refresh`, `rel="canonical"` y un enlace visible a la página equivalente en Mintlify; lo no mapeado va a la portada. Las reglas de ubicación de páginas pasan a `mintlify/scripts/site-map.mjs`, compartido por el conversor y las redirecciones; el conversor escribe la tabla de anclas en `mintlify/.cache/anchors.json`.
+- README (raíz y de paquete), `homepage` de los paquetes, `docs/public/llms.txt`, CONTRIBUTING, AGENTS, `mintlify/README.md` y el `meta.docs.url` de las reglas de `eslint-plugin-botmesh` enlazan el nuevo dominio con las rutas de Mintlify (páginas en español con el slug inglés, anclas con los slugs de Mintlify).
+
 ### Docs: publicación en Mintlify (2026-10-27)
 - Nuevo `pnpm docs:mintlify` (`scripts/mintlify-deploy.mjs`): genera el sitio Mintlify desde `docs/` con el conversor de `mintlify/` (raíz pnpm propia; la salida `mintlify/site/` no se versiona), lo valida con `mint validate` y `mint broken-links` y lo publica forzado en la rama `main` del repo aparte `andresayac/botmesh-docs` (configurable con `MINTLIFY_REPO`/`MINTLIFY_BRANCH`; el onboarding de Mintlify exige `docs.json` en la rama por defecto), que despliega la GitHub App de Mintlify; VitePress sigue en GitHub Pages hasta que Mintlify esté activo.
 

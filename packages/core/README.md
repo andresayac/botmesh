@@ -1,12 +1,12 @@
 # @botmesh/core
 
-[![Docs](https://img.shields.io/badge/docs-guides-blue)](https://andresayac.github.io/botmesh/)
+[![Docs](https://img.shields.io/badge/docs-guides-blue)](https://botmesh.afaya.com.co/)
 [![npm](https://img.shields.io/npm/v/@botmesh/core)](https://www.npmjs.com/package/@botmesh/core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/andresayac/botmesh/blob/main/LICENSE.md)
 
 A **transport-agnostic** bot engine: declarative flows to get going in 30 seconds, an async conversation runtime when you need full control, hooks, plugins, dependency injection and a scheduler. You inject the transport: WhatsApp through [`@botmesh/baileys`](https://www.npmjs.com/package/@botmesh/baileys) or the Cloud API ([`@botmesh/meta`](https://www.npmjs.com/package/@botmesh/meta)), Telegram through [`@botmesh/telegram`](https://www.npmjs.com/package/@botmesh/telegram); every channel implements the same `IProvider` contract.
 
-> **v2 is a transport-agnostic rewrite.** If you come from v1 (`BaileysClass`), read the [migration guide](https://andresayac.github.io/botmesh/MIGRATION-v1-to-v2).
+> **v2 is a transport-agnostic rewrite.** If you come from v1 (`BaileysClass`), read the [migration guide](https://github.com/andresayac/botmesh/blob/main/docs/MIGRATION-v1-to-v2.md).
 
 ## Installation
 
@@ -54,7 +54,7 @@ A full example (commands, media, hooks, DI, scheduler) lives in [`packages/baile
 
 No camera? Set `pairingPhoneNumber: '+57300XXXXXXX'` on `BaileysProvider` (full international format) and listen for `bot.on('qr', ...)`: the pairing code arrives there too.
 
-No phone at hand? Export the bot as a `defineBot()` factory and `npx botmesh dev src/bot.js` lets you chat with it in the terminal (see the [terminal simulator](https://andresayac.github.io/botmesh/guide/dev-simulator)).
+No phone at hand? Export the bot as a `defineBot()` factory and `npx botmesh dev src/bot.js` lets you chat with it in the terminal (see the [terminal simulator](https://botmesh.afaya.com.co/guide/dev-simulator)).
 
 > **Persistent flows:** `flow(...).persistent()` only survives a restart with a persistent store. The default `MemoryStore` lives in RAM; to keep checkpoints use a disk-backed store (e.g. [`@botmesh/sqlite-store`](https://github.com/andresayac/botmesh/tree/main/packages/sqlite-store)).
 
@@ -74,7 +74,7 @@ No phone at hand? Export the bot as a `defineBot()` factory and `npx botmesh dev
 - **Built-in scheduler** — `bot.schedule()` (cron), `bot.every()`, `bot.delay()`.
 - **100% ESM + strict TypeScript.**
 
-> Note: the v1 WhatsApp management sub-APIs (`bot.groups/profile/privacy/chats/presence`) are not part of the transport-agnostic core; see [Sub-APIs](https://andresayac.github.io/botmesh/guide/sub-apis) for what replaces them.
+> Note: the v1 WhatsApp management sub-APIs (`bot.groups/profile/privacy/chats/presence`) are not part of the transport-agnostic core; see [Sub-APIs](https://botmesh.afaya.com.co/guide/sub-apis) for what replaces them.
 
 ## Entry points
 
@@ -86,7 +86,7 @@ No phone at hand? Export the bot as a `defineBot()` factory and `npx botmesh dev
 | `@botmesh/core/dev` | The `botmesh dev` terminal simulator. |
 | `@botmesh/core/internal` | Engine classes and helpers. No semver guarantee. |
 
-Coming from an earlier alpha? Follow the [upgrade checklist](https://andresayac.github.io/botmesh/guide/stable-migration#upgrade-checklist).
+Coming from an earlier alpha? Follow the [upgrade checklist](https://botmesh.afaya.com.co/guide/stable-migration#upgrade-checklist).
 
 ## Persistent store (SQLite)
 
@@ -116,10 +116,10 @@ const bot = new Bot({
 
 ## Documentation
 
-- [Guide](https://andresayac.github.io/botmesh/guide/getting-started): getting started, flows, hooks, plugins, testing
-- [Configuration reference](https://andresayac.github.io/botmesh/guide/configuration): every `new Bot()` option, events and errors
-- [API reference](https://andresayac.github.io/botmesh/api/) (TypeDoc)
-- [Migration guide v1 → v2](https://andresayac.github.io/botmesh/MIGRATION-v1-to-v2)
+- [Guide](https://botmesh.afaya.com.co/guide/getting-started): getting started, flows, hooks, plugins, testing
+- [Configuration reference](https://botmesh.afaya.com.co/guide/configuration): every `new Bot()` option, events and errors
+- [API reference](https://botmesh.afaya.com.co/api/core) (TypeDoc)
+- [Migration guide v1 → v2](https://github.com/andresayac/botmesh/blob/main/docs/MIGRATION-v1-to-v2.md)
 
 ## Acknowledgements
 

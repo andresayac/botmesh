@@ -138,5 +138,5 @@ The unit tests run against an in-memory fake pool that models connections, trans
 
 ## Links
 
-- [Persistent stores guide](https://andresayac.github.io/botmesh/guide/store) · [Scheduler](https://andresayac.github.io/botmesh/guide/scheduler) · [Running N replicas](https://andresayac.github.io/botmesh/guide/replicas) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Persistent stores guide](https://botmesh.afaya.com.co/guide/store) · [Scheduler](https://botmesh.afaya.com.co/guide/scheduler) · [Running N replicas](https://botmesh.afaya.com.co/guide/replicas) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/mysql-store/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/mysql-store) · [Issues](https://github.com/andresayac/botmesh/issues)

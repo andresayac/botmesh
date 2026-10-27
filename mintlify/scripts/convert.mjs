@@ -38,7 +38,7 @@ import { dirname, join, posix, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sindreSlugify from '@sindresorhus/slugify'
 import YAML from 'yaml'
-import { API_HOME, GITHUB, apiTarget, legacyTarget, loadSiteMap } from './site-map.mjs'
+import { API_HOME, GITHUB, SITE_URL, apiTarget, legacyTarget, loadSiteMap } from './site-map.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const tooling = resolve(here, '..')
@@ -659,10 +659,11 @@ function docsJson(apiGroups) {
  * Mintlify site: Spanish slugs move to their mirrored path, TypeDoc HTML to
  * the generated API pages, unpublished repo files to GitHub, and a bare
  * section folder without an index page (`es/guide/`) to its language home.
+ * Links already on the published site (SITE_URL) move to `base` when it differs.
  */
 function rewriteLlms(text, base) {
   const root = base.endsWith('/') ? base : `${base}/`
-  return text.replace(/https:\/\/andresayac\.github\.io\/botmesh\/([^\s)>\]]*)/g, (_, rawPath) => {
+  return text.split(SITE_URL).join(root).replace(/https:\/\/andresayac\.github\.io\/botmesh\/([^\s)>\]]*)/g, (_, rawPath) => {
     // A sentence may end right after a link: keep the punctuation outside it.
     const [, path, trail] = /^(.*?)([.,;:]*)$/.exec(rawPath)
     const [file, hash] = path.split('#')

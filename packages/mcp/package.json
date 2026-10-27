@@ -54,7 +54,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/mcp"
   },
-  "homepage": "https://andresayac.github.io/botmesh/guide/mcp",
+  "homepage": "https://botmesh.afaya.com.co/guide/mcp",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },

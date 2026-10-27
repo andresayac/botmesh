@@ -88,7 +88,7 @@ id of a contact first seen with the LID only can change after a restart.
 
 ## Links
 
-- [Channels guide](https://andresayac.github.io/botmesh/guide/channels) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Channels guide](https://botmesh.afaya.com.co/guide/channels) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/wa-gateway-kit/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/wa-gateway-kit) · [Issues](https://github.com/andresayac/botmesh/issues)
 
 Public package, covered by semver: a breaking change is a major version.

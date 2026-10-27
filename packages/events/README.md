@@ -65,7 +65,7 @@ An invalid value (`maxAttempts: 0`, a negative or `NaN` delay, a zero lease) thr
 
 ## Bot durability backend
 
-An app that already keeps a journal can use it as the bot's durable inbox and outbox ([`BotConfig.durability`](https://andresayac.github.io/botmesh/guide/durability)), without another store:
+An app that already keeps a journal can use it as the bot's durable inbox and outbox ([`BotConfig.durability`](https://botmesh.afaya.com.co/guide/durability)), without another store:
 
 ```ts
 import { Bot } from '@botmesh/core'
@@ -103,7 +103,7 @@ await journal.close()
 
 ## Links
 
-- [Operations guide: event processing](https://andresayac.github.io/botmesh/guide/operations#event-processing) · [Durable message processing](https://andresayac.github.io/botmesh/guide/durability)
+- [Operations guide: event processing](https://botmesh.afaya.com.co/guide/operations#event-processing) · [Durable message processing](https://botmesh.afaya.com.co/guide/durability)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/events/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/events) · [Issues](https://github.com/andresayac/botmesh/issues)
 
 Public package, covered by semver.

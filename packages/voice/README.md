@@ -207,5 +207,5 @@ HTTP adapters accept injected `fetch` and `resolver` to test them without networ
 
 ## Links
 
-- [Voice guide](https://andresayac.github.io/botmesh/guide/voice) · [Plugins](https://andresayac.github.io/botmesh/guide/plugins) · [AI plugin](https://andresayac.github.io/botmesh/guide/ai) · [Security](https://andresayac.github.io/botmesh/guide/security)
+- [Voice guide](https://botmesh.afaya.com.co/guide/voice) · [Plugins](https://botmesh.afaya.com.co/guide/plugins) · [AI plugin](https://botmesh.afaya.com.co/guide/ai) · [Security](https://botmesh.afaya.com.co/guide/security)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/voice/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/voice) · [Issues](https://github.com/andresayac/botmesh/issues)

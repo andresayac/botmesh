@@ -98,7 +98,7 @@ console.log(err instanceof OutsideSessionWindowError) // true
 
 ## Links
 
-- [WhatsApp Cloud API provider](https://www.npmjs.com/package/@botmesh/meta) · [Security guide](https://andresayac.github.io/botmesh/guide/security) (webhook authentication) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [WhatsApp Cloud API provider](https://www.npmjs.com/package/@botmesh/meta) · [Security guide](https://botmesh.afaya.com.co/guide/security) (webhook authentication) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/graph-core/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/graph-core) · [Issues](https://github.com/andresayac/botmesh/issues)
 
 Public package, covered by semver: a breaking change is a major version.
