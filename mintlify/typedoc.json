@@ -1,0 +1,34 @@
+{
+  "$schema": "https://typedoc-plugin-markdown.org/schema.json",
+  "extends": [
+    "../packages/core/typedoc.json"
+  ],
+  "plugin": [
+    "typedoc-plugin-markdown"
+  ],
+  "out": "./.cache/api",
+  "readme": "none",
+  "githubPages": false,
+  "cleanOutputDir": true,
+  "outputFileStrategy": "members",
+  "fileExtension": ".mdx",
+  "entryFileName": "index",
+  "modulesFileName": "index",
+  "flattenOutputFiles": false,
+  "hidePageHeader": true,
+  "hideBreadcrumbs": true,
+  "hidePageTitle": false,
+  "useCodeBlocks": true,
+  "expandObjects": false,
+  "parametersFormat": "table",
+  "interfacePropertiesFormat": "list",
+  "classPropertiesFormat": "list",
+  "typeAliasPropertiesFormat": "list",
+  "enumMembersFormat": "table",
+  "propertyMembersFormat": "list",
+  "typeDeclarationFormat": "table",
+  "sanitizeComments": true,
+  "navigationJson": "./.cache/api/navigation.json",
+  "disableSources": false,
+  "sourceLinkTemplate": "https://github.com/andresayac/botmesh/blob/main/{path}#L{line}"
+}

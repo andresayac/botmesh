@@ -1,0 +1,12 @@
+# Standalone pnpm project for the Mintlify tooling. It is NOT part of the root
+# workspace (root globs: packages/*, examples/*); this file makes the folder its
+# own workspace root so `pnpm install` here never touches the monorepo.
+packages: []
+
+allowBuilds:
+  esbuild: true
+  sharp: true
+  # Optional native keychain for `mint login`; not needed for preview.
+  keytar: false
+  # Telemetry postinstall.
+  '@scarf/scarf': false
