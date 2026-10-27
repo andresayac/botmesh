@@ -137,7 +137,10 @@ function main() {
     // 4. One stub per HTML page of the old site.
     step(`writing the redirect stubs in ${tmp}`)
     const map = loadSiteMap(join(root, 'docs'))
-    const plan = planRedirects({ files: listHtml(distDir), map, siteUrl: mintlifyUrl, anchorTable, hasPage: (page) => sitePage(`/${page}`) })
+    // Pages removed in a docs reorganization are no longer built but their old URLs still get a stub.
+    const moved = Object.keys(map.movedPages).map((page) => `${page}.html`)
+    const files = [...new Set([...listHtml(distDir), ...moved])].sort()
+    const plan = planRedirects({ files, map, siteUrl: mintlifyUrl, anchorTable, hasPage: (page) => sitePage(`/${page}`) })
     const missing = plan.filter((r) => r.kind !== 'github' && !sitePage(r.path))
     if (missing.length) fail(`redirect targets missing from mintlify/site:\n${missing.map((r) => `  ${r.file} -> ${r.path}`).join('\n')}`)
     for (const r of plan) {

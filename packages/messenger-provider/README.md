@@ -135,5 +135,5 @@ Sends reject with the typed errors of `@botmesh/core` (mapping in [`@botmesh/gra
 
 ## Links
 
-- [Channels guide](https://botmesh.afaya.com.co/guide/channels#@botmesh/messenger) · [Webhook server](https://botmesh.afaya.com.co/guide/server) · [Local sandbox](https://botmesh.afaya.com.co/guide/sandbox) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
+- [Channel guide](https://botmesh.afaya.com.co/guide/messenger) · [Webhook server](https://botmesh.afaya.com.co/guide/server) · [Local sandbox](https://botmesh.afaya.com.co/guide/sandbox) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/messenger-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/messenger-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

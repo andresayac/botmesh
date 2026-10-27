@@ -14,7 +14,7 @@
   "author": "Andres Aya",
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/andresayac/botmesh.git", "directory": "packages/wppconnect-provider" },
-  "homepage": "https://botmesh.afaya.com.co/guide/channels#@botmesh/wppconnect",
+  "homepage": "https://botmesh.afaya.com.co/guide/wppconnect",
   "bugs": { "url": "https://github.com/andresayac/botmesh/issues" },
   "files": ["./lib/**/*"],
   "scripts": { "build": "tsc", "test": "vitest run", "prepublishOnly": "pnpm build", "typecheck": "tsc -p tsconfig.test.json" },

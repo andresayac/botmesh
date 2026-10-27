@@ -62,7 +62,7 @@ const warn = (msg) => warnings.push(msg)
 // unpublished repo files) lives in site-map.mjs, shared with the GitHub Pages
 // redirects of `pnpm docs:deploy --redirects`.
 const siteMap = loadSiteMap(docs)
-const { sidebars, sidebarLabel, pages, esTarget, outPage, urlOf, resolveDocPath } = siteMap
+const { sidebars, sidebarLabel, pages, pageSet, esTarget, outPage, urlOf, resolveDocPath, movedPages } = siteMap
 
 // ---------------------------------------------------------------- API link map
 
@@ -579,11 +579,23 @@ function apiGroupsFromSite() {
 
 // ---------------------------------------------------------------- docs.json
 
+function navPages(items) {
+  return items.flatMap((item) => {
+    if (item.items) return [{ group: item.text, pages: navPages(item.items) }]
+    return item.link.startsWith('/api/') ? [] : [outPage(item.link.slice(1))]
+  })
+}
+
 function navGroups(sidebar, prefixHome) {
   return sidebar.map((group, i) => ({
     group: group.text,
-    pages: [...(i === 0 && prefixHome ? [prefixHome] : []), ...group.items.map((item) => outPage(item.link.slice(1)))],
+    pages: [...(i === 0 && prefixHome ? [prefixHome] : []), ...navPages(group.items)],
   }))
+}
+
+/** Redirects of the pages removed in a reorganization (MOVED_PAGES in site-map.mjs). */
+function movedRedirects() {
+  return Object.entries(movedPages).map(([from, to]) => ({ source: `/${from}`, destination: urlOf(to) }))
 }
 
 function docsJson(apiGroups) {
@@ -624,7 +636,11 @@ function docsJson(apiGroups) {
     search: { prompt: 'Search the botmesh docs…' },
     seo: { indexing: 'navigable' },
     // Old Spanish slugs (VitePress URLs) -> mirrored paths.
-    redirects: [...esTarget].filter(([from, to]) => from !== to).map(([from, to]) => ({ source: `/${from}`, destination: `/${to}` })),
+    // and pages moved in a reorganization (MOVED_PAGES in site-map.mjs) -> their new page.
+    redirects: [
+      ...[...esTarget].filter(([from, to]) => from !== to).map(([from, to]) => ({ source: `/${from}`, destination: `/${to}` })),
+      ...movedRedirects(),
+    ],
     navigation: {
       languages: [
         {

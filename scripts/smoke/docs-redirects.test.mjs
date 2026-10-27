@@ -37,7 +37,7 @@ before(() => {
   for (const page of ['index', 'es/index', 'guide/getting-started', 'guide/flows', 'examples/index', 'examples/menu-bot', 'es/guide/inicio', 'es/guide/flujos', 'es/ejemplos/index', 'es/ejemplos/bot-menu', 'MIGRATION-v1-to-v2']) {
     writeFileSync(join(docs, `${page}.md`), `# ${page}\n`)
   }
-  map = loadSiteMap(docs)
+  map = loadSiteMap(docs, { movedPages: {} })
 })
 
 after(() => rmSync(root, { recursive: true, force: true }))
@@ -55,6 +55,38 @@ test('guide and example pages keep their path; Spanish pages move to the English
   assert.deepEqual(to('es/guide/inicio'), { kind: 'page', path: '/es/guide/getting-started', page: 'es/guide/inicio' })
   assert.deepEqual(to('es/ejemplos/bot-menu.html'), { kind: 'page', path: '/es/examples/menu-bot', page: 'es/ejemplos/bot-menu' })
   assert.deepEqual(to('es/ejemplos/'), { kind: 'page', path: '/es/examples', page: 'es/ejemplos/index' })
+})
+
+test('nested sidebar groups pair pages; moved pages resolve to their new page', () => {
+  const docs = join(root, 'docs-nested')
+  for (const dir of ['.vitepress', 'guide', 'examples', 'es/guide', 'es/ejemplos']) mkdirSync(join(docs, dir), { recursive: true })
+  writeFileSync(join(docs, '.vitepress', 'config.ts'), `
+const enSidebar = {
+  '/guide/': [{ text: 'Start', items: [
+    { text: 'Plugins', link: '/guide/plugins' },
+    { text: 'API', link: '/api/', target: '_self' },
+    { text: 'Experimental', items: [{ text: 'Lab', link: '/guide/lab' }] },
+  ] }],
+} satisfies DefaultTheme.SidebarMulti
+const esSidebar = {
+  '/es/guide/': [{ text: 'Inicio', items: [
+    { text: 'Plugins', link: '/es/guide/plugins' },
+    { text: 'API', link: '/api/', target: '_self' },
+    { text: 'Experimental', items: [{ text: 'Laboratorio', link: '/es/guide/laboratorio' }] },
+  ] }],
+} satisfies DefaultTheme.SidebarMulti
+`)
+  for (const page of ['index', 'es/index', 'guide/plugins', 'guide/lab', 'es/guide/plugins', 'es/guide/laboratorio']) {
+    writeFileSync(join(docs, `${page}.md`), `# ${page}
+`)
+  }
+  const nested = loadSiteMap(docs, { movedPages: { 'guide/di': 'guide/plugins', 'es/guide/di': 'es/guide/plugins' } })
+  assert.equal(nested.outPage('es/guide/laboratorio'), 'es/guide/lab')
+  assert.equal(nested.sidebarLabel.get('es/guide/laboratorio'), 'Laboratorio')
+  assert.deepEqual(legacyTarget('guide/di.html', nested), { kind: 'page', path: '/guide/plugins', page: 'guide/plugins' })
+  assert.deepEqual(legacyTarget('es/guide/di.html', nested), { kind: 'page', path: '/es/guide/plugins', page: 'es/guide/plugins' })
+  assert.throws(() => loadSiteMap(docs, { movedPages: { 'guide/plugins': 'guide/lab' } }), /still exists/)
+  assert.throws(() => loadSiteMap(docs, { movedPages: { 'guide/old': 'guide/missing' } }), /missing page/)
 })
 
 test('unpublished repo files go to GitHub; unmapped pages and 404 go home', () => {

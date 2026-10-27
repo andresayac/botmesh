@@ -197,5 +197,5 @@ What it covers: inbound over IMAP IDLE with stable `chatId`/`senderId`; threads 
 
 ## Links
 
-- [Channels guide](https://botmesh.afaya.com.co/guide/channels#@botmesh/email) · [Store](https://botmesh.afaya.com.co/guide/store) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
+- [Channel guide](https://botmesh.afaya.com.co/guide/email) · [Store](https://botmesh.afaya.com.co/guide/store) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/email-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/email-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

@@ -32,7 +32,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/discord-provider"
   },
-  "homepage": "https://botmesh.afaya.com.co/guide/channels#@botmesh/discord",
+  "homepage": "https://botmesh.afaya.com.co/guide/discord",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },

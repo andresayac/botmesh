@@ -119,7 +119,7 @@ Todo handler recibe un `MessageContext`. Lo que te **dice**:
 | `ctx.quoted`, `ctx.mentions` | El mensaje al que responde y los usuarios que menciona. |
 | `ctx.media`, `ctx.sharedLocation` | Metadatos de la media (descárgala con `loadMediaOf(ctx)`) y una ubicación recibida. |
 | `ctx.interaction` | Un toque en un botón o lista: `{ id, data }`. |
-| `ctx.lang`, `ctx.user`, `ctx.tools` | El idioma resuelto, los [datos persistentes](./datos-usuario) del usuario y las [herramientas inyectadas](./di). |
+| `ctx.lang`, `ctx.user`, `ctx.tools` | El idioma resuelto, los [datos persistentes](./datos-usuario) del usuario y las [herramientas inyectadas](./plugins#compartir-herramientas-inyeccion-de-dependencias). |
 
 Lo que **hace**:
 

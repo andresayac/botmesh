@@ -17,6 +17,26 @@ export const SITE_URL = 'https://botmesh.afaya.com.co/'
 /** The old GitHub Pages site, which only redirects to SITE_URL now. */
 export const LEGACY_SITE_URL = 'https://andresayac.github.io/botmesh/'
 
+/**
+ * Pages removed or merged in a docs reorganization: old source page -> page
+ * that now holds its content. The converter emits a docs.json redirect for
+ * each, and links / old GitHub Pages URLs to them resolve to the new page. List
+ * a removed Spanish page by the path it was published at on Mintlify (its
+ * English counterpart's path under es/, also its old slug when both match).
+ */
+export const MOVED_PAGES = {
+  'guide/di': 'guide/plugins',
+  'es/guide/di': 'es/guide/plugins',
+}
+
+/**
+ * The page items of a sidebar group, nested groups (`{ text, items }`, such as
+ * "Experimental") included. `/api/` links point at the TypeDoc reference, which
+ * has its own tab, so they are skipped.
+ */
+export const pageItems = (items) =>
+  items.flatMap((item) => (item.items ? pageItems(item.items) : item.link.startsWith('/api/') ? [] : [item]))
+
 /** Evaluates `const <name> = { ... } satisfies ...` from the VitePress config. */
 export function readSidebar(source, name) {
   const start = source.indexOf(`const ${name} = `)
@@ -35,9 +55,11 @@ export function readSidebar(source, name) {
  *   (`/guide/flows` <-> `/es/guide/flows`), so each Spanish page is published at
  *   its English counterpart's path, paired by position in the two sidebars (the
  *   same rule as docs/.vitepress/theme/langs.ts);
- * - `urlOf(page)`: Mintlify URL ('index' -> '/', 'es/index' -> '/es', 'guide/x' -> '/guide/x').
+ * - `urlOf(page)`: Mintlify URL ('index' -> '/', 'es/index' -> '/es', 'guide/x' -> '/guide/x');
+ * - `movedPages`: removed page -> page holding its content (`options.movedPages`,
+ *   default MOVED_PAGES); links and old URLs to a removed page resolve to its target.
  */
-export function loadSiteMap(docsDir) {
+export function loadSiteMap(docsDir, { movedPages = MOVED_PAGES } = {}) {
   const configTs = readFileSync(join(docsDir, '.vitepress', 'config.ts'), 'utf8')
   const sidebars = { en: readSidebar(configTs, 'enSidebar'), es: readSidebar(configTs, 'esSidebar') }
 
@@ -45,7 +67,7 @@ export function loadSiteMap(docsDir) {
   const sidebarLabel = new Map()
   for (const lang of Object.values(sidebars)) {
     for (const groups of Object.values(lang)) {
-      for (const group of groups) for (const item of group.items) sidebarLabel.set(item.link.slice(1), item.text)
+      for (const group of groups) for (const item of pageItems(group.items)) sidebarLabel.set(item.link.slice(1), item.text)
     }
   }
 
@@ -58,11 +80,16 @@ export function loadSiteMap(docsDir) {
   const pageSet = new Set(pages)
 
   const esTarget = new Map()
-  const flat = (sb) => Object.values(sb).flatMap((groups) => groups.flatMap((g) => g.items.map((i) => i.link.slice(1))))
+  const flat = (sb) => Object.values(sb).flatMap((groups) => groups.flatMap((g) => pageItems(g.items).map((i) => i.link.slice(1))))
   const en = flat(sidebars.en)
   const es = flat(sidebars.es)
   if (en.length !== es.length) throw new Error(`sidebars out of sync: ${en.length} English vs ${es.length} Spanish pages`)
   es.forEach((page, i) => esTarget.set(page, `es/${en[i]}`))
+
+  for (const [from, to] of Object.entries(movedPages)) {
+    if (pageSet.has(from)) throw new Error(`${from} is listed in MOVED_PAGES but still exists in docs/`)
+    if (!pageSet.has(to)) throw new Error(`MOVED_PAGES: ${from} points at a missing page ${to}`)
+  }
 
   const outPage = (page) => esTarget.get(page) ?? page
   const urlOf = (page) => '/' + outPage(page).replace(/(^|\/)index$/, '').replace(/\/$/, '')
@@ -78,6 +105,7 @@ export function loadSiteMap(docsDir) {
     if (target === '' || target === '.') target = 'index'
     if (!pageSet.has(target) && pageSet.has(`${target}/index`)) target = `${target}/index`
     if (pageSet.has(target)) return { page: target }
+    if (Object.hasOwn(movedPages, target)) return { page: movedPages[target] }
     const repoPath = posix.normalize(posix.join('docs', abs))
     // An old `.html` URL of an unpublished page (`MIGRATION-v1-to-v2.html`) is its `.md` source.
     for (const file of [repoPath, `${repoPath.replace(/\.html$/, '')}.md`]) {
@@ -86,7 +114,7 @@ export function loadSiteMap(docsDir) {
     return null
   }
 
-  return { sidebars, sidebarLabel, pages, pageSet, esTarget, outPage, urlOf, resolveDocPath }
+  return { sidebars, sidebarLabel, pages, pageSet, esTarget, outPage, urlOf, resolveDocPath, movedPages }
 }
 
 const isFile = (path) => existsSync(path) && statSync(path).isFile()

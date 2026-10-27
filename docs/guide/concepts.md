@@ -117,7 +117,7 @@ Every handler receives a `MessageContext`. What it **tells** you:
 | `ctx.quoted`, `ctx.mentions` | The message it replies to, and the users it mentions. |
 | `ctx.media`, `ctx.sharedLocation` | Media metadata (download it with `loadMediaOf(ctx)`) and a received location. |
 | `ctx.interaction` | A button or list tap: `{ id, data }`. |
-| `ctx.lang`, `ctx.user`, `ctx.tools` | The resolved language, the user's [persistent data](./user-data) and the [injected tools](./di). |
+| `ctx.lang`, `ctx.user`, `ctx.tools` | The resolved language, the user's [persistent data](./user-data) and the [injected tools](./plugins#share-tools-dependency-injection). |
 
 What it **does**:
 

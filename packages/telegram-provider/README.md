@@ -317,5 +317,5 @@ left as is. The username comes from `getMe`; if you pass `selfId` (which skips
 
 ## Links
 
-- [Channels guide](https://botmesh.afaya.com.co/guide/channels) · [Streaming replies](https://botmesh.afaya.com.co/guide/streaming) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
+- [Channel guide](https://botmesh.afaya.com.co/guide/telegram) · [Streaming replies](https://botmesh.afaya.com.co/guide/streaming) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/telegram-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/telegram-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

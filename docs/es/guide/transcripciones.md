@@ -219,7 +219,7 @@ actividad, así detecta tanto las respuestas que faltan como las que sobran.
 
 ## Gate de publicación (`@botmesh/deployments`)
 
-::: warning Experimental — paquete privado
+::: warning Experimental: paquete privado
 `@botmesh/deployments` es privado (no está en npm) y su API puede cambiar. Es
 persistente: `MemoryDeploymentStore` es la referencia y `KvDeploymentStore`
 persiste sobre cualquier `DurableKv` (SQLite, PostgreSQL, Redis, archivo). Los

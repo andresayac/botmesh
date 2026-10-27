@@ -44,7 +44,7 @@ What is left to you. The rest of this page explains each point.
 
 The rest of this page is the result of the October 2026 audit of the webhook
 ingress, the manager REST API and the channels and plugins listed below. All
-audited packages are public except `manager` and `tiktok`, which are private. The published ones are listed in [Going to production](./production#which-packages-are-published).
+audited packages are public except `manager` and `tiktok`, which are private. The published ones are listed in [Packages and versions](./packages).
 
 **Scope:** `@botmesh/server`, `twilio`, `gohighlevel`, `gupshup`, `evolution`,
 `wppconnect`, `email`, `tiktok`, `chatwoot`, `voice`, `rag`, `manager` (`/v1`

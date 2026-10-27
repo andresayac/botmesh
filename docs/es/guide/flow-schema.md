@@ -128,8 +128,12 @@ const digest = flowDigest(draft)                      // sha256 del JSON canóni
 await publishFlow(registry, 'acme', 'support', draft) // gate de DeploymentRegistry + gate run auditado
 ```
 
-`publishFlow()` usa el JSON del documento como artefacto y un `flowDocumentGate()` que parsea, valida y compila el candidato; `options.gate` puede encadenar otro gate (p. ej. transcripciones doradas). El almacenamiento es de `@botmesh/deployments`; este paquete solo aporta los helpers puros.
+`publishFlow()` usa el JSON del documento como artefacto y un `flowDocumentGate()` que parsea, valida y compila el candidato; `options.gate` puede encadenar otro gate (p. ej. transcripciones doradas). El almacenamiento es de `@botmesh/deployments`; este paquete solo aporta los helpers puros. `@botmesh/deployments` es privado (no está en npm) y su API puede cambiar; ver [Paquetes y versiones](./paquetes#paquetes-privados-9).
 
 ## REST del manager
+
+::: warning Experimental: paquete privado
+`@botmesh/manager` es privado (no está en npm) y su API puede cambiar. Ver [Control plane](./control-plane).
+:::
 
 Los endpoints de flujos del manager (`POST`/`PUT`) aceptan exactamente estos documentos. `GET /v1/flows/schema` sirve el JSON Schema y `GET/PUT/DELETE /v1/bots/{botId}/flows/{flowId}` los guardan y reemplazan en caliente sin cambiar el contrato REST. Los pasos `subflow` se resuelven contra los demás flujos guardados del bot.

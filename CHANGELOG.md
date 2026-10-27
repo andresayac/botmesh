@@ -4,6 +4,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### Docs: reorganización de las guías (2026-10-27)
+- La barra lateral de las guías (EN/ES, mismas posiciones) pasa a nueve secciones: Primeros pasos, Crear bots, Canales, IA, Datos y estado, Producción, Tests y herramientas, Referencia y Actualizar. Las páginas de paquetes privados (TikTok, control plane, sandbox) van en un subgrupo "Experimental" al final de su sección, con un aviso al principio.
+- La guía de canales se divide en una página por canal (Baileys, WhatsApp Cloud API, Evolution, WPPConnect, Twilio, Gupshup, HighLevel, Messenger, Instagram, Telegram, Discord, Email y TikTok); la página de canales queda como resumen (elegir canal, matriz de capacidades, contrato común) y conserva un encabezado por canal con el mismo ancla, así que los enlaces antiguos como `channels#botmesh-telegram` siguen funcionando.
+- La inyección de dependencias se integra en la guía de plugins (sección "Share tools" / "Compartir herramientas"); `guide/di` desaparece.
+- Páginas nuevas: "Paquetes y versiones" (única fuente del estado de cada paquete: los 36 públicos por capa, dist-tags `beta`/`latest`, instalación, Node >= 22, solo ESM y los 9 privados), "Mensajes proactivos" (`bot.send`, `bot.broadcast`, `bot.trigger`, scheduler, `bot.onIdle`, `bot.enqueue`) y "Si vienes de la v1". Los avisos de beta repetidos en otras guías se sustituyen por un enlace a "Paquetes y versiones".
+- Mintlify: el conversor admite grupos anidados en la barra lateral, omite el enlace a la referencia de la API (tiene su propia pestaña) y genera redirecciones para las páginas eliminadas (`MOVED_PAGES` en `mintlify/scripts/site-map.mjs`: `guide/di` → `guide/plugins`; también lo usan las redirecciones de GitHub Pages).
+
 ### Docs: Mintlify pasa a ser el sitio oficial; GitHub Pages solo redirige (2026-10-27)
 - El sitio de documentación es ahora <https://botmesh.afaya.com.co/> (Mintlify con dominio propio). `pnpm docs:mintlify` usa ese dominio por defecto (`MINTLIFY_SITE_URL` lo sigue sobrescribiendo).
 - Nuevo `pnpm docs:deploy --redirects` (`scripts/docs-redirects.mjs`): en lugar del sitio VitePress publica en `gh-pages` una página mínima por cada página del build (guías EN/ES, ejemplos, referencia TypeDoc `/api/` y `404.html`) con `location.replace` que conserva y traduce el ancla, `meta refresh`, `rel="canonical"` y un enlace visible a la página equivalente en Mintlify; lo no mapeado va a la portada. Las reglas de ubicación de páginas pasan a `mintlify/scripts/site-map.mjs`, compartido por el conversor y las redirecciones; el conversor escribe la tabla de anclas en `mintlify/.cache/anchors.json`.

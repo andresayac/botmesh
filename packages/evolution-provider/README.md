@@ -189,7 +189,7 @@ going to production. Evolution and WhatsApp Web are unofficial; read the
 
 ## Links
 
-- [Channels guide](https://botmesh.afaya.com.co/guide/channels#@botmesh/evolution) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
+- [Channel guide](https://botmesh.afaya.com.co/guide/evolution) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/evolution-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/evolution-provider) · [Issues](https://github.com/andresayac/botmesh/issues)
 
 Public package, covered by semver: a breaking change is a major version. The webhook wire

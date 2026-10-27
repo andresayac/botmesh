@@ -42,7 +42,7 @@ botmesh is ESM-only. Use `import`, and add `"type": "module"` to your `package.j
 
 ### `pnpm add @botmesh/core` installs an older build
 
-botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish). Right after a publish, a plain install can still get the previous beta until `latest` is moved, and a project that mixes builds can fail on missing exports or peer ranges. Check the tags with `pnpm view @botmesh/core dist-tags` and install the newest beta with the tag, for example `pnpm add @botmesh/core@beta @botmesh/baileys@beta`. See [Installation](./getting-started).
+Right after a publish, a plain install can still get the previous beta until `latest` is moved, and a project that mixes builds can fail on missing exports or peer ranges. Check the tags with `pnpm view @botmesh/core dist-tags` and install the newest beta with the tag, for example `pnpm add @botmesh/core@beta @botmesh/baileys@beta`. See [Packages and versions](./packages#npm-dist-tags).
 
 ## WhatsApp Web (Baileys)
 

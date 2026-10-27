@@ -304,5 +304,5 @@ Sends reject with the typed errors of `@botmesh/core` (mapping in [`@botmesh/gra
 
 ## Links
 
-- [Channels guide](https://botmesh.afaya.com.co/guide/channels) · [24-hour window](https://botmesh.afaya.com.co/guide/session-window) · [Forms](https://botmesh.afaya.com.co/guide/forms) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
+- [Channel guide](https://botmesh.afaya.com.co/guide/whatsapp-cloud-api) · [24-hour window](https://botmesh.afaya.com.co/guide/session-window) · [Forms](https://botmesh.afaya.com.co/guide/forms) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/meta-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/meta-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

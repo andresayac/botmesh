@@ -1,5 +1,11 @@
 # Platform sandbox
 
+::: warning Experimental: private package
+`@botmesh/sandbox` is private (`"private": true`): it is not on npm and its API may change.
+Use it from a clone of the monorepo (`pnpm install && pnpm build`). See
+[Packages and versions](./packages).
+:::
+
 `@botmesh/sandbox` simulates the messaging platforms on your machine, so you can test a bot on
 every channel end to end without registering an app, a phone number or a public webhook.
 
@@ -8,11 +14,6 @@ sandbox does the opposite: it keeps the **real provider** and replaces the **pla
 bot talks over real HTTP to a local server that answers like WhatsApp, Telegram or Twilio. That
 server delivers webhooks signed with a secret it chooses, so signature checks, error mapping,
 media downloads and retries all run the production code path.
-
-::: info Private package
-`@botmesh/sandbox` lives in the monorepo and is not published to npm. Use it from a clone:
-`pnpm install && pnpm build`.
-:::
 
 Pick the tool by what you want to check:
 

@@ -16,7 +16,7 @@ Telegram without changing the bot code.
   simulator needs neither.
 
 ::: info Beta
-botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish). This site documents the beta, then `@botmesh/core` 2.0.0 stable.
+botmesh is in beta and a plain install gets the beta. This site documents the beta, then `@botmesh/core` 2.0.0 stable. Tags, versions and the status of every package: [Packages and versions](./packages).
 :::
 
 ## Option A: scaffold a project (recommended) {#scaffold-a-project-with-create-botmesh}
@@ -213,17 +213,19 @@ default, so no public URL is needed.
 Only the provider changes: handlers, flows, hooks and plugins are the same on
 every transport.
 
-| Transport | Package | Status | Notes |
-| --- | --- | --- | --- |
-| WhatsApp (Baileys 7) | `@botmesh/baileys` | Published | Unofficial WhatsApp Web protocol, QR or pairing code |
-| WhatsApp Cloud API | `@botmesh/meta` | Published | Official Meta API, webhook, native buttons and templates |
-| Telegram | `@botmesh/telegram` | Published | Bot API, long polling or webhook |
-| Facebook Messenger | `@botmesh/messenger` | Published (from the beta) | Send API, webhook, postback buttons and generic templates |
-| Instagram DMs | `@botmesh/instagram` | Published (from the beta) | Messenger API for Instagram, webhook, quick replies |
-| WhatsApp via Evolution API / WPPConnect | `@botmesh/evolution`, `@botmesh/wppconnect` | Published (from the beta) | Your self-hosted WhatsApp Web gateway, REST + authenticated webhook |
-| Discord | `@botmesh/discord` | Published (from the beta) | Gateway websocket + REST, buttons, select menus and slash commands |
-| WhatsApp + SMS (Twilio), Gupshup, HighLevel, email | `@botmesh/twilio`, `@botmesh/gupshup`, `@botmesh/gohighlevel`, `@botmesh/email` | Published (from the beta) | See [Channels](./channels) |
-| TikTok | `@botmesh/tiktok` | Experimental | Private, not on npm; see [Channels](./channels) |
+| Transport | Package | Notes |
+| --- | --- | --- |
+| [WhatsApp (Baileys 7)](./baileys) | `@botmesh/baileys` | Unofficial WhatsApp Web protocol, QR or pairing code |
+| [WhatsApp Cloud API](./whatsapp-cloud-api) | `@botmesh/meta` | Official Meta API, webhook, native buttons and templates |
+| [Telegram](./telegram) | `@botmesh/telegram` | Bot API, long polling or webhook |
+| [Facebook Messenger](./messenger) | `@botmesh/messenger` | Send API, webhook, postback buttons and generic templates |
+| [Instagram DMs](./instagram) | `@botmesh/instagram` | Messenger API for Instagram, webhook, quick replies |
+| WhatsApp via [Evolution API](./evolution) / [WPPConnect](./wppconnect) | `@botmesh/evolution`, `@botmesh/wppconnect` | Your self-hosted WhatsApp Web gateway, REST + authenticated webhook |
+| [Discord](./discord) | `@botmesh/discord` | Gateway websocket + REST, buttons, select menus and slash commands |
+| WhatsApp + SMS ([Twilio](./twilio)), [Gupshup](./gupshup), [HighLevel](./gohighlevel), [email](./email) | `@botmesh/twilio`, `@botmesh/gupshup`, `@botmesh/gohighlevel`, `@botmesh/email` | See each channel's page |
+| [TikTok](./tiktok) | `@botmesh/tiktok` | Experimental: private, not on npm |
+
+All of them except TikTok are on npm ([Packages and versions](./packages)).
 
 The official WhatsApp Cloud API, for example:
 
@@ -240,7 +242,7 @@ const provider = new CloudAPIProvider({
 
 It is webhook-based: your HTTP server passes the **raw** body of each POST to
 `provider.ingest(rawBody, headers)`. See [Webhook server](./server) to mount it
-and [Channels](./channels) for what each transport supports.
+and [WhatsApp Cloud API](./whatsapp-cloud-api) for the setup in Meta.
 
 ## Troubleshooting
 

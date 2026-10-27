@@ -92,14 +92,16 @@ What it converts:
 | `[x](./flows.md#ask)`, `/es/guide/flujos#…` | absolute Mintlify paths; anchors translated from VitePress slugs to Mintlify slugs |
 | `/api/interfaces/_botmesh_core.IStore.html` | `/api/core/interfaces/IStore` |
 | `{`, `}`, `<`, `<!-- -->`, `<https://…>` in prose | escaped / `{/* */}` / `[url](url)` so every page compiles as MDX |
-| sidebars in `docs/.vitepress/config.ts` | `docs.json` `navigation.languages[en, es]` → tabs Guide / Examples / API reference, same groups and order |
+| sidebars in `docs/.vitepress/config.ts` | `docs.json` `navigation.languages[en, es]` → tabs Guide / Examples / API reference, same groups and order (a nested sidebar group such as "Experimental" becomes a nested Mintlify group; `/api/` items are left to the API tab) |
 | `docs/public/llms.txt` (with `--llms-base`) | `llms.txt` with every link on the published site moved to `--llms-base`, and any old GitHub Pages link mapped to its Mintlify page (unpublished files → GitHub) |
 
 Spanish pages are published at their **English counterpart's path** under `/es/`
 (`docs/es/guide/flujos.md` → `/es/guide/flows`), paired by position in the two sidebars, the same
 rule as `docs/.vitepress/theme/langs.ts`. Mintlify's language switcher only offers a translation
 at the mirrored path and greys the option out otherwise, so this is what makes the EN/ES switch
-work on every page. `docs.json` redirects every old Spanish URL (`/es/guide/flujos`) to the new one.
+work on every page. `docs.json` redirects every old Spanish URL (`/es/guide/flujos`) to the new one,
+and every page removed in a reorganization (`MOVED_PAGES` in `site-map.mjs`, e.g. `guide/di` → `guide/plugins`)
+to the page that now holds its content.
 
 The API reference is TypeDoc + [typedoc-plugin-markdown](https://typedoc-plugin-markdown.org) over the
 same entry points as `pnpm docs:api` (`@botmesh/core`, `/spi`, `/testing`, with the same categories),

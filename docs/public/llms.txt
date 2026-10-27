@@ -55,7 +55,7 @@
 - [Streaming replies (ctx.stream)](https://botmesh.afaya.com.co/guide/streaming)
 - [Voice: speech-to-text and text-to-speech (@botmesh/voice)](https://botmesh.afaya.com.co/guide/voice)
 - [Integrations (Chatwoot, tickets, moderation, Dialogflow, ...)](https://botmesh.afaya.com.co/guide/integrations)
-- [Dependency injection (bot.provide / bot.unprovide)](https://botmesh.afaya.com.co/guide/di)
+- [Dependency injection (bot.provide / bot.unprovide), in the Plugins guide](https://botmesh.afaya.com.co/guide/plugins)
 - [Scheduler](https://botmesh.afaya.com.co/guide/scheduler)
 - [Rate limiting (anti-ban)](https://botmesh.afaya.com.co/guide/rate-limiting)
 - [Persistent stores](https://botmesh.afaya.com.co/guide/store)
