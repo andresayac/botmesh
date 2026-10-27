@@ -1,0 +1,21 @@
+{
+  "name": "botmesh-mintlify",
+  "private": true,
+  "type": "module",
+  "description": "Mintlify tooling for the botmesh docs (converter + mint CLI). Its own pnpm root, not a workspace member: run pnpm install from this folder. Deploy with pnpm docs:mintlify from the repo root.",
+  "scripts": {
+    "convert": "node scripts/convert.mjs",
+    "dev": "cd site && mint dev --port 3333 --no-open",
+    "validate": "cd site && mint validate",
+    "broken-links": "cd site && mint broken-links --check-anchors --check-redirects",
+    "convert:fast": "node scripts/convert.mjs --skip-api"
+  },
+  "devDependencies": {
+    "@sindresorhus/slugify": "2.2.0",
+    "mint": "4.2.1006",
+    "typedoc": "0.28.20",
+    "typedoc-plugin-markdown": "4.14.1",
+    "typescript": "5.9.3",
+    "yaml": "2.8.1"
+  }
+}

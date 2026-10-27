@@ -61,7 +61,8 @@ const DEPRECATED = [...new Set([
  * `CHANGELOG.md` (release notes quote historical import lines), the historical design
  * notes (`docs/superpowers/`), and what is not the project's own source: dependencies
  * and generated output (`node_modules`, `lib`, `dist`, `coverage` at any depth; the
- * TypeDoc output `docs/api/`, the VitePress cache/temp and the temporary
+ * TypeDoc output `docs/api/`, the VitePress cache/temp, the generated Mintlify site
+ * `mintlify/site/` and its TypeDoc scratch `mintlify/.cache/`, and the temporary
  * `.docs-example-*` programs of the docs-example tests), git and CI internals,
  * changesets, third-party reference repos (`terceros/`), local tool folders and the
  * WhatsApp session folders. Everything else in the repo is: every package's sources,
@@ -73,6 +74,7 @@ const SKIP_NAMES = new Set(['node_modules', 'lib', 'dist', 'coverage', '.git', '
 /** Skipped only at this exact repo-relative path (a `src/api/` folder is still scanned). */
 const SKIP_PATHS = new Set([
   'packages/core/tests', 'docs/superpowers', 'docs/api', 'docs/.vitepress/cache', 'docs/.vitepress/.temp',
+  'mintlify/site', 'mintlify/.cache',
   '.github', '.changeset', 'terceros', '.claude', '.playwright-mcp',
 ])
 const EXTENSIONS = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|vue|md|txt)$/
@@ -259,10 +261,11 @@ describe('internal, SPI and deprecated names are not imported from the main entr
       'terceros', 'sessions', 'packages/core/sessions', 'bot_sessions', '.claude', '.playwright-mcp',
       'docs/superpowers', 'docs/api', 'docs/.vitepress/cache', 'docs/.vitepress/.temp', 'packages/ai/coverage',
       'packages/core/tests', 'CHANGELOG.md', 'packages/ai/CHANGELOG.md', 'packages/ai/.docs-example-a1B2c3',
+      'mintlify/site', 'mintlify/.cache', 'mintlify/node_modules',
     ]) expect(isSkipped(rel), rel).toBe(true)
     for (const rel of [
       'packages/manager/src/api', 'packages/ai/src/cache', 'packages/x/superpowers', 'docs/guide', 'docs/es/guide',
-      'docs/.vitepress/theme', 'packages/core/src', 'test-utils', 'scripts',
+      'docs/.vitepress/theme', 'packages/core/src', 'test-utils', 'scripts', 'mintlify/scripts',
     ]) expect(isSkipped(rel), rel).toBe(false)
   })
 
