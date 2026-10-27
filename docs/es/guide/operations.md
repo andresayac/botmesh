@@ -68,7 +68,7 @@ createServer((_req, res) => {
 }).listen(9464)
 ```
 
-El prefijo por defecto es `botmesh_` (`prefix: 'botwa_'` conserva los nombres de las versiones alpha). Familias: `uptime_seconds`,
+El prefijo por defecto es `botmesh_` (`prefix: 'botwa_'` produce los nombres heredados `botwa_*`, para dashboards y alertas existentes). Familias: `uptime_seconds`,
 `conversations_active`, `conversations_started_total`,
 `conversations_ended_total{outcome}` (`completed` / `ended` / `guarded` /
 `cancelled` / `timed_out` / `retries_exceeded` / `error`),

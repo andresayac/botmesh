@@ -9,7 +9,7 @@ bot talks over real HTTP to a local server that answers like WhatsApp, Telegram 
 server delivers webhooks signed with a secret it chooses, so signature checks, error mapping,
 media downloads and retries all run the production code path.
 
-::: info Not on npm yet
+::: info Private package
 `@botmesh/sandbox` lives in the monorepo and is not published to npm. Use it from a clone:
 `pnpm install && pnpm build`.
 :::

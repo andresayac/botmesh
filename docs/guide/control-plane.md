@@ -1,8 +1,8 @@
 # Control plane
 
-::: warning Experimental — not published yet
+::: warning Experimental — private package
 `@botmesh/manager` is **experimental**: a real, tested implementation that is
-still private (not on npm, not part of the beta) and whose API may
+private (`"private": true`, not on npm) and whose API may
 change. Use it from the monorepo (`workspace:*`).
 :::
 

@@ -5,11 +5,11 @@ conversations and, with a persistent store, across restarts. Use it for
 preferences, a name you asked for once, a game board, an opt-in flag...
 
 ```ts
-bot.when('hola', async (ctx) => {
+bot.when('hello', async (ctx) => {
   const name = await ctx.user.get<string>('name')               // undefined if missing or expired
-  await ctx.user.set('name', 'Juan')
-  await ctx.user.set('address.city', 'Bogotá')                   // dot paths
-  await ctx.user.update({ lang: 'es', 'address.zip': '110111' }) // each key is a path
+  await ctx.user.set('name', 'John')
+  await ctx.user.set('address.city', 'Boston')                   // dot paths
+  await ctx.user.update({ lang: 'en', 'address.zip': '02108' })  // each key is a path
   await ctx.user.delete('address.zip')
   const profile = await ctx.user.all()                           // { name, lang, address: {...} }
 
@@ -37,7 +37,7 @@ await bot.user('5491122334455').ns('billing').set('plan', 'pro')
 // Inside flow steps ctx is a RuntimeMessage: use userOf()
 import { userOf } from '@botmesh/core'
 
-flow('idioma')
+flow('language')
   .ask('Language?', 'lang')
   .do(async (ctx, c) => { await userOf(ctx).set('lang', c.state.lang) })
 ```

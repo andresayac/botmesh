@@ -353,7 +353,10 @@ bot.conversation('quiz', async (c, ctx) => {
 }, { trigger: 'quiz' })
 ```
 
-Sin `{ trigger }`, iníciala con `bot.trigger('quiz', { chatId })` o con
+Sin `{ trigger }`, el nombre de la conversación es su trigger, así que aquí la
+opción sobra: un mensaje `quiz` la inicia igualmente. Pasa `{ trigger }` para
+iniciarla con otra cosa (otras palabras, una `RegExp`, un trigger de tipo…).
+Desde código, iníciala con `bot.trigger('quiz', { chatId })` o con
 `c.goto('quiz')` desde otra conversación. El objeto `c`:
 
 | Miembro | Qué hace |

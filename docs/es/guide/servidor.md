@@ -164,8 +164,7 @@ Los valores por defecto se exportan como `DEFAULT_MAX_BODY_BYTES`,
 ### `body: 'buffer'` o `'text'`
 
 `ingest()` recibe el body crudo como `Buffer` (por defecto) o como string
-UTF-8 con `body: 'text'`. `TelegramProvider` acepta los dos (sus primeras
-alphas necesitaban `body: 'text'`).
+UTF-8 con `body: 'text'`. `TelegramProvider` acepta los dos.
 
 ### Límite de tamaño por ruta
 
