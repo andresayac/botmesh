@@ -42,10 +42,9 @@ What is left to you. The rest of this page explains each point.
 
 ## Security audit (2026-10)
 
-The rest of this page is the result of the October 2026 audit of the newer
-surfaces (webhook ingress, the manager REST API, the newer channels and
-plugins). Most audited packages are public from the beta; `manager` and `tiktok`
-are still private. The published ones are listed in [Going to production](./production#which-packages-are-published).
+The rest of this page is the result of the October 2026 audit of the webhook
+ingress, the manager REST API and the channels and plugins listed below. All
+audited packages are public except `manager` and `tiktok`, which are private. The published ones are listed in [Going to production](./production#which-packages-are-published).
 
 **Scope:** `@botmesh/server`, `twilio`, `gohighlevel`, `gupshup`, `evolution`,
 `wppconnect`, `email`, `tiktok`, `chatwoot`, `voice`, `rag`, `manager` (`/v1`

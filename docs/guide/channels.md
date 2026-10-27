@@ -43,12 +43,12 @@ needs an app, a phone number or a public URL.
 | `@botmesh/gohighlevel` | `gohighlevel-provider` | On npm (from the beta) | HighLevel (LeadConnector) Conversations API |
 | `@botmesh/gupshup` | `gupshup-provider` | On npm (from the beta) | Gupshup WhatsApp API |
 | `@botmesh/email` | `email-provider` | On npm (from the beta) | Email (IMAP IDLE + SMTP) |
-| `@botmesh/tiktok` | `tiktok-provider` | Not on npm yet | TikTok API for Business (comments + Business Messaging) |
+| `@botmesh/tiktok` | `tiktok-provider` | Private (not on npm) | TikTok API for Business (comments + Business Messaging) |
 
 The **On npm** channels are installed with `pnpm add` and follow semver
 (those marked "from the beta" were first published with it). `@botmesh/tiktok` has `"private": true` in its
 `package.json`: it is implemented and tested, but it is **not published to npm**
-and its API may still change. Use it from a clone of the monorepo (`"workspace:*"`).
+and its API may change. Use it from a clone of the monorepo (`"workspace:*"`).
 The same goes for the [sandbox](/guide/sandbox). The webhook ingress,
 [`@botmesh/server`](/guide/server), is on npm.
 
@@ -838,7 +838,7 @@ const provider = new EmailProvider({
 
 [README](https://github.com/andresayac/botmesh/tree/main/packages/email-provider)
 
-### `@botmesh/tiktok` (not on npm yet)
+### `@botmesh/tiktok` (not on npm)
 
 TikTok API for Business (v1.3): **comments** on the account's own videos and
 **direct messages** (Business Messaging API, approval required). Webhooks

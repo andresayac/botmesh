@@ -290,7 +290,7 @@ new Bot({
 | `tracerProvider` | el global (`trace.getTracerProvider()`) | |
 | `tracerName` | `'@botmesh/otel'` | Scope de instrumentación. |
 | `spanMetrics` | `true` | `false`, o `{ meterProvider, prefix }`. |
-| `otelMetricsPlugin({ meterProvider, meterName, prefix, attributes, perFlow, conversationDuration })` | global, `'@botmesh/otel'`, `'botmesh'` (`'botwa'` conserva los nombres de la alpha), `{}`, `true`, `true` | |
+| `otelMetricsPlugin({ meterProvider, meterName, prefix, attributes, perFlow, conversationDuration })` | global, `'@botmesh/otel'`, `'botmesh'` (`'botwa'` da los nombres heredados `botwa_*`), `{}`, `true`, `true` | |
 
 ### Muestreo
 

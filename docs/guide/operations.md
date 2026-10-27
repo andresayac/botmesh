@@ -67,7 +67,7 @@ createServer((_req, res) => {
 }).listen(9464)
 ```
 
-The default prefix is `botmesh_` (`prefix: 'botwa_'` keeps the names of the alpha releases). Families: `uptime_seconds`,
+The default prefix is `botmesh_` (`prefix: 'botwa_'` produces the legacy `botwa_*` names, for existing dashboards and alerts). Families: `uptime_seconds`,
 `conversations_active`, `conversations_started_total`,
 `conversations_ended_total{outcome}` (`completed` / `ended` / `guarded` /
 `cancelled` / `timed_out` / `retries_exceeded` / `error`),

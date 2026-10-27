@@ -45,10 +45,10 @@ Lo que queda en tus manos. El resto de la página explica cada punto.
 
 ## Auditoría de seguridad (2026-10)
 
-El resto de la página es el resultado de la auditoría de octubre de 2026 de las
-superficies nuevas (ingress de webhooks, API REST del manager, canales y
-plugins nuevos). La mayoría de los paquetes auditados son públicos desde la beta; `manager` y
-`tiktok` siguen siendo privados. Los publicados se listan en
+El resto de la página es el resultado de la auditoría de octubre de 2026 del
+ingress de webhooks, la API REST del manager y los canales y plugins que se
+listan abajo. Todos los paquetes auditados son públicos salvo `manager` y
+`tiktok`, que son privados. Los publicados se listan en
 [Pasar a producción](./produccion#que-paquetes-estan-publicados).
 
 **Alcance:** `@botmesh/server`, `twilio`, `gohighlevel`, `gupshup`, `evolution`,

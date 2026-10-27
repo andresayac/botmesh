@@ -214,7 +214,7 @@ and extra replies are detected.
 
 ## Publish gate (`@botmesh/deployments`)
 
-::: warning Experimental — not published yet
+::: warning Experimental — private package
 `@botmesh/deployments` is private (not on npm) and its API may change. It is
 persistent: `MemoryDeploymentStore` is the reference and `KvDeploymentStore`
 persists over any `DurableKv` (SQLite, PostgreSQL, Redis, file). Gate runs are

@@ -10,14 +10,14 @@ continues.
 ```ts
 import { flow } from '@botmesh/core'
 
-const greet = flow('hola')
+const greet = flow('hello')
   .ask('👋 Hello! What is your name?', 'name')
   .say((_ctx, c) => `Nice to meet you, ${c.state.name}!`)
 
 bot.use(greet)
 ```
 
-When someone writes "hola", the bot asks for the name, waits for the answer,
+When someone writes "hello", the bot asks for the name, waits for the answer,
 stores it in `c.state.name` and greets them. `flow()` takes any
 [trigger](./concepts#when-simple-responses): a string, a list, a regex, a
 predicate, or `WELCOME`, `IMAGE` and the other [special triggers](./triggers).
@@ -31,7 +31,7 @@ predicate, or `WELCOME`, `IMAGE` and the other [special triggers](./triggers).
 | `bot.trigger(id, { chatId })` | Start a flow from code: a scheduled task, a webhook, an admin action. See [Starting a flow programmatically](./messages#starting-a-flow-programmatically). |
 | `bot.abortConversation(ctx)` | Cancel the conversation in progress for that user (what `/reset` does). Takes a `ctx` or `{ from, sender, isGroup }`. |
 
-A flow's id is its string trigger, normalized (`flow('Hola')` is `'hola'`; a list uses its first string). A flow built
+A flow's id is its string trigger, normalized (`flow('Hello')` is `'hello'`; a list uses its first string). A flow built
 with a regex, a predicate or a special trigger needs `.id('name')` to be
 started by name, used as a `goto` target or made `.persistent()`.
 
@@ -102,7 +102,7 @@ the localizable `core.wait.invalid` built-in when the schema gives none, see
 ```ts
 import { z } from 'zod'
 
-flow('registro')
+flow('signup')
   .ask('How old are you?', 'age', { schema: z.coerce.number().min(18, 'You must be 18 or older') })
   .say((_ctx, c) => `Next year you will be ${c.state.age + 1}`)   // c.state.age: number
 ```
@@ -137,9 +137,9 @@ plus per-kind options (`filename`, `ptv`, `gifPlayback`, `pack`, `author`).
 ### choose — branching (numbered menu)
 
 ```ts
-flow('confirmar')
-  .choose('Confirm your order?', { si: 'Yes', no: 'No' })
-  .say((_ctx, c) => c.state.choice === 'si' ? '✅ Confirmed' : '❌ Cancelled')
+flow('confirm')
+  .choose('Confirm your order?', { yes: 'Yes', no: 'No' })
+  .say((_ctx, c) => c.state.choice === 'yes' ? '✅ Confirmed' : '❌ Cancelled')
 ```
 
 `choose` sends a numbered menu built from `options` (`Record<string,
@@ -153,8 +153,8 @@ picked; control returns to the parent flow afterwards:
 ```ts
 flow('menu')
   .choose('What are you interested in?', {
-    ofertas: { label: 'Offers 🏷️', then: (_ctx, c) => { c.state.interest = 'ofertas' } },
-    soporte: { label: 'Support 🛠️', then: (_ctx, c) => { c.state.interest = 'soporte' } },
+    offers: { label: 'Offers 🏷️', then: (_ctx, c) => { c.state.interest = 'offers' } },
+    support: { label: 'Support 🛠️', then: (_ctx, c) => { c.state.interest = 'support' } },
   })
   .say((_ctx, c) => `Got it: ${c.state.interest}`)
 ```
@@ -165,18 +165,18 @@ leaves the current flow for another conversation, which is how you build
 a "back to the main menu" option:
 
 ```ts
-const menu = flow('menu').choose('Main menu', { pedidos: 'Orders', ayuda: 'Help' })
+const menu = flow('menu').choose('Main menu', { orders: 'Orders', help: 'Help' })
 
-flow('ayuda').choose('Help topics', {
-  envios: { label: 'Shipping', then: flow('envios').say('We ship in 48h') },
-  volver: { label: '⬅️ Back', goto: menu },
+flow('help').choose('Help topics', {
+  shipping: { label: 'Shipping', then: flow('shipping').say('We ship in 48h') },
+  back: { label: '⬅️ Back', goto: menu },
 })
 ```
 
 ### timeout — inactivity expiration
 
 ```ts
-flow('soporte')
+flow('support')
   .timeout('60s')
   .ask('Describe your issue', 'issue')
 ```
@@ -208,9 +208,9 @@ flow as `goto-target-missing`.
 ### use — run a sub-flow and come back
 
 ```ts
-const address = flow('direccion').ask('Street?', 'street').ask('City?', 'city')
+const address = flow('address').ask('Street?', 'street').ask('City?', 'city')
 
-flow('pedido')
+flow('order')
   .say('Shipping details')
   .use(address)
   .say((_ctx, c) => `Shipping to ${c.state.street}, ${c.state.city}`)
@@ -242,7 +242,7 @@ ends; without one it ends silently; with `{ redirect, message? }` the message
 ### persistent — survive restarts
 
 ```ts
-flow('registrar').persistent().ask('Name?', 'name').say('Done')
+flow('register').persistent().ask('Name?', 'name').say('Done')
 ```
 
 `.persistent()` checkpoints when the flow starts and after every step, so a
@@ -259,12 +259,12 @@ const bot = new Bot({
 
 A flow needs a stable id to be checkpointed. A string trigger already
 provides one; if you built the flow with a regex/predicate trigger, give it
-an explicit id with `.id('registrar')`.
+an explicit id with `.id('register')`.
 
 ### scope — restrict to dm / group / all
 
 ```ts
-flow('soporte').scope('dm').ask('Describe your issue', 'issue')
+flow('support').scope('dm').ask('Describe your issue', 'issue')
 ```
 
 ### form — several typed fields in one step
@@ -296,7 +296,7 @@ the union of option keys. Declare state the flow expects up front with
 `flow<S>()`, and read a builder's type with `FlowStateOf<typeof f>`:
 
 ```ts
-const f = flow<{ plan: 'free' | 'pro' }>('alta')
+const f = flow<{ plan: 'free' | 'pro' }>('signup')
   .ask('Age?', 'age', { schema: z.coerce.number() })
   .choose('Pay how?', { card: 'Card', cash: 'Cash' }, 'payment')
   .do((_ctx, c) => {
@@ -312,7 +312,7 @@ reachable as `unknown`.
 ## Complete example: registration
 
 ```ts
-const register = flow('registrar')
+const register = flow('register')
   .say('📝 *Let us register you*')
   .ask('Name?', 'name')
   .ask('Email?', 'email', {
@@ -340,7 +340,10 @@ bot.conversation('quiz', async (c, ctx) => {
 }, { trigger: 'quiz' })
 ```
 
-Without `{ trigger }`, start it with `bot.trigger('quiz', { chatId })` or
+Without `{ trigger }`, the conversation's name is its trigger, so here the
+option is redundant: a message `quiz` enters it either way. Pass `{ trigger }`
+to enter it with something else (other words, a `RegExp`, a type trigger…).
+From code, start it with `bot.trigger('quiz', { chatId })` or with
 `c.goto('quiz')` from another conversation. The `c` object:
 
 | Member | What it does |

@@ -10,7 +10,7 @@ servidor entrega webhooks firmados con un secreto que él mismo elige, así que 
 firmas, el mapeo de errores, la descarga de media y los reintentos pasan por el mismo código que
 en producción.
 
-::: info Aún no está en npm
+::: info Paquete privado
 `@botmesh/sandbox` vive en el monorepo y no se publica en npm. Úsalo desde un clon:
 `pnpm install && pnpm build`.
 :::

@@ -161,8 +161,7 @@ The defaults are exported as `DEFAULT_MAX_BODY_BYTES`,
 ### `body: 'buffer'` or `'text'`
 
 `ingest()` receives the raw body as a `Buffer` (default) or as a UTF-8
-string with `body: 'text'`. `TelegramProvider` takes either (its first
-alphas needed `body: 'text'`).
+string with `body: 'text'`. `TelegramProvider` takes either.
 
 ### Per-route size limit
 

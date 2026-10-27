@@ -226,7 +226,7 @@ todos los transportes.
 | WhatsApp vía Evolution API / WPPConnect | `@botmesh/evolution`, `@botmesh/wppconnect` | Publicado (desde la beta) | Tu gateway de WhatsApp Web self-hosted, REST + webhook autenticado |
 | Discord | `@botmesh/discord` | Publicado (desde la beta) | Gateway websocket + REST, botones, menús de selección y slash commands |
 | WhatsApp + SMS (Twilio), Gupshup, HighLevel, email | `@botmesh/twilio`, `@botmesh/gupshup`, `@botmesh/gohighlevel`, `@botmesh/email` | Publicado (desde la beta) | Ver [Canales](./canales) |
-| TikTok | `@botmesh/tiktok` | Experimental | Aún no está en npm; ver [Canales](./canales) |
+| TikTok | `@botmesh/tiktok` | Experimental | Privado, no está en npm; ver [Canales](./canales) |
 
 La Cloud API oficial de WhatsApp, por ejemplo:
 

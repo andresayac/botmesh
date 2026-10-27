@@ -3,7 +3,7 @@
 WhatsApp **banea cuentas** que envían demasiados mensajes en poco tiempo. El rate limiter integrado del provider Baileys protege tu bot automáticamente — está **activo por defecto** y se sitúa dentro del pipeline de envío saliente del provider, así que cada `ctx.reply()`, `bot.send()`, `bot.broadcast()` y envío de media pasa por él.
 
 ::: tip Pacing propio de cada transporte
-En v2 la política de pacing vive en el **provider**, no en el core: cada
+La política de pacing vive en el **provider**, no en el core: cada
 transporte puede aplicar sus propios límites (429s de Telegram, buckets de
 Discord, tiers de la Cloud API — expuestos como `RateLimitedError` tipados).
 Esta página cubre el limiter de token bucket de WhatsApp (Baileys) que
@@ -119,8 +119,8 @@ new Bot({ provider, rateLimitRetry: { retries: 2, maxWaitMs: '10s' } })
 new Bot({ provider, rateLimitRetry: false })   // nunca reintentar en el sitio
 ```
 
-Una espera más larga, otros errores y `bot.send()` fallan como antes;
-`bot.broadcast()` (su opción `retries`) y el outbox durable tienen su propio
+Una espera más larga, otros errores y `bot.send()` no se reintentan en el
+sitio: rechazan con el error del provider. `bot.broadcast()` (su opción `retries`) y el outbox durable tienen su propio
 back-off.
 
 ## Interacción con hooks `before('send')`
