@@ -49,7 +49,7 @@ El resto de la página es el resultado de la auditoría de octubre de 2026 del
 ingress de webhooks, la API REST del manager y los canales y plugins que se
 listan abajo. Todos los paquetes auditados son públicos salvo `manager` y
 `tiktok`, que son privados. Los publicados se listan en
-[Pasar a producción](./produccion#que-paquetes-estan-publicados).
+[Paquetes y versiones](./paquetes).
 
 **Alcance:** `@botmesh/server`, `twilio`, `gohighlevel`, `gupshup`, `evolution`,
 `wppconnect`, `email`, `tiktok`, `chatwoot`, `voice`, `rag`, `manager` (REST

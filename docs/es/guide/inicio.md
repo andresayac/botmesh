@@ -16,7 +16,7 @@ Telegram sin cambiar el código del bot.
   El simulador de la terminal no necesita ninguno.
 
 ::: info Beta
-botmesh está en beta: una instalación sin tag instala la beta, y `@beta` resuelve siempre a la más reciente (`latest` se mueve a mano tras cada publicación). Este sitio documenta la beta y después `@botmesh/core` 2.0.0 estable.
+botmesh está en beta y una instalación sin tag instala la beta. Este sitio documenta la beta y después `@botmesh/core` 2.0.0 estable. Tags, versiones y el estado de cada paquete: [Paquetes y versiones](./paquetes).
 :::
 
 ## Opción A: generar un proyecto (recomendado) {#crear-un-proyecto-con-create-botmesh}
@@ -216,17 +216,19 @@ defecto, así que no hace falta una URL pública.
 Solo cambia el provider: handlers, flujos, hooks y plugins son los mismos en
 todos los transportes.
 
-| Transporte | Paquete | Estado | Notas |
-| --- | --- | --- | --- |
-| WhatsApp (Baileys 7) | `@botmesh/baileys` | Publicado | Protocolo no oficial de WhatsApp Web, QR o código de vinculación |
-| WhatsApp Cloud API | `@botmesh/meta` | Publicado | API oficial de Meta, webhook, botones y plantillas nativos |
-| Telegram | `@botmesh/telegram` | Publicado | Bot API, long polling o webhook |
-| Facebook Messenger | `@botmesh/messenger` | Publicado (desde la beta) | Send API, webhook, botones postback y plantillas genéricas |
-| DMs de Instagram | `@botmesh/instagram` | Publicado (desde la beta) | Messenger API for Instagram, webhook, quick replies |
-| WhatsApp vía Evolution API / WPPConnect | `@botmesh/evolution`, `@botmesh/wppconnect` | Publicado (desde la beta) | Tu gateway de WhatsApp Web self-hosted, REST + webhook autenticado |
-| Discord | `@botmesh/discord` | Publicado (desde la beta) | Gateway websocket + REST, botones, menús de selección y slash commands |
-| WhatsApp + SMS (Twilio), Gupshup, HighLevel, email | `@botmesh/twilio`, `@botmesh/gupshup`, `@botmesh/gohighlevel`, `@botmesh/email` | Publicado (desde la beta) | Ver [Canales](./canales) |
-| TikTok | `@botmesh/tiktok` | Experimental | Privado, no está en npm; ver [Canales](./canales) |
+| Transporte | Paquete | Notas |
+| --- | --- | --- |
+| [WhatsApp (Baileys 7)](./baileys) | `@botmesh/baileys` | Protocolo no oficial de WhatsApp Web, QR o código de vinculación |
+| [WhatsApp Cloud API](./whatsapp-cloud-api) | `@botmesh/meta` | API oficial de Meta, webhook, botones y plantillas nativos |
+| [Telegram](./telegram) | `@botmesh/telegram` | Bot API, long polling o webhook |
+| [Facebook Messenger](./messenger) | `@botmesh/messenger` | Send API, webhook, botones postback y plantillas genéricas |
+| [DMs de Instagram](./instagram) | `@botmesh/instagram` | Messenger API for Instagram, webhook, quick replies |
+| WhatsApp vía [Evolution API](./evolution) / [WPPConnect](./wppconnect) | `@botmesh/evolution`, `@botmesh/wppconnect` | Tu gateway de WhatsApp Web self-hosted, REST + webhook autenticado |
+| [Discord](./discord) | `@botmesh/discord` | Gateway websocket + REST, botones, menús de selección y slash commands |
+| WhatsApp + SMS ([Twilio](./twilio)), [Gupshup](./gupshup), [HighLevel](./gohighlevel), [email](./email) | `@botmesh/twilio`, `@botmesh/gupshup`, `@botmesh/gohighlevel`, `@botmesh/email` | Ver la página de cada canal |
+| [TikTok](./tiktok) | `@botmesh/tiktok` | Experimental: privado, no está en npm |
+
+Todos salvo TikTok están en npm ([Paquetes y versiones](./paquetes)).
 
 La Cloud API oficial de WhatsApp, por ejemplo:
 
@@ -243,7 +245,7 @@ const provider = new CloudAPIProvider({
 
 Funciona por webhook: tu servidor HTTP pasa el body **crudo** de cada POST a
 `provider.ingest(rawBody, headers)`. Consulta [Servidor de webhooks](./servidor)
-para montarlo y [Canales](./canales) para lo que admite cada transporte.
+para montarlo y [WhatsApp Cloud API](./whatsapp-cloud-api) para la configuración en Meta.
 
 ## Solución de problemas
 

@@ -85,21 +85,10 @@ All of these are opt-in: without the option, the bot runs exactly as before.
 
 ## Which packages are published
 
-The npm packages (36) are `@botmesh/core`; the channels `@botmesh/baileys`,
-`@botmesh/meta`, `@botmesh/telegram`, `@botmesh/messenger`, `@botmesh/instagram`,
-`@botmesh/discord`, `@botmesh/evolution`, `@botmesh/wppconnect`, `@botmesh/twilio`,
-`@botmesh/gupshup`, `@botmesh/gohighlevel` and `@botmesh/email`; the stores
-`@botmesh/sqlite-store`, `@botmesh/redis-store`, `@botmesh/postgres-store`,
-`@botmesh/mysql-store` and `@botmesh/mongo-store`; the infrastructure `@botmesh/http`,
-`@botmesh/graph-core`, `@botmesh/wa-gateway-kit`, `@botmesh/server`, `@botmesh/events`
-and `@botmesh/otel`; the plugins `@botmesh/ai`, `@botmesh/rag`, `@botmesh/voice`,
-`@botmesh/nlu`, `@botmesh/dialogflow`, `@botmesh/chatwoot`, `@botmesh/tickets` and
-`@botmesh/moderation`; and the tooling `@botmesh/flow-schema`, `@botmesh/mcp`,
-`eslint-plugin-botmesh` and `create-botmesh`. All 36 are on npm. Ten of them were first published during the alpha (`core`, `baileys`, `meta`, `telegram`, `sqlite-store`, `redis-store`, `ai`,
-`http`, `graph-core` and `create-botmesh`); the other 26 shipped for the first time with the beta.
-Some pages also describe packages that live only in the
-[repository](https://github.com/andresayac/botmesh/tree/main/packages) for now
-(the TikTok channel, `@botmesh/manager`, the sandbox…). Each of those pages says so. Plan a
+The 36 public packages are on npm; a few pages also describe private packages
+that live only in the monorepo (the TikTok channel, `@botmesh/manager`, the
+sandbox…), and each of those pages says so. The full list, with npm tags and
+install commands, is in [Packages and versions](./packages). Plan a
 production deployment on the published ones.
 
 ## Before each release of your bot

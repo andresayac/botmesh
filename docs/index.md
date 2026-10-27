@@ -116,6 +116,6 @@ npm run dev        # chat with it in the terminal
 npm start          # connect WhatsApp or Telegram
 ```
 
-botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish).
+botmesh is in beta; see [Packages and versions](/guide/packages) for npm tags and package status.
 [Getting started](/guide/getting-started) walks through every step, including setting up a
 project by hand.

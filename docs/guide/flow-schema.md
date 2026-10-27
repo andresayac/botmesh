@@ -128,8 +128,12 @@ const digest = flowDigest(draft)                      // sha256 of canonical JSO
 await publishFlow(registry, 'acme', 'support', draft) // DeploymentRegistry gate + audited gate run
 ```
 
-`publishFlow()` uses the document JSON as the artifact and a `flowDocumentGate()` that parses, validates and compiles the candidate; `options.gate` can chain another gate (e.g. golden transcripts). `@botmesh/deployments` owns the storage; this package only provides the pure helpers.
+`publishFlow()` uses the document JSON as the artifact and a `flowDocumentGate()` that parses, validates and compiles the candidate; `options.gate` can chain another gate (e.g. golden transcripts). `@botmesh/deployments` owns the storage; this package only provides the pure helpers. `@botmesh/deployments` is private (not on npm) and its API may change; see [Packages and versions](./packages#private-packages-9).
 
 ## Manager REST
+
+::: warning Experimental: private package
+`@botmesh/manager` is private (not on npm) and its API may change. See [Control plane](./control-plane).
+:::
 
 The manager's `POST`/`PUT` flow endpoints accept exactly these documents. `GET /v1/flows/schema` serves the JSON Schema and `GET/PUT/DELETE /v1/bots/{botId}/flows/{flowId}` store and hot-swap them without changing the REST contract. `subflow` steps resolve against the bot's other stored flows.

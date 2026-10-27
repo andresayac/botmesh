@@ -42,7 +42,7 @@ botmesh es solo ESM. Usa `import` y añade `"type": "module"` a tu `package.json
 
 ### `pnpm add @botmesh/core` instala una build anterior
 
-botmesh está en beta: una instalación sin tag instala la beta, y `@beta` resuelve siempre a la más reciente (`latest` se mueve a mano tras cada publicación). Justo después de una publicación, una instalación sin tag puede seguir obteniendo la beta anterior hasta que se mueve `latest`, y un proyecto que mezcla builds puede fallar por exports que faltan o rangos de peers. Revisa los tags con `pnpm view @botmesh/core dist-tags` e instala la beta más reciente con el tag, por ejemplo `pnpm add @botmesh/core@beta @botmesh/baileys@beta`. Mira [Instalación](./inicio).
+Justo después de una publicación, una instalación sin tag puede seguir obteniendo la beta anterior hasta que se mueve `latest`, y un proyecto que mezcla builds puede fallar por exports que faltan o rangos de peers. Revisa los tags con `pnpm view @botmesh/core dist-tags` e instala la beta más reciente con el tag, por ejemplo `pnpm add @botmesh/core@beta @botmesh/baileys@beta`. Mira [Paquetes y versiones](./paquetes#dist-tags-de-npm).
 
 ## WhatsApp Web (Baileys)
 

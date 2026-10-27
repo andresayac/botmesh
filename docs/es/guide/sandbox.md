@@ -1,5 +1,11 @@
 # Sandbox de plataformas
 
+::: warning Experimental: paquete privado
+`@botmesh/sandbox` es privado (`"private": true`): no está en npm y su API puede cambiar.
+Úsalo desde un clon del monorepo (`pnpm install && pnpm build`). Ver
+[Paquetes y versiones](./paquetes).
+:::
+
 `@botmesh/sandbox` simula las plataformas de mensajería en tu máquina para probar un bot en
 todos los canales de extremo a extremo, sin registrar una app, un número ni un webhook público.
 
@@ -9,11 +15,6 @@ habla por HTTP real con un servidor local que responde como WhatsApp, Telegram o
 servidor entrega webhooks firmados con un secreto que él mismo elige, así que la verificación de
 firmas, el mapeo de errores, la descarga de media y los reintentos pasan por el mismo código que
 en producción.
-
-::: info Paquete privado
-`@botmesh/sandbox` vive en el monorepo y no se publica en npm. Úsalo desde un clon:
-`pnpm install && pnpm build`.
-:::
 
 Elige la herramienta según lo que quieras comprobar:
 

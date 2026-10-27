@@ -118,6 +118,6 @@ npm run dev        # chatea con él en la terminal
 npm start          # conecta WhatsApp o Telegram
 ```
 
-botmesh está en beta: una instalación sin tag instala la beta, y `@beta` resuelve siempre a la más reciente (`latest` se mueve a mano tras cada publicación).
+botmesh está en beta; los tags de npm y el estado de cada paquete están en [Paquetes y versiones](/es/guide/paquetes).
 [Inicio rápido](/es/guide/inicio) explica cada paso,
 incluido montar el proyecto a mano.
