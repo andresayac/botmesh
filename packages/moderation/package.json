@@ -33,7 +33,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/moderation"
   },
-  "homepage": "https://andresayac.github.io/botmesh/guide/integrations#moderation",
+  "homepage": "https://botmesh.afaya.com.co/guide/integrations#moderation",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },

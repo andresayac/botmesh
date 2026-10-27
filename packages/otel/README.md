@@ -34,7 +34,7 @@ const bot = new Bot({
 bot.plug(otelMetricsPlugin())
 ```
 
-Spans: `bot.inbound` → `bot.persist` / `bot.dispatch` → `bot.handler` → `bot.conversation.turn` → `bot.pace` → `bot.send`, plus one root `bot.lifecycle` span per start/stop step, one root `bot.task` span per scheduled task run, and `chat {model}`, `execute_tool {name}` and `bot.ai.retrieve` from [`@botmesh/ai`](https://github.com/andresayac/botmesh/tree/main/packages/ai). The full span catalogue is in the [tracing guide](https://andresayac.github.io/botmesh/guide/tracing).
+Spans: `bot.inbound` → `bot.persist` / `bot.dispatch` → `bot.handler` → `bot.conversation.turn` → `bot.pace` → `bot.send`, plus one root `bot.lifecycle` span per start/stop step, one root `bot.task` span per scheduled task run, and `chat {model}`, `execute_tool {name}` and `bot.ai.retrieve` from [`@botmesh/ai`](https://github.com/andresayac/botmesh/tree/main/packages/ai). The full span catalogue is in the [tracing guide](https://botmesh.afaya.com.co/guide/tracing).
 
 ## Tracer
 
@@ -82,7 +82,7 @@ Options (`OtelTracingOptions`):
 
 ## Links
 
-- [Tracing guide](https://andresayac.github.io/botmesh/guide/tracing) (Jaeger and Grafana Tempo examples, sampling, personal-data policy) · [Operations](https://andresayac.github.io/botmesh/guide/operations)
+- [Tracing guide](https://botmesh.afaya.com.co/guide/tracing) (Jaeger and Grafana Tempo examples, sampling, personal-data policy) · [Operations](https://botmesh.afaya.com.co/guide/operations)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/otel/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/otel) · [Issues](https://github.com/andresayac/botmesh/issues)
 
 Public package, covered by semver. `@botmesh/otel/internal` (the span-metrics recorder) has no semver promise.

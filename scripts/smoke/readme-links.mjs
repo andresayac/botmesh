@@ -24,3 +24,13 @@ export function relativeLinks(markdown) {
     .map((f) => f.target)
     .filter((t) => !ABSOLUTE.test(t))
 }
+
+/**
+ * Paths of the links to the docs site (`siteUrl`, with a trailing slash) in
+ * `text`, without the hash: 'https://site/guide/ai#x' -> '/guide/ai'.
+ */
+export function siteLinks(text, siteUrl) {
+  const escaped = siteUrl.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
+  const re = new RegExp(`${escaped}([^\\s)>\\]"'\`<#]*)`, 'g')
+  return [...String(text).matchAll(re)].map((m) => `/${m[1]}`.replace(/[.,;:]+$/, '').replace(/(.)\/$/, '$1'))
+}

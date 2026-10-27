@@ -48,7 +48,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://andresayac.github.io/botmesh/guide/security",
+  "homepage": "https://botmesh.afaya.com.co/guide/security",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   }

@@ -138,5 +138,5 @@ Back up `data/` together with `sessions/`. With WAL on, copy the database while 
 
 ## Links
 
-- [Persistent stores guide](https://andresayac.github.io/botmesh/guide/store) · [Scheduler](https://andresayac.github.io/botmesh/guide/scheduler) · [Durable processing](https://andresayac.github.io/botmesh/guide/durability) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Persistent stores guide](https://botmesh.afaya.com.co/guide/store) · [Scheduler](https://botmesh.afaya.com.co/guide/scheduler) · [Durable processing](https://botmesh.afaya.com.co/guide/durability) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/sqlite-store/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/sqlite-store) · [Issues](https://github.com/andresayac/botmesh/issues)

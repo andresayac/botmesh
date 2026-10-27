@@ -12,7 +12,7 @@
   "keywords": ["botmesh", "instagram", "instagram-dm", "meta", "provider", "transport", "webhook", "chatbot"],
   "author": "Andres Aya", "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/andresayac/botmesh.git", "directory": "packages/instagram-provider" },
-  "homepage": "https://andresayac.github.io/botmesh/guide/channels#botmesh-instagram",
+  "homepage": "https://botmesh.afaya.com.co/guide/instagram",
   "bugs": { "url": "https://github.com/andresayac/botmesh/issues" },
   "files": ["./lib/**/*"],
   "scripts": { "build": "tsc", "test": "vitest run", "prepublishOnly": "pnpm build", "typecheck": "tsc -p tsconfig.test.json" },

@@ -108,5 +108,5 @@ Inbound: messages (the first attachment as `ctx.media`; every URL stays in `ctx.
 
 ## Links
 
-- [Channels guide](https://andresayac.github.io/botmesh/guide/channels#botmesh-gohighlevel) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Channel guide](https://botmesh.afaya.com.co/guide/gohighlevel) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/gohighlevel-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/gohighlevel-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

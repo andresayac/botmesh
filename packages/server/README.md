@@ -151,7 +151,7 @@ For a framework without an adapter, build an `IngressRequest` (set `rawQuery` to
 
 ## Links
 
-- [Webhook server guide](https://andresayac.github.io/botmesh/guide/server) · [Channels](https://andresayac.github.io/botmesh/guide/channels) · [Deployment](https://andresayac.github.io/botmesh/guide/deploy) · [Security](https://andresayac.github.io/botmesh/guide/security)
+- [Webhook server guide](https://botmesh.afaya.com.co/guide/server) · [Channels](https://botmesh.afaya.com.co/guide/channels) · [Deployment](https://botmesh.afaya.com.co/guide/deploy) · [Security](https://botmesh.afaya.com.co/guide/security)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/server/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/server) · [Issues](https://github.com/andresayac/botmesh/issues)
 
 Public package, covered by semver. `@botmesh/server/internal` (path helpers) has no semver promise.

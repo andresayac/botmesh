@@ -40,7 +40,7 @@ describe('eslint-plugin-botmesh entry', () => {
 describe('rule docs links', () => {
   it('every rule links to its section of the live guide', () => {
     for (const [name, rule] of Object.entries(main.rules)) {
-      expect(rule.meta?.docs?.url, name).toBe(`https://andresayac.github.io/botmesh/guide/eslint#botmesh-${name}`)
+      expect(rule.meta?.docs?.url, name).toBe(`https://botmesh.afaya.com.co/guide/eslint#botmesh/${name}`)
     }
   })
 })

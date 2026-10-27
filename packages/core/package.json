@@ -78,7 +78,7 @@
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },
-  "homepage": "https://andresayac.github.io/botmesh/",
+  "homepage": "https://botmesh.afaya.com.co/",
   "devDependencies": {
     "@types/node": "^26.1.1",
     "typescript": "^7.0.2",

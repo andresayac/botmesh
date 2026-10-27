@@ -100,7 +100,7 @@ createServer(createControlPlaneApi(manager, {
 })).listen(3000)
 ```
 
-Initial routes: `GET /v1/health`, `GET /v1/bots`, `POST /v1/bots/:id/start`, `POST /v1/bots/:id/stop` and `GET /v1/audit`. See the [control plane guide](https://github.com/andresayac/botmesh/blob/main/docs/es/guide/control-plane.md).
+Initial routes: `GET /v1/health`, `GET /v1/bots`, `POST /v1/bots/:id/start`, `POST /v1/bots/:id/stop` and `GET /v1/audit`. See the [control plane guide](https://botmesh.afaya.com.co/es/guide/control-plane).
 
 The legacy compact API, `createManagerApi(manager, opts?: { prefix?, auth?: { token, header? } })`,
 returns a Node handler `(req, res) => void` (it only uses `node:http`: mount it

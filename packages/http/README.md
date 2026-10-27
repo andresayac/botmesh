@@ -101,7 +101,7 @@ try {
 
 ## Links
 
-- [Security guide](https://andresayac.github.io/botmesh/guide/security): how botmesh treats webhooks, untrusted input and outbound requests.
-- [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting) · [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/http/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/http) · [Issues](https://github.com/andresayac/botmesh/issues)
+- [Security guide](https://botmesh.afaya.com.co/guide/security): how botmesh treats webhooks, untrusted input and outbound requests.
+- [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting) · [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/http/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/http) · [Issues](https://github.com/andresayac/botmesh/issues)
 
 Public package, covered by semver.

@@ -8,7 +8,7 @@
  *
  *   node mintlify/scripts/convert.mjs              # pages + API reference + docs.json
  *   node mintlify/scripts/convert.mjs --skip-api   # reuse the API pages already in site/api
- *   node mintlify/scripts/convert.mjs --llms-base https://botmesh.mintlify.app/
+ *   node mintlify/scripts/convert.mjs --llms-base https://botmesh.afaya.com.co/
  *       # also publish docs/public/llms.txt with its GitHub Pages links rewritten
  *
  * What it does:
@@ -28,6 +28,8 @@
  * - Home pages: the VitePress `layout: home` hero/features become cards.
  * - API: TypeDoc + typedoc-plugin-markdown over the same entry points as
  *   `pnpm docs:api` (packages/core/typedoc.json), moved to site/api/core/.
+ * - Anchors: writes mintlify/.cache/anchors.json (page -> VitePress anchor ->
+ *   Mintlify anchor) for the GitHub Pages redirect stubs (`pnpm docs:deploy --redirects`).
  */
 import { spawnSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
@@ -36,6 +38,7 @@ import { dirname, join, posix, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sindreSlugify from '@sindresorhus/slugify'
 import YAML from 'yaml'
+import { API_HOME, GITHUB, SITE_URL, apiTarget, legacyTarget, loadSiteMap } from './site-map.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const tooling = resolve(here, '..')
@@ -49,109 +52,36 @@ const skipApi = args.includes('--skip-api')
 const llmsAt = args.indexOf('--llms-base')
 const llmsBase = llmsAt >= 0 ? args[llmsAt + 1] : undefined
 
-const GITHUB = 'https://github.com/andresayac/botmesh'
 const NPM = 'https://www.npmjs.com/package/@botmesh/core'
 const warnings = []
 const warn = (msg) => warnings.push(msg)
 
-// ---------------------------------------------------------------- sidebars
-
-/** Evaluates `const <name> = { ... } satisfies ...` from the VitePress config. */
-function readSidebar(source, name) {
-  const start = source.indexOf(`const ${name} = `)
-  const end = source.indexOf('satisfies DefaultTheme.SidebarMulti', start)
-  if (start < 0 || end < 0) throw new Error(`cannot find ${name} in docs/.vitepress/config.ts`)
-  const literal = source.slice(start + `const ${name} = `.length, end)
-  // The sidebars are plain object literals (strings, arrays, objects): no code.
-  return new Function(`return (${literal})`)()
-}
-
-const configTs = readFileSync(join(docs, '.vitepress', 'config.ts'), 'utf8')
-const sidebars = { en: readSidebar(configTs, 'enSidebar'), es: readSidebar(configTs, 'esSidebar') }
-
-/**
- * The page items of a sidebar group, nested groups (`{ text, items }`, such as
- * "Experimental") included. `/api/` links point at the TypeDoc reference, which
- * has its own tab, so they are skipped.
- */
-const pageItems = (items) =>
-  items.flatMap((item) => (item.items ? pageItems(item.items) : item.link.startsWith('/api/') ? [] : [item]))
-
-/** link ('/guide/flows') -> sidebar label, for `sidebarTitle`. */
-const sidebarLabel = new Map()
-for (const lang of Object.values(sidebars)) {
-  for (const groups of Object.values(lang)) {
-    for (const group of groups) for (const item of pageItems(group.items)) sidebarLabel.set(item.link.slice(1), item.text)
-  }
-}
-
-/**
- * Pages removed or split in a docs reorganization: old source page -> page
- * that now holds its content. Each gets a redirect in docs.json (the Spanish
- * source path is mapped to its published path like any other page).
- */
-const MOVED_PAGES = {
-  'guide/di': 'guide/plugins',
-  'es/guide/di': 'es/guide/plugins',
-}
-
 // ---------------------------------------------------------------- pages
 
-/** Source pages: docs-relative path without `.md` ('guide/flows', 'es/index'). */
-function listPages() {
-  const out = ['index', 'es/index']
-  for (const dir of ['guide', 'examples', 'es/guide', 'es/ejemplos']) {
-    for (const file of readdirSync(join(docs, dir))) if (file.endsWith('.md')) out.push(`${dir}/${file.slice(0, -3)}`)
-  }
-  return out
-}
-const pages = listPages()
-const pageSet = new Set(pages)
-
-/** Mintlify URL of a page ('index' -> '/', 'es/index' -> '/es', 'guide/x' -> '/guide/x'). */
-/**
- * Mintlify's language switcher only offers a translation that lives at the same
- * path under the language prefix (`/guide/flows` <-> `/es/guide/flows`) and
- * greys the option out otherwise. The Spanish pages use Spanish slugs, so each
- * one is published at its English counterpart's path, paired by position in
- * the two sidebars (the same rule as docs/.vitepress/theme/langs.ts). The old
- * Spanish URLs get redirects in docs.json.
- */
-const esTarget = new Map()
-{
-  const flat = (sb) => Object.values(sb).flatMap((groups) => groups.flatMap((g) => pageItems(g.items).map((i) => i.link.slice(1))))
-  const en = flat(sidebars.en)
-  const es = flat(sidebars.es)
-  if (en.length !== es.length) throw new Error(`sidebars out of sync: ${en.length} English vs ${es.length} Spanish pages`)
-  es.forEach((page, i) => esTarget.set(page, `es/${en[i]}`))
-}
-/** Source page -> published page path. */
-const outPage = (page) => esTarget.get(page) ?? page
-const urlOf = (page) => '/' + outPage(page).replace(/(^|\/)index$/, '').replace(/\/$/, '')
+// Page placement (Spanish pages at their English counterpart's path, URLs,
+// unpublished repo files) lives in site-map.mjs, shared with the GitHub Pages
+// redirects of `pnpm docs:deploy --redirects`.
+const siteMap = loadSiteMap(docs)
+const { sidebars, sidebarLabel, pages, pageSet, esTarget, outPage, urlOf, resolveDocPath, movedPages } = siteMap
 
 // ---------------------------------------------------------------- API link map
 
-/** TypeDoc HTML folder -> markdown folder. */
-const KIND_DIRS = { classes: 'classes', interfaces: 'interfaces', functions: 'functions', types: 'type-aliases', variables: 'variables', enums: 'enumerations' }
-const MODULE_DIRS = { _botmesh_core: 'api/core', _botmesh_core_spi: 'api/core/spi', _botmesh_core_testing: 'api/core/testing' }
 // Module landing pages live at <dir>/index.mdx; links use the bare directory.
 const apiPages = new Set()
 
 /** `/api/...` (TypeDoc HTML URL) -> Mintlify path of the generated page. */
 function mapApiLink(href) {
   const [path, hash] = href.split('#')
-  const m = /^\/api\/(\w+)\/(_botmesh_core(?:_spi|_testing)?)\.([^./]+)\.html$/.exec(path)
-  if (m && KIND_DIRS[m[1]]) {
-    const target = `${MODULE_DIRS[m[2]]}/${KIND_DIRS[m[1]]}/${m[3]}`
-    if (!skipApi && !apiPages.has(target)) warn(`API link ${href}: no generated page ${target}, linking the module index`)
-    const final = skipApi || apiPages.has(target) ? `/${target}` : `/${MODULE_DIRS[m[2]]}`
+  const api = apiTarget(path)
+  if (api?.page) {
+    if (!skipApi && !apiPages.has(api.page)) warn(`API link ${href}: no generated page ${api.page}, linking the module index`)
+    const final = skipApi || apiPages.has(api.page) ? `/${api.page}` : `/${api.module}`
     return hash ? `${final}#${hash.toLowerCase()}` : final
   }
-  const mod = /^\/api\/modules\/(_botmesh_core(?:_spi|_testing)?)\.html$/.exec(path)
-  if (mod) return `/${MODULE_DIRS[mod[1]]}`
-  if (path === '/api/' || path === '/api' || path === '/api/index.html') return '/api/core'
+  if (api?.module) return `/${api.module}`
+  if (api?.home) return `/${API_HOME}`
   warn(`unmapped API link ${href}`)
-  return '/api/core'
+  return `/${API_HOME}`
 }
 
 // ---------------------------------------------------------------- links
@@ -275,18 +205,10 @@ function rewriteHref(href, page) {
   const [path, hash] = href.split('#')
   // Resolve relative to the source file inside docs/.
   const abs = path.startsWith('/') ? path.slice(1) : posix.normalize(posix.join(posix.dirname(page), path))
-  let target = abs.replace(/\.(md|html)$/, '').replace(/\/$/, '/index')
-  if (target === '' || target === '.') target = 'index'
-  if (!pageSet.has(target) && pageSet.has(`${target}/index`)) target = `${target}/index`
-  if (pageSet.has(target)) return urlOf(target) + mapAnchor(target, hash, page)
+  const resolved = resolveDocPath(abs)
+  if (resolved?.page) return urlOf(resolved.page) + mapAnchor(resolved.page, hash, page)
   // A file of the repository that the site does not publish: link it on GitHub.
-  const repoPath = posix.normalize(posix.join('docs', abs))
-  // VitePress clean URLs drop `.md` (`/MIGRATION-v1-to-v2`), so try the source file too.
-  for (const file of [repoPath, `${repoPath}.md`]) {
-    if (!file.startsWith('..') && existsSync(join(repo, file))) {
-      return `${GITHUB}/blob/main/${file}${hash ? `#${hash}` : ''}`
-    }
-  }
+  if (resolved?.github) return `${resolved.github}${hash ? `#${hash}` : ''}`
   warn(`${page}: link target not found: ${href}`)
   return href
 }
@@ -671,17 +593,9 @@ function navGroups(sidebar, prefixHome) {
   }))
 }
 
-/**
- * Redirects of MOVED_PAGES. List a removed Spanish page by the path it was
- * published at (its English counterpart's path under es/, which is also its
- * old slug when both match).
- */
+/** Redirects of the pages removed in a reorganization (MOVED_PAGES in site-map.mjs). */
 function movedRedirects() {
-  return Object.entries(MOVED_PAGES).map(([from, to]) => {
-    if (pageSet.has(from)) throw new Error(`${from} is listed in MOVED_PAGES but still exists in docs/`)
-    if (!pageSet.has(to)) throw new Error(`MOVED_PAGES: ${from} points at a missing page ${to}`)
-    return { source: `/${from}`, destination: urlOf(to) }
-  })
+  return Object.entries(movedPages).map(([from, to]) => ({ source: `/${from}`, destination: urlOf(to) }))
 }
 
 function docsJson(apiGroups) {
@@ -722,7 +636,7 @@ function docsJson(apiGroups) {
     search: { prompt: 'Search the botmesh docs…' },
     seo: { indexing: 'navigable' },
     // Old Spanish slugs (VitePress URLs) -> mirrored paths.
-    // and pages moved in a reorganization (MOVED_PAGES) -> their new page.
+    // and pages moved in a reorganization (MOVED_PAGES in site-map.mjs) -> their new page.
     redirects: [
       ...[...esTarget].filter(([from, to]) => from !== to).map(([from, to]) => ({ source: `/${from}`, destination: `/${to}` })),
       ...movedRedirects(),
@@ -761,14 +675,21 @@ function docsJson(apiGroups) {
  * Mintlify site: Spanish slugs move to their mirrored path, TypeDoc HTML to
  * the generated API pages, unpublished repo files to GitHub, and a bare
  * section folder without an index page (`es/guide/`) to its language home.
+ * Links already on the published site (SITE_URL) move to `base` when it differs.
  */
 function rewriteLlms(text, base) {
   const root = base.endsWith('/') ? base : `${base}/`
-  return text.replace(/https:\/\/andresayac\.github\.io\/botmesh\/([^\s)>\]]*)/g, (_, rawPath) => {
+  return text.split(SITE_URL).join(root).replace(/https:\/\/andresayac\.github\.io\/botmesh\/([^\s)>\]]*)/g, (_, rawPath) => {
     // A sentence may end right after a link: keep the punctuation outside it.
     const [, path, trail] = /^(.*?)([.,;:]*)$/.exec(rawPath)
-    let href = path === '' ? '/' : rewriteHref(`/${path}`, 'index')
-    if (/\/$/.test(path) && !href.startsWith('/')) href = path.startsWith('es/') ? '/es' : '/'
+    const [file, hash] = path.split('#')
+    // The same rule as the GitHub Pages redirect stubs (`pnpm docs:deploy --redirects`).
+    const target = legacyTarget(file, siteMap, { hasPage: (page) => skipApi || apiPages.has(page) })
+    let href = target.path
+    if (target.kind === 'page') href += mapAnchor(target.page, hash, 'llms.txt')
+    else if (target.kind === 'api') href += hash ? `#${hash.toLowerCase()}` : ''
+    else if (target.kind === 'github') href += hash ? `#${hash}` : ''
+    else if (!file.endsWith('/')) warn(`llms.txt: ${path} is not a page of the site, linking ${href}`)
     if (!href.startsWith('/')) return href + trail
     return root + href.slice(1) + trail
   })
@@ -787,6 +708,14 @@ function main() {
 
   const sources = new Map(pages.map((page) => [page, splitFrontMatter(readFileSync(join(docs, `${page}.md`), 'utf8'))]))
   for (const [page, { body }] of sources) collectAnchors(page, body)
+  // For the GitHub Pages redirect stubs: only the anchors whose slug changes.
+  const anchorTable = {}
+  for (const [page, table] of anchors) {
+    const changed = Object.fromEntries([...table].filter(([vp, mint]) => vp !== mint))
+    if (Object.keys(changed).length) anchorTable[page] = changed
+  }
+  mkdirSync(join(tooling, '.cache'), { recursive: true })
+  writeFileSync(join(tooling, '.cache', 'anchors.json'), JSON.stringify(anchorTable, null, 2) + '\n')
 
   for (const page of pages) {
     const { data, body } = sources.get(page)

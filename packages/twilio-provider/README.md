@@ -129,5 +129,5 @@ WhatsApp users identified by a business-scoped user ID (BSUID, e.g. `From=whatsa
 
 ## Links
 
-- [Channels guide](https://andresayac.github.io/botmesh/guide/channels#botmesh-twilio) · [Session window](https://andresayac.github.io/botmesh/guide/session-window) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Channel guide](https://botmesh.afaya.com.co/guide/twilio) · [Session window](https://botmesh.afaya.com.co/guide/session-window) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/twilio-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/twilio-provider) · [Issues](https://github.com/andresayac/botmesh/issues)

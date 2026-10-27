@@ -170,5 +170,5 @@ Without `messages`, the built-in texts follow the chat language: English by defa
 
 ## Links
 
-- [Integrations guide (moderation)](https://andresayac.github.io/botmesh/guide/integrations#moderation) · [Hooks](https://andresayac.github.io/botmesh/guide/hooks) · [Configuration (`groupMode`)](https://andresayac.github.io/botmesh/guide/configuration) · [Security](https://andresayac.github.io/botmesh/guide/security)
+- [Integrations guide (moderation)](https://botmesh.afaya.com.co/guide/integrations#moderation) · [Hooks](https://botmesh.afaya.com.co/guide/hooks) · [Configuration (`groupMode`)](https://botmesh.afaya.com.co/guide/configuration) · [Security](https://botmesh.afaya.com.co/guide/security)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/moderation/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/moderation) · [Issues](https://github.com/andresayac/botmesh/issues)

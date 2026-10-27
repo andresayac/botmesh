@@ -33,7 +33,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/email-provider"
   },
-  "homepage": "https://andresayac.github.io/botmesh/guide/channels#botmesh-email",
+  "homepage": "https://botmesh.afaya.com.co/guide/email",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },

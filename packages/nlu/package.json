@@ -28,7 +28,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/nlu"
   },
-  "homepage": "https://andresayac.github.io/botmesh/guide/integrations#local-intent-matching-nlu",
+  "homepage": "https://botmesh.afaya.com.co/guide/integrations#local-intent-matching-nlu",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },

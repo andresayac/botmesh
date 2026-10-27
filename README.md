@@ -1,12 +1,12 @@
 # botmesh
 
 [![npm](https://img.shields.io/npm/v/@botmesh/core?label=%40botmesh%2Fcore)](https://www.npmjs.com/package/@botmesh/core)
-[![Docs](https://img.shields.io/badge/docs-andresayac.github.io%2Fbotmesh-blue)](https://andresayac.github.io/botmesh/)
+[![Docs](https://img.shields.io/badge/docs-botmesh.afaya.com.co-blue)](https://botmesh.afaya.com.co/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 
 A TypeScript framework for messaging bots. Write handlers and conversation flows once and run them on **WhatsApp** (the unofficial [Baileys 7](https://github.com/WhiskeySockets/Baileys) protocol, the **official Meta Cloud API**, the self-hosted **Evolution API** and **WPPConnect** gateways, Twilio or Gupshup), **Telegram**, **Facebook Messenger**, **Instagram DMs**, **Discord**, **email**, SMS (Twilio) and HighLevel CRM conversations, with an experimental provider for TikTok. Try your bot in the terminal before connecting a phone, test it without a network, and add AI, persistence or multiple replicas when you need them.
 
-**Documentation: <https://andresayac.github.io/botmesh/>** ([English](https://andresayac.github.io/botmesh/guide/getting-started) · [Español](https://andresayac.github.io/botmesh/es/guide/inicio) · [API reference](https://andresayac.github.io/botmesh/api/))
+**Documentation: <https://botmesh.afaya.com.co/>** ([English](https://botmesh.afaya.com.co/guide/getting-started) · [Español](https://botmesh.afaya.com.co/es/guide/getting-started) · [API reference](https://botmesh.afaya.com.co/api/core))
 
 ## A bot in 30 seconds
 
@@ -49,9 +49,9 @@ npm install @botmesh/ai @anthropic-ai/sdk      # + AI (optional; the SDK of the 
 
 > **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish). The docs describe this beta; once `@botmesh/core` 2.0.0 ships, the commands stay the same.
 
-The [getting started guide](https://andresayac.github.io/botmesh/guide/getting-started) walks through the simulator, linking WhatsApp and connecting Telegram step by step.
+The [getting started guide](https://botmesh.afaya.com.co/guide/getting-started) walks through the simulator, linking WhatsApp and connecting Telegram step by step.
 
-> **AI on WhatsApp:** since 2026-01-15 the WhatsApp Business Platform terms forbid general-purpose AI assistants (open ChatGPT-style chatbots). AI in the service of the business (support, sales, bookings) is allowed. Details in the [AI plugin guide](https://andresayac.github.io/botmesh/guide/ai#whatsapp-ai-policy-since-2026-01-15).
+> **AI on WhatsApp:** since 2026-01-15 the WhatsApp Business Platform terms forbid general-purpose AI assistants (open ChatGPT-style chatbots). AI in the service of the business (support, sales, bookings) is allowed. Details in the [AI plugin guide](https://botmesh.afaya.com.co/guide/ai#whatsapp-ai-policy-since-2026-01-15).
 
 ## Packages
 
@@ -137,8 +137,8 @@ They build and test with the rest of the workspace (`pnpm build`, `pnpm test`). 
 
 ## Documentation
 
-- Documentation site: **<https://andresayac.github.io/botmesh/>** (English guide, Spanish guide under [`/es/`](https://andresayac.github.io/botmesh/es/) and the [API reference](https://andresayac.github.io/botmesh/api/)). Sources in [`docs/`](docs) (English in `docs/guide/`, Spanish in `docs/es/guide/`); preview locally with `pnpm docs:dev`.
-- Upgrading from an alpha: [Migrating to stable](https://andresayac.github.io/botmesh/guide/stable-migration). From v1 (`BaileysClass`): [`docs/MIGRATION-v1-to-v2.md`](docs/MIGRATION-v1-to-v2.md).
+- Documentation site: **<https://botmesh.afaya.com.co/>** (English guide, Spanish guide under [`/es/`](https://botmesh.afaya.com.co/es) and the [API reference](https://botmesh.afaya.com.co/api/core)). Sources in [`docs/`](docs) (English in `docs/guide/`, Spanish in `docs/es/guide/`); preview locally with `pnpm docs:dev`.
+- Upgrading from an alpha: [Migrating to stable](https://botmesh.afaya.com.co/guide/stable-migration). From v1 (`BaileysClass`): [`docs/MIGRATION-v1-to-v2.md`](docs/MIGRATION-v1-to-v2.md).
 - Product and engineering roadmap: [`ROADMAP.md`](ROADMAP.md).
 - Detailed catalogue of proposals: [`FEATURES.md`](FEATURES.md).
 - Vulnerability reporting policy: [`SECURITY.md`](SECURITY.md).

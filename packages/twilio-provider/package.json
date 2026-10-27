@@ -33,7 +33,7 @@
     "url": "git+https://github.com/andresayac/botmesh.git",
     "directory": "packages/twilio-provider"
   },
-  "homepage": "https://andresayac.github.io/botmesh/guide/channels#botmesh-twilio",
+  "homepage": "https://botmesh.afaya.com.co/guide/twilio",
   "bugs": {
     "url": "https://github.com/andresayac/botmesh/issues"
   },

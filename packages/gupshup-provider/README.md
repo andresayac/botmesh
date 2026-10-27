@@ -120,5 +120,5 @@ Inbound: text, media (`ctx.media`, expiring URL `urlExpiry`), location, contact,
 
 ## Links
 
-- [Channels guide](https://andresayac.github.io/botmesh/guide/channels#botmesh-gupshup) · [Session window](https://andresayac.github.io/botmesh/guide/session-window) · [Security](https://andresayac.github.io/botmesh/guide/security) · [Troubleshooting](https://andresayac.github.io/botmesh/guide/troubleshooting)
+- [Channel guide](https://botmesh.afaya.com.co/guide/gupshup) · [Session window](https://botmesh.afaya.com.co/guide/session-window) · [Security](https://botmesh.afaya.com.co/guide/security) · [Troubleshooting](https://botmesh.afaya.com.co/guide/troubleshooting)
 - [Changelog](https://github.com/andresayac/botmesh/blob/main/packages/gupshup-provider/CHANGELOG.md) · [Source](https://github.com/andresayac/botmesh/tree/main/packages/gupshup-provider) · [Issues](https://github.com/andresayac/botmesh/issues)
