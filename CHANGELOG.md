@@ -4,6 +4,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### `@botmesh/server`: query string sin recodificar para las firmas de Twilio (2026-10)
+- El tercer argumento de `ingest()` lleva la query string tal como llegó en la petición (nuevo campo opcional `IngressRequest.rawQuery`, que rellenan `createNodeHandler`, los adaptadores de Express, Fastify y Hono y `createFetchHandler`; `splitUrl` también la devuelve). Antes se reconstruía con `URLSearchParams.toString()`, que recodifica: con `TwilioProvider` y `webhookPath`, URLs firmadas como `?tenant=a%20b`, `?flag`, `?next=/x` o `?t=~x` daban 403 en todas las peticiones. Un adaptador propio sin `rawQuery` conserva el comportamiento anterior.
+- Nuevo test de extremo a extremo en `@botmesh/twilio` a través del servidor (`node:http` y `fetch`); README de `@botmesh/server` y guía del servidor (EN/ES) actualizados.
+
 ### Informe de preparación de la beta con 36 paquetes (2026-10)
 - `docs/release-readiness.md` reescrito para la publicación de la beta: veredicto por paquete (beta y estable) de los 36 paquetes públicos, defectos abiertos por severidad, qué se ha verificado contra servicios reales y qué solo con fakes o simuladores, notas de congelación de la API, cifras de verificación y los pasos exactos del mantenedor (incluido `pnpm version-packages` antes de `pnpm release` y `npm dist-tag add <paquete>@<versión> latest` para cada paquete).
 - Docs (EN/ES): la guía del esquema JSON de flujos se generaba sin contenido porque Vue interpretaba el `{{ user.name }}` en línea, y las plantillas de la guía de integraciones salían como código vacío; ahora usan `<code v-pre>`. `pnpm docs:check` falla con cualquier `{{ }}` fuera de un bloque de código o de `<code v-pre>`.

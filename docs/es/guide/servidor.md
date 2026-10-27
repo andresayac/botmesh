@@ -244,8 +244,9 @@ curso; un `timeoutMs` fuera de 0-2147483647 rechaza con un `TypeError`.
 ## Notas por provider
 
 El ingress llama a `provider.ingest(rawBody, headers, requestUrl)`, donde
-`requestUrl` es la ruta de la petición con su query string (`/hook?token=…`).
-Los providers que autentican un token en la URL lo leen de ahí:
+`requestUrl` es la ruta de la petición con su query string (`/hook?token=…`),
+tal como llegó (sin recodificar, así una firma sobre la URL como la de Twilio
+sigue cuadrando). Los providers que autentican un token en la URL lo leen de ahí:
 
 | Provider | Configuración de la ruta |
 | --- | --- |

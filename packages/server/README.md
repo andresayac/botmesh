@@ -6,7 +6,7 @@ Webhook ingress for the [`@botmesh/core`](https://github.com/andresayac/botmesh/
 - **Size limit** (`413`), 1 MiB by default, checked against `Content-Length` and while the stream arrives.
 - **Timeouts**: body read (`408`) and `ingest` (`503`).
 - **Concurrency cap** (`503` + `Retry-After: 1` when saturated).
-- **Routing**: `GET` → `verifyChallenge` (Meta's handshake), `POST` → `ingest(raw, headers, url)`, where `url` is the request path plus its query string (WPPConnect and Gupshup read their webhook token from it, Twilio checks its signature against it); the value `ingest` returns is the HTTP status.
+- **Routing**: `GET` → `verifyChallenge` (Meta's handshake), `POST` → `ingest(raw, headers, url)`, where `url` is the request path plus its query string exactly as received (WPPConnect and Gupshup read their webhook token from it, Twilio checks its signature against it); the value `ingest` returns is the HTTP status.
 - **Health**: `/healthz` (liveness, always 200) and `/readyz` (200 only while the bot is `ready`, your optional `readiness` check passes and the ingress is not shutting down).
 - **No sensitive logs**: only method, path, status, sizes and the error class *name*; never bodies, headers, query strings or error messages.
 - **No framework dependencies**: structurally typed adapters for `node:http`, Express (4 and 5), Fastify (4 and 5) and Hono, each in its own subpath.
@@ -135,7 +135,7 @@ With `node:http`, Express and Fastify, before answering with `Connection: close`
 
 ## Custom adapters
 
-For a framework without an adapter, build an `IngressRequest` and call `ingress.handle(request)`: it resolves the response, or `undefined` when no route matches. `readNodeBody(req, limit, timeoutMs)` and `readWebBody(request, limit, timeoutMs)` read a raw body under those limits and reject with `BodyTooLargeError`, `BodyTimeoutError`, `BodyUnavailableError` or `BodyAbortedError`. `serveNode(ingress, req, res)` and `serveFetch(ingress, request)` serve one Node or WHATWG request.
+For a framework without an adapter, build an `IngressRequest` (set `rawQuery` to the query string as received, without the `?`, so URL signatures such as Twilio's still match) and call `ingress.handle(request)`: it resolves the response, or `undefined` when no route matches. `readNodeBody(req, limit, timeoutMs)` and `readWebBody(request, limit, timeoutMs)` read a raw body under those limits and reject with `BodyTooLargeError`, `BodyTimeoutError`, `BodyUnavailableError` or `BodyAbortedError`. `serveNode(ingress, req, res)` and `serveFetch(ingress, request)` serve one Node or WHATWG request.
 
 ## Troubleshooting
 
