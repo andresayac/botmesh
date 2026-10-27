@@ -15,8 +15,7 @@ and lists its commands.
 ## Prerequisites
 
 Node.js 22.12 or newer and a folder with `"type": "module"` (see
-[Getting started](/guide/getting-started#requirements), which also explains
-the prerelease tags). Then install:
+[Getting started](/guide/getting-started#requirements)). Then install:
 
 ```bash
 npm install @botmesh/core @botmesh/baileys

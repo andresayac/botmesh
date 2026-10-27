@@ -18,9 +18,7 @@ You'll be prompted for a template (in a TTY), or pass everything up front:
 npm create botmesh my-bot -- --template telegram --yes
 ```
 
-> **Prerelease.** botmesh is not stable yet. During the beta, add the tag: `npm create botmesh@beta my-bot`.
-> Without it npm runs whatever `latest` points to, which can still be an older alpha (for example, `0.2.0-alpha.0`
-> generates `"start": "node --env-file=.env ..."`, so copy `.env.example` to `.env` before `npm start`). The
+> **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish), so `npm create botmesh@beta my-bot` always runs the newest CLI. The
 > generated `package.json` pins the `@botmesh/*` versions that match the CLI you ran, so `npm install` needs no tag.
 
 Step-by-step walkthrough, including linking WhatsApp and connecting Telegram:

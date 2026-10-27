@@ -22,7 +22,7 @@ The **WhatsApp via [Baileys 7](https://github.com/WhiskeySockets/Baileys)** tran
 pnpm add @botmesh/core @botmesh/baileys
 ```
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older alpha. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/baileys@beta` during the beta (`npm view @botmesh/core dist-tags` lists the tags). Once stable, the plain command above works.
+> **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish).
 
 - **pnpm ≥ 10** blocks dependency build scripts, and **pnpm 11 fails the install** (`ERR_PNPM_IGNORED_BUILDS`) until you decide. `@whiskeysockets/baileys` (a Node version check) and `protobufjs` (a version notice) need none of theirs, so deny them in `pnpm-workspace.yaml` (npm runs them and installs normally):
 

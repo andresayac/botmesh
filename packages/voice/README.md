@@ -13,7 +13,7 @@ Voice for [`@botmesh/core`](https://www.npmjs.com/package/@botmesh/core) bots: *
 pnpm add @botmesh/core @botmesh/voice
 ```
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/voice@beta` during the beta (`npm view @botmesh/voice dist-tags` lists the tags). Once stable, the plain command above works.
+> **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish).
 
 You need an API key of the service you pick (`OPENAI_API_KEY`, `DEEPGRAM_API_KEY` or `ELEVENLABS_API_KEY`), or your own adapter.
 

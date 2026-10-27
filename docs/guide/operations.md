@@ -102,9 +102,7 @@ bot.on('conversation:ended', ({ id, name, chatId, outcome, completed, durationMs
 
 ## Operational packages
 
-`@botmesh/events` is published on npm (`pnpm add @botmesh/events`; while the
-packages are in prerelease, add the dist-tag shown in
-[Getting started](./getting-started)).
+`@botmesh/events` is published on npm (`pnpm add @botmesh/events`).
 
 ::: warning Product packages — not published
 The product packages (`@botmesh/inbox`,

@@ -10,7 +10,7 @@ pnpm add @botmesh/events
 
 Node.js 22 or later, ESM only. `@botmesh/core` is an optional peer dependency, needed only by `@botmesh/events/durability` (a bot already has it).
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/events@beta` during the beta (`npm view @botmesh/events dist-tags` lists the tags). Once stable, the plain command above works.
+> **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish).
 
 ## Quick start
 

@@ -20,9 +20,6 @@ A support bot that answers from a Markdown FAQ you write, cites the section it u
 npm install @botmesh/core @botmesh/ai @anthropic-ai/sdk @botmesh/baileys
 ```
 
-While the packages are in prerelease, add the dist-tag shown in
-[Getting started](/guide/getting-started#requirements).
-
 ## Your FAQ
 
 Save it as `faq.md` next to `bot.js`. Each `## ` section becomes one passage

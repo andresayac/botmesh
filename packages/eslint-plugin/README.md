@@ -12,7 +12,7 @@ pnpm add -D eslint eslint-plugin-botmesh
 
 ESLint 9 or later (flat config), Node.js 22 or later, ESM only. No runtime dependencies; `eslint` is a peer dependency.
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older prerelease. Add the prerelease dist-tag to get the build these docs describe: `pnpm add -D eslint-plugin-botmesh@beta` during the beta (`npm view eslint-plugin-botmesh dist-tags` lists the tags). Once stable, the plain command above works.
+> **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish).
 
 ## Quick start
 

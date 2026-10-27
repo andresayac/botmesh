@@ -18,9 +18,6 @@ check it).
 pnpm add -D eslint eslint-plugin-botmesh
 ```
 
-While the packages are in prerelease, add the dist-tag shown in
-[Getting started](/guide/getting-started).
-
 ## Usage
 
 ```js

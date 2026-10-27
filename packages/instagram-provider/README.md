@@ -8,7 +8,7 @@ The **Instagram DM** transport for [`@botmesh/core`](https://github.com/andresay
 pnpm add @botmesh/core @botmesh/instagram
 ```
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build (or to none). Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/instagram@beta` during the beta (`npm view @botmesh/instagram dist-tags` lists the tags). Once stable, the plain command above works.
+> **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish).
 
 Nothing else to install: Graph calls use Node.js 22's native `fetch` and `crypto`, and inbound attachments are downloaded through the SSRF-safe [`@botmesh/http`](https://www.npmjs.com/package/@botmesh/http) (a dependency).
 

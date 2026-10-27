@@ -18,9 +18,6 @@ pasa el preset `strict` sin avisos (lo comprueban los tests del plugin).
 pnpm add -D eslint eslint-plugin-botmesh
 ```
 
-Mientras los paquetes estén en prerelease, añade el dist-tag que indica
-[Inicio](/es/guide/inicio).
-
 ## Uso
 
 ```js

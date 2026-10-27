@@ -196,7 +196,7 @@ same way; with `appendSources` the sources line arrives as the last piece.
 pnpm add @botmesh/rag
 ```
 
-During the beta, add the `@beta` dist-tag (`pnpm add @botmesh/rag@beta`). It does not
+It does not
 depend on `@botmesh/ai`: `aiPlugin` takes any retriever and `createRag()` returns one.
 
 `createRag(options)` builds a retriever without a vector database: an

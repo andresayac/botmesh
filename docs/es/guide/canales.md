@@ -20,9 +20,6 @@ necesites:
 pnpm add @botmesh/core @botmesh/baileys   # o @botmesh/meta, @botmesh/telegram, @botmesh/discord, @botmesh/twilio...
 ```
 
-Mientras botmesh esté en prerelease, añade a cada paquete el dist-tag de la
-prerelease (ver [Instalación](/es/guide/inicio)).
-
 ::: tip Prueba un canal sin cuenta
 El [sandbox de plataformas](/es/guide/sandbox) ejecuta tu bot sobre los
 providers reales de la Cloud API, Telegram, Twilio, Discord y otros contra
@@ -49,9 +46,7 @@ teléfono ni una URL pública.
 | `@botmesh/email` | `email-provider` | En npm (desde la beta) | Email (IMAP IDLE + SMTP) |
 | `@botmesh/tiktok` | `tiktok-provider` | Aún no en npm | TikTok API for Business (comentarios + Business Messaging) |
 
-Los canales **En npm** se instalan con `pnpm add` y siguen semver (durante
-la beta, añade el dist-tag `@beta`; los marcados "desde la beta" se publican por
-primera vez con ella). `@botmesh/tiktok` lleva `"private": true` en su
+Los canales **En npm** se instalan con `pnpm add` y siguen semver (los marcados "desde la beta" se publicaron por primera vez con ella). `@botmesh/tiktok` lleva `"private": true` en su
 `package.json`: está implementado y con tests, pero **no se publica en npm** y
 su API todavía puede cambiar. Úsalo desde un clon del monorepo (`"workspace:*"`). Lo mismo vale para el
 [sandbox](/es/guide/sandbox). El ingress de webhooks,
@@ -664,7 +659,7 @@ con la cabecera `apikey`. Entrada: el webhook de la instancia, autenticado con
 un secreto compartido en cabecera o con el `jwt_key` de Evolution (JWT HS256).
 
 ```bash
-pnpm add @botmesh/core @botmesh/evolution   # durante la beta: @beta en ambos
+pnpm add @botmesh/core @botmesh/evolution
 ```
 
 ```ts
@@ -703,7 +698,7 @@ gateway self-hosted sobre WhatsApp Web (WA-JS). REST con token Bearer;
 webhooks autenticados con un token en la URL del webhook.
 
 ```bash
-pnpm add @botmesh/core @botmesh/wppconnect   # durante la beta: @beta en ambos
+pnpm add @botmesh/core @botmesh/wppconnect
 ```
 
 ```ts

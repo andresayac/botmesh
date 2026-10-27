@@ -14,7 +14,7 @@ pnpm add @botmesh/core @botmesh/ai @botmesh/rag
 pnpm add pdf-parse   # optional: only to load PDF files
 ```
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/ai@beta @botmesh/rag@beta` during the beta (`npm view @botmesh/rag dist-tags` lists the tags). Once stable, the plain command above works.
+> **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish).
 
 `@botmesh/rag` does not depend on `@botmesh/ai`: `aiPlugin` takes any object with `retrieve()`, and `createRag()` returns one. You can also use the retriever on its own (see [Direct usage](#direct-usage)).
 

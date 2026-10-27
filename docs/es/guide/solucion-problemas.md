@@ -40,9 +40,9 @@ pnpm rebuild better-sqlite3
 
 botmesh es solo ESM. Usa `import` y añade `"type": "module"` a tu `package.json` (o usa archivos `.mjs`). Con TypeScript, configura `"module": "nodenext"`.
 
-### `pnpm add @botmesh/core` instala una prerelease antigua
+### `pnpm add @botmesh/core` instala una build anterior
 
-Durante la prerelease, el tag `latest` de npm se queda atrás: sigue apuntando a la primera versión publicada con ese nombre (una alpha temprana en los paquetes que ya estaban en npm), mientras que las builds nuevas salen con el dist-tag `beta`. Un `pnpm add @botmesh/core` sin tag instala entonces esa build antigua, y un proyecto que la mezcla con paquetes más nuevos puede fallar por exports que faltan o rangos de peers. Revisa los tags con `pnpm view @botmesh/core dist-tags` e instala con el tag de la prerelease para obtener la build más reciente, por ejemplo `pnpm add @botmesh/core@beta @botmesh/baileys@beta`. Cuando salga la versión estable, `latest` será la línea estable y el tag dejará de hacer falta. Mira [Instalación](./inicio).
+botmesh está en beta: una instalación sin tag instala la beta, y `@beta` resuelve siempre a la más reciente (`latest` se mueve a mano tras cada publicación). Justo después de una publicación, una instalación sin tag puede seguir obteniendo la beta anterior hasta que se mueve `latest`, y un proyecto que mezcla builds puede fallar por exports que faltan o rangos de peers. Revisa los tags con `pnpm view @botmesh/core dist-tags` e instala la beta más reciente con el tag, por ejemplo `pnpm add @botmesh/core@beta @botmesh/baileys@beta`. Mira [Instalación](./inicio).
 
 ## WhatsApp Web (Baileys)
 

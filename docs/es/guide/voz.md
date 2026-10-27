@@ -9,9 +9,6 @@ cualquier provider que entregue mensajes `voice` / `audio`.
 pnpm add @botmesh/voice
 ```
 
-Durante la beta, añade el dist-tag `@beta` (`pnpm add @botmesh/voice@beta`): hasta la
-versión estable, el tag `latest` de npm puede apuntar a una build anterior.
-
 - STT: OpenAI (`whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe` y
   servidores compatibles) y Deepgram (`nova-3`).
 - TTS: OpenAI (`gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`) y ElevenLabs.

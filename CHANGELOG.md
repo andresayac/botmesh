@@ -4,6 +4,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/). Versionado po
 
 ## [Unreleased]
 
+### Docs: la beta ya está publicada (2026-10-27)
+- README, AGENTS, CONTRIBUTING, SECURITY, `llms.txt`, guías y ejemplos (EN/ES) y los README de paquete dejan de decir que `latest` apunta a una alpha antigua, que hay que instalar con `@alpha`/`@beta` o que 26 paquetes no están en npm: los 36 paquetes públicos están en npm con el dist-tag `beta`, una instalación sin tag instala la beta y `@beta` resuelve siempre a la más reciente (`latest` se mueve a mano tras cada publicación, paso añadido al flujo de publicación). `docs/release-readiness.md` lleva el estado de publicado.
+
 ### `@botmesh/server`: query string sin recodificar para las firmas de Twilio (2026-10)
 - El tercer argumento de `ingest()` lleva la query string tal como llegó en la petición (nuevo campo opcional `IngressRequest.rawQuery`, que rellenan `createNodeHandler`, los adaptadores de Express, Fastify y Hono y `createFetchHandler`; `splitUrl` también la devuelve). Antes se reconstruía con `URLSearchParams.toString()`, que recodifica: con `TwilioProvider` y `webhookPath`, URLs firmadas como `?tenant=a%20b`, `?flag`, `?next=/x` o `?t=~x` daban 403 en todas las peticiones. Un adaptador propio sin `rawQuery` conserva el comportamiento anterior.
 - Nuevo test de extremo a extremo en `@botmesh/twilio` a través del servidor (`node:http` y `fetch`); README de `@botmesh/server` y guía del servidor (EN/ES) actualizados.

@@ -29,9 +29,6 @@ dependencias:
 pnpm add @botmesh/server
 ```
 
-Mientras los paquetes estén en prerelease, añade el dist-tag que indica
-[Inicio](/es/guide/inicio).
-
 Los providers por socket (Baileys, Discord, Telegram en modo polling, Email
 por IMAP) no necesitan ingress.
 

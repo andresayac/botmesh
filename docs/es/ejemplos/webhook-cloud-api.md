@@ -19,8 +19,7 @@ recurren a una plantilla aprobada fuera de la ventana de 24 horas.
 ## Requisitos previos
 
 - Node.js 22.12 o superior y un proyecto ESM (`"type": "module"`), como en
-  [Inicio rápido](/es/guide/inicio#requisitos). Mientras botmesh esté en
-  prerelease, lee allí la nota sobre qué etiqueta de npm instalar.
+  [Inicio rápido](/es/guide/inicio#requisitos).
 - Una app de Meta con el producto WhatsApp: un token de acceso, el id del
   número de teléfono, el app secret y un verify token que eliges tú. Una
   plantilla aprobada llamada `order_shipped`, en español, con un parámetro en

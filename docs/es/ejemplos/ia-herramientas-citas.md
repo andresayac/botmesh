@@ -22,9 +22,6 @@ Un asistente de barbería que reserva, lista y cancela citas llamando a tus func
 npm install @botmesh/core @botmesh/ai @anthropic-ai/sdk @botmesh/baileys
 ```
 
-Mientras los paquetes estén en prerelease, añade el dist-tag que indica
-[Inicio rápido](/es/guide/inicio#requisitos).
-
 ## El bot
 
 ```js

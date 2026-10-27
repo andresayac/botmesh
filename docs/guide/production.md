@@ -16,8 +16,7 @@ leave running. Each item links to the page with the details. Work through
   `await bot.stop({ drain: true, timeout: '15s' })` so replies in flight are
   sent and recorded before the process exits
   ([Graceful shutdown](./deploy#graceful-shutdown)).
-- **Pin your versions** (commit the lockfile). While the packages are in
-  prerelease, read the [migration pages](./stable-migration) before each upgrade.
+- **Pin your versions** (commit the lockfile). While the packages are in beta, read the [migration pages](./stable-migration) before each upgrade.
 
 ### State
 
@@ -96,10 +95,8 @@ The npm packages (36) are `@botmesh/core`; the channels `@botmesh/baileys`,
 and `@botmesh/otel`; the plugins `@botmesh/ai`, `@botmesh/rag`, `@botmesh/voice`,
 `@botmesh/nlu`, `@botmesh/dialogflow`, `@botmesh/chatwoot`, `@botmesh/tickets` and
 `@botmesh/moderation`; and the tooling `@botmesh/flow-schema`, `@botmesh/mcp`,
-`eslint-plugin-botmesh` and `create-botmesh`. Only ten of them were published during the
-alpha (`core`, `baileys`, `meta`, `telegram`, `sqlite-store`, `redis-store`, `ai`,
-`http`, `graph-core` and `create-botmesh`); the other 26 ship for the first time with
-the beta.
+`eslint-plugin-botmesh` and `create-botmesh`. All 36 are on npm. Ten of them were first published during the alpha (`core`, `baileys`, `meta`, `telegram`, `sqlite-store`, `redis-store`, `ai`,
+`http`, `graph-core` and `create-botmesh`); the other 26 shipped for the first time with the beta.
 Some pages also describe packages that live only in the
 [repository](https://github.com/andresayac/botmesh/tree/main/packages) for now
 (the TikTok channel, `@botmesh/manager`, the sandbox…). Each of those pages says so. Plan a

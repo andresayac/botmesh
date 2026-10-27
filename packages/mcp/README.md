@@ -14,7 +14,7 @@ npx -y @botmesh/mcp --help
 
 Node.js 22 or later. It depends on `@botmesh/core` and `@botmesh/flow-schema`. To embed the server in your own host, `pnpm add @botmesh/mcp`.
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older prerelease. Use the prerelease dist-tag to get the build these docs describe: `npx -y @botmesh/mcp@beta` (and `@botmesh/mcp@beta` in the client configurations below) during the beta (`npm view @botmesh/mcp dist-tags` lists the tags). Once stable, the plain name works.
+> **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish).
 
 ## Quick start: register it in your client
 

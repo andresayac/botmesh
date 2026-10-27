@@ -16,8 +16,7 @@ dorada, para que un cambio posterior no lo rompa sin que te enteres.
 ## Requisitos previos
 
 Node.js 22.12 o superior y un proyecto ESM (`"type": "module"`), como en
-[Inicio rápido](/es/guide/inicio#requisitos). Mientras botmesh esté en
-prerelease, lee allí la nota sobre qué etiqueta de npm instalar.
+[Inicio rápido](/es/guide/inicio#requisitos).
 
 ```bash
 npm install @botmesh/core @botmesh/baileys

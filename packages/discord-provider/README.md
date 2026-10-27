@@ -11,7 +11,7 @@ webhook to wire up.
 pnpm add @botmesh/core @botmesh/discord
 ```
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older build (or to none). Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/core@beta @botmesh/discord@beta` during the beta (`npm view @botmesh/discord dist-tags` lists the tags). Once stable, the plain command above works.
+> **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish).
 
 Dependencies: `ws` (gateway) and Node 22+ native `fetch`/`FormData` (REST).
 Media downloads go through the SSRF-safe

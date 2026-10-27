@@ -2,11 +2,11 @@
 
 ## Supported versions
 
-botmesh is currently in an alpha stage. Security fixes are applied on a best-effort basis to the latest actively maintained code.
+botmesh is currently in beta. Security fixes are applied on a best-effort basis to the latest actively maintained code.
 
 | Version | Support |
 | --- | --- |
-| Current v2 alpha development line | Best effort |
+| Current v2 beta line | Best effort |
 | Older development snapshots and v1 | Not guaranteed |
 
 Do not expose an unmaintained deployment directly to the internet. Pin exact package versions and review release notes before upgrading.

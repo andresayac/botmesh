@@ -12,10 +12,6 @@ MCP clients start it with `npx`; nothing to install up front:
 npx -y @botmesh/mcp --help        # usage; --version prints the version
 ```
 
-While the packages are in prerelease, use the dist-tag shown in
-[Getting started](/guide/getting-started) (`@botmesh/mcp@beta` during the beta),
-also in the client configurations below.
-
 ### Register it in your client
 
 **Claude Code**:

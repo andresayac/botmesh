@@ -182,7 +182,7 @@ New on npm in the beta (they were private before). If you used them from the mon
 
 `@botmesh/rag`, `@botmesh/voice`, `@botmesh/nlu`, `@botmesh/dialogflow`,
 `@botmesh/chatwoot`, `@botmesh/tickets` and `@botmesh/moderation` are published on npm
-from the beta (`1.0.0-beta`; install them with `@beta` until the stable release). Code
+from the beta (`1.0.0-beta`). Code
 that used them from the monorepo (`workspace:*`) needs these changes:
 
 - **Helpers moved to a `/internal` entry** (no semver; applications rarely need them):

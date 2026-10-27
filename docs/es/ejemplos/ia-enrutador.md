@@ -21,9 +21,6 @@ Un bot de una compañía telefónica donde el modelo solo clasifica el texto lib
 npm install @botmesh/core @botmesh/ai @anthropic-ai/sdk @botmesh/baileys
 ```
 
-Mientras los paquetes estén en prerelease, añade el dist-tag que indica
-[Inicio rápido](/es/guide/inicio#requisitos).
-
 ## El bot
 
 ```js

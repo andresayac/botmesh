@@ -1,6 +1,6 @@
 # @botmesh/tiktok
 
-> **Experimental, not yet published on npm.** The package is `private`: it is not part of the first alpha and its API may change. Use it from this monorepo (`workspace:*`).
+> **Experimental, not yet published on npm.** The package is `private`: it is not part of the beta and its API may change. Use it from this monorepo (`workspace:*`).
 
 **TikTok** transport for [`@botmesh/core`](../core) built on the **official TikTok API for Business (v1.3)**. It works through webhooks (`pushIngress`) and opens no socket. It covers two surfaces:
 

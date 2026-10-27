@@ -23,9 +23,6 @@ A cooking assistant on Telegram whose answers appear while the model writes them
 npm install @botmesh/core @botmesh/ai @anthropic-ai/sdk @botmesh/telegram
 ```
 
-While the packages are in prerelease, add the dist-tag shown in
-[Getting started](/guide/getting-started#requirements).
-
 ## The bot
 
 ```js

@@ -20,9 +20,6 @@ Un bot de soporte que responde a partir de un FAQ en Markdown que escribes tú, 
 npm install @botmesh/core @botmesh/ai @anthropic-ai/sdk @botmesh/baileys
 ```
 
-Mientras los paquetes estén en prerelease, añade el dist-tag que indica
-[Inicio rápido](/es/guide/inicio#requisitos).
-
 ## Tu FAQ
 
 Guárdalo como `faq.md` junto a `bot.js`. Cada sección `## ` es un pasaje que

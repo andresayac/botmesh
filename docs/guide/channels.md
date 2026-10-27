@@ -20,9 +20,6 @@ need:
 pnpm add @botmesh/core @botmesh/baileys   # or @botmesh/meta, @botmesh/telegram, @botmesh/discord, @botmesh/twilio...
 ```
 
-While botmesh is in prerelease, add the prerelease dist-tag to each package
-(see [Getting started](/guide/getting-started)).
-
 ::: tip Try a channel without an account
 The [platform sandbox](/guide/sandbox) runs your bot on the real Cloud API,
 Telegram, Twilio, Discord and other providers against local simulators, and
@@ -49,8 +46,7 @@ needs an app, a phone number or a public URL.
 | `@botmesh/tiktok` | `tiktok-provider` | Not on npm yet | TikTok API for Business (comments + Business Messaging) |
 
 The **On npm** channels are installed with `pnpm add` and follow semver
-(during the beta, add the `@beta` dist-tag; those marked "from the beta" ship to
-npm for the first time with it). `@botmesh/tiktok` has `"private": true` in its
+(those marked "from the beta" were first published with it). `@botmesh/tiktok` has `"private": true` in its
 `package.json`: it is implemented and tested, but it is **not published to npm**
 and its API may still change. Use it from a clone of the monorepo (`"workspace:*"`).
 The same goes for the [sandbox](/guide/sandbox). The webhook ingress,
@@ -638,7 +634,7 @@ self-hosted WhatsApp REST gateway built on Baileys. Outbound: REST with the
 secret header or Evolution's `jwt_key` (HS256 JWT).
 
 ```bash
-pnpm add @botmesh/core @botmesh/evolution   # during the beta: @beta on both
+pnpm add @botmesh/core @botmesh/evolution
 ```
 
 ```ts
@@ -676,7 +672,7 @@ a self-hosted gateway on WhatsApp Web (WA-JS). REST with a Bearer token;
 webhooks authenticated with a token in the webhook URL.
 
 ```bash
-pnpm add @botmesh/core @botmesh/wppconnect   # during the beta: @beta on both
+pnpm add @botmesh/core @botmesh/wppconnect
 ```
 
 ```ts

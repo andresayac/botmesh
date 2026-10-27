@@ -15,8 +15,7 @@ repite lo que le envías y lista sus comandos.
 ## Requisitos previos
 
 Node.js 22.12 o superior y una carpeta con `"type": "module"` (ver
-[Inicio rápido](/es/guide/inicio#requisitos), que también explica las
-etiquetas de prerelease). Después instala:
+[Inicio rápido](/es/guide/inicio#requisitos)). Después instala:
 
 ```bash
 npm install @botmesh/core @botmesh/baileys

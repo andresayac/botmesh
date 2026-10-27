@@ -26,9 +26,6 @@ It is the recommended way to host webhook channels. It has no dependencies:
 pnpm add @botmesh/server
 ```
 
-While the packages are in prerelease, add the dist-tag shown in
-[Getting started](/guide/getting-started).
-
 Socket providers (Baileys, Discord, Telegram in polling mode, Email over
 IMAP) need no ingress.
 

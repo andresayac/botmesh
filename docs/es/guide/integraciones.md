@@ -22,7 +22,7 @@ fuera de un handler, usa `bot.injectTools.<nombre>`.
 pnpm add @botmesh/chatwoot @botmesh/tickets @botmesh/moderation @botmesh/dialogflow @botmesh/nlu
 ```
 
-Instala solo los que uses. Durante la beta, añade el dist-tag `@beta` (`pnpm add @botmesh/chatwoot@beta`): hasta la versión estable, el tag `latest` de npm puede apuntar a una build anterior.
+Instala solo los que uses.
 
 ## Cómo encajan en el pipeline
 

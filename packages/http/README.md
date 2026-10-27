@@ -12,7 +12,7 @@ pnpm add @botmesh/http
 
 Node.js 22 or later, ESM only. Its only dependency is [undici](https://github.com/nodejs/undici).
 
-> **Prerelease.** Until the stable release, npm's `latest` tag can still point to an older alpha. Add the prerelease dist-tag to get the build these docs describe: `pnpm add @botmesh/http@beta` during the beta (`npm view @botmesh/http dist-tags` lists the tags). Once stable, the plain command above works.
+> **Beta.** botmesh is in beta: a plain install gets the beta, and `@beta` always resolves to the newest one (`latest` is moved by hand after each publish).
 
 ## Quick start
 
